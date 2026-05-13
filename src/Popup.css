@@ -1,0 +1,148 @@
+.popup {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 16px;
+  gap: 12px;
+}
+
+.popup--loading,
+.popup--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.popup__empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.popup__empty-hint {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.popup__metrics {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.rating-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rating-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rating-row__name {
+  font-weight: 500;
+}
+
+.rating-row__add-note {
+  background: transparent;
+  border: none;
+  padding: 0 6px;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.rating-row__add-note:hover {
+  opacity: 1;
+}
+
+.rating-row__buttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  outline: none;
+  border-radius: 6px;
+}
+
+.rating-row__buttons:focus-visible {
+  box-shadow: 0 0 0 2px rgba(80, 130, 220, 0.4);
+}
+
+.rating-btn {
+  padding: 8px 0;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+  background: transparent;
+  font-weight: 500;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.rating-btn:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.rating-btn--active {
+  background: #4a7dd1;
+  border-color: #4a7dd1;
+  color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rating-btn--active {
+    background: #5a8fe3;
+    border-color: #5a8fe3;
+  }
+}
+
+.rating-row__note,
+.popup__note {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+}
+
+.popup__note {
+  resize: none;
+}
+
+.rating-row__note:focus,
+.popup__note:focus {
+  border-color: #4a7dd1;
+}
+
+.popup__submit {
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #4a7dd1;
+  color: #fff;
+  font-weight: 500;
+}
+
+.popup__submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.popup__submit:not(:disabled):hover {
+  background: #3a6ec1;
+}
+
+.popup__error {
+  padding: 6px 8px;
+  background: rgba(220, 50, 50, 0.1);
+  color: #c0392b;
+  border-radius: 4px;
+  font-size: 13px;
+}
