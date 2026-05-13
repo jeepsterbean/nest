@@ -29,6 +29,25 @@ fn show_window(app: &tauri::AppHandle, label: &str) {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn hide_popup_from_mission_control(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
+    use cocoa::base::id;
+
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        return;
+    };
+    let ns_window = ns_window_ptr as id;
+    let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
+        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorTransient
+        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
+        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle;
+    unsafe {
+        ns_window.setCollectionBehavior_(behavior);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let summon_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyE);
@@ -53,6 +72,12 @@ pub fn run() {
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
             app.manage(Mutex::new(conn));
+
+            // macOS: hide popup from Mission Control / Cmd+Tab
+            #[cfg(target_os = "macos")]
+            if let Some(popup) = app.get_webview_window("popup") {
+                hide_popup_from_mission_control(&popup);
+            }
 
             // Global hotkey
             app.global_shortcut().register(summon_shortcut)?;
@@ -88,6 +113,7 @@ pub fn run() {
             commands::set_metric_active,
             commands::submit_check_in,
             commands::list_check_ins,
+            commands::delete_check_in,
             commands::metric_series,
         ])
         .run(tauri::generate_context!())

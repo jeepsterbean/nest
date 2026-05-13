@@ -5,6 +5,9 @@
   "windows": ["dashboard", "popup"],
   "permissions": [
     "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
     "global-shortcut:default",
     "autostart:default"
   ]

@@ -214,6 +214,16 @@ pub fn list_check_ins(
 }
 
 #[tauri::command]
+pub fn delete_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let conn = state.lock().unwrap();
+    let deleted = conn.execute("DELETE FROM check_ins WHERE id = ?1", params![id])?;
+    if deleted == 0 {
+        return Err(AppError::NotFound(format!("check_in {id}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn metric_series(
     state: State<'_, Mutex<Connection>>,
     metric_id: i64,

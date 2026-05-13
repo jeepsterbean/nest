@@ -37,6 +37,10 @@ export function listCheckIns(
   return invoke("list_check_ins", { from, to });
 }
 
+export function deleteCheckIn(id: number): Promise<void> {
+  return invoke("delete_check_in", { id });
+}
+
 export function metricSeries(
   metricId: number,
   from: number,
