@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capability for app windows",
-  "windows": ["dashboard", "popup"],
+  "windows": ["dashboard", "popup", "work-popup"],
   "permissions": [
     "core:default",
     "core:window:allow-hide",

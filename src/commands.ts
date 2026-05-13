@@ -5,6 +5,7 @@ import type {
   Metric,
   RatingInput,
   SeriesPoint,
+  WorkCheckIn,
 } from "./types";
 
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
@@ -39,6 +40,13 @@ export function listCheckIns(
 
 export function deleteCheckIn(id: number): Promise<void> {
   return invoke("delete_check_in", { id });
+}
+
+export function submitWorkCheckIn(
+  working: boolean,
+  blocker: string | null,
+): Promise<WorkCheckIn> {
+  return invoke("submit_work_check_in", { working, blocker });
 }
 
 export function metricSeries(

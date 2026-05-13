@@ -34,3 +34,10 @@ export type SeriesPoint = {
 };
 
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
+
+export type WorkCheckIn = {
+  id: number;
+  createdAt: number;
+  working: boolean;
+  blocker: string | null;
+};

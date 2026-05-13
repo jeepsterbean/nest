@@ -22,6 +22,15 @@ const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
     Modifiers::CONTROL.bits() | Modifiers::SHIFT.bits(),
 );
 
+#[cfg(target_os = "macos")]
+const HOTKEY_LABEL: &str = "⌘⇧E";
+#[cfg(target_os = "macos")]
+const WORK_HOTKEY_LABEL: &str = "⌘⇧W";
+#[cfg(not(target_os = "macos"))]
+const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
+#[cfg(not(target_os = "macos"))]
+const WORK_HOTKEY_LABEL: &str = "Ctrl+Shift+W";
+
 fn show_window(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
@@ -51,6 +60,8 @@ fn hide_popup_from_mission_control(window: &tauri::WebviewWindow) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let summon_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyE);
+    // Cmd+Shift+W (or Ctrl+Shift+W) summons the work check-in popup.
+    let summon_work_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyW);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -60,8 +71,13 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
-                    if shortcut == &summon_shortcut && event.state() == ShortcutState::Pressed {
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    if shortcut == &summon_shortcut {
                         show_window(app, "popup");
+                    } else if shortcut == &summon_work_shortcut {
+                        show_window(app, "work-popup");
                     }
                 })
                 .build(),
@@ -75,14 +91,62 @@ pub fn run() {
 
             // macOS: hide popup from Mission Control / Cmd+Tab
             #[cfg(target_os = "macos")]
-            if let Some(popup) = app.get_webview_window("popup") {
-                hide_popup_from_mission_control(&popup);
+            {
+                if let Some(popup) = app.get_webview_window("popup") {
+                    hide_popup_from_mission_control(&popup);
+                }
+                if let Some(work_popup) = app.get_webview_window("work-popup") {
+                    hide_popup_from_mission_control(&work_popup);
+                }
             }
 
-            // Global hotkey
-            app.global_shortcut().register(summon_shortcut)?;
+            // Global hotkeys — non-fatal: if a combo is already owned by another app,
+            // keep launching and surface the problem via the tray menu + tooltip.
+            let main_hotkey_ok = match app.global_shortcut().register(summon_shortcut) {
+                Ok(()) => true,
+                Err(e) => {
+                    eprintln!(
+                        "nest: failed to register hotkey {HOTKEY_LABEL}: {e}. \
+                         Use the tray icon to open the app."
+                    );
+                    false
+                }
+            };
+            let work_hotkey_ok = match app.global_shortcut().register(summon_work_shortcut) {
+                Ok(()) => true,
+                Err(e) => {
+                    eprintln!(
+                        "nest: failed to register hotkey {WORK_HOTKEY_LABEL}: {e}."
+                    );
+                    false
+                }
+            };
 
-            // Tray icon + menu
+            // Tray menu: prepend a disabled warning item for each unavailable hotkey.
+            let menu = Menu::new(app)?;
+            if !main_hotkey_ok {
+                let item = MenuItem::with_id(
+                    app,
+                    "main_hotkey_warn",
+                    format!("⚠ Hotkey {HOTKEY_LABEL} unavailable"),
+                    false,
+                    None::<&str>,
+                )?;
+                menu.append(&item)?;
+            }
+            if !work_hotkey_ok {
+                let item = MenuItem::with_id(
+                    app,
+                    "work_hotkey_warn",
+                    format!("⚠ Hotkey {WORK_HOTKEY_LABEL} unavailable"),
+                    false,
+                    None::<&str>,
+                )?;
+                menu.append(&item)?;
+            }
+            if !main_hotkey_ok || !work_hotkey_ok {
+                menu.append(&PredefinedMenuItem::separator(app)?)?;
+            }
             let open_dashboard = MenuItem::with_id(
                 app,
                 "open_dashboard",
@@ -90,12 +154,20 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let separator = PredefinedMenuItem::separator(app)?;
+            menu.append(&open_dashboard)?;
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_dashboard, &separator, &quit])?;
+            menu.append(&quit)?;
+
+            let tooltip = if main_hotkey_ok && work_hotkey_ok {
+                format!("Nest — {HOTKEY_LABEL} for a check-in")
+            } else {
+                "Nest — hotkey unavailable".to_string()
+            };
 
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
+                .tooltip(&tooltip)
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open_dashboard" => show_window(app, "dashboard"),
@@ -112,6 +184,7 @@ pub fn run() {
             commands::rename_metric,
             commands::set_metric_active,
             commands::submit_check_in,
+            commands::submit_work_check_in,
             commands::list_check_ins,
             commands::delete_check_in,
             commands::metric_series,
