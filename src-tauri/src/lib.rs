@@ -14,6 +14,26 @@ use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 #[cfg(target_os = "macos")]
+use tauri_nspanel::{
+    tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
+};
+
+// The check-in popups are subclassed into this non-activating NSPanel at
+// startup. A non-activating panel can become the key window (so the form
+// accepts typing) without activating Nest — which is what lets it float over
+// another app's native full-screen Space instead of being hidden or yanking
+// the user out of full-screen.
+#[cfg(target_os = "macos")]
+tauri_panel! {
+    panel!(NestPanel {
+        config: {
+            can_become_key_window: true,
+            can_become_main_window: false
+        }
+    })
+}
+
+#[cfg(target_os = "macos")]
 const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
     Modifiers::SUPER.bits() | Modifiers::SHIFT.bits(),
 );
@@ -38,23 +58,20 @@ fn show_window(app: &tauri::AppHandle, label: &str) {
     }
 }
 
+/// Summon a check-in popup. On macOS the popups are NSPanels, shown via the
+/// panel API so they become key (accept typing) without activating the app or
+/// leaving a full-screen Space. Elsewhere they're ordinary windows.
 #[cfg(target_os = "macos")]
-#[allow(deprecated)]
-fn hide_popup_from_mission_control(window: &tauri::WebviewWindow) {
-    use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
-    use cocoa::base::id;
-
-    let Ok(ns_window_ptr) = window.ns_window() else {
-        return;
-    };
-    let ns_window = ns_window_ptr as id;
-    let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorTransient
-        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
-        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle;
-    unsafe {
-        ns_window.setCollectionBehavior_(behavior);
+fn summon_popup(app: &tauri::AppHandle, label: &str) {
+    match app.get_webview_panel(label) {
+        Ok(panel) => panel.show_and_make_key(),
+        Err(e) => eprintln!("nest: popup '{label}' is not an NSPanel: {e:?}"),
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn summon_popup(app: &tauri::AppHandle, label: &str) {
+    show_window(app, label);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -63,7 +80,7 @@ pub fn run() {
     // Cmd+Shift+W (or Ctrl+Shift+W) summons the work check-in popup.
     let summon_work_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyW);
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
@@ -75,13 +92,18 @@ pub fn run() {
                         return;
                     }
                     if shortcut == &summon_shortcut {
-                        show_window(app, "popup");
+                        summon_popup(app, "popup");
                     } else if shortcut == &summon_work_shortcut {
-                        show_window(app, "work-popup");
+                        summon_popup(app, "work-popup");
                     }
                 })
                 .build(),
-        )
+        );
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+
+    builder
         .setup(move |app| {
             // Database
             let app_data = app.path().app_data_dir()?;
@@ -89,14 +111,38 @@ pub fn run() {
             let conn = db::open(&db_path)?;
             app.manage(Mutex::new(conn));
 
-            // macOS: hide popup from Mission Control / Cmd+Tab
+            // macOS: run as an accessory (agent) app — no Dock icon — and turn
+            // the check-in popups into non-activating NSPanels so they overlay
+            // other apps' full-screen Spaces and accept typing without pulling
+            // the user out of full-screen.
             #[cfg(target_os = "macos")]
             {
-                if let Some(popup) = app.get_webview_window("popup") {
-                    hide_popup_from_mission_control(&popup);
-                }
-                if let Some(work_popup) = app.get_webview_window("work-popup") {
-                    hide_popup_from_mission_control(&work_popup);
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+                for label in ["popup", "work-popup"] {
+                    let Some(window) = app.get_webview_window(label) else {
+                        continue;
+                    };
+                    match window.to_panel::<NestPanel>() {
+                        Ok(panel) => {
+                            panel.set_level(PanelLevel::Floating.value());
+                            panel.set_style_mask(
+                                StyleMask::empty().nonactivating_panel().into(),
+                            );
+                            panel.set_collection_behavior(
+                                CollectionBehavior::new()
+                                    .full_screen_auxiliary()
+                                    .can_join_all_spaces()
+                                    .stationary()
+                                    .ignores_cycle()
+                                    .into(),
+                            );
+                            panel.set_hides_on_deactivate(false);
+                        }
+                        Err(e) => eprintln!(
+                            "nest: failed to convert '{label}' to NSPanel: {e:?}"
+                        ),
+                    }
                 }
             }
 
