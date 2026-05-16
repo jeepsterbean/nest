@@ -58,15 +58,90 @@ fn show_window(app: &tauri::AppHandle, label: &str) {
     }
 }
 
+/// Center `window` on the monitor under the mouse cursor, so a summoned popup
+/// follows the user's attention across displays instead of always landing on
+/// the primary (laptop) screen. "Active screen" is taken to mean the screen
+/// the cursor is on — in normal use that's the display you're working on.
+/// All math is in physical pixels to stay scale-factor-correct on mixed-DPI
+/// setups. Best-effort: on any failure the popup just keeps its prior spot.
+/// Center the popup on the screen the mouse pointer is on. Uses macOS's own
+/// screen coordinates so the pointer and the screens are measured with the
+/// same "ruler" — Tauri's cross-platform cursor/monitor values disagree on
+/// mixed-DPI Retina + external-monitor setups. Best-effort: on any failure
+/// the popup just keeps its previous position.
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::{NSEvent, NSScreen, NSWindow};
+    use cocoa::base::{id, nil};
+    use cocoa::foundation::{NSArray, NSPoint, NSRect};
+
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        return;
+    };
+    let ns_window = ns_window_ptr as id;
+
+    unsafe {
+        let mouse: NSPoint = NSEvent::mouseLocation(nil);
+
+        // Screen whose frame contains the pointer; fall back to the screen the
+        // window is currently on.
+        let screens: id = NSScreen::screens(nil);
+        let mut target: id = nil;
+        for i in 0..NSArray::count(screens) {
+            let screen: id = NSArray::objectAtIndex(screens, i);
+            let f: NSRect = NSScreen::frame(screen);
+            let inside = mouse.x >= f.origin.x
+                && mouse.x <= f.origin.x + f.size.width
+                && mouse.y >= f.origin.y
+                && mouse.y <= f.origin.y + f.size.height;
+            if inside {
+                target = screen;
+                break;
+            }
+        }
+        if target == nil {
+            target = NSWindow::screen(ns_window);
+        }
+        if target == nil {
+            return;
+        }
+
+        // visibleFrame excludes the menu bar / Dock so the popup is centered
+        // in the usable area, not behind the menu bar.
+        let area: NSRect = NSScreen::visibleFrame(target);
+        let win: NSRect = NSWindow::frame(ns_window);
+        let x = area.origin.x + (area.size.width - win.size.width) / 2.0;
+        let y = area.origin.y + (area.size.height - win.size.height) / 2.0;
+        eprintln!(
+            "nest[popup-pos]: mouse=({:.0},{:.0}) -> origin=({:.0},{:.0})",
+            mouse.x, mouse.y, x, y
+        );
+        NSWindow::setFrameOrigin_(ns_window, NSPoint::new(x, y));
+    }
+}
+
 /// Summon a check-in popup. On macOS the popups are NSPanels, shown via the
 /// panel API so they become key (accept typing) without activating the app or
 /// leaving a full-screen Space. Elsewhere they're ordinary windows.
 #[cfg(target_os = "macos")]
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
-    match app.get_webview_panel(label) {
-        Ok(panel) => panel.show_and_make_key(),
-        Err(e) => eprintln!("nest: popup '{label}' is not an NSPanel: {e:?}"),
+    let panel = match app.get_webview_panel(label) {
+        Ok(panel) => panel,
+        Err(e) => {
+            eprintln!("nest: popup '{label}' is not an NSPanel: {e:?}");
+            return;
+        }
+    };
+    // Reposition before showing so it appears on the active screen without a
+    // visible jump.
+    match app.get_webview_window(label) {
+        Some(window) => center_on_cursor_screen(&window),
+        None => eprintln!(
+            "nest[popup-pos]: get_webview_window('{label}') is None — cannot reposition"
+        ),
     }
+    panel.show_and_make_key();
 }
 
 #[cfg(not(target_os = "macos"))]
