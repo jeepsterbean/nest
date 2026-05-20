@@ -1,5 +1,7 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { listen } from "@tauri-apps/api/event";
+import FocusCheckInPopup from "./FocusCheckInPopup";
 import Popup from "./Popup";
 import WorkPopup from "./WorkPopup";
 import "./CheckInPopup.css";
@@ -15,12 +17,30 @@ type Mode = {
 const MODES: Mode[] = [
   { id: "metric", label: "Check-in", Body: Popup },
   { id: "work", label: "Work", Body: WorkPopup },
+  { id: "focus", label: "Focus", Body: FocusCheckInPopup },
 ];
+
+const modeIndexById = (id: string) => Math.max(0, MODES.findIndex((m) => m.id === id));
 
 function CheckInPopup() {
   const [modeIndex, setModeIndex] = useState(0);
   // Bumped on every summon so the active mode remounts and starts clean.
   const [summonKey, setSummonKey] = useState(0);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  const focusActiveTab = () => {
+    requestAnimationFrame(() => tabRefs.current[modeIndex]?.focus());
+  };
+
+  const focusBodyStart = () => {
+    requestAnimationFrame(() => {
+      const first = bodyRef.current?.querySelector<HTMLElement>(
+        '[tabindex="0"], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea:not([disabled])',
+      );
+      first?.focus();
+    });
+  };
 
   // Escape hides the popup.
   useEffect(() => {
@@ -34,37 +54,38 @@ function CheckInPopup() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // `a` / `d` cycle modes (left / right), wrapping in both directions.
-  // Suppressed while a text field is focused so the keys type normally there.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const t = e.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) {
-        return;
-      }
-      const n = MODES.length;
-      if (e.key === "a" || e.key === "A") {
-        e.preventDefault();
-        setModeIndex((i) => (i - 1 + n) % n);
-      } else if (e.key === "d" || e.key === "D") {
-        e.preventDefault();
-        setModeIndex((i) => (i + 1) % n);
-      }
+    if (document.activeElement?.getAttribute("role") === "tab") {
+      focusActiveTab();
+    }
+  }, [modeIndex]);
+
+  // Automatic focus check-ins switch directly to the Focus mode before the
+  // popup is shown by the backend timer.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen("focus-check-in-due", () => {
+      setModeIndex(modeIndexById("focus"));
+      setSummonKey((k) => k + 1);
+      focusActiveTab();
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => {
+      if (unlisten) unlisten();
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Blur dismisses the popup. Each fresh summon resets to the default mode and
-  // remounts the active body (via summonKey) so its form starts clean.
+  // Blur dismisses the popup. Each fresh summon remounts the active body (via
+  // summonKey) so its form starts clean.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const popup = getCurrentWebviewWindow();
     popup
       .onFocusChanged(({ payload: focused }) => {
         if (focused) {
-          setModeIndex(0);
           setSummonKey((k) => k + 1);
+          focusActiveTab();
         } else {
           popup.hide();
         }
@@ -82,22 +103,43 @@ function CheckInPopup() {
 
   return (
     <div className="checkin">
-      <nav className="checkin__tabs" role="tablist" aria-label="Check-in mode">
+      <nav
+        className="checkin__tabs"
+        role="tablist"
+        aria-label="Check-in mode"
+        onKeyDown={(e) => {
+          const key = e.key.toLowerCase();
+          const n = MODES.length;
+          if (key === "arrowleft" || key === "a") {
+            e.preventDefault();
+            setModeIndex((i) => (i - 1 + n) % n);
+          } else if (key === "arrowright" || key === "d") {
+            e.preventDefault();
+            setModeIndex((i) => (i + 1) % n);
+          } else if (key === "arrowdown" || key === "s") {
+            e.preventDefault();
+            focusBodyStart();
+          }
+        }}
+      >
         {MODES.map((m, i) => (
           <button
+            ref={(el) => {
+              tabRefs.current[i] = el;
+            }}
             key={m.id}
             type="button"
             role="tab"
             aria-selected={i === modeIndex}
             className={`checkin__tab${i === modeIndex ? " checkin__tab--active" : ""}`}
             onClick={() => setModeIndex(i)}
-            tabIndex={-1}
+            tabIndex={i === modeIndex ? 0 : -1}
           >
             {m.label}
           </button>
         ))}
       </nav>
-      <div className="checkin__body" key={`${active.id}-${summonKey}`}>
+      <div ref={bodyRef} className="checkin__body" key={`${active.id}-${summonKey}`}>
         <ActiveBody />
       </div>
     </div>

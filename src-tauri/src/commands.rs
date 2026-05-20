@@ -4,8 +4,13 @@ use tauri::State;
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    CheckIn, CheckInWithRatings, Metric, Rating, RatingInput, SeriesPoint, WorkCheckIn,
+    CheckIn, CheckInWithRatings, FocusCheckIn, FocusCheckInSettings, Metric, Rating,
+    RatingInput, SeriesPoint, WorkCheckIn,
 };
+use crate::FocusCheckInTimer;
+
+const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 30;
+const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 24 * 60;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -16,6 +21,53 @@ fn now_unix_secs() -> i64 {
 
 fn trim_to_option(s: Option<String>) -> Option<String> {
     s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+}
+
+fn validate_focus_interval(minutes: i64) -> Result<i64> {
+    if !(1..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes) {
+        return Err(AppError::InvalidInput(format!(
+            "next check-in must be between 1 and {MAX_FOCUS_CHECK_IN_MINUTES} minutes"
+        )));
+    }
+    Ok(minutes)
+}
+
+fn read_focus_settings(conn: &Connection) -> Result<FocusCheckInSettings> {
+    let now = now_unix_secs();
+    let mut stmt = conn.prepare(
+        "SELECT interval_minutes, next_due_at FROM focus_check_in_settings WHERE id = 1",
+    )?;
+    match stmt.query_row([], |row| {
+        Ok(FocusCheckInSettings {
+            interval_minutes: row.get(0)?,
+            next_due_at: row.get(1)?,
+        })
+    }) {
+        Ok(settings) => Ok(settings),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(FocusCheckInSettings {
+            interval_minutes: DEFAULT_FOCUS_CHECK_IN_MINUTES,
+            next_due_at: now + DEFAULT_FOCUS_CHECK_IN_MINUTES * 60,
+        }),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn write_focus_settings(
+    conn: &Connection,
+    interval_minutes: i64,
+    next_due_at: i64,
+) -> Result<FocusCheckInSettings> {
+    conn.execute(
+        "INSERT INTO focus_check_in_settings (id, interval_minutes, next_due_at) \
+         VALUES (1, ?1, ?2) \
+         ON CONFLICT(id) DO UPDATE SET interval_minutes = excluded.interval_minutes, \
+         next_due_at = excluded.next_due_at",
+        params![interval_minutes, next_due_at],
+    )?;
+    Ok(FocusCheckInSettings {
+        interval_minutes,
+        next_due_at,
+    })
 }
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
@@ -248,6 +300,103 @@ pub fn submit_work_check_in(
         created_at: now,
         working,
         blocker: blocker_clean,
+    })
+}
+
+#[tauri::command]
+pub fn get_focus_check_in_settings(
+    state: State<'_, Mutex<Connection>>,
+    timer: State<'_, Mutex<FocusCheckInTimer>>,
+) -> Result<FocusCheckInSettings> {
+    let conn = state.lock().unwrap();
+    let settings = read_focus_settings(&conn)?;
+    let mut t = timer.lock().unwrap();
+    t.interval_minutes = settings.interval_minutes;
+    t.next_due_at = settings.next_due_at;
+    Ok(settings)
+}
+
+fn read_latest_focus_check_in(conn: &Connection) -> Result<Option<FocusCheckIn>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, created_at, task, trying_now, next_check_in_minutes \
+         FROM focus_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
+    )?;
+    match stmt.query_row([], |row| {
+        Ok(FocusCheckIn {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            task: row.get(2)?,
+            trying_now: row.get(3)?,
+            next_check_in_minutes: row.get(4)?,
+        })
+    }) {
+        Ok(check_in) => Ok(Some(check_in)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[tauri::command]
+pub fn latest_focus_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<FocusCheckIn>> {
+    let conn = state.lock().unwrap();
+    read_latest_focus_check_in(&conn)
+}
+
+#[tauri::command]
+pub fn submit_focus_check_in(
+    state: State<'_, Mutex<Connection>>,
+    timer: State<'_, Mutex<FocusCheckInTimer>>,
+    still_working_previous_task: bool,
+    current_work: Option<String>,
+    trying_now: String,
+    next_check_in_minutes: Option<i64>,
+) -> Result<FocusCheckIn> {
+    let trying_now_clean = trying_now.trim().to_string();
+    if trying_now_clean.is_empty() {
+        return Err(AppError::InvalidInput("what you are trying now is required".into()));
+    }
+
+    let current_work_clean = trim_to_option(current_work);
+
+    let minutes = validate_focus_interval(
+        next_check_in_minutes.unwrap_or(DEFAULT_FOCUS_CHECK_IN_MINUTES),
+    )?;
+    let conn = state.lock().unwrap();
+    let task = if still_working_previous_task {
+        read_latest_focus_check_in(&conn)?
+            .map(|check_in| check_in.task)
+            .ok_or_else(|| AppError::InvalidInput("there is no previous task to continue".into()))?
+    } else {
+        current_work_clean.ok_or_else(|| {
+            AppError::InvalidInput(
+                "current work is required when you are not on the previous task".into(),
+            )
+        })?
+    };
+    let now = now_unix_secs();
+    let next_due_at = now + minutes * 60;
+
+    conn.execute(
+        "INSERT INTO focus_check_ins \
+         (created_at, task, trying_now, next_check_in_minutes) \
+         VALUES (?1, ?2, ?3, ?4)",
+        params![now, task, trying_now_clean, minutes],
+    )?;
+    let id = conn.last_insert_rowid();
+    write_focus_settings(&conn, minutes, next_due_at)?;
+
+    {
+        let mut t = timer.lock().unwrap();
+        t.interval_minutes = minutes;
+        t.next_due_at = next_due_at;
+    }
+
+    Ok(FocusCheckIn {
+        id,
+        created_at: now,
+        task,
+        trying_now: trying_now_clean,
+        next_check_in_minutes: minutes,
     })
 }
 

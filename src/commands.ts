@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CheckIn,
   CheckInWithRatings,
+  FocusCheckIn,
+  FocusCheckInSettings,
   Metric,
   RatingInput,
   SeriesPoint,
@@ -47,6 +49,28 @@ export function submitWorkCheckIn(
   blocker: string | null,
 ): Promise<WorkCheckIn> {
   return invoke("submit_work_check_in", { working, blocker });
+}
+
+export function getFocusCheckInSettings(): Promise<FocusCheckInSettings> {
+  return invoke("get_focus_check_in_settings");
+}
+
+export function latestFocusCheckIn(): Promise<FocusCheckIn | null> {
+  return invoke("latest_focus_check_in");
+}
+
+export function submitFocusCheckIn(
+  stillWorkingPreviousTask: boolean,
+  currentWork: string | null,
+  tryingNow: string,
+  nextCheckInMinutes: number | null,
+): Promise<FocusCheckIn> {
+  return invoke("submit_focus_check_in", {
+    stillWorkingPreviousTask,
+    currentWork,
+    tryingNow,
+    nextCheckInMinutes,
+  });
 }
 
 export function metricSeries(

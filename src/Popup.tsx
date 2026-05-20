@@ -49,13 +49,6 @@ function Popup() {
     refresh();
   }, []);
 
-  // Focus the first rating row when metrics list updates
-  useEffect(() => {
-    if (metrics && metrics.length > 0) {
-      rowRefs.current[0]?.focus();
-    }
-  }, [metrics]);
-
   const focusAfterRow = (idx: number) => {
     const next = rowRefs.current[idx + 1];
     if (next) next.focus();
@@ -181,9 +174,11 @@ function Popup() {
                 aria-label={m.name}
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key >= "1" && e.key <= "5") {
+                  const key = e.key.toLowerCase();
+                  if (key >= "1" && key <= "5") {
                     e.preventDefault();
-                    setRating(m.id, Number(e.key) as RatingValue);
+                    e.stopPropagation();
+                    setRating(m.id, Number(key) as RatingValue);
                     focusAfterRow(idx);
                   }
                 }}

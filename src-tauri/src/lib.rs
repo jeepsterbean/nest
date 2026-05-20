@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Emitter, Manager,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -46,6 +46,60 @@ const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
 const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
+
+const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 30;
+
+pub struct FocusCheckInTimer {
+    pub interval_minutes: i64,
+    pub next_due_at: i64,
+}
+
+fn now_unix_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn load_focus_check_in_timer(conn: &rusqlite::Connection) -> FocusCheckInTimer {
+    let now = now_unix_secs();
+    conn.query_row(
+        "SELECT interval_minutes, next_due_at FROM focus_check_in_settings WHERE id = 1",
+        [],
+        |row| {
+            Ok(FocusCheckInTimer {
+                interval_minutes: row.get(0)?,
+                next_due_at: row.get(1)?,
+            })
+        },
+    )
+    .unwrap_or(FocusCheckInTimer {
+        interval_minutes: DEFAULT_FOCUS_CHECK_IN_MINUTES,
+        next_due_at: now + DEFAULT_FOCUS_CHECK_IN_MINUTES * 60,
+    })
+}
+
+fn start_focus_check_in_timer(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        let now = now_unix_secs();
+        let due = {
+            let timer = app.state::<Mutex<FocusCheckInTimer>>();
+            let mut timer = timer.lock().unwrap();
+            if now < timer.next_due_at {
+                false
+            } else {
+                timer.next_due_at = now + timer.interval_minutes * 60;
+                true
+            }
+        };
+
+        if due {
+            let _ = app.emit("focus-check-in-due", ());
+            summon_popup(&app, "popup");
+        }
+    });
+}
 
 fn show_window(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
@@ -176,7 +230,10 @@ pub fn run() {
             let app_data = app.path().app_data_dir()?;
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
+            let focus_check_in_timer = load_focus_check_in_timer(&conn);
             app.manage(Mutex::new(conn));
+            app.manage(Mutex::new(focus_check_in_timer));
+            start_focus_check_in_timer(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
             // the check-in popups into non-activating NSPanels so they overlay
@@ -278,6 +335,9 @@ pub fn run() {
             commands::set_metric_active,
             commands::submit_check_in,
             commands::submit_work_check_in,
+            commands::get_focus_check_in_settings,
+            commands::latest_focus_check_in,
+            commands::submit_focus_check_in,
             commands::list_check_ins,
             commands::delete_check_in,
             commands::metric_series,

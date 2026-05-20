@@ -41,3 +41,16 @@ export type WorkCheckIn = {
   working: boolean;
   blocker: string | null;
 };
+
+export type FocusCheckIn = {
+  id: number;
+  createdAt: number;
+  task: string;
+  tryingNow: string;
+  nextCheckInMinutes: number;
+};
+
+export type FocusCheckInSettings = {
+  intervalMinutes: number;
+  nextDueAt: number;
+};

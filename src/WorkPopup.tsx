@@ -13,10 +13,9 @@ function WorkPopup() {
   const yesRef = useRef<HTMLButtonElement | null>(null);
   const blockerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Focus default control for the current step.
+  // Keep focus with the form after the user advances past the first step.
   useEffect(() => {
-    if (step === "ask") yesRef.current?.focus();
-    else blockerRef.current?.focus();
+    if (step === "blocker") blockerRef.current?.focus();
   }, [step]);
 
   const submit = async (working: boolean, blockerText: string | null) => {
@@ -49,8 +48,16 @@ function WorkPopup() {
           <div
             className="work-popup__choices"
             onKeyDown={(e) => {
-              if (e.key === "y" || e.key === "Y") onYes();
-              else if (e.key === "n" || e.key === "N") onNo();
+              const key = e.key.toLowerCase();
+              if (key === "y" || key === "arrowleft" || key === "a") {
+                e.preventDefault();
+                e.stopPropagation();
+                onYes();
+              } else if (key === "n" || key === "arrowright" || key === "d") {
+                e.preventDefault();
+                e.stopPropagation();
+                onNo();
+              }
             }}
           >
             <button

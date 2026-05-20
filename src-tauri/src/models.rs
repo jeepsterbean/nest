@@ -57,3 +57,20 @@ pub struct WorkCheckIn {
     pub working: bool,
     pub blocker: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FocusCheckIn {
+    pub id: i64,
+    pub created_at: i64,
+    pub task: String,
+    pub trying_now: String,
+    pub next_check_in_minutes: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FocusCheckInSettings {
+    pub interval_minutes: i64,
+    pub next_due_at: i64,
+}
