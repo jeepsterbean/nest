@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import {
   createMetric,
+  deleteCheckIn,
   listCheckIns,
   listMetrics,
   renameMetric,
@@ -40,6 +42,19 @@ function Dashboard() {
     reload();
   }, []);
 
+  // Refresh when a check-in is submitted from the popup
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen("check-in-submitted", () => {
+      reload();
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newMetricName.trim();
@@ -77,6 +92,15 @@ function Dashboard() {
   const onToggleActive = async (m: Metric) => {
     try {
       await setMetricActive(m.id, m.inactiveSince !== null);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onDeleteCheckIn = async (id: number) => {
+    try {
+      await deleteCheckIn(id);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -170,7 +194,20 @@ function Dashboard() {
           <ul className="check-in-list">
             {checkIns.map((ci) => (
               <li key={ci.id} className="check-in">
-                <time className="check-in__time">{formatTime(ci.createdAt)}</time>
+                <div className="check-in__head">
+                  <time className="check-in__time">
+                    {formatTime(ci.createdAt)}
+                  </time>
+                  <button
+                    type="button"
+                    className="check-in__delete"
+                    onClick={() => onDeleteCheckIn(ci.id)}
+                    aria-label="Delete check-in"
+                    title="Delete"
+                  >
+                    ×
+                  </button>
+                </div>
                 <ul className="check-in__ratings">
                   {ci.ratings.map((r) => {
                     const metric = metricById(r.metricId);

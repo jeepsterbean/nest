@@ -34,7 +34,6 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
-        "center": true,
         "focus": false,
         "url": "index.html#/popup"
       }

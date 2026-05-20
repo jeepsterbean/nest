@@ -3,7 +3,9 @@ use std::sync::Mutex;
 use tauri::State;
 
 use crate::error::{AppError, Result};
-use crate::models::{CheckIn, CheckInWithRatings, Metric, Rating, RatingInput, SeriesPoint};
+use crate::models::{
+    CheckIn, CheckInWithRatings, Metric, Rating, RatingInput, SeriesPoint, WorkCheckIn,
+};
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -211,6 +213,42 @@ pub fn list_check_ins(
         });
     }
     Ok(result)
+}
+
+#[tauri::command]
+pub fn delete_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let conn = state.lock().unwrap();
+    let deleted = conn.execute("DELETE FROM check_ins WHERE id = ?1", params![id])?;
+    if deleted == 0 {
+        return Err(AppError::NotFound(format!("check_in {id}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn submit_work_check_in(
+    state: State<'_, Mutex<Connection>>,
+    working: bool,
+    blocker: Option<String>,
+) -> Result<WorkCheckIn> {
+    let blocker_clean = trim_to_option(blocker);
+    if !working && blocker_clean.is_none() {
+        return Err(AppError::InvalidInput(
+            "blocker is required when not working".into(),
+        ));
+    }
+    let conn = state.lock().unwrap();
+    let now = now_unix_secs();
+    conn.execute(
+        "INSERT INTO work_check_ins (created_at, working, blocker) VALUES (?1, ?2, ?3)",
+        params![now, working as i64, blocker_clean],
+    )?;
+    Ok(WorkCheckIn {
+        id: conn.last_insert_rowid(),
+        created_at: now,
+        working,
+        blocker: blocker_clean,
+    })
 }
 
 #[tauri::command]

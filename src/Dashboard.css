@@ -136,9 +136,32 @@
   border-radius: 6px;
 }
 
+.check-in__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .check-in__time {
   font-size: 12px;
   opacity: 0.6;
+}
+
+.check-in__delete {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.35;
+  padding: 0 6px;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.check-in__delete:hover {
+  opacity: 1;
+  background: rgba(220, 50, 50, 0.12);
+  color: #c0392b;
 }
 
 .check-in__ratings {

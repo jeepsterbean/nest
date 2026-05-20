@@ -3,6 +3,7 @@ import {
   getCurrentWebviewWindow,
   WebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
+import { emit } from "@tauri-apps/api/event";
 import { listMetrics, submitCheckIn } from "./commands";
 import type { Metric, RatingInput, RatingValue } from "./types";
 import "./Popup.css";
@@ -25,7 +26,8 @@ function Popup() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const firstRowRef = useRef<HTMLDivElement | null>(null);
+  const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Refresh metrics + reset form state. Called on mount and every summon.
   const refresh = async () => {
@@ -50,38 +52,15 @@ function Popup() {
   // Focus the first rating row when metrics list updates
   useEffect(() => {
     if (metrics && metrics.length > 0) {
-      firstRowRef.current?.focus();
+      rowRefs.current[0]?.focus();
     }
   }, [metrics]);
 
-  // Escape hides the popup
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        getCurrentWebviewWindow().hide();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  // Blur dismisses the popup; focus (next summon) refreshes state.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const popup = getCurrentWebviewWindow();
-    popup
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) refresh();
-        else popup.hide();
-      })
-      .then((u) => {
-        unlisten = u;
-      });
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, []);
+  const focusAfterRow = (idx: number) => {
+    const next = rowRefs.current[idx + 1];
+    if (next) next.focus();
+    else noteRef.current?.focus();
+  };
 
   const setRating = (metricId: number, value: RatingValue) => {
     setRatings((prev) => ({
@@ -128,6 +107,7 @@ function Popup() {
           note: r.note.trim() || undefined,
         }));
       await submitCheckIn(ratingsInput, note.trim() || null);
+      await emit("check-in-submitted");
       resetForm();
       await getCurrentWebviewWindow().hide();
     } catch (e) {
@@ -193,7 +173,9 @@ function Popup() {
                 </button>
               </div>
               <div
-                ref={idx === 0 ? firstRowRef : undefined}
+                ref={(el) => {
+                  rowRefs.current[idx] = el;
+                }}
                 className="rating-row__buttons"
                 role="radiogroup"
                 aria-label={m.name}
@@ -202,6 +184,7 @@ function Popup() {
                   if (e.key >= "1" && e.key <= "5") {
                     e.preventDefault();
                     setRating(m.id, Number(e.key) as RatingValue);
+                    focusAfterRow(idx);
                   }
                 }}
               >
@@ -233,10 +216,17 @@ function Popup() {
         })}
       </div>
       <textarea
+        ref={noteRef}
         className="popup__note"
-        placeholder="Optional note…"
+        placeholder="Optional note…  (Enter to submit, Shift+Enter for newline)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+        }}
         rows={2}
       />
       {error && <div className="popup__error">{error}</div>}

@@ -48,3 +48,12 @@ pub struct SeriesPoint {
     pub timestamp: i64,
     pub value: i32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkCheckIn {
+    pub id: i64,
+    pub created_at: i64,
+    pub working: bool,
+    pub blocker: Option<String>,
+}
