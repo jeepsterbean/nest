@@ -44,12 +44,8 @@ const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
 
 #[cfg(target_os = "macos")]
 const HOTKEY_LABEL: &str = "⌘⇧E";
-#[cfg(target_os = "macos")]
-const WORK_HOTKEY_LABEL: &str = "⌘⇧W";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
-#[cfg(not(target_os = "macos"))]
-const WORK_HOTKEY_LABEL: &str = "Ctrl+Shift+W";
 
 fn show_window(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
@@ -152,8 +148,6 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let summon_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyE);
-    // Cmd+Shift+W (or Ctrl+Shift+W) summons the work check-in popup.
-    let summon_work_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyW);
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -168,8 +162,6 @@ pub fn run() {
                     }
                     if shortcut == &summon_shortcut {
                         summon_popup(app, "popup");
-                    } else if shortcut == &summon_work_shortcut {
-                        summon_popup(app, "work-popup");
                     }
                 })
                 .build(),
@@ -194,7 +186,7 @@ pub fn run() {
             {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-                for label in ["popup", "work-popup"] {
+                for label in ["popup"] {
                     let Some(window) = app.get_webview_window(label) else {
                         continue;
                     };
@@ -233,17 +225,7 @@ pub fn run() {
                     false
                 }
             };
-            let work_hotkey_ok = match app.global_shortcut().register(summon_work_shortcut) {
-                Ok(()) => true,
-                Err(e) => {
-                    eprintln!(
-                        "nest: failed to register hotkey {WORK_HOTKEY_LABEL}: {e}."
-                    );
-                    false
-                }
-            };
-
-            // Tray menu: prepend a disabled warning item for each unavailable hotkey.
+            // Tray menu: prepend a disabled warning item if the hotkey is unavailable.
             let menu = Menu::new(app)?;
             if !main_hotkey_ok {
                 let item = MenuItem::with_id(
@@ -255,17 +237,7 @@ pub fn run() {
                 )?;
                 menu.append(&item)?;
             }
-            if !work_hotkey_ok {
-                let item = MenuItem::with_id(
-                    app,
-                    "work_hotkey_warn",
-                    format!("⚠ Hotkey {WORK_HOTKEY_LABEL} unavailable"),
-                    false,
-                    None::<&str>,
-                )?;
-                menu.append(&item)?;
-            }
-            if !main_hotkey_ok || !work_hotkey_ok {
+            if !main_hotkey_ok {
                 menu.append(&PredefinedMenuItem::separator(app)?)?;
             }
             let open_dashboard = MenuItem::with_id(
@@ -280,7 +252,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             menu.append(&quit)?;
 
-            let tooltip = if main_hotkey_ok && work_hotkey_ok {
+            let tooltip = if main_hotkey_ok {
                 format!("Nest — {HOTKEY_LABEL} for a check-in")
             } else {
                 "Nest — hotkey unavailable".to_string()

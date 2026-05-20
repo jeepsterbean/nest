@@ -36,20 +36,6 @@
         "visible": false,
         "focus": false,
         "url": "index.html#/popup"
-      },
-      {
-        "label": "work-popup",
-        "title": "Nest",
-        "width": 380,
-        "height": 220,
-        "resizable": false,
-        "decorations": false,
-        "transparent": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false,
-        "focus": false,
-        "url": "index.html#/work"
       }
     ],
     "security": {

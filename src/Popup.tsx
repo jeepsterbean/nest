@@ -62,35 +62,6 @@ function Popup() {
     else noteRef.current?.focus();
   };
 
-  // Escape hides the popup
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        getCurrentWebviewWindow().hide();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  // Blur dismisses the popup; focus (next summon) refreshes state.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const popup = getCurrentWebviewWindow();
-    popup
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) refresh();
-        else popup.hide();
-      })
-      .then((u) => {
-        unlisten = u;
-      });
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, []);
-
   const setRating = (metricId: number, value: RatingValue) => {
     setRatings((prev) => ({
       ...prev,

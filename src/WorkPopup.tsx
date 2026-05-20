@@ -13,42 +13,6 @@ function WorkPopup() {
   const yesRef = useRef<HTMLButtonElement | null>(null);
   const blockerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const reset = () => {
-    setStep("ask");
-    setBlocker("");
-    setError(null);
-    setSubmitting(false);
-  };
-
-  // Escape hides the popup.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        getCurrentWebviewWindow().hide();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  // Blur dismisses; refocus (next summon) resets to the first step.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const popup = getCurrentWebviewWindow();
-    popup
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) reset();
-        else popup.hide();
-      })
-      .then((u) => {
-        unlisten = u;
-      });
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, []);
-
   // Focus default control for the current step.
   useEffect(() => {
     if (step === "ask") yesRef.current?.focus();
