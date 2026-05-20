@@ -50,7 +50,3 @@ export type FocusCheckIn = {
   nextCheckInMinutes: number;
 };
 
-export type FocusCheckInSettings = {
-  intervalMinutes: number;
-  nextDueAt: number;
-};

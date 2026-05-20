@@ -118,8 +118,7 @@
   font-weight: 600;
 }
 
-.focus-popup__input,
-.focus-popup__minutes {
+.focus-popup__input {
   border: 1px solid rgba(128, 128, 128, 0.3);
   border-radius: 5px;
   background: transparent;
@@ -134,7 +133,7 @@
 }
 
 .focus-popup__input:focus,
-.focus-popup__minutes:focus {
+.focus-popup__interval:focus {
   border-color: #4a7dd1;
   box-shadow: 0 0 0 2px rgba(74, 125, 209, 0.18);
 }
@@ -146,15 +145,41 @@
 }
 
 .focus-popup__interval {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px minmax(70px, 1fr) 34px;
   align-items: center;
-  gap: 6px;
+  min-width: 158px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.06);
   font-size: 13px;
+  outline: none;
+  overflow: hidden;
 }
 
-.focus-popup__minutes {
-  width: 72px;
-  padding: 7px 8px;
+.focus-popup__interval strong {
+  padding: 0 10px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.focus-popup__interval-btn {
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: #4a7dd1;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.focus-popup__interval-btn:not(:disabled):hover {
+  background: rgba(74, 125, 209, 0.12);
+}
+
+.focus-popup__interval-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .focus-popup__hint {
@@ -197,6 +222,18 @@
   .focus-popup__submit {
     background: #5a8fe3;
     border-color: #5a8fe3;
+  }
+
+  .focus-popup__interval {
+    background: rgba(210, 210, 210, 0.06);
+  }
+
+  .focus-popup__interval-btn {
+    color: #8db3f1;
+  }
+
+  .focus-popup__interval-btn:not(:disabled):hover {
+    background: rgba(141, 179, 241, 0.14);
   }
 
   .focus-popup__previous {

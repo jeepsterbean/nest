@@ -67,10 +67,3 @@ pub struct FocusCheckIn {
     pub trying_now: String,
     pub next_check_in_minutes: i64,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FocusCheckInSettings {
-    pub interval_minutes: i64,
-    pub next_due_at: i64,
-}

@@ -97,5 +97,6 @@ ALTER TABLE focus_check_ins_new RENAME TO focus_check_ins;
 CREATE INDEX idx_focus_check_ins_created_at ON focus_check_ins(created_at);
 "#,
         ),
+        M::up("DROP TABLE IF EXISTS focus_check_in_settings;"),
     ])
 }

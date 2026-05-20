@@ -3,7 +3,6 @@ import type {
   CheckIn,
   CheckInWithRatings,
   FocusCheckIn,
-  FocusCheckInSettings,
   Metric,
   RatingInput,
   SeriesPoint,
@@ -49,10 +48,6 @@ export function submitWorkCheckIn(
   blocker: string | null,
 ): Promise<WorkCheckIn> {
   return invoke("submit_work_check_in", { working, blocker });
-}
-
-export function getFocusCheckInSettings(): Promise<FocusCheckInSettings> {
-  return invoke("get_focus_check_in_settings");
 }
 
 export function latestFocusCheckIn(): Promise<FocusCheckIn | null> {

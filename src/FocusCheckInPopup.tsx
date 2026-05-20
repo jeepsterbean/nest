@@ -1,24 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import {
-  getFocusCheckInSettings,
-  latestFocusCheckIn,
-  submitFocusCheckIn,
-} from "./commands";
+import { latestFocusCheckIn, submitFocusCheckIn } from "./commands";
 import type { FocusCheckIn } from "./types";
 import "./FocusCheckInPopup.css";
 
-const DEFAULT_INTERVAL_MINUTES = 30;
+const DEFAULT_INTERVAL_MINUTES = 15;
+const MIN_INTERVAL_MINUTES = 5;
+const MAX_INTERVAL_MINUTES = 30;
+const INTERVAL_STEP_MINUTES = 5;
 
 type PreviousTaskAnswer = "yes" | "no" | null;
+
+const normalizeInterval = (minutes: number) => {
+  const stepped = Math.round(minutes / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES;
+  return Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, stepped));
+};
+
+const shiftInterval = (minutes: number, direction: -1 | 1) =>
+  normalizeInterval(minutes + direction * INTERVAL_STEP_MINUTES);
 
 function FocusCheckInPopup() {
   const [previousTaskAnswer, setPreviousTaskAnswer] =
     useState<PreviousTaskAnswer>(null);
   const [currentWork, setCurrentWork] = useState("");
   const [tryingNow, setTryingNow] = useState("");
-  const [nextCheckInMinutes, setNextCheckInMinutes] = useState("");
-  const [defaultIntervalMinutes, setDefaultIntervalMinutes] = useState(
+  const [nextCheckInMinutes, setNextCheckInMinutes] = useState(
     DEFAULT_INTERVAL_MINUTES,
   );
   const [previousCheckIn, setPreviousCheckIn] = useState<FocusCheckIn | null>(
@@ -30,10 +36,10 @@ function FocusCheckInPopup() {
   const tryingNowRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    Promise.all([getFocusCheckInSettings(), latestFocusCheckIn()])
-      .then(([settings, latest]) => {
-        setDefaultIntervalMinutes(settings.intervalMinutes);
+    latestFocusCheckIn()
+      .then((latest) => {
         setPreviousCheckIn(latest);
+        if (latest) setNextCheckInMinutes(normalizeInterval(latest.nextCheckInMinutes));
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -42,13 +48,6 @@ function FocusCheckInPopup() {
     if (previousTaskAnswer !== null) tryingNowRef.current?.focus();
   }, [previousTaskAnswer]);
 
-  const parsedNextCheckInMinutes = useMemo(() => {
-    const trimmed = nextCheckInMinutes.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? Math.round(parsed) : Number.NaN;
-  }, [nextCheckInMinutes]);
-
   const needsCurrentWork = previousTaskAnswer === "no";
   const canContinuePreviousTask =
     previousTaskAnswer !== "yes" || previousCheckIn !== null;
@@ -56,9 +55,7 @@ function FocusCheckInPopup() {
     previousTaskAnswer !== null &&
     canContinuePreviousTask &&
     tryingNow.trim().length > 0 &&
-    (!needsCurrentWork || currentWork.trim().length > 0) &&
-    (parsedNextCheckInMinutes === null ||
-      (parsedNextCheckInMinutes >= 1 && parsedNextCheckInMinutes <= 1440));
+    (!needsCurrentWork || currentWork.trim().length > 0);
 
   const submit = async () => {
     if (!canSubmit || submitting || previousTaskAnswer === null) return;
@@ -69,7 +66,7 @@ function FocusCheckInPopup() {
         previousTaskAnswer === "yes",
         needsCurrentWork ? currentWork.trim() : null,
         tryingNow.trim(),
-        parsedNextCheckInMinutes,
+        nextCheckInMinutes,
       );
       await getCurrentWebviewWindow().hide();
     } catch (e) {
@@ -84,6 +81,12 @@ function FocusCheckInPopup() {
       onSubmit={(e) => {
         e.preventDefault();
         submit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          if (canSubmit) submit();
+        }
       }}
     >
       {previousCheckIn && (
@@ -164,12 +167,6 @@ function FocusCheckInPopup() {
           className="focus-popup__input"
           value={tryingNow}
           onChange={(e) => setTryingNow(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && canSubmit) {
-              e.preventDefault();
-              submit();
-            }
-          }}
           rows={2}
           placeholder="The next concrete move…"
         />
@@ -177,24 +174,48 @@ function FocusCheckInPopup() {
 
       <label className="focus-popup__field focus-popup__field--inline">
         <span>Next check-in</span>
-        <div className="focus-popup__interval">
-          <input
-            className="focus-popup__minutes"
-            inputMode="numeric"
-            type="number"
-            min="1"
-            max="1440"
-            value={nextCheckInMinutes}
-            onChange={(e) => setNextCheckInMinutes(e.target.value)}
-            placeholder={String(defaultIntervalMinutes)}
-          />
-          <span>minutes</span>
+        <div
+          className="focus-popup__interval"
+          role="spinbutton"
+          aria-label="Minutes until next check-in"
+          aria-valuemin={MIN_INTERVAL_MINUTES}
+          aria-valuemax={MAX_INTERVAL_MINUTES}
+          aria-valuenow={nextCheckInMinutes}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            const key = e.key.toLowerCase();
+            if (key === "arrowleft" || key === "a") {
+              e.preventDefault();
+              setNextCheckInMinutes((minutes) => shiftInterval(minutes, -1));
+            } else if (key === "arrowright" || key === "d") {
+              e.preventDefault();
+              setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1));
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="focus-popup__interval-btn"
+            onClick={() => setNextCheckInMinutes((minutes) => shiftInterval(minutes, -1))}
+            disabled={nextCheckInMinutes === MIN_INTERVAL_MINUTES || submitting}
+            tabIndex={-1}
+            aria-label="Decrease next check-in by 5 minutes"
+          >
+            −
+          </button>
+          <strong>{nextCheckInMinutes} min</strong>
+          <button
+            type="button"
+            className="focus-popup__interval-btn"
+            onClick={() => setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1))}
+            disabled={nextCheckInMinutes === MAX_INTERVAL_MINUTES || submitting}
+            tabIndex={-1}
+            aria-label="Increase next check-in by 5 minutes"
+          >
+            +
+          </button>
         </div>
       </label>
-      <p className="focus-popup__hint">
-        Leave blank to check in again in {defaultIntervalMinutes} minutes.
-      </p>
-
       {error && <div className="focus-popup__error">{error}</div>}
       <button
         type="submit"

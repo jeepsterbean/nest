@@ -4,13 +4,15 @@ use tauri::State;
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    CheckIn, CheckInWithRatings, FocusCheckIn, FocusCheckInSettings, Metric, Rating,
-    RatingInput, SeriesPoint, WorkCheckIn,
+    CheckIn, CheckInWithRatings, FocusCheckIn, Metric, Rating, RatingInput, SeriesPoint,
+    WorkCheckIn,
 };
 use crate::FocusCheckInTimer;
 
-const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 30;
-const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 24 * 60;
+const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 15;
+const MIN_FOCUS_CHECK_IN_MINUTES: i64 = 5;
+const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 30;
+const FOCUS_CHECK_IN_STEP_MINUTES: i64 = 5;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -24,50 +26,14 @@ fn trim_to_option(s: Option<String>) -> Option<String> {
 }
 
 fn validate_focus_interval(minutes: i64) -> Result<i64> {
-    if !(1..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes) {
-        return Err(AppError::InvalidInput(format!(
-            "next check-in must be between 1 and {MAX_FOCUS_CHECK_IN_MINUTES} minutes"
-        )));
+    if !(MIN_FOCUS_CHECK_IN_MINUTES..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes)
+        || minutes % FOCUS_CHECK_IN_STEP_MINUTES != 0
+    {
+        return Err(AppError::InvalidInput(
+            "next check-in must be 5, 10, 15, 20, 25, or 30 minutes".into(),
+        ));
     }
     Ok(minutes)
-}
-
-fn read_focus_settings(conn: &Connection) -> Result<FocusCheckInSettings> {
-    let now = now_unix_secs();
-    let mut stmt = conn.prepare(
-        "SELECT interval_minutes, next_due_at FROM focus_check_in_settings WHERE id = 1",
-    )?;
-    match stmt.query_row([], |row| {
-        Ok(FocusCheckInSettings {
-            interval_minutes: row.get(0)?,
-            next_due_at: row.get(1)?,
-        })
-    }) {
-        Ok(settings) => Ok(settings),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(FocusCheckInSettings {
-            interval_minutes: DEFAULT_FOCUS_CHECK_IN_MINUTES,
-            next_due_at: now + DEFAULT_FOCUS_CHECK_IN_MINUTES * 60,
-        }),
-        Err(e) => Err(e.into()),
-    }
-}
-
-fn write_focus_settings(
-    conn: &Connection,
-    interval_minutes: i64,
-    next_due_at: i64,
-) -> Result<FocusCheckInSettings> {
-    conn.execute(
-        "INSERT INTO focus_check_in_settings (id, interval_minutes, next_due_at) \
-         VALUES (1, ?1, ?2) \
-         ON CONFLICT(id) DO UPDATE SET interval_minutes = excluded.interval_minutes, \
-         next_due_at = excluded.next_due_at",
-        params![interval_minutes, next_due_at],
-    )?;
-    Ok(FocusCheckInSettings {
-        interval_minutes,
-        next_due_at,
-    })
 }
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
@@ -134,11 +100,7 @@ pub fn create_metric(state: State<'_, Mutex<Connection>>, name: String) -> Resul
 }
 
 #[tauri::command]
-pub fn rename_metric(
-    state: State<'_, Mutex<Connection>>,
-    id: i64,
-    name: String,
-) -> Result<Metric> {
+pub fn rename_metric(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Metric> {
     let trimmed = name.trim().to_string();
     if trimmed.is_empty() {
         return Err(AppError::InvalidInput("metric name cannot be empty".into()));
@@ -303,19 +265,6 @@ pub fn submit_work_check_in(
     })
 }
 
-#[tauri::command]
-pub fn get_focus_check_in_settings(
-    state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<FocusCheckInTimer>>,
-) -> Result<FocusCheckInSettings> {
-    let conn = state.lock().unwrap();
-    let settings = read_focus_settings(&conn)?;
-    let mut t = timer.lock().unwrap();
-    t.interval_minutes = settings.interval_minutes;
-    t.next_due_at = settings.next_due_at;
-    Ok(settings)
-}
-
 fn read_latest_focus_check_in(conn: &Connection) -> Result<Option<FocusCheckIn>> {
     let mut stmt = conn.prepare(
         "SELECT id, created_at, task, trying_now, next_check_in_minutes \
@@ -353,14 +302,15 @@ pub fn submit_focus_check_in(
 ) -> Result<FocusCheckIn> {
     let trying_now_clean = trying_now.trim().to_string();
     if trying_now_clean.is_empty() {
-        return Err(AppError::InvalidInput("what you are trying now is required".into()));
+        return Err(AppError::InvalidInput(
+            "what you are trying now is required".into(),
+        ));
     }
 
     let current_work_clean = trim_to_option(current_work);
 
-    let minutes = validate_focus_interval(
-        next_check_in_minutes.unwrap_or(DEFAULT_FOCUS_CHECK_IN_MINUTES),
-    )?;
+    let minutes =
+        validate_focus_interval(next_check_in_minutes.unwrap_or(DEFAULT_FOCUS_CHECK_IN_MINUTES))?;
     let conn = state.lock().unwrap();
     let task = if still_working_previous_task {
         read_latest_focus_check_in(&conn)?
@@ -383,7 +333,6 @@ pub fn submit_focus_check_in(
         params![now, task, trying_now_clean, minutes],
     )?;
     let id = conn.last_insert_rowid();
-    write_focus_settings(&conn, minutes, next_due_at)?;
 
     {
         let mut t = timer.lock().unwrap();

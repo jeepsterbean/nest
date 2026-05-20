@@ -34,20 +34,21 @@ tauri_panel! {
 }
 
 #[cfg(target_os = "macos")]
-const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
-    Modifiers::SUPER.bits() | Modifiers::SHIFT.bits(),
-);
+const HOTKEY_MODIFIERS: Modifiers =
+    Modifiers::from_bits_truncate(Modifiers::SUPER.bits() | Modifiers::SHIFT.bits());
 #[cfg(not(target_os = "macos"))]
-const HOTKEY_MODIFIERS: Modifiers = Modifiers::from_bits_truncate(
-    Modifiers::CONTROL.bits() | Modifiers::SHIFT.bits(),
-);
+const HOTKEY_MODIFIERS: Modifiers =
+    Modifiers::from_bits_truncate(Modifiers::CONTROL.bits() | Modifiers::SHIFT.bits());
 
 #[cfg(target_os = "macos")]
 const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 30;
+const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 15;
+const MIN_FOCUS_CHECK_IN_MINUTES: i64 = 5;
+const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 30;
+const FOCUS_CHECK_IN_STEP_MINUTES: i64 = 5;
 
 pub struct FocusCheckInTimer {
     pub interval_minutes: i64,
@@ -61,22 +62,28 @@ fn now_unix_secs() -> i64 {
         .unwrap_or(0)
 }
 
+fn valid_focus_interval(minutes: i64) -> bool {
+    (MIN_FOCUS_CHECK_IN_MINUTES..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes)
+        && minutes % FOCUS_CHECK_IN_STEP_MINUTES == 0
+}
+
 fn load_focus_check_in_timer(conn: &rusqlite::Connection) -> FocusCheckInTimer {
     let now = now_unix_secs();
-    conn.query_row(
-        "SELECT interval_minutes, next_due_at FROM focus_check_in_settings WHERE id = 1",
-        [],
-        |row| {
-            Ok(FocusCheckInTimer {
-                interval_minutes: row.get(0)?,
-                next_due_at: row.get(1)?,
-            })
-        },
-    )
-    .unwrap_or(FocusCheckInTimer {
-        interval_minutes: DEFAULT_FOCUS_CHECK_IN_MINUTES,
-        next_due_at: now + DEFAULT_FOCUS_CHECK_IN_MINUTES * 60,
-    })
+    let interval_minutes = conn
+        .query_row(
+            "SELECT next_check_in_minutes FROM focus_check_ins \
+             ORDER BY created_at DESC, id DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok()
+        .filter(|minutes| valid_focus_interval(*minutes))
+        .unwrap_or(DEFAULT_FOCUS_CHECK_IN_MINUTES);
+
+    FocusCheckInTimer {
+        interval_minutes,
+        next_due_at: now + interval_minutes * 60,
+    }
 }
 
 fn start_focus_check_in_timer(app: tauri::AppHandle) {
@@ -187,9 +194,9 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     // visible jump.
     match app.get_webview_window(label) {
         Some(window) => center_on_cursor_screen(&window),
-        None => eprintln!(
-            "nest[popup-pos]: get_webview_window('{label}') is None — cannot reposition"
-        ),
+        None => {
+            eprintln!("nest[popup-pos]: get_webview_window('{label}') is None — cannot reposition")
+        }
     }
     panel.show_and_make_key();
 }
@@ -250,9 +257,7 @@ pub fn run() {
                     match window.to_panel::<NestPanel>() {
                         Ok(panel) => {
                             panel.set_level(PanelLevel::Floating.value());
-                            panel.set_style_mask(
-                                StyleMask::empty().nonactivating_panel().into(),
-                            );
+                            panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
                             panel.set_collection_behavior(
                                 CollectionBehavior::new()
                                     .full_screen_auxiliary()
@@ -263,9 +268,7 @@ pub fn run() {
                             );
                             panel.set_hides_on_deactivate(false);
                         }
-                        Err(e) => eprintln!(
-                            "nest: failed to convert '{label}' to NSPanel: {e:?}"
-                        ),
+                        Err(e) => eprintln!("nest: failed to convert '{label}' to NSPanel: {e:?}"),
                     }
                 }
             }
@@ -297,13 +300,8 @@ pub fn run() {
             if !main_hotkey_ok {
                 menu.append(&PredefinedMenuItem::separator(app)?)?;
             }
-            let open_dashboard = MenuItem::with_id(
-                app,
-                "open_dashboard",
-                "Open Dashboard",
-                true,
-                None::<&str>,
-            )?;
+            let open_dashboard =
+                MenuItem::with_id(app, "open_dashboard", "Open Dashboard", true, None::<&str>)?;
             menu.append(&open_dashboard)?;
             menu.append(&PredefinedMenuItem::separator(app)?)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -335,7 +333,6 @@ pub fn run() {
             commands::set_metric_active,
             commands::submit_check_in,
             commands::submit_work_check_in,
-            commands::get_focus_check_in_settings,
             commands::latest_focus_check_in,
             commands::submit_focus_check_in,
             commands::list_check_ins,
