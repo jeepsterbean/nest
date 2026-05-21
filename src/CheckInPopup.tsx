@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { listen } from "@tauri-apps/api/event";
 import FocusCheckInPopup from "./FocusCheckInPopup";
 import Popup from "./Popup";
 import WorkPopup from "./WorkPopup";
@@ -20,17 +19,22 @@ const MODES: Mode[] = [
   { id: "focus", label: "Focus", Body: FocusCheckInPopup },
 ];
 
-const modeIndexById = (id: string) => Math.max(0, MODES.findIndex((m) => m.id === id));
+const modeIndexById = (id: string | null) => Math.max(0, MODES.findIndex((m) => m.id === id));
+
+const modeIdFromHash = () => window.location.hash.split("/")[2] ?? null;
+
+const hashForMode = (id: string) => (id === "metric" ? "#/popup" : `#/popup/${id}`);
 
 function CheckInPopup() {
-  const [modeIndex, setModeIndex] = useState(0);
+  const [modeIndex, setModeIndex] = useState(() => modeIndexById(modeIdFromHash()));
   // Bumped on every summon so the active mode remounts and starts clean.
   const [summonKey, setSummonKey] = useState(0);
+  const modeIndexRef = useRef(modeIndex);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
-  const focusActiveTab = () => {
-    requestAnimationFrame(() => tabRefs.current[modeIndex]?.focus());
+  const focusActiveTab = (index = modeIndexRef.current) => {
+    requestAnimationFrame(() => tabRefs.current[index]?.focus());
   };
 
   const focusBodyStart = () => {
@@ -40,6 +44,19 @@ function CheckInPopup() {
       );
       first?.focus();
     });
+  };
+
+  useEffect(() => {
+    modeIndexRef.current = modeIndex;
+  }, [modeIndex]);
+
+  const selectMode = (index: number) => {
+    const next = MODES[index];
+    if (!next) return;
+    setModeIndex(index);
+    if (window.location.hash !== hashForMode(next.id)) {
+      window.location.hash = hashForMode(next.id);
+    }
   };
 
   // Escape hides the popup.
@@ -56,24 +73,19 @@ function CheckInPopup() {
 
   useEffect(() => {
     if (document.activeElement?.getAttribute("role") === "tab") {
-      focusActiveTab();
+      focusActiveTab(modeIndex);
     }
   }, [modeIndex]);
 
-  // Automatic focus check-ins switch directly to the Focus mode before the
-  // popup is shown by the backend timer.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen("focus-check-in-due", () => {
-      setModeIndex(modeIndexById("focus"));
+    const onHashChange = () => {
+      const nextIndex = modeIndexById(modeIdFromHash());
+      setModeIndex(nextIndex);
       setSummonKey((k) => k + 1);
-      focusActiveTab();
-    }).then((u) => {
-      unlisten = u;
-    });
-    return () => {
-      if (unlisten) unlisten();
+      focusActiveTab(nextIndex);
     };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
   // Blur dismisses the popup. Each fresh summon remounts the active body (via
@@ -112,10 +124,10 @@ function CheckInPopup() {
           const n = MODES.length;
           if (key === "arrowleft" || key === "a") {
             e.preventDefault();
-            setModeIndex((i) => (i - 1 + n) % n);
+            selectMode((modeIndexRef.current - 1 + n) % n);
           } else if (key === "arrowright" || key === "d") {
             e.preventDefault();
-            setModeIndex((i) => (i + 1) % n);
+            selectMode((modeIndexRef.current + 1) % n);
           } else if (key === "arrowdown" || key === "s") {
             e.preventDefault();
             focusBodyStart();
@@ -132,7 +144,7 @@ function CheckInPopup() {
             role="tab"
             aria-selected={i === modeIndex}
             className={`checkin__tab${i === modeIndex ? " checkin__tab--active" : ""}`}
-            onClick={() => setModeIndex(i)}
+            onClick={() => selectMode(i)}
             tabIndex={i === modeIndex ? 0 : -1}
           >
             {m.label}

@@ -33,6 +33,7 @@ function FocusCheckInPopup() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const yesRef = useRef<HTMLButtonElement | null>(null);
+  const currentWorkRef = useRef<HTMLTextAreaElement | null>(null);
   const tryingNowRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -45,7 +46,11 @@ function FocusCheckInPopup() {
   }, []);
 
   useEffect(() => {
-    if (previousTaskAnswer !== null) tryingNowRef.current?.focus();
+    if (previousTaskAnswer === "no") {
+      currentWorkRef.current?.focus();
+    } else if (previousTaskAnswer === "yes") {
+      tryingNowRef.current?.focus();
+    }
   }, [previousTaskAnswer]);
 
   const needsCurrentWork = previousTaskAnswer === "no";
@@ -151,6 +156,7 @@ function FocusCheckInPopup() {
         <label className="focus-popup__field">
           <span>1. What are you currently working on?</span>
           <textarea
+            ref={currentWorkRef}
             className="focus-popup__input"
             value={currentWork}
             onChange={(e) => setCurrentWork(e.target.value)}

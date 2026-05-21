@@ -75,3 +75,7 @@ export function metricSeries(
 ): Promise<SeriesPoint[]> {
   return invoke("metric_series", { metricId, from, to });
 }
+
+export function logClientEvent(message: string): Promise<void> {
+  return invoke("log_client_event", { message });
+}
