@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { logClientEvent } from "./commands";
+import { logClientEvent } from "./lib/commands";
 
 const describeError = (value: unknown) => {
   if (value instanceof Error) return `${value.name}: ${value.message}\n${value.stack ?? ""}`;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import FocusCheckInPopup from "./FocusCheckInPopup";
-import Popup from "./Popup";
+import MetricPopup from "./MetricPopup";
 import WorkPopup from "./WorkPopup";
 import "./CheckInPopup.css";
 
@@ -14,7 +14,7 @@ type Mode = {
 // Ordered left → right. The first entry is the default shown on every summon.
 // Add new modes here; `a` / `d` cycle through them (wrapping both ways).
 const MODES: Mode[] = [
-  { id: "metric", label: "Check-in", Body: Popup },
+  { id: "metric", label: "Check-in", Body: MetricPopup },
   { id: "work", label: "Work", Body: WorkPopup },
   { id: "focus", label: "Focus", Body: FocusCheckInPopup },
 ];

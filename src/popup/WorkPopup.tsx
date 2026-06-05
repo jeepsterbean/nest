@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { submitWorkCheckIn } from "./commands";
+import { submitWorkCheckIn } from "../lib/commands";
 import "./WorkPopup.css";
 
 type Step = "ask" | "blocker";

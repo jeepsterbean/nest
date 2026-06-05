@@ -4,9 +4,9 @@ import {
   WebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
 import { emit } from "@tauri-apps/api/event";
-import { listMetrics, submitCheckIn } from "./commands";
-import type { Metric, RatingInput, RatingValue } from "./types";
-import "./Popup.css";
+import { listMetrics, submitCheckIn } from "../lib/commands";
+import type { Metric, RatingInput, RatingValue } from "../lib/types";
+import "./MetricPopup.css";
 
 type RatingState = {
   value: RatingValue | null;
@@ -20,7 +20,7 @@ const emptyRating = (): RatingState => ({
   noteOpen: false,
 });
 
-function Popup() {
+function MetricPopup() {
   const [metrics, setMetrics] = useState<Metric[] | null>(null);
   const [ratings, setRatings] = useState<Record<number, RatingState>>({});
   const [note, setNote] = useState("");
@@ -236,4 +236,4 @@ function Popup() {
   );
 }
 
-export default Popup;
+export default MetricPopup;

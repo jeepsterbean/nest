@@ -7,8 +7,8 @@ import {
   listMetrics,
   renameMetric,
   setMetricActive,
-} from "./commands";
-import type { CheckInWithRatings, Metric } from "./types";
+} from "../lib/commands";
+import type { CheckInWithRatings, Metric } from "../lib/types";
 import "./Dashboard.css";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;

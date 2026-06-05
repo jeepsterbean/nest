@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { latestFocusCheckIn, submitFocusCheckIn } from "./commands";
-import type { FocusCheckIn } from "./types";
+import { latestFocusCheckIn, submitFocusCheckIn } from "../lib/commands";
+import type { FocusCheckIn } from "../lib/types";
 import "./FocusCheckInPopup.css";
 
 const DEFAULT_INTERVAL_MINUTES = 15;
