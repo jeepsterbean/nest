@@ -24,12 +24,14 @@ const modeIndexById = (id: string | null) => Math.max(0, MODES.findIndex((m) => 
 const modeIdFromHash = () => window.location.hash.split("/")[2] ?? null;
 
 const hashForMode = (id: string) => (id === "metric" ? "#/popup" : `#/popup/${id}`);
+const BLUR_DISMISS_GRACE_MS = 750;
 
 function CheckInPopup() {
   const [modeIndex, setModeIndex] = useState(() => modeIndexById(modeIdFromHash()));
   // Bumped on every summon so the active mode remounts and starts clean.
   const [summonKey, setSummonKey] = useState(0);
   const modeIndexRef = useRef(modeIndex);
+  const lastSummonedAtRef = useRef(Date.now());
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
@@ -80,6 +82,7 @@ function CheckInPopup() {
   useEffect(() => {
     const onHashChange = () => {
       const nextIndex = modeIndexById(modeIdFromHash());
+      lastSummonedAtRef.current = Date.now();
       setModeIndex(nextIndex);
       setSummonKey((k) => k + 1);
       focusActiveTab(nextIndex);
@@ -89,16 +92,20 @@ function CheckInPopup() {
   }, []);
 
   // Blur dismisses the popup. Each fresh summon remounts the active body (via
-  // summonKey) so its form starts clean.
+  // summonKey) so its form starts clean. In macOS fullscreen Spaces, a
+  // non-activating NSPanel can briefly report focus loss immediately after it is
+  // ordered front; ignore that bounce so the popup does not hide itself before
+  // the user can see it.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const popup = getCurrentWebviewWindow();
     popup
       .onFocusChanged(({ payload: focused }) => {
         if (focused) {
+          lastSummonedAtRef.current = Date.now();
           setSummonKey((k) => k + 1);
           focusActiveTab();
-        } else {
+        } else if (Date.now() - lastSummonedAtRef.current > BLUR_DISMISS_GRACE_MS) {
           popup.hide();
         }
       })
