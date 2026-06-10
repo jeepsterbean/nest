@@ -193,15 +193,21 @@ fn set_popup_route(app: &tauri::AppHandle, label: &str, route: &str) {
              }}"
         );
         if let Err(e) = window.eval(&script) {
-            append_diagnostic_log(format!("popup_set_route_failed label={label} route={route} error={e}"));
+            append_diagnostic_log(format!(
+                "popup_set_route_failed label={label} route={route} error={e}"
+            ));
         }
     } else {
-        append_diagnostic_log(format!("popup_set_route_missing_window label={label} route={route}"));
+        append_diagnostic_log(format!(
+            "popup_set_route_missing_window label={label} route={route}"
+        ));
     }
 }
 
 fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
-    append_diagnostic_log(format!("popup_summon_with_route label={label} route={route}"));
+    append_diagnostic_log(format!(
+        "popup_summon_with_route label={label} route={route}"
+    ));
     set_popup_route(app, label, route);
     summon_popup(app, label);
 }
@@ -280,7 +286,9 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     let panel = match app.get_webview_panel(label) {
         Ok(panel) => panel,
         Err(e) => {
-            append_diagnostic_log(format!("popup_summon_macos_failed label={label} error={e:?}"));
+            append_diagnostic_log(format!(
+                "popup_summon_macos_failed label={label} error={e:?}"
+            ));
             eprintln!("nest: popup '{label}' is not an NSPanel: {e:?}");
             return;
         }
@@ -430,6 +438,10 @@ pub fn run() {
             commands::create_metric,
             commands::rename_metric,
             commands::set_metric_active,
+            commands::list_phases,
+            commands::create_phase,
+            commands::rename_phase,
+            commands::set_phase_active,
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,

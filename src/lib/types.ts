@@ -5,6 +5,13 @@ export type Metric = {
   inactiveSince: number | null;
 };
 
+export type Phase = {
+  id: number;
+  name: string;
+  createdAt: number;
+  inactiveSince: number | null;
+};
+
 export type CheckIn = {
   id: number;
   createdAt: number;
@@ -35,11 +42,11 @@ export type SeriesPoint = {
 
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
 
-export type WorkCheckIn = {
+export type PhaseCheckIn = {
   id: number;
   createdAt: number;
-  working: boolean;
-  blocker: string | null;
+  phaseId: number;
+  phaseLabel: string | null;
 };
 
 export type FocusCheckIn = {
@@ -49,4 +56,3 @@ export type FocusCheckIn = {
   tryingNow: string;
   nextCheckInMinutes: number;
 };
-

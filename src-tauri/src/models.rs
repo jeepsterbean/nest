@@ -46,28 +46,13 @@ pub struct SeriesPoint {
     pub value: i32,
 }
 
-/// The broad mode a phase check-in records. Stored as the lowercase keyword in
-/// `phase_check_ins.phase`; `Others` carries an optional free-text label.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Phase {
-    Decluttering,
-    Scoping,
-    Doing,
-    Resting,
-    Others,
-}
-
-impl Phase {
-    pub fn as_db(self) -> &'static str {
-        match self {
-            Phase::Decluttering => "decluttering",
-            Phase::Scoping => "scoping",
-            Phase::Doing => "doing",
-            Phase::Resting => "resting",
-            Phase::Others => "others",
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
+    pub inactive_since: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +60,7 @@ impl Phase {
 pub struct PhaseCheckIn {
     pub id: i64,
     pub created_at: i64,
-    pub phase: Phase,
+    pub phase_id: i64,
     pub phase_label: Option<String>,
 }
 

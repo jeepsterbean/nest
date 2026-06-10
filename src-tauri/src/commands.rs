@@ -52,6 +52,22 @@ fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
     .map_err(Into::into)
 }
 
+fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
+    conn.query_row(
+        "SELECT id, name, created_at, inactive_since FROM phases WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(Phase {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                inactive_since: row.get(3)?,
+            })
+        },
+    )
+    .map_err(Into::into)
+}
+
 #[tauri::command]
 pub fn list_metrics(
     state: State<'_, Mutex<Connection>>,
@@ -132,6 +148,88 @@ pub fn set_metric_active(
         return Err(AppError::NotFound(format!("metric {id}")));
     }
     fetch_metric(&conn, id)
+}
+
+#[tauri::command]
+pub fn list_phases(
+    state: State<'_, Mutex<Connection>>,
+    include_inactive: bool,
+) -> Result<Vec<Phase>> {
+    let conn = state.lock().unwrap();
+    let sql = if include_inactive {
+        "SELECT id, name, created_at, inactive_since FROM phases ORDER BY created_at ASC, id ASC"
+    } else {
+        "SELECT id, name, created_at, inactive_since FROM phases \
+         WHERE inactive_since IS NULL ORDER BY created_at ASC, id ASC"
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(Phase {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                inactive_since: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn create_phase(state: State<'_, Mutex<Connection>>, name: String) -> Result<Phase> {
+    let trimmed = name.trim().to_string();
+    if trimmed.is_empty() {
+        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    let now = now_unix_secs();
+    conn.execute(
+        "INSERT INTO phases (name, created_at) VALUES (?1, ?2)",
+        params![trimmed, now],
+    )?;
+    let id = conn.last_insert_rowid();
+    Ok(Phase {
+        id,
+        name: trimmed,
+        created_at: now,
+        inactive_since: None,
+    })
+}
+
+#[tauri::command]
+pub fn rename_phase(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Phase> {
+    let trimmed = name.trim().to_string();
+    if trimmed.is_empty() {
+        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE phases SET name = ?1 WHERE id = ?2",
+        params![trimmed, id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("phase {id}")));
+    }
+    fetch_phase(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_phase_active(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    active: bool,
+) -> Result<Phase> {
+    let conn = state.lock().unwrap();
+    let inactive_since: Option<i64> = if active { None } else { Some(now_unix_secs()) };
+    let updated = conn.execute(
+        "UPDATE phases SET inactive_since = ?1 WHERE id = ?2",
+        params![inactive_since, id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("phase {id}")));
+    }
+    fetch_phase(&conn, id)
 }
 
 #[tauri::command]
@@ -236,28 +334,25 @@ pub fn delete_metric_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> R
 #[tauri::command]
 pub fn submit_phase_check_in(
     state: State<'_, Mutex<Connection>>,
-    phase: Phase,
-    phase_label: Option<String>,
+    phase_id: i64,
 ) -> Result<PhaseCheckIn> {
-    // A free-text label only makes sense for the "others" catch-all; ignore it
-    // for the canonical modes so invalid combinations can't be stored.
-    let phase_label_clean = if phase == Phase::Others {
-        trim_to_option(phase_label)
-    } else {
-        None
-    };
-
     let conn = state.lock().unwrap();
+    let phase = fetch_phase(&conn, phase_id)
+        .map_err(|_| AppError::NotFound(format!("phase {phase_id}")))?;
+    if phase.inactive_since.is_some() {
+        return Err(AppError::InvalidInput("phase is paused".into()));
+    }
+
     let now = now_unix_secs();
     conn.execute(
-        "INSERT INTO phase_check_ins (created_at, phase, phase_label) VALUES (?1, ?2, ?3)",
-        params![now, phase.as_db(), phase_label_clean],
+        "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
+        params![now, phase_id],
     )?;
     Ok(PhaseCheckIn {
         id: conn.last_insert_rowid(),
         created_at: now,
-        phase,
-        phase_label: phase_label_clean,
+        phase_id,
+        phase_label: None,
     })
 }
 

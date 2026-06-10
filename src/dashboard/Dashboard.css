@@ -32,12 +32,14 @@
   border-radius: 4px;
 }
 
-.metric-create {
+.metric-create,
+.phase-create {
   display: flex;
   gap: 8px;
 }
 
-.metric-create input {
+.metric-create input,
+.phase-create input {
   flex: 1;
   padding: 8px 10px;
   border: 1px solid rgba(128, 128, 128, 0.3);
@@ -46,11 +48,13 @@
   outline: none;
 }
 
-.metric-create input:focus {
+.metric-create input:focus,
+.phase-create input:focus {
   border-color: #4a7dd1;
 }
 
-.metric-create button {
+.metric-create button,
+.phase-create button {
   padding: 8px 14px;
   border: none;
   border-radius: 4px;
@@ -59,12 +63,14 @@
   font-weight: 500;
 }
 
-.metric-create button:disabled {
+.metric-create button:disabled,
+.phase-create button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.metric-list {
+.metric-list,
+.phase-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -73,7 +79,8 @@
   gap: 4px;
 }
 
-.metric-item {
+.metric-item,
+.phase-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -83,11 +90,13 @@
   gap: 12px;
 }
 
-.metric-item--inactive .metric-item__name {
+.metric-item--inactive .metric-item__name,
+.phase-item--inactive .phase-item__name {
   opacity: 0.5;
 }
 
-.metric-item__name {
+.metric-item__name,
+.phase-item__name {
   flex: 1;
   text-align: left;
   background: transparent;
@@ -97,11 +106,13 @@
   color: inherit;
 }
 
-.metric-item__name:hover {
+.metric-item__name:hover,
+.phase-item__name:hover {
   text-decoration: underline;
 }
 
-.metric-item__rename {
+.metric-item__rename,
+.phase-item__rename {
   flex: 1;
   padding: 2px 4px;
   border: 1px solid #4a7dd1;
@@ -110,7 +121,8 @@
   outline: none;
 }
 
-.metric-item__toggle {
+.metric-item__toggle,
+.phase-item__toggle {
   display: flex;
   align-items: center;
   gap: 6px;

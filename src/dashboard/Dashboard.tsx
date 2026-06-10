@@ -1,35 +1,45 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  createPhase,
   createMetric,
   deleteCheckIn,
   listCheckIns,
   listMetrics,
+  listPhases,
+  renamePhase,
   renameMetric,
+  setPhaseActive,
   setMetricActive,
 } from "../lib/commands";
-import type { CheckInWithRatings, Metric } from "../lib/types";
+import type { CheckInWithRatings, Metric, Phase } from "../lib/types";
 import "./Dashboard.css";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 function Dashboard() {
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<CheckInWithRatings[]>([]);
   const [newMetricName, setNewMetricName] = useState("");
+  const [newPhaseName, setNewPhaseName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
+  const [editingPhaseName, setEditingPhaseName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const reload = async () => {
     try {
       const now = Math.floor(Date.now() / 1000);
-      const [m, ci] = await Promise.all([
+      const [m, p, ci] = await Promise.all([
         listMetrics(true),
+        listPhases(true),
         listCheckIns(now - THIRTY_DAYS_SECONDS, now + 1),
       ]);
       setMetrics(m);
+      setPhases(p);
       setCheckIns(ci);
     } catch (e) {
       setError(String(e));
@@ -68,6 +78,19 @@ function Dashboard() {
     }
   };
 
+  const onCreatePhase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newPhaseName.trim();
+    if (!name) return;
+    try {
+      await createPhase(name);
+      setNewPhaseName("");
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   const startEdit = (m: Metric) => {
     setEditingId(m.id);
     setEditingName(m.name);
@@ -89,9 +112,39 @@ function Dashboard() {
     }
   };
 
+  const startPhaseEdit = (p: Phase) => {
+    setEditingPhaseId(p.id);
+    setEditingPhaseName(p.name);
+  };
+
+  const commitPhaseEdit = async () => {
+    if (editingPhaseId === null) return;
+    const name = editingPhaseName.trim();
+    const id = editingPhaseId;
+    setEditingPhaseId(null);
+    if (!name) return;
+    const current = phases.find((p) => p.id === id);
+    if (current && current.name === name) return;
+    try {
+      await renamePhase(id, name);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   const onToggleActive = async (m: Metric) => {
     try {
       await setMetricActive(m.id, m.inactiveSince !== null);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onTogglePhaseActive = async (p: Phase) => {
+    try {
+      await setPhaseActive(p.id, p.inactiveSince !== null);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -174,6 +227,71 @@ function Dashboard() {
                       type="checkbox"
                       checked={active}
                       onChange={() => onToggleActive(m)}
+                    />
+                    <span>{active ? "Active" : "Paused"}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="dashboard__section">
+        <h2 className="dashboard__heading">Phases</h2>
+        <form className="phase-create" onSubmit={onCreatePhase}>
+          <input
+            type="text"
+            placeholder="Add a phase…"
+            value={newPhaseName}
+            onChange={(e) => setNewPhaseName(e.target.value)}
+          />
+          <button type="submit" disabled={!newPhaseName.trim()}>
+            Add
+          </button>
+        </form>
+        {loaded && phases.length === 0 ? (
+          <p className="dashboard__empty">No phases yet. Add one above.</p>
+        ) : (
+          <ul className="phase-list">
+            {phases.map((p) => {
+              const active = p.inactiveSince === null;
+              return (
+                <li
+                  key={p.id}
+                  className={`phase-item${active ? "" : " phase-item--inactive"}`}
+                >
+                  {editingPhaseId === p.id ? (
+                    <input
+                      type="text"
+                      className="phase-item__rename"
+                      value={editingPhaseName}
+                      autoFocus
+                      onChange={(e) => setEditingPhaseName(e.target.value)}
+                      onBlur={commitPhaseEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitPhaseEdit();
+                        }
+                        if (e.key === "Escape") setEditingPhaseId(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="phase-item__name"
+                      onClick={() => startPhaseEdit(p)}
+                      title="Click to rename"
+                    >
+                      {p.name}
+                    </button>
+                  )}
+                  <label className="phase-item__toggle">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => onTogglePhaseActive(p)}
                     />
                     <span>{active ? "Active" : "Paused"}</span>
                   </label>

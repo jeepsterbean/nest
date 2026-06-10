@@ -4,9 +4,10 @@ import type {
   CheckInWithRatings,
   FocusCheckIn,
   Metric,
+  Phase,
+  PhaseCheckIn,
   RatingInput,
   SeriesPoint,
-  WorkCheckIn,
 } from "./types";
 
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
@@ -25,33 +26,49 @@ export function setMetricActive(id: number, active: boolean): Promise<Metric> {
   return invoke("set_metric_active", { id, active });
 }
 
+export function listPhases(includeInactive: boolean): Promise<Phase[]> {
+  return invoke("list_phases", { includeInactive });
+}
+
+export function createPhase(name: string): Promise<Phase> {
+  return invoke("create_phase", { name });
+}
+
+export function renamePhase(id: number, name: string): Promise<Phase> {
+  return invoke("rename_phase", { id, name });
+}
+
+export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
+  return invoke("set_phase_active", { id, active });
+}
+
 export function submitCheckIn(
   ratings: RatingInput[],
   note: string | null,
 ): Promise<CheckIn> {
-  return invoke("submit_check_in", { ratings, note });
+  void note;
+  return invoke("submit_metric_check_in", { ratings });
 }
 
 export function listCheckIns(
   from: number,
   to: number,
 ): Promise<CheckInWithRatings[]> {
-  return invoke("list_check_ins", { from, to });
+  return invoke("list_metric_check_ins", { from, to });
 }
 
 export function deleteCheckIn(id: number): Promise<void> {
-  return invoke("delete_check_in", { id });
+  return invoke("delete_metric_check_in", { id });
 }
 
-export function submitWorkCheckIn(
-  working: boolean,
-  blocker: string | null,
-): Promise<WorkCheckIn> {
-  return invoke("submit_work_check_in", { working, blocker });
+export function submitPhaseCheckIn(
+  phaseId: number,
+): Promise<PhaseCheckIn> {
+  return invoke("submit_phase_check_in", { phaseId });
 }
 
 export function latestFocusCheckIn(): Promise<FocusCheckIn | null> {
-  return invoke("latest_focus_check_in");
+  return invoke("latest_task_check_in");
 }
 
 export function submitFocusCheckIn(
@@ -60,10 +77,10 @@ export function submitFocusCheckIn(
   tryingNow: string,
   nextCheckInMinutes: number | null,
 ): Promise<FocusCheckIn> {
-  return invoke("submit_focus_check_in", {
+  void tryingNow;
+  return invoke("submit_task_check_in", {
     stillWorkingPreviousTask,
     currentWork,
-    tryingNow,
     nextCheckInMinutes,
   });
 }

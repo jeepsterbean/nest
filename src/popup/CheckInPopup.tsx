@@ -15,7 +15,7 @@ type Mode = {
 // Add new modes here; `a` / `d` cycle through them (wrapping both ways).
 const MODES: Mode[] = [
   { id: "metric", label: "Check-in", Body: MetricPopup },
-  { id: "work", label: "Work", Body: WorkPopup },
+  { id: "work", label: "Phase", Body: WorkPopup },
   { id: "focus", label: "Focus", Body: FocusCheckInPopup },
 ];
 

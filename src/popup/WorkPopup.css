@@ -17,17 +17,19 @@
 
 .work-popup__choices {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
 .work-popup__btn {
-  padding: 14px 0;
+  min-height: 48px;
+  padding: 10px 12px;
   border: 1px solid rgba(128, 128, 128, 0.3);
   border-radius: 6px;
   background: transparent;
   font-size: 15px;
   font-weight: 500;
+  overflow-wrap: anywhere;
   transition:
     background 0.12s,
     border-color 0.12s;
@@ -40,23 +42,6 @@
 .work-popup__btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgba(80, 130, 220, 0.4);
-}
-
-.work-popup__btn--yes {
-  background: #4a7dd1;
-  border-color: #4a7dd1;
-  color: #fff;
-}
-
-.work-popup__btn--yes:hover:not(:disabled) {
-  background: #3a6ec1;
-}
-
-@media (prefers-color-scheme: dark) {
-  .work-popup__btn--yes {
-    background: #5a8fe3;
-    border-color: #5a8fe3;
-  }
 }
 
 .work-popup__btn:disabled {

@@ -186,5 +186,52 @@ DROP TABLE focus_check_ins;
 CREATE INDEX idx_task_check_ins_created_at ON task_check_ins(created_at);
 "#,
         ),
+        // Make phases user-managed, matching the active/inactive lifecycle used
+        // by metrics. Historical "others" labels stay attached to their old
+        // check-ins instead of becoming implicit new active phases.
+        M::up(
+            r#"
+CREATE TABLE phases (
+  id             INTEGER PRIMARY KEY,
+  name           TEXT NOT NULL UNIQUE,
+  created_at     INTEGER NOT NULL,
+  inactive_since INTEGER
+);
+
+INSERT INTO phases (id, name, created_at)
+VALUES
+  (1, 'Decluttering', 0),
+  (2, 'Scoping', 0),
+  (3, 'Doing', 0),
+  (4, 'Resting', 0),
+  (5, 'Others', 0);
+
+CREATE TABLE phase_check_ins_new (
+  id          INTEGER PRIMARY KEY,
+  created_at  INTEGER NOT NULL,
+  phase_id    INTEGER NOT NULL REFERENCES phases(id),
+  phase_label TEXT
+);
+
+INSERT INTO phase_check_ins_new (id, created_at, phase_id, phase_label)
+SELECT
+  id,
+  created_at,
+  CASE phase
+    WHEN 'decluttering' THEN 1
+    WHEN 'scoping' THEN 2
+    WHEN 'doing' THEN 3
+    WHEN 'resting' THEN 4
+    ELSE 5
+  END,
+  phase_label
+FROM phase_check_ins;
+
+DROP TABLE phase_check_ins;
+ALTER TABLE phase_check_ins_new RENAME TO phase_check_ins;
+CREATE INDEX idx_phase_check_ins_created_at ON phase_check_ins(created_at);
+CREATE INDEX idx_phase_check_ins_phase_id ON phase_check_ins(phase_id);
+"#,
+        ),
     ])
 }
