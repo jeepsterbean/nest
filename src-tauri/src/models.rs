@@ -11,35 +11,32 @@ pub struct Metric {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CheckIn {
+pub struct MetricCheckIn {
     pub id: i64,
     pub created_at: i64,
-    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Rating {
+pub struct MetricRating {
     pub check_in_id: i64,
     pub metric_id: i64,
     pub value: i32,
-    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RatingInput {
+pub struct MetricRatingInput {
     pub metric_id: i64,
     pub value: i32,
-    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CheckInWithRatings {
+pub struct MetricCheckInWithRatings {
     #[serde(flatten)]
-    pub check_in: CheckIn,
-    pub ratings: Vec<Rating>,
+    pub check_in: MetricCheckIn,
+    pub ratings: Vec<MetricRating>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -49,21 +46,52 @@ pub struct SeriesPoint {
     pub value: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkCheckIn {
-    pub id: i64,
-    pub created_at: i64,
-    pub working: bool,
-    pub blocker: Option<String>,
+/// The broad mode a phase check-in records. Stored as the lowercase keyword in
+/// `phase_check_ins.phase`; `Others` carries an optional free-text label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Phase {
+    Decluttering,
+    Scoping,
+    Doing,
+    Resting,
+    Others,
+}
+
+impl Phase {
+    pub fn as_db(self) -> &'static str {
+        match self {
+            Phase::Decluttering => "decluttering",
+            Phase::Scoping => "scoping",
+            Phase::Doing => "doing",
+            Phase::Resting => "resting",
+            Phase::Others => "others",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FocusCheckIn {
+pub struct PhaseCheckIn {
+    pub id: i64,
+    pub created_at: i64,
+    pub phase: Phase,
+    pub phase_label: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskCheckIn {
     pub id: i64,
     pub created_at: i64,
     pub task: String,
-    pub trying_now: String,
     pub next_check_in_minutes: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrainDump {
+    pub id: i64,
+    pub created_at: i64,
+    pub text: String,
 }

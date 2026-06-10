@@ -4,15 +4,15 @@ use tauri::State;
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    CheckIn, CheckInWithRatings, FocusCheckIn, Metric, Rating, RatingInput, SeriesPoint,
-    WorkCheckIn,
+    BrainDump, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput,
+    Phase, PhaseCheckIn, SeriesPoint, TaskCheckIn,
 };
-use crate::FocusCheckInTimer;
+use crate::TaskCheckInTimer;
 
-const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 15;
-const MIN_FOCUS_CHECK_IN_MINUTES: i64 = 5;
-const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 30;
-const FOCUS_CHECK_IN_STEP_MINUTES: i64 = 5;
+const DEFAULT_TASK_CHECK_IN_MINUTES: i64 = 15;
+const MIN_TASK_CHECK_IN_MINUTES: i64 = 5;
+const MAX_TASK_CHECK_IN_MINUTES: i64 = 30;
+const TASK_CHECK_IN_STEP_MINUTES: i64 = 5;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -25,9 +25,9 @@ fn trim_to_option(s: Option<String>) -> Option<String> {
     s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
-fn validate_focus_interval(minutes: i64) -> Result<i64> {
-    if !(MIN_FOCUS_CHECK_IN_MINUTES..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes)
-        || minutes % FOCUS_CHECK_IN_STEP_MINUTES != 0
+fn validate_task_interval(minutes: i64) -> Result<i64> {
+    if !(MIN_TASK_CHECK_IN_MINUTES..=MAX_TASK_CHECK_IN_MINUTES).contains(&minutes)
+        || minutes % TASK_CHECK_IN_STEP_MINUTES != 0
     {
         return Err(AppError::InvalidInput(
             "next check-in must be 5, 10, 15, 20, 25, or 30 minutes".into(),
@@ -135,11 +135,10 @@ pub fn set_metric_active(
 }
 
 #[tauri::command]
-pub fn submit_check_in(
+pub fn submit_metric_check_in(
     state: State<'_, Mutex<Connection>>,
-    ratings: Vec<RatingInput>,
-    note: Option<String>,
-) -> Result<CheckIn> {
+    ratings: Vec<MetricRatingInput>,
+) -> Result<MetricCheckIn> {
     if ratings.is_empty() {
         return Err(AppError::InvalidInput(
             "at least one rating is required".into(),
@@ -157,71 +156,66 @@ pub fn submit_check_in(
     let mut conn = state.lock().unwrap();
     let tx = conn.transaction()?;
     let now = now_unix_secs();
-    let note_clean = trim_to_option(note);
 
     tx.execute(
-        "INSERT INTO check_ins (created_at, note) VALUES (?1, ?2)",
-        params![now, note_clean],
+        "INSERT INTO metric_check_ins (created_at) VALUES (?1)",
+        params![now],
     )?;
     let check_in_id = tx.last_insert_rowid();
 
     {
         let mut stmt = tx.prepare(
-            "INSERT INTO ratings (check_in_id, metric_id, value, note) \
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO metric_ratings (check_in_id, metric_id, value) \
+             VALUES (?1, ?2, ?3)",
         )?;
         for r in &ratings {
-            let rnote = trim_to_option(r.note.clone());
-            stmt.execute(params![check_in_id, r.metric_id, r.value, rnote])?;
+            stmt.execute(params![check_in_id, r.metric_id, r.value])?;
         }
     }
 
     tx.commit()?;
-    Ok(CheckIn {
+    Ok(MetricCheckIn {
         id: check_in_id,
         created_at: now,
-        note: note_clean,
     })
 }
 
 #[tauri::command]
-pub fn list_check_ins(
+pub fn list_metric_check_ins(
     state: State<'_, Mutex<Connection>>,
     from: i64,
     to: i64,
-) -> Result<Vec<CheckInWithRatings>> {
+) -> Result<Vec<MetricCheckInWithRatings>> {
     let conn = state.lock().unwrap();
 
     let mut ci_stmt = conn.prepare(
-        "SELECT id, created_at, note FROM check_ins \
+        "SELECT id, created_at FROM metric_check_ins \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
-    let check_ins: Vec<CheckIn> = ci_stmt
+    let check_ins: Vec<MetricCheckIn> = ci_stmt
         .query_map(params![from, to], |row| {
-            Ok(CheckIn {
+            Ok(MetricCheckIn {
                 id: row.get(0)?,
                 created_at: row.get(1)?,
-                note: row.get(2)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
     let mut r_stmt = conn.prepare(
-        "SELECT check_in_id, metric_id, value, note FROM ratings WHERE check_in_id = ?1",
+        "SELECT check_in_id, metric_id, value FROM metric_ratings WHERE check_in_id = ?1",
     )?;
     let mut result = Vec::with_capacity(check_ins.len());
     for ci in check_ins {
-        let ratings: Vec<Rating> = r_stmt
+        let ratings: Vec<MetricRating> = r_stmt
             .query_map(params![ci.id], |row| {
-                Ok(Rating {
+                Ok(MetricRating {
                     check_in_id: row.get(0)?,
                     metric_id: row.get(1)?,
                     value: row.get(2)?,
-                    note: row.get(3)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        result.push(CheckInWithRatings {
+        result.push(MetricCheckInWithRatings {
             check_in: ci,
             ratings,
         });
@@ -230,53 +224,54 @@ pub fn list_check_ins(
 }
 
 #[tauri::command]
-pub fn delete_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+pub fn delete_metric_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
     let conn = state.lock().unwrap();
-    let deleted = conn.execute("DELETE FROM check_ins WHERE id = ?1", params![id])?;
+    let deleted = conn.execute("DELETE FROM metric_check_ins WHERE id = ?1", params![id])?;
     if deleted == 0 {
-        return Err(AppError::NotFound(format!("check_in {id}")));
+        return Err(AppError::NotFound(format!("metric_check_in {id}")));
     }
     Ok(())
 }
 
 #[tauri::command]
-pub fn submit_work_check_in(
+pub fn submit_phase_check_in(
     state: State<'_, Mutex<Connection>>,
-    working: bool,
-    blocker: Option<String>,
-) -> Result<WorkCheckIn> {
-    let blocker_clean = trim_to_option(blocker);
-    if !working && blocker_clean.is_none() {
-        return Err(AppError::InvalidInput(
-            "blocker is required when not working".into(),
-        ));
-    }
+    phase: Phase,
+    phase_label: Option<String>,
+) -> Result<PhaseCheckIn> {
+    // A free-text label only makes sense for the "others" catch-all; ignore it
+    // for the canonical modes so invalid combinations can't be stored.
+    let phase_label_clean = if phase == Phase::Others {
+        trim_to_option(phase_label)
+    } else {
+        None
+    };
+
     let conn = state.lock().unwrap();
     let now = now_unix_secs();
     conn.execute(
-        "INSERT INTO work_check_ins (created_at, working, blocker) VALUES (?1, ?2, ?3)",
-        params![now, working as i64, blocker_clean],
+        "INSERT INTO phase_check_ins (created_at, phase, phase_label) VALUES (?1, ?2, ?3)",
+        params![now, phase.as_db(), phase_label_clean],
     )?;
-    Ok(WorkCheckIn {
+    Ok(PhaseCheckIn {
         id: conn.last_insert_rowid(),
         created_at: now,
-        working,
-        blocker: blocker_clean,
+        phase,
+        phase_label: phase_label_clean,
     })
 }
 
-fn read_latest_focus_check_in(conn: &Connection) -> Result<Option<FocusCheckIn>> {
+fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
     let mut stmt = conn.prepare(
-        "SELECT id, created_at, task, trying_now, next_check_in_minutes \
-         FROM focus_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
+        "SELECT id, created_at, task, next_check_in_minutes \
+         FROM task_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
     )?;
     match stmt.query_row([], |row| {
-        Ok(FocusCheckIn {
+        Ok(TaskCheckIn {
             id: row.get(0)?,
             created_at: row.get(1)?,
             task: row.get(2)?,
-            trying_now: row.get(3)?,
-            next_check_in_minutes: row.get(4)?,
+            next_check_in_minutes: row.get(3)?,
         })
     }) {
         Ok(check_in) => Ok(Some(check_in)),
@@ -286,34 +281,26 @@ fn read_latest_focus_check_in(conn: &Connection) -> Result<Option<FocusCheckIn>>
 }
 
 #[tauri::command]
-pub fn latest_focus_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<FocusCheckIn>> {
+pub fn latest_task_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<TaskCheckIn>> {
     let conn = state.lock().unwrap();
-    read_latest_focus_check_in(&conn)
+    read_latest_task_check_in(&conn)
 }
 
 #[tauri::command]
-pub fn submit_focus_check_in(
+pub fn submit_task_check_in(
     state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<FocusCheckInTimer>>,
+    timer: State<'_, Mutex<TaskCheckInTimer>>,
     still_working_previous_task: bool,
     current_work: Option<String>,
-    trying_now: String,
     next_check_in_minutes: Option<i64>,
-) -> Result<FocusCheckIn> {
-    let trying_now_clean = trying_now.trim().to_string();
-    if trying_now_clean.is_empty() {
-        return Err(AppError::InvalidInput(
-            "what you are trying now is required".into(),
-        ));
-    }
-
+) -> Result<TaskCheckIn> {
     let current_work_clean = trim_to_option(current_work);
 
     let minutes =
-        validate_focus_interval(next_check_in_minutes.unwrap_or(DEFAULT_FOCUS_CHECK_IN_MINUTES))?;
+        validate_task_interval(next_check_in_minutes.unwrap_or(DEFAULT_TASK_CHECK_IN_MINUTES))?;
     let conn = state.lock().unwrap();
     let task = if still_working_previous_task {
-        read_latest_focus_check_in(&conn)?
+        read_latest_task_check_in(&conn)?
             .map(|check_in| check_in.task)
             .ok_or_else(|| AppError::InvalidInput("there is no previous task to continue".into()))?
     } else {
@@ -327,10 +314,9 @@ pub fn submit_focus_check_in(
     let next_due_at = now + minutes * 60;
 
     conn.execute(
-        "INSERT INTO focus_check_ins \
-         (created_at, task, trying_now, next_check_in_minutes) \
-         VALUES (?1, ?2, ?3, ?4)",
-        params![now, task, trying_now_clean, minutes],
+        "INSERT INTO task_check_ins (created_at, task, next_check_in_minutes) \
+         VALUES (?1, ?2, ?3)",
+        params![now, task, minutes],
     )?;
     let id = conn.last_insert_rowid();
 
@@ -340,12 +326,30 @@ pub fn submit_focus_check_in(
         t.next_due_at = next_due_at;
     }
 
-    Ok(FocusCheckIn {
+    Ok(TaskCheckIn {
         id,
         created_at: now,
         task,
-        trying_now: trying_now_clean,
         next_check_in_minutes: minutes,
+    })
+}
+
+#[tauri::command]
+pub fn submit_brain_dump(state: State<'_, Mutex<Connection>>, text: String) -> Result<BrainDump> {
+    let text_clean = text.trim().to_string();
+    if text_clean.is_empty() {
+        return Err(AppError::InvalidInput("brain dump cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    let now = now_unix_secs();
+    conn.execute(
+        "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",
+        params![now, text_clean],
+    )?;
+    Ok(BrainDump {
+        id: conn.last_insert_rowid(),
+        created_at: now,
+        text: text_clean,
     })
 }
 
@@ -359,8 +363,8 @@ pub fn metric_series(
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT c.created_at, r.value \
-         FROM ratings r \
-         JOIN check_ins c ON c.id = r.check_in_id \
+         FROM metric_ratings r \
+         JOIN metric_check_ins c ON c.id = r.check_in_id \
          WHERE r.metric_id = ?1 AND c.created_at >= ?2 AND c.created_at < ?3 \
          ORDER BY c.created_at ASC",
     )?;

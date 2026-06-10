@@ -50,10 +50,10 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const DEFAULT_FOCUS_CHECK_IN_MINUTES: i64 = 15;
-const MIN_FOCUS_CHECK_IN_MINUTES: i64 = 5;
-const MAX_FOCUS_CHECK_IN_MINUTES: i64 = 30;
-const FOCUS_CHECK_IN_STEP_MINUTES: i64 = 5;
+const DEFAULT_TASK_CHECK_IN_MINUTES: i64 = 15;
+const MIN_TASK_CHECK_IN_MINUTES: i64 = 5;
+const MAX_TASK_CHECK_IN_MINUTES: i64 = 30;
+const TASK_CHECK_IN_STEP_MINUTES: i64 = 5;
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
@@ -86,7 +86,7 @@ fn log_client_event(message: String) {
     append_diagnostic_log(format!("client {message}"));
 }
 
-pub struct FocusCheckInTimer {
+pub struct TaskCheckInTimer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
 }
@@ -98,16 +98,16 @@ fn now_unix_secs() -> i64 {
         .unwrap_or(0)
 }
 
-fn valid_focus_interval(minutes: i64) -> bool {
-    (MIN_FOCUS_CHECK_IN_MINUTES..=MAX_FOCUS_CHECK_IN_MINUTES).contains(&minutes)
-        && minutes % FOCUS_CHECK_IN_STEP_MINUTES == 0
+fn valid_task_interval(minutes: i64) -> bool {
+    (MIN_TASK_CHECK_IN_MINUTES..=MAX_TASK_CHECK_IN_MINUTES).contains(&minutes)
+        && minutes % TASK_CHECK_IN_STEP_MINUTES == 0
 }
 
-fn load_focus_check_in_timer(conn: &rusqlite::Connection) -> FocusCheckInTimer {
+fn load_task_check_in_timer(conn: &rusqlite::Connection) -> TaskCheckInTimer {
     let now = now_unix_secs();
     let latest = conn
         .query_row(
-            "SELECT created_at, next_check_in_minutes FROM focus_check_ins \
+            "SELECT created_at, next_check_in_minutes FROM task_check_ins \
              ORDER BY created_at DESC, id DESC LIMIT 1",
             [],
             |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
@@ -116,36 +116,36 @@ fn load_focus_check_in_timer(conn: &rusqlite::Connection) -> FocusCheckInTimer {
 
     let (interval_minutes, next_due_at) = match latest {
         Some((created_at, minutes)) => {
-            let interval_minutes = if valid_focus_interval(minutes) {
+            let interval_minutes = if valid_task_interval(minutes) {
                 minutes
             } else {
-                DEFAULT_FOCUS_CHECK_IN_MINUTES
+                DEFAULT_TASK_CHECK_IN_MINUTES
             };
             (interval_minutes, created_at + interval_minutes * 60)
         }
         None => (
-            DEFAULT_FOCUS_CHECK_IN_MINUTES,
-            now + DEFAULT_FOCUS_CHECK_IN_MINUTES * 60,
+            DEFAULT_TASK_CHECK_IN_MINUTES,
+            now + DEFAULT_TASK_CHECK_IN_MINUTES * 60,
         ),
     };
 
     append_diagnostic_log(format!(
-        "focus_timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
+        "task_timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
         next_due_at <= now
     ));
 
-    FocusCheckInTimer {
+    TaskCheckInTimer {
         interval_minutes,
         next_due_at,
     }
 }
 
-fn start_focus_check_in_timer(app: tauri::AppHandle) {
+fn start_task_check_in_timer(app: tauri::AppHandle) {
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
         let now = now_unix_secs();
         let due = {
-            let timer = app.state::<Mutex<FocusCheckInTimer>>();
+            let timer = app.state::<Mutex<TaskCheckInTimer>>();
             let mut timer = timer.lock().unwrap();
             if now < timer.next_due_at {
                 false
@@ -153,7 +153,7 @@ fn start_focus_check_in_timer(app: tauri::AppHandle) {
                 let previous_due_at = timer.next_due_at;
                 timer.next_due_at = now + timer.interval_minutes * 60;
                 append_diagnostic_log(format!(
-                    "focus_timer_due now={now} previous_due_at={previous_due_at} interval_minutes={} next_due_at={}",
+                    "task_timer_due now={now} previous_due_at={previous_due_at} interval_minutes={} next_due_at={}",
                     timer.interval_minutes, timer.next_due_at
                 ));
                 true
@@ -163,9 +163,9 @@ fn start_focus_check_in_timer(app: tauri::AppHandle) {
         if due {
             let app_for_ui = app.clone();
             if let Err(e) = app.run_on_main_thread(move || {
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup/focus");
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup/task");
             }) {
-                append_diagnostic_log(format!("focus_timer_main_thread_dispatch_failed error={e}"));
+                append_diagnostic_log(format!("task_timer_main_thread_dispatch_failed error={e}"));
             }
         }
     });
@@ -336,10 +336,10 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
-            let focus_check_in_timer = load_focus_check_in_timer(&conn);
+            let task_check_in_timer = load_task_check_in_timer(&conn);
             app.manage(Mutex::new(conn));
-            app.manage(Mutex::new(focus_check_in_timer));
-            start_focus_check_in_timer(app.handle().clone());
+            app.manage(Mutex::new(task_check_in_timer));
+            start_task_check_in_timer(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
             // the check-in popups into non-activating NSPanels so they overlay
@@ -430,12 +430,13 @@ pub fn run() {
             commands::create_metric,
             commands::rename_metric,
             commands::set_metric_active,
-            commands::submit_check_in,
-            commands::submit_work_check_in,
-            commands::latest_focus_check_in,
-            commands::submit_focus_check_in,
-            commands::list_check_ins,
-            commands::delete_check_in,
+            commands::submit_metric_check_in,
+            commands::list_metric_check_ins,
+            commands::delete_metric_check_in,
+            commands::submit_phase_check_in,
+            commands::latest_task_check_in,
+            commands::submit_task_check_in,
+            commands::submit_brain_dump,
             commands::metric_series,
             log_client_event,
         ])
