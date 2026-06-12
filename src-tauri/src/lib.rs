@@ -413,6 +413,11 @@ pub fn run() {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             menu.append(&quit)?;
+            app.on_menu_event(|app, event| match event.id.as_ref() {
+                "open_dashboard" => show_window(app, "dashboard"),
+                "quit" => app.exit(0),
+                _ => {}
+            });
 
             let tooltip = if main_hotkey_ok {
                 format!("Nest — {HOTKEY_LABEL} for a check-in")
@@ -420,16 +425,27 @@ pub fn run() {
                 "Nest — hotkey unavailable".to_string()
             };
 
-            let _tray = TrayIconBuilder::with_id("main")
-                .icon(app.default_window_icon().unwrap().clone())
-                .tooltip(&tooltip)
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open_dashboard" => show_window(app, "dashboard"),
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
-                .build(app)?;
+            if let Some(tray) = app.tray_by_id("main") {
+                append_diagnostic_log(format!("tray_config_found tooltip={tooltip}"));
+                tray.set_tooltip(Some(&tooltip))?;
+                tray.set_title(Some("Nest"))?;
+                tray.set_menu(Some(menu))?;
+                let tray_lookup_ok = app.tray_by_id("main").is_some();
+                append_diagnostic_log(format!("tray_lookup id=main found={tray_lookup_ok}"));
+            } else {
+                append_diagnostic_log(format!("tray_build_start tooltip={tooltip}"));
+                let tray = TrayIconBuilder::with_id("main")
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .title("Nest")
+                    .tooltip(&tooltip)
+                    .menu(&menu)
+                    .build(app)?;
+                append_diagnostic_log("tray_build_ok id=main");
+                let tray_lookup_ok = app.tray_by_id("main").is_some();
+                append_diagnostic_log(format!("tray_lookup id=main found={tray_lookup_ok}"));
+                let tray_managed = app.manage(tray);
+                append_diagnostic_log(format!("tray_manage stored={tray_managed}"));
+            }
 
             Ok(())
         })

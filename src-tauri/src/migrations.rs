@@ -233,5 +233,47 @@ CREATE INDEX idx_phase_check_ins_created_at ON phase_check_ins(created_at);
 CREATE INDEX idx_phase_check_ins_phase_id ON phase_check_ins(phase_id);
 "#,
         ),
+        // Repair databases that had already advanced past the migration slot
+        // where brain_dumps was inserted during development.
+        M::up(
+            r#"
+CREATE TABLE IF NOT EXISTS brain_dumps (
+  id         INTEGER PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  text       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_brain_dumps_created_at ON brain_dumps(created_at);
+"#,
+        ),
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::migrations;
+    use rusqlite::Connection;
+
+    #[test]
+    fn repairs_database_missing_brain_dumps_after_mid_list_migration_insert() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "user_version", 10).unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let table_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'brain_dumps'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_count, 1);
+
+        conn.execute(
+            "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",
+            (123_i64, "works"),
+        )
+        .unwrap();
+    }
 }
