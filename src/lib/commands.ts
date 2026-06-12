@@ -1,13 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  CheckIn,
-  CheckInWithRatings,
-  FocusCheckIn,
+  BrainDump,
   Metric,
+  MetricCheckIn,
+  MetricCheckInWithRatings,
+  MetricRatingInput,
   Phase,
   PhaseCheckIn,
-  RatingInput,
   SeriesPoint,
+  TaskCheckIn,
 } from "./types";
 
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
@@ -42,22 +43,20 @@ export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
   return invoke("set_phase_active", { id, active });
 }
 
-export function submitCheckIn(
-  ratings: RatingInput[],
-  note: string | null,
-): Promise<CheckIn> {
-  void note;
+export function submitMetricCheckIn(
+  ratings: MetricRatingInput[],
+): Promise<MetricCheckIn> {
   return invoke("submit_metric_check_in", { ratings });
 }
 
-export function listCheckIns(
+export function listMetricCheckIns(
   from: number,
   to: number,
-): Promise<CheckInWithRatings[]> {
+): Promise<MetricCheckInWithRatings[]> {
   return invoke("list_metric_check_ins", { from, to });
 }
 
-export function deleteCheckIn(id: number): Promise<void> {
+export function deleteMetricCheckIn(id: number): Promise<void> {
   return invoke("delete_metric_check_in", { id });
 }
 
@@ -67,22 +66,28 @@ export function submitPhaseCheckIn(
   return invoke("submit_phase_check_in", { phaseId });
 }
 
-export function latestFocusCheckIn(): Promise<FocusCheckIn | null> {
+export function latestPhaseCheckIn(): Promise<PhaseCheckIn | null> {
+  return invoke("latest_phase_check_in");
+}
+
+export function latestTaskCheckIn(): Promise<TaskCheckIn | null> {
   return invoke("latest_task_check_in");
 }
 
-export function submitFocusCheckIn(
+export function submitTaskCheckIn(
   stillWorkingPreviousTask: boolean,
   currentWork: string | null,
-  tryingNow: string,
   nextCheckInMinutes: number | null,
-): Promise<FocusCheckIn> {
-  void tryingNow;
+): Promise<TaskCheckIn> {
   return invoke("submit_task_check_in", {
     stillWorkingPreviousTask,
     currentWork,
     nextCheckInMinutes,
   });
+}
+
+export function submitBrainDump(text: string): Promise<BrainDump> {
+  return invoke("submit_brain_dump", { text });
 }
 
 export function metricSeries(

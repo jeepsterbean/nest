@@ -356,6 +356,27 @@ pub fn submit_phase_check_in(
     })
 }
 
+#[tauri::command]
+pub fn latest_phase_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<PhaseCheckIn>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, created_at, phase_id, phase_label \
+         FROM phase_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
+    )?;
+    match stmt.query_row([], |row| {
+        Ok(PhaseCheckIn {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            phase_id: row.get(2)?,
+            phase_label: row.get(3)?,
+        })
+    }) {
+        Ok(check_in) => Ok(Some(check_in)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
 fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
     let mut stmt = conn.prepare(
         "SELECT id, created_at, task, next_check_in_minutes \

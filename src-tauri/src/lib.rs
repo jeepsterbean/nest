@@ -163,7 +163,7 @@ fn start_task_check_in_timer(app: tauri::AppHandle) {
         if due {
             let app_for_ui = app.clone();
             if let Err(e) = app.run_on_main_thread(move || {
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup/task");
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
                 append_diagnostic_log(format!("task_timer_main_thread_dispatch_failed error={e}"));
             }
@@ -446,6 +446,7 @@ pub fn run() {
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,
             commands::submit_phase_check_in,
+            commands::latest_phase_check_in,
             commands::latest_task_check_in,
             commands::submit_task_check_in,
             commands::submit_brain_dump,

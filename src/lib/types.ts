@@ -5,34 +5,24 @@ export type Metric = {
   inactiveSince: number | null;
 };
 
-export type Phase = {
-  id: number;
-  name: string;
-  createdAt: number;
-  inactiveSince: number | null;
-};
-
-export type CheckIn = {
+export type MetricCheckIn = {
   id: number;
   createdAt: number;
-  note: string | null;
 };
 
-export type Rating = {
+export type MetricRating = {
   checkInId: number;
   metricId: number;
   value: number;
-  note: string | null;
 };
 
-export type RatingInput = {
+export type MetricRatingInput = {
   metricId: number;
   value: number;
-  note?: string;
 };
 
-export type CheckInWithRatings = CheckIn & {
-  ratings: Rating[];
+export type MetricCheckInWithRatings = MetricCheckIn & {
+  ratings: MetricRating[];
 };
 
 export type SeriesPoint = {
@@ -42,6 +32,13 @@ export type SeriesPoint = {
 
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
 
+export type Phase = {
+  id: number;
+  name: string;
+  createdAt: number;
+  inactiveSince: number | null;
+};
+
 export type PhaseCheckIn = {
   id: number;
   createdAt: number;
@@ -49,10 +46,15 @@ export type PhaseCheckIn = {
   phaseLabel: string | null;
 };
 
-export type FocusCheckIn = {
+export type TaskCheckIn = {
   id: number;
   createdAt: number;
   task: string;
-  tryingNow: string;
   nextCheckInMinutes: number;
+};
+
+export type BrainDump = {
+  id: number;
+  createdAt: number;
+  text: string;
 };

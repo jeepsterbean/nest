@@ -3,8 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import {
   createPhase,
   createMetric,
-  deleteCheckIn,
-  listCheckIns,
+  deleteMetricCheckIn,
+  listMetricCheckIns,
   listMetrics,
   listPhases,
   renamePhase,
@@ -12,7 +12,7 @@ import {
   setPhaseActive,
   setMetricActive,
 } from "../lib/commands";
-import type { CheckInWithRatings, Metric, Phase } from "../lib/types";
+import type { MetricCheckInWithRatings, Metric, Phase } from "../lib/types";
 import "./Dashboard.css";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
@@ -20,7 +20,7 @@ const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 function Dashboard() {
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
-  const [checkIns, setCheckIns] = useState<CheckInWithRatings[]>([]);
+  const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [newMetricName, setNewMetricName] = useState("");
   const [newPhaseName, setNewPhaseName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -36,7 +36,7 @@ function Dashboard() {
       const [m, p, ci] = await Promise.all([
         listMetrics(true),
         listPhases(true),
-        listCheckIns(now - THIRTY_DAYS_SECONDS, now + 1),
+        listMetricCheckIns(now - THIRTY_DAYS_SECONDS, now + 1),
       ]);
       setMetrics(m);
       setPhases(p);
@@ -153,7 +153,7 @@ function Dashboard() {
 
   const onDeleteCheckIn = async (id: number) => {
     try {
-      await deleteCheckIn(id);
+      await deleteMetricCheckIn(id);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -335,14 +335,10 @@ function Dashboard() {
                           {metric?.name ?? `Metric ${r.metricId}`}
                         </span>
                         <span className="check-in__value">{r.value}</span>
-                        {r.note && (
-                          <span className="check-in__rating-note">{r.note}</span>
-                        )}
                       </li>
                     );
                   })}
                 </ul>
-                {ci.note && <p className="check-in__note">{ci.note}</p>}
               </li>
             ))}
           </ul>
