@@ -70,6 +70,13 @@ export function latestPhaseCheckIn(): Promise<PhaseCheckIn | null> {
   return invoke("latest_phase_check_in");
 }
 
+export function listPhaseCheckIns(
+  from: number,
+  to: number,
+): Promise<PhaseCheckIn[]> {
+  return invoke("list_phase_check_ins", { from, to });
+}
+
 export function latestTaskCheckIn(): Promise<TaskCheckIn | null> {
   return invoke("latest_task_check_in");
 }
@@ -88,6 +95,10 @@ export function submitTaskCheckIn(
 
 export function submitBrainDump(text: string): Promise<BrainDump> {
   return invoke("submit_brain_dump", { text });
+}
+
+export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
+  return invoke("list_brain_dumps", { from, to });
 }
 
 export function metricSeries(

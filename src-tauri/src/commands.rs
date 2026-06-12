@@ -377,6 +377,30 @@ pub fn latest_phase_check_in(state: State<'_, Mutex<Connection>>) -> Result<Opti
     }
 }
 
+#[tauri::command]
+pub fn list_phase_check_ins(
+    state: State<'_, Mutex<Connection>>,
+    from: i64,
+    to: i64,
+) -> Result<Vec<PhaseCheckIn>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
+         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![from, to], |row| {
+            Ok(PhaseCheckIn {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                phase_id: row.get(2)?,
+                phase_label: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
     let mut stmt = conn.prepare(
         "SELECT id, created_at, task, next_check_in_minutes \
@@ -467,6 +491,29 @@ pub fn submit_brain_dump(state: State<'_, Mutex<Connection>>, text: String) -> R
         created_at: now,
         text: text_clean,
     })
+}
+
+#[tauri::command]
+pub fn list_brain_dumps(
+    state: State<'_, Mutex<Connection>>,
+    from: i64,
+    to: i64,
+) -> Result<Vec<BrainDump>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, created_at, text FROM brain_dumps \
+         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![from, to], |row| {
+            Ok(BrainDump {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                text: row.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }
 
 #[tauri::command]

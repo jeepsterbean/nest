@@ -463,9 +463,11 @@ pub fn run() {
             commands::delete_metric_check_in,
             commands::submit_phase_check_in,
             commands::latest_phase_check_in,
+            commands::list_phase_check_ins,
             commands::latest_task_check_in,
             commands::submit_task_check_in,
             commands::submit_brain_dump,
+            commands::list_brain_dumps,
             commands::metric_series,
             log_client_event,
         ])
