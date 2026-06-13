@@ -59,8 +59,14 @@ export type Task = {
   status: TaskStatus;
   createdAt: number;
   updatedAt: number;
-  completedAt: number | null;
-  cancelledAt: number | null;
+};
+
+export type TaskStatusEvent = {
+  id: number;
+  taskId: number;
+  fromStatus: TaskStatus | null;
+  toStatus: TaskStatus;
+  createdAt: number;
 };
 
 export type TaskCheckIn = {

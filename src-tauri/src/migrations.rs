@@ -283,12 +283,67 @@ CREATE TABLE tasks (
   title        TEXT NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
   created_at   INTEGER NOT NULL,
-  updated_at   INTEGER NOT NULL,
-  completed_at INTEGER,
-  cancelled_at INTEGER
+  updated_at   INTEGER NOT NULL
+);
+
+CREATE TABLE task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
 );
 
 CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE INDEX idx_task_status_events_task_id_created_at ON task_status_events(task_id, created_at DESC, id DESC);
+"#,
+        ),
+        // Backfill the status-event stream if a development database already
+        // created tasks before status events existed.
+        M::up(
+            r#"
+CREATE TABLE IF NOT EXISTS task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_status_events_task_id_created_at
+ON task_status_events(task_id, created_at DESC, id DESC);
+
+INSERT INTO task_status_events (task_id, from_status, to_status, created_at)
+SELECT t.id, NULL, t.status, t.created_at
+FROM tasks t
+WHERE NOT EXISTS (
+  SELECT 1 FROM task_status_events e WHERE e.task_id = t.id
+);
+"#,
+        ),
+        M::up(
+            r#"
+PRAGMA foreign_keys = OFF;
+
+DROP INDEX IF EXISTS idx_tasks_status_updated_at;
+
+CREATE TABLE tasks_compacted (
+  id         INTEGER PRIMARY KEY,
+  title      TEXT NOT NULL,
+  status     TEXT NOT NULL CHECK (status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+INSERT INTO tasks_compacted (id, title, status, created_at, updated_at)
+SELECT id, title, status, created_at, updated_at FROM tasks;
+
+DROP TABLE tasks;
+ALTER TABLE tasks_compacted RENAME TO tasks;
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+
+PRAGMA foreign_keys = ON;
 "#,
         ),
     ])
@@ -368,5 +423,33 @@ CREATE TABLE task_check_ins (
             )
             .unwrap();
         assert_eq!(dropped_column_count, 0);
+    }
+
+    #[test]
+    fn task_status_events_are_created_without_terminal_timestamp_columns() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let status_event_table_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master \
+                 WHERE type = 'table' AND name = 'task_status_events'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(status_event_table_count, 1);
+
+        let terminal_timestamp_columns: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('tasks') \
+                 WHERE name IN ('completed_at', 'cancelled_at')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(terminal_timestamp_columns, 0);
     }
 }

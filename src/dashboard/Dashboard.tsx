@@ -822,14 +822,12 @@ function Dashboard() {
                     <th>Status</th>
                     <th>Created</th>
                     <th>Updated</th>
-                    <th>Completed</th>
-                    <th>Cancelled</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tasks.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="task-table__empty">
+                      <td colSpan={4} className="task-table__empty">
                         Add a task from the Kanban view to start the board.
                       </td>
                     </tr>
@@ -848,8 +846,6 @@ function Dashboard() {
                           <td>{renderStatusSelect(task)}</td>
                           <td>{formatDate(task.createdAt)}</td>
                           <td>{formatDate(task.updatedAt)}</td>
-                          <td>{formatDate(task.completedAt)}</td>
-                          <td>{formatDate(task.cancelledAt)}</td>
                         </tr>
                       ))
                   )}

@@ -80,8 +80,16 @@ pub struct Task {
     pub status: String,
     pub created_at: i64,
     pub updated_at: i64,
-    pub completed_at: Option<i64>,
-    pub cancelled_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskStatusEvent {
+    pub id: i64,
+    pub task_id: i64,
+    pub from_status: Option<String>,
+    pub to_status: String,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]

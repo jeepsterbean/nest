@@ -5,7 +5,7 @@ use tauri::State;
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, Task, TaskCheckIn,
+    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, Task, TaskCheckIn, TaskStatusEvent,
 };
 use crate::CheckInTimer;
 
@@ -46,8 +46,7 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, status, created_at, updated_at, completed_at, cancelled_at \
-         FROM tasks WHERE id = ?1",
+        "SELECT id, title, status, created_at, updated_at FROM tasks WHERE id = ?1",
         params![id],
         |row| {
             Ok(Task {
@@ -56,8 +55,6 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 status: row.get(2)?,
                 created_at: row.get(3)?,
                 updated_at: row.get(4)?,
-                completed_at: row.get(5)?,
-                cancelled_at: row.get(6)?,
             })
         },
     )
@@ -100,7 +97,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, status, created_at, updated_at, completed_at, cancelled_at \
+        "SELECT id, title, status, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -111,11 +108,42 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 status: row.get(2)?,
                 created_at: row.get(3)?,
                 updated_at: row.get(4)?,
-                completed_at: row.get(5)?,
-                cancelled_at: row.get(6)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn list_task_status_events(
+    state: State<'_, Mutex<Connection>>,
+    task_id: Option<i64>,
+) -> Result<Vec<TaskStatusEvent>> {
+    let conn = state.lock().unwrap();
+    let sql = if task_id.is_some() {
+        "SELECT id, task_id, from_status, to_status, created_at \
+         FROM task_status_events WHERE task_id = ?1 ORDER BY created_at ASC, id ASC"
+    } else {
+        "SELECT id, task_id, from_status, to_status, created_at \
+         FROM task_status_events ORDER BY created_at ASC, id ASC"
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let map_row = |row: &rusqlite::Row<'_>| {
+        Ok(TaskStatusEvent {
+            id: row.get(0)?,
+            task_id: row.get(1)?,
+            from_status: row.get(2)?,
+            to_status: row.get(3)?,
+            created_at: row.get(4)?,
+        })
+    };
+    let rows = if let Some(task_id) = task_id {
+        stmt.query_map(params![task_id], map_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    } else {
+        stmt.query_map([], map_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
     Ok(rows)
 }
 
@@ -130,24 +158,21 @@ pub fn create_task(
         return Err(AppError::InvalidInput("task title cannot be empty".into()));
     }
     let status = validate_task_status(status.as_str())?;
-    let conn = state.lock().unwrap();
+    let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
-    let completed_at = if status == "completed" {
-        Some(now)
-    } else {
-        None
-    };
-    let cancelled_at = if status == "cancelled" {
-        Some(now)
-    } else {
-        None
-    };
-    conn.execute(
-        "INSERT INTO tasks (title, status, created_at, updated_at, completed_at, cancelled_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![title, status, now, now, completed_at, cancelled_at],
+    let tx = conn.transaction()?;
+    tx.execute(
+        "INSERT INTO tasks (title, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+        params![title, status, now, now],
     )?;
-    fetch_task(&conn, conn.last_insert_rowid())
+    let id = tx.last_insert_rowid();
+    tx.execute(
+        "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+         VALUES (?1, NULL, ?2, ?3)",
+        params![id, status, now],
+    )?;
+    tx.commit()?;
+    fetch_task(&conn, id)
 }
 
 #[tauri::command]
@@ -174,27 +199,32 @@ pub fn set_task_status(
     status: String,
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
-    let conn = state.lock().unwrap();
+    let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
-    let completed_at = if status == "completed" {
-        Some(now)
-    } else {
-        None
+    let tx = conn.transaction()?;
+    let current_status: String = match tx.query_row(
+        "SELECT status FROM tasks WHERE id = ?1",
+        params![id],
+        |row| row.get(0),
+    ) {
+        Ok(status) => status,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(AppError::NotFound(format!("task {id}")));
+        }
+        Err(e) => return Err(e.into()),
     };
-    let cancelled_at = if status == "cancelled" {
-        Some(now)
-    } else {
-        None
-    };
-    let updated = conn.execute(
-        "UPDATE tasks \
-         SET status = ?1, updated_at = ?2, completed_at = ?3, cancelled_at = ?4 \
-         WHERE id = ?5",
-        params![status, now, completed_at, cancelled_at, id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("task {id}")));
+    if current_status != status {
+        tx.execute(
+            "UPDATE tasks SET status = ?1, updated_at = ?2 WHERE id = ?3",
+            params![status, now, id],
+        )?;
+        tx.execute(
+            "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+             VALUES (?1, ?2, ?3, ?4)",
+            params![id, current_status, status, now],
+        )?;
     }
+    tx.commit()?;
     fetch_task(&conn, id)
 }
 

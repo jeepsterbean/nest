@@ -464,6 +464,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_metrics,
             commands::list_tasks,
+            commands::list_task_status_events,
             commands::create_task,
             commands::rename_task,
             commands::set_task_status,
