@@ -5,7 +5,7 @@ use tauri::State;
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, TaskCheckIn,
+    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, Task, TaskCheckIn,
 };
 use crate::CheckInTimer;
 
@@ -24,6 +24,15 @@ fn trim_to_option(s: Option<String>) -> Option<String> {
     s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
+fn validate_task_status(status: &str) -> Result<&str> {
+    match status {
+        "backlog" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
+        _ => Err(AppError::InvalidInput(format!(
+            "invalid task status {status}"
+        ))),
+    }
+}
+
 fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     if !(MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
         || minutes % CHECK_IN_STEP_MINUTES != 0
@@ -33,6 +42,26 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
         ));
     }
     Ok(minutes)
+}
+
+fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
+    conn.query_row(
+        "SELECT id, title, status, created_at, updated_at, completed_at, cancelled_at \
+         FROM tasks WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(Task {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                status: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+                completed_at: row.get(5)?,
+                cancelled_at: row.get(6)?,
+            })
+        },
+    )
+    .map_err(Into::into)
 }
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
@@ -65,6 +94,108 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
         },
     )
     .map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, title, status, created_at, updated_at, completed_at, cancelled_at \
+         FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(Task {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                status: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+                completed_at: row.get(5)?,
+                cancelled_at: row.get(6)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn create_task(
+    state: State<'_, Mutex<Connection>>,
+    title: String,
+    status: String,
+) -> Result<Task> {
+    let title = title.trim().to_string();
+    if title.is_empty() {
+        return Err(AppError::InvalidInput("task title cannot be empty".into()));
+    }
+    let status = validate_task_status(status.as_str())?;
+    let conn = state.lock().unwrap();
+    let now = now_unix_secs();
+    let completed_at = if status == "completed" {
+        Some(now)
+    } else {
+        None
+    };
+    let cancelled_at = if status == "cancelled" {
+        Some(now)
+    } else {
+        None
+    };
+    conn.execute(
+        "INSERT INTO tasks (title, status, created_at, updated_at, completed_at, cancelled_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![title, status, now, now, completed_at, cancelled_at],
+    )?;
+    fetch_task(&conn, conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn rename_task(state: State<'_, Mutex<Connection>>, id: i64, title: String) -> Result<Task> {
+    let title = title.trim().to_string();
+    if title.is_empty() {
+        return Err(AppError::InvalidInput("task title cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE tasks SET title = ?1, updated_at = ?2 WHERE id = ?3",
+        params![title, now_unix_secs(), id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_status(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    status: String,
+) -> Result<Task> {
+    let status = validate_task_status(status.as_str())?;
+    let conn = state.lock().unwrap();
+    let now = now_unix_secs();
+    let completed_at = if status == "completed" {
+        Some(now)
+    } else {
+        None
+    };
+    let cancelled_at = if status == "cancelled" {
+        Some(now)
+    } else {
+        None
+    };
+    let updated = conn.execute(
+        "UPDATE tasks \
+         SET status = ?1, updated_at = ?2, completed_at = ?3, cancelled_at = ?4 \
+         WHERE id = ?5",
+        params![status, now, completed_at, cancelled_at, id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    fetch_task(&conn, id)
 }
 
 #[tauri::command]
@@ -459,9 +590,7 @@ pub fn submit_task_check_in(
 }
 
 #[tauri::command]
-pub fn get_check_in_schedule(
-    timer: State<'_, Mutex<CheckInTimer>>,
-) -> Result<CheckInSchedule> {
+pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<CheckInSchedule> {
     let timer = timer.lock().unwrap();
     Ok(CheckInSchedule {
         interval_minutes: timer.interval_minutes,

@@ -175,7 +175,9 @@ fn start_check_in_timer(app: tauri::AppHandle) {
             if let Err(e) = app.run_on_main_thread(move || {
                 summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
-                append_diagnostic_log(format!("check_in_timer_main_thread_dispatch_failed error={e}"));
+                append_diagnostic_log(format!(
+                    "check_in_timer_main_thread_dispatch_failed error={e}"
+                ));
             }
         }
     });
@@ -461,6 +463,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_metrics,
+            commands::list_tasks,
+            commands::create_task,
+            commands::rename_task,
+            commands::set_task_status,
             commands::create_metric,
             commands::rename_metric,
             commands::set_metric_active,

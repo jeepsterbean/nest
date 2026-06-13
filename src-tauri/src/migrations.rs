@@ -276,6 +276,21 @@ SELECT
 ALTER TABLE task_check_ins DROP COLUMN next_check_in_minutes;
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE tasks (
+  id           INTEGER PRIMARY KEY,
+  title        TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  completed_at INTEGER,
+  cancelled_at INTEGER
+);
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+"#,
+        ),
     ])
 }
 

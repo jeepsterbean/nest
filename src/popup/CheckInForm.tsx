@@ -7,14 +7,14 @@ import {
 import {
   getCheckInSchedule,
   latestPhaseCheckIn,
-  latestTaskCheckIn,
   listMetrics,
   listPhases,
+  listTasks,
   scheduleNextCheckIn,
+  setTaskStatus,
   submitBrainDump,
   submitMetricCheckIn,
   submitPhaseCheckIn,
-  submitTaskCheckIn,
 } from "../lib/commands";
 import type {
   CheckInSchedule,
@@ -23,7 +23,7 @@ import type {
   Phase,
   PhaseCheckIn,
   RatingValue,
-  TaskCheckIn,
+  Task,
 } from "../lib/types";
 import "./CheckInForm.css";
 
@@ -32,17 +32,18 @@ const MIN_INTERVAL_MINUTES = 5;
 const MAX_INTERVAL_MINUTES = 30;
 const INTERVAL_STEP_MINUTES = 5;
 
-type Step = "inputs" | "braindump";
+type Step = "inputs" | "metrics";
 type LoadState = {
-  latestTask: TaskCheckIn | null;
   latestPhase: PhaseCheckIn | null;
   phases: Phase[];
   metrics: Metric[];
+  tasks: Task[];
   schedule: CheckInSchedule;
 };
 
 const normalizeInterval = (minutes: number) => {
-  const stepped = Math.round(minutes / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES;
+  const stepped =
+    Math.round(minutes / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES;
   return Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, stepped));
 };
 
@@ -52,7 +53,6 @@ const shiftInterval = (minutes: number, direction: -1 | 1) =>
 function CheckInForm() {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>("inputs");
-  const [taskText, setTaskText] = useState("");
   const [nextCheckInMinutes, setNextCheckInMinutes] = useState(
     DEFAULT_INTERVAL_MINUTES,
   );
@@ -67,16 +67,15 @@ function CheckInForm() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      latestTaskCheckIn(),
       latestPhaseCheckIn(),
       listPhases(false),
       listMetrics(false),
+      listTasks(),
       getCheckInSchedule(),
     ])
-      .then(([latestTask, latestPhase, phases, metrics, schedule]) => {
+      .then(([latestPhase, phases, metrics, tasks, schedule]) => {
         if (cancelled) return;
-        setLoaded({ latestTask, latestPhase, phases, metrics, schedule });
-        setTaskText(latestTask?.task ?? "");
+        setLoaded({ latestPhase, phases, metrics, tasks, schedule });
         setNextCheckInMinutes(normalizeInterval(schedule.intervalMinutes));
         setSelectedPhaseId(latestPhase?.phaseId ?? null);
         setRatings(
@@ -93,7 +92,7 @@ function CheckInForm() {
   }, []);
 
   useEffect(() => {
-    if (step === "braindump") {
+    if (step === "inputs") {
       requestAnimationFrame(() => brainDumpRef.current?.focus());
     }
   }, [step]);
@@ -116,6 +115,27 @@ function CheckInForm() {
     await getCurrentWebviewWindow().hide();
   };
 
+  const updateTaskStatus = async (
+    task: Task,
+    status: "paused" | "completed",
+  ) => {
+    if (!loaded || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await setTaskStatus(task.id, status);
+      setLoaded({
+        ...loaded,
+        tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
+      });
+      await emit("check-in-submitted");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitPrimary = async () => {
     if (!loaded || submitting || step !== "inputs") return;
     setSubmitting(true);
@@ -125,9 +145,9 @@ function CheckInForm() {
       // of this task. Reschedule on every submit so checking in resets the clock.
       await scheduleNextCheckIn(nextCheckInMinutes);
 
-      const trimmedTask = taskText.trim();
-      if (trimmedTask) {
-        await submitTaskCheckIn(false, trimmedTask);
+      const dump = brainDumpText.trim();
+      if (dump) {
+        await submitBrainDump(dump);
       }
 
       if (
@@ -137,6 +157,20 @@ function CheckInForm() {
         await submitPhaseCheckIn(selectedPhaseId);
       }
 
+      await emit("check-in-submitted");
+      setStep("metrics");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitMetricsStep = async () => {
+    if (!loaded || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
       const ratingsInput: MetricRatingInput[] = Object.entries(ratings)
         .filter(([, value]) => value !== null)
         .map(([metricId, value]) => ({
@@ -145,25 +179,6 @@ function CheckInForm() {
         }));
       if (ratingsInput.length > 0) {
         await submitMetricCheckIn(ratingsInput);
-      }
-
-      await emit("check-in-submitted");
-      setStep("braindump");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const submitBrainDumpStep = async () => {
-    if (submitting) return;
-    const text = brainDumpText.trim();
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (text) {
-        await submitBrainDump(text);
         await emit("check-in-submitted");
       }
       await getCurrentWebviewWindow().hide();
@@ -178,7 +193,7 @@ function CheckInForm() {
     if (step === "inputs") {
       submitPrimary();
     } else {
-      submitBrainDumpStep();
+      submitMetricsStep();
     }
   };
 
@@ -190,12 +205,14 @@ function CheckInForm() {
     );
   }
 
+  const activeTasks = loaded.tasks.filter((task) => task.status === "active");
+
   return (
     <form className="combined-checkin" onSubmit={onSubmit}>
       <div className="combined-checkin__scroll">
         <section className="combined-section">
           <div className="combined-section__head">
-            <span className="combined-section__kicker">Task</span>
+            <span className="combined-section__kicker">Brain dump</span>
             <div
               className="combined-interval"
               tabIndex={0}
@@ -227,135 +244,163 @@ function CheckInForm() {
             </div>
           </div>
           <textarea
+            ref={brainDumpRef}
             className="combined-input"
-            value={taskText}
-            onChange={(e) => setTaskText(e.target.value)}
-            placeholder="Current task"
-            rows={2}
+            value={brainDumpText}
+            onChange={(e) => setBrainDumpText(e.target.value)}
+            placeholder="Brain dump"
+            rows={3}
           />
         </section>
 
-        <section className="combined-section">
-          <div className="combined-section__head">
-            <span className="combined-section__kicker">Phase</span>
-          </div>
-          {loaded.phases.length === 0 ? (
-            <div className="combined-empty">
-              <span>No active phases.</span>
-              <button type="button" onClick={openDashboard}>
-                Open Dashboard
-              </button>
-            </div>
-          ) : (
-            <div
-              className="phase-grid"
-              role="radiogroup"
-              aria-label="Current phase"
-            >
-              {loaded.phases.map((phase) => (
-                <button
-                  key={phase.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedPhaseId === phase.id}
-                  className={`phase-choice${
-                    selectedPhaseId === phase.id ? " phase-choice--active" : ""
-                  }`}
-                  onClick={() =>
-                    setSelectedPhaseId((current) =>
-                      current === phase.id ? null : phase.id,
-                    )
-                  }
-                >
-                  {phase.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="combined-section combined-section--panel">
-          {step === "inputs" ? (
-            <>
+        {step === "inputs" ? (
+          <>
+            <section className="combined-section">
               <div className="combined-section__head">
-                <span className="combined-section__kicker">Metrics</span>
+                <span className="combined-section__kicker">Active tasks</span>
+                <button
+                  type="button"
+                  className="combined-link"
+                  onClick={openDashboard}
+                >
+                  Dashboard
+                </button>
               </div>
-              {loaded.metrics.length === 0 ? (
+              {activeTasks.length === 0 ? (
                 <div className="combined-empty">
-                  <span>No active metrics.</span>
+                  <span>No active tasks.</span>
                   <button type="button" onClick={openDashboard}>
                     Open Dashboard
                   </button>
                 </div>
               ) : (
-                <div className="combined-metrics">
-                  {loaded.metrics.map((metric, idx) => {
-                    const rating = ratings[metric.id] ?? null;
-                    return (
-                      <div className="metric-row" key={metric.id}>
-                        <span className="metric-row__name">{metric.name}</span>
-                        <div
-                          ref={(el) => {
-                            rowRefs.current[idx] = el;
-                          }}
-                          className="metric-row__buttons"
-                          role="radiogroup"
-                          aria-label={metric.name}
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            const key = e.key.toLowerCase();
-                            if (key >= "1" && key <= "5") {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setRating(metric.id, Number(key) as RatingValue);
-                              focusAfterRow(idx);
-                            }
-                          }}
+                <div className="active-task-list">
+                  {activeTasks.map((task) => (
+                    <div className="active-task-row" key={task.id}>
+                      <span>{task.title}</span>
+                      <div className="active-task-row__actions">
+                        <button
+                          type="button"
+                          onClick={() => updateTaskStatus(task, "paused")}
+                          disabled={submitting}
                         >
-                          {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => (
-                            <button
-                              key={value}
-                              type="button"
-                              role="radio"
-                              aria-checked={rating === value}
-                              className={`metric-rating${
-                                rating === value ? " metric-rating--active" : ""
-                              }`}
-                              onClick={() => setRating(metric.id, value)}
-                              tabIndex={-1}
-                            >
-                              {value}
-                            </button>
-                          ))}
-                        </div>
+                          Pause
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateTaskStatus(task, "completed")}
+                          disabled={submitting}
+                        >
+                          Complete
+                        </button>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
-            </>
-          ) : (
-            <>
+            </section>
+
+            <section className="combined-section">
               <div className="combined-section__head">
-                <span className="combined-section__kicker">Brain dump</span>
+                <span className="combined-section__kicker">Phase</span>
               </div>
-              <textarea
-                ref={brainDumpRef}
-                className="combined-input combined-input--dump"
-                value={brainDumpText}
-                onChange={(e) => setBrainDumpText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    submitBrainDumpStep();
-                  }
-                }}
-                placeholder="Optional notes, loose thoughts, blockers"
-                rows={7}
-              />
-            </>
-          )}
-        </section>
+              {loaded.phases.length === 0 ? (
+                <div className="combined-empty">
+                  <span>No active phases.</span>
+                  <button type="button" onClick={openDashboard}>
+                    Open Dashboard
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="phase-grid"
+                  role="radiogroup"
+                  aria-label="Current phase"
+                >
+                  {loaded.phases.map((phase) => (
+                    <button
+                      key={phase.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedPhaseId === phase.id}
+                      className={`phase-choice${
+                        selectedPhaseId === phase.id
+                          ? " phase-choice--active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setSelectedPhaseId((current) =>
+                          current === phase.id ? null : phase.id,
+                        )
+                      }
+                    >
+                      {phase.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <section className="combined-section combined-section--panel">
+            <div className="combined-section__head">
+              <span className="combined-section__kicker">Metrics</span>
+            </div>
+            {loaded.metrics.length === 0 ? (
+              <div className="combined-empty">
+                <span>No active metrics.</span>
+                <button type="button" onClick={openDashboard}>
+                  Open Dashboard
+                </button>
+              </div>
+            ) : (
+              <div className="combined-metrics">
+                {loaded.metrics.map((metric, idx) => {
+                  const rating = ratings[metric.id] ?? null;
+                  return (
+                    <div className="metric-row" key={metric.id}>
+                      <span className="metric-row__name">{metric.name}</span>
+                      <div
+                        ref={(el) => {
+                          rowRefs.current[idx] = el;
+                        }}
+                        className="metric-row__buttons"
+                        role="radiogroup"
+                        aria-label={metric.name}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          const key = e.key.toLowerCase();
+                          if (key >= "1" && key <= "5") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRating(metric.id, Number(key) as RatingValue);
+                            focusAfterRow(idx);
+                          }
+                        }}
+                      >
+                        {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={rating === value}
+                            className={`metric-rating${
+                              rating === value ? " metric-rating--active" : ""
+                            }`}
+                            onClick={() => setRating(metric.id, value)}
+                            tabIndex={-1}
+                          >
+                            {value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {error && <div className="combined-checkin__error">{error}</div>}
@@ -363,9 +408,9 @@ function CheckInForm() {
         {submitting
           ? "Saving..."
           : step === "inputs"
-            ? "Submit"
-            : brainDumpText.trim()
-              ? "Save dump"
+            ? "Continue"
+            : Object.values(ratings).some((value) => value !== null)
+              ? "Submit"
               : "Skip"}
       </button>
     </form>

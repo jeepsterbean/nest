@@ -46,6 +46,23 @@ export type PhaseCheckIn = {
   phaseLabel: string | null;
 };
 
+export type TaskStatus =
+  | "backlog"
+  | "active"
+  | "paused"
+  | "completed"
+  | "cancelled";
+
+export type Task = {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  createdAt: number;
+  updatedAt: number;
+  completedAt: number | null;
+  cancelledAt: number | null;
+};
+
 export type TaskCheckIn = {
   id: number;
   createdAt: number;

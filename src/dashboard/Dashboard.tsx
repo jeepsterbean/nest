@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  createTask,
   createMetric,
   createPhase,
   deleteMetricCheckIn,
@@ -10,10 +11,13 @@ import {
   listMetrics,
   listPhaseCheckIns,
   listPhases,
+  listTasks,
   renameMetric,
   renamePhase,
+  renameTask,
   setMetricActive,
   setPhaseActive,
+  setTaskStatus,
 } from "../lib/commands";
 import type {
   BrainDump,
@@ -21,11 +25,28 @@ import type {
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
+  Task,
+  TaskStatus,
 } from "../lib/types";
 import "./Dashboard.css";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
+const TASK_STATUSES: TaskStatus[] = [
+  "backlog",
+  "active",
+  "paused",
+  "completed",
+  "cancelled",
+];
+
+const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  backlog: "Backlog",
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
 
 type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
@@ -210,6 +231,19 @@ function Switch({
 }
 
 function Dashboard() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskView, setTaskView] = useState<"kanban" | "table">("kanban");
+  const [newTaskTitles, setNewTaskTitles] = useState<
+    Record<TaskStatus, string>
+  >({
+    backlog: "",
+    active: "",
+    paused: "",
+    completed: "",
+    cancelled: "",
+  });
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState("");
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
@@ -230,7 +264,8 @@ function Dashboard() {
       const now = Math.floor(Date.now() / 1000);
       const from = now - THIRTY_DAYS_SECONDS;
       const to = now + 1;
-      const [m, p, ci, pci, bd, lp] = await Promise.all([
+      const [t, m, p, ci, pci, bd, lp] = await Promise.all([
+        listTasks(),
         listMetrics(true),
         listPhases(true),
         listMetricCheckIns(from, to),
@@ -238,6 +273,7 @@ function Dashboard() {
         listBrainDumps(from, to),
         latestPhaseCheckIn(),
       ]);
+      setTasks(t);
       setMetrics(m);
       setPhases(p);
       setCheckIns(ci);
@@ -248,6 +284,50 @@ function Dashboard() {
       setError(String(e));
     } finally {
       setLoaded(true);
+    }
+  };
+
+  const onCreateTask = async (e: React.FormEvent, status: TaskStatus) => {
+    e.preventDefault();
+    const title = newTaskTitles[status].trim();
+    if (!title) return;
+    try {
+      await createTask(title, status);
+      setNewTaskTitles((prev) => ({ ...prev, [status]: "" }));
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const startTaskEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+  };
+
+  const commitTaskEdit = async () => {
+    if (editingTaskId === null) return;
+    const title = editingTaskTitle.trim();
+    const id = editingTaskId;
+    setEditingTaskId(null);
+    if (!title) return;
+    const current = tasks.find((t) => t.id === id);
+    if (current && current.title === title) return;
+    try {
+      await renameTask(id, title);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onSetTaskStatus = async (task: Task, status: TaskStatus) => {
+    if (task.status === status) return;
+    try {
+      await setTaskStatus(task.id, status);
+      await reload();
+    } catch (e) {
+      setError(String(e));
     }
   };
 
@@ -366,6 +446,24 @@ function Dashboard() {
   const metricById = (id: number) => metrics.find((m) => m.id === id);
   const phaseById = (id: number) => phases.find((p) => p.id === id);
 
+  const tasksByStatus = useMemo(() => {
+    const grouped: Record<TaskStatus, Task[]> = {
+      backlog: [],
+      active: [],
+      paused: [],
+      completed: [],
+      cancelled: [],
+    };
+    for (const task of tasks) grouped[task.status].push(task);
+    for (const status of TASK_STATUSES) {
+      grouped[status].sort(
+        (a, b) =>
+          b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id - a.id,
+      );
+    }
+    return grouped;
+  }, [tasks]);
+
   const sortedMetrics = useMemo(
     () =>
       [...metrics].sort(
@@ -454,6 +552,57 @@ function Dashboard() {
       latestPhase.phaseLabel ??
       `Phase ${latestPhase.phaseId}`)
     : null;
+
+  const formatDate = (ts: number | null) =>
+    ts === null
+      ? "—"
+      : new Date(ts * 1000).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+
+  const renderTaskTitle = (task: Task) =>
+    editingTaskId === task.id ? (
+      <input
+        type="text"
+        className="rename-input"
+        value={editingTaskTitle}
+        autoFocus
+        onChange={(e) => setEditingTaskTitle(e.target.value)}
+        onBlur={commitTaskEdit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitTaskEdit();
+          }
+          if (e.key === "Escape") setEditingTaskId(null);
+        }}
+      />
+    ) : (
+      <button
+        type="button"
+        className="task-title"
+        onClick={() => startTaskEdit(task)}
+        title="Click to rename"
+      >
+        {task.title}
+      </button>
+    );
+
+  const renderStatusSelect = (task: Task) => (
+    <select
+      className="task-status-select"
+      value={task.status}
+      onChange={(e) => onSetTaskStatus(task, e.target.value as TaskStatus)}
+      aria-label={`Status for ${task.title}`}
+    >
+      {TASK_STATUSES.map((status) => (
+        <option key={status} value={status}>
+          {TASK_STATUS_LABEL[status]}
+        </option>
+      ))}
+    </select>
+  );
 
   const renderEvent = (ev: TimelineEvent) => {
     switch (ev.kind) {
@@ -577,6 +726,138 @@ function Dashboard() {
             </button>
           </div>
         )}
+
+        <section className="dash-section dash-section--tasks">
+          <header className="dash-section__head">
+            <div className="dash-section__title">
+              <h2>Tasks</h2>
+              <span className="dash-section__sub">
+                Move work through backlog, active, paused and done
+              </span>
+            </div>
+            <div className="view-toggle" role="group" aria-label="Task view">
+              <button
+                type="button"
+                className={
+                  taskView === "kanban"
+                    ? "view-toggle__btn view-toggle__btn--active"
+                    : "view-toggle__btn"
+                }
+                onClick={() => setTaskView("kanban")}
+              >
+                Kanban
+              </button>
+              <button
+                type="button"
+                className={
+                  taskView === "table"
+                    ? "view-toggle__btn view-toggle__btn--active"
+                    : "view-toggle__btn"
+                }
+                onClick={() => setTaskView("table")}
+              >
+                Table
+              </button>
+            </div>
+          </header>
+
+          {taskView === "kanban" ? (
+            <div className="task-board">
+              {TASK_STATUSES.map((status) => (
+                <section className="task-column" key={status}>
+                  <header className="task-column__head">
+                    <h3>{TASK_STATUS_LABEL[status]}</h3>
+                    <span>{tasksByStatus[status].length}</span>
+                  </header>
+                  <form
+                    className="task-create"
+                    onSubmit={(e) => onCreateTask(e, status)}
+                  >
+                    <input
+                      type="text"
+                      placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
+                      aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
+                      value={newTaskTitles[status]}
+                      onChange={(e) =>
+                        setNewTaskTitles((prev) => ({
+                          ...prev,
+                          [status]: e.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newTaskTitles[status].trim()}
+                    >
+                      Add
+                    </button>
+                  </form>
+                  {tasksByStatus[status].length === 0 ? (
+                    <div className="task-column__empty">No tasks</div>
+                  ) : (
+                    <ol className="task-card-list">
+                      {tasksByStatus[status].map((task) => (
+                        <li
+                          key={task.id}
+                          className={`task-card task-card--${task.status}`}
+                        >
+                          {renderTaskTitle(task)}
+                          <div className="task-card__meta">
+                            <span>Updated {formatDate(task.updatedAt)}</span>
+                            {renderStatusSelect(task)}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="task-table-wrap">
+              <table className="task-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Completed</th>
+                    <th>Cancelled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="task-table__empty">
+                        Add a task from the Kanban view to start the board.
+                      </td>
+                    </tr>
+                  ) : (
+                    [...tasks]
+                      .sort(
+                        (a, b) =>
+                          TASK_STATUSES.indexOf(a.status) -
+                            TASK_STATUSES.indexOf(b.status) ||
+                          b.updatedAt - a.updatedAt ||
+                          b.id - a.id,
+                      )
+                      .map((task) => (
+                        <tr key={task.id}>
+                          <td>{renderTaskTitle(task)}</td>
+                          <td>{renderStatusSelect(task)}</td>
+                          <td>{formatDate(task.createdAt)}</td>
+                          <td>{formatDate(task.updatedAt)}</td>
+                          <td>{formatDate(task.completedAt)}</td>
+                          <td>{formatDate(task.cancelledAt)}</td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <section className="dash-section dash-section--metrics">
           <header className="dash-section__head">

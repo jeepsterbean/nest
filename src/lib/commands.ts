@@ -9,7 +9,9 @@ import type {
   Phase,
   PhaseCheckIn,
   SeriesPoint,
+  Task,
   TaskCheckIn,
+  TaskStatus,
 } from "./types";
 
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
@@ -42,6 +44,22 @@ export function renamePhase(id: number, name: string): Promise<Phase> {
 
 export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
   return invoke("set_phase_active", { id, active });
+}
+
+export function listTasks(): Promise<Task[]> {
+  return invoke("list_tasks");
+}
+
+export function createTask(title: string, status: TaskStatus): Promise<Task> {
+  return invoke("create_task", { title, status });
+}
+
+export function renameTask(id: number, title: string): Promise<Task> {
+  return invoke("rename_task", { id, title });
+}
+
+export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {
+  return invoke("set_task_status", { id, status });
 }
 
 export function submitMetricCheckIn(
