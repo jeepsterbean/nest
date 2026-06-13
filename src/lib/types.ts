@@ -50,7 +50,11 @@ export type TaskCheckIn = {
   id: number;
   createdAt: number;
   task: string;
-  nextCheckInMinutes: number;
+};
+
+export type CheckInSchedule = {
+  intervalMinutes: number;
+  nextDueAt: number;
 };
 
 export type BrainDump = {

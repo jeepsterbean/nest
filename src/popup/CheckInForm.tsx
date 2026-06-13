@@ -5,16 +5,19 @@ import {
   WebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
 import {
+  getCheckInSchedule,
   latestPhaseCheckIn,
   latestTaskCheckIn,
   listMetrics,
   listPhases,
+  scheduleNextCheckIn,
   submitBrainDump,
   submitMetricCheckIn,
   submitPhaseCheckIn,
   submitTaskCheckIn,
 } from "../lib/commands";
 import type {
+  CheckInSchedule,
   Metric,
   MetricRatingInput,
   Phase,
@@ -35,6 +38,7 @@ type LoadState = {
   latestPhase: PhaseCheckIn | null;
   phases: Phase[];
   metrics: Metric[];
+  schedule: CheckInSchedule;
 };
 
 const normalizeInterval = (minutes: number) => {
@@ -67,16 +71,13 @@ function CheckInForm() {
       latestPhaseCheckIn(),
       listPhases(false),
       listMetrics(false),
+      getCheckInSchedule(),
     ])
-      .then(([latestTask, latestPhase, phases, metrics]) => {
+      .then(([latestTask, latestPhase, phases, metrics, schedule]) => {
         if (cancelled) return;
-        setLoaded({ latestTask, latestPhase, phases, metrics });
+        setLoaded({ latestTask, latestPhase, phases, metrics, schedule });
         setTaskText(latestTask?.task ?? "");
-        setNextCheckInMinutes(
-          normalizeInterval(
-            latestTask?.nextCheckInMinutes ?? DEFAULT_INTERVAL_MINUTES,
-          ),
-        );
+        setNextCheckInMinutes(normalizeInterval(schedule.intervalMinutes));
         setSelectedPhaseId(latestPhase?.phaseId ?? null);
         setRatings(
           Object.fromEntries(metrics.map((metric) => [metric.id, null])),
@@ -120,9 +121,13 @@ function CheckInForm() {
     setSubmitting(true);
     setError(null);
     try {
+      // The interval picker sets the recurring popup's cadence, not a property
+      // of this task. Reschedule on every submit so checking in resets the clock.
+      await scheduleNextCheckIn(nextCheckInMinutes);
+
       const trimmedTask = taskText.trim();
       if (trimmedTask) {
-        await submitTaskCheckIn(false, trimmedTask, nextCheckInMinutes);
+        await submitTaskCheckIn(false, trimmedTask);
       }
 
       if (
@@ -194,7 +199,7 @@ function CheckInForm() {
             <div
               className="combined-interval"
               tabIndex={0}
-              aria-label="Task check-in interval"
+              aria-label="Next check-in interval"
             >
               <button
                 type="button"

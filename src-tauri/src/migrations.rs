@@ -246,6 +246,36 @@ CREATE TABLE IF NOT EXISTS brain_dumps (
 CREATE INDEX IF NOT EXISTS idx_brain_dumps_created_at ON brain_dumps(created_at);
 "#,
         ),
+        // The recurring prompt is the popup's schedule, not a property of any
+        // one task check-in: move the cadence into a singleton
+        // check_in_schedule row (seeded from the latest task check-in so the
+        // rhythm carries over) and drop next_check_in_minutes from
+        // task_check_ins.
+        M::up(
+            r#"
+CREATE TABLE check_in_schedule (
+  id               INTEGER PRIMARY KEY CHECK (id = 1),
+  interval_minutes INTEGER NOT NULL,
+  next_due_at      INTEGER NOT NULL
+);
+
+INSERT INTO check_in_schedule (id, interval_minutes, next_due_at)
+SELECT
+  1,
+  COALESCE(
+    (SELECT next_check_in_minutes FROM task_check_ins
+     ORDER BY created_at DESC, id DESC LIMIT 1),
+    15
+  ),
+  COALESCE(
+    (SELECT created_at + next_check_in_minutes * 60 FROM task_check_ins
+     ORDER BY created_at DESC, id DESC LIMIT 1),
+    strftime('%s', 'now') + 15 * 60
+  );
+
+ALTER TABLE task_check_ins DROP COLUMN next_check_in_minutes;
+"#,
+        ),
     ])
 }
 
@@ -257,6 +287,19 @@ mod tests {
     #[test]
     fn repairs_database_missing_brain_dumps_after_mid_list_migration_insert() {
         let mut conn = Connection::open_in_memory().unwrap();
+        // A real version-10 database has task_check_ins (created at version 9);
+        // later migrations rely on it.
+        conn.execute_batch(
+            r#"
+CREATE TABLE task_check_ins (
+  id                    INTEGER PRIMARY KEY,
+  created_at            INTEGER NOT NULL,
+  task                  TEXT NOT NULL,
+  next_check_in_minutes INTEGER NOT NULL
+);
+"#,
+        )
+        .unwrap();
         conn.pragma_update(None, "user_version", 10).unwrap();
 
         migrations().to_latest(&mut conn).unwrap();
@@ -275,5 +318,40 @@ mod tests {
             (123_i64, "works"),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn seeds_check_in_schedule_from_latest_task_check_in() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 11).unwrap();
+
+        conn.execute(
+            "INSERT INTO task_check_ins (created_at, task, next_check_in_minutes) \
+             VALUES (1000, 'older', 10), (2000, 'newer', 20)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let (interval, next_due_at): (i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(interval, 20);
+        assert_eq!(next_due_at, 2000 + 20 * 60);
+
+        let dropped_column_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('task_check_ins') \
+                 WHERE name = 'next_check_in_minutes'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(dropped_column_count, 0);
     }
 }

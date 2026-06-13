@@ -50,10 +50,10 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const DEFAULT_TASK_CHECK_IN_MINUTES: i64 = 15;
-const MIN_TASK_CHECK_IN_MINUTES: i64 = 5;
-const MAX_TASK_CHECK_IN_MINUTES: i64 = 30;
-const TASK_CHECK_IN_STEP_MINUTES: i64 = 5;
+const DEFAULT_CHECK_IN_MINUTES: i64 = 15;
+const MIN_CHECK_IN_MINUTES: i64 = 5;
+const MAX_CHECK_IN_MINUTES: i64 = 30;
+const CHECK_IN_STEP_MINUTES: i64 = 5;
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
@@ -86,7 +86,10 @@ fn log_client_event(message: String) {
     append_diagnostic_log(format!("client {message}"));
 }
 
-pub struct TaskCheckInTimer {
+// Cadence of the recurring check-in popup. The popup fires on this timer
+// regardless of what (if anything) gets submitted from it; task check-ins are
+// just records of what the user was doing.
+pub struct CheckInTimer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
 }
@@ -98,74 +101,81 @@ fn now_unix_secs() -> i64 {
         .unwrap_or(0)
 }
 
-fn valid_task_interval(minutes: i64) -> bool {
-    (MIN_TASK_CHECK_IN_MINUTES..=MAX_TASK_CHECK_IN_MINUTES).contains(&minutes)
-        && minutes % TASK_CHECK_IN_STEP_MINUTES == 0
+fn valid_check_in_interval(minutes: i64) -> bool {
+    (MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
+        && minutes % CHECK_IN_STEP_MINUTES == 0
 }
 
-fn load_task_check_in_timer(conn: &rusqlite::Connection) -> TaskCheckInTimer {
+fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
     let now = now_unix_secs();
-    let latest = conn
+    let persisted = conn
         .query_row(
-            "SELECT created_at, next_check_in_minutes FROM task_check_ins \
-             ORDER BY created_at DESC, id DESC LIMIT 1",
+            "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
             [],
             |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
         )
         .ok();
 
-    let (interval_minutes, next_due_at) = match latest {
-        Some((created_at, minutes)) => {
-            let interval_minutes = if valid_task_interval(minutes) {
-                minutes
-            } else {
-                DEFAULT_TASK_CHECK_IN_MINUTES
-            };
-            (interval_minutes, created_at + interval_minutes * 60)
-        }
-        None => (
-            DEFAULT_TASK_CHECK_IN_MINUTES,
-            now + DEFAULT_TASK_CHECK_IN_MINUTES * 60,
+    let (interval_minutes, next_due_at) = match persisted {
+        Some((minutes, due_at)) if valid_check_in_interval(minutes) => (minutes, due_at),
+        // Missing row or a bad interval (corrupt/hand-edited db): fall back to
+        // the default cadence starting now.
+        _ => (
+            DEFAULT_CHECK_IN_MINUTES,
+            now + DEFAULT_CHECK_IN_MINUTES * 60,
         ),
     };
 
     append_diagnostic_log(format!(
-        "task_timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
+        "check_in_timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
         next_due_at <= now
     ));
 
-    TaskCheckInTimer {
+    CheckInTimer {
         interval_minutes,
         next_due_at,
     }
 }
 
-fn start_task_check_in_timer(app: tauri::AppHandle) {
+fn start_check_in_timer(app: tauri::AppHandle) {
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
         let now = now_unix_secs();
         let due = {
-            let timer = app.state::<Mutex<TaskCheckInTimer>>();
+            let timer = app.state::<Mutex<CheckInTimer>>();
             let mut timer = timer.lock().unwrap();
             if now < timer.next_due_at {
-                false
+                None
             } else {
                 let previous_due_at = timer.next_due_at;
                 timer.next_due_at = now + timer.interval_minutes * 60;
                 append_diagnostic_log(format!(
-                    "task_timer_due now={now} previous_due_at={previous_due_at} interval_minutes={} next_due_at={}",
+                    "check_in_timer_due now={now} previous_due_at={previous_due_at} interval_minutes={} next_due_at={}",
                     timer.interval_minutes, timer.next_due_at
                 ));
-                true
+                Some((timer.interval_minutes, timer.next_due_at))
             }
         };
 
-        if due {
+        if let Some((interval_minutes, next_due_at)) = due {
+            // Persist the auto-advanced schedule so a restart resumes the same
+            // rhythm instead of resetting the clock.
+            {
+                let conn = app.state::<Mutex<rusqlite::Connection>>();
+                let conn = conn.lock().unwrap();
+                if let Err(e) = conn.execute(
+                    "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+                    rusqlite::params![interval_minutes, next_due_at],
+                ) {
+                    append_diagnostic_log(format!("check_in_timer_persist_failed error={e}"));
+                }
+            }
+
             let app_for_ui = app.clone();
             if let Err(e) = app.run_on_main_thread(move || {
                 summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
-                append_diagnostic_log(format!("task_timer_main_thread_dispatch_failed error={e}"));
+                append_diagnostic_log(format!("check_in_timer_main_thread_dispatch_failed error={e}"));
             }
         }
     });
@@ -344,10 +354,10 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
-            let task_check_in_timer = load_task_check_in_timer(&conn);
+            let check_in_timer = load_check_in_timer(&conn);
             app.manage(Mutex::new(conn));
-            app.manage(Mutex::new(task_check_in_timer));
-            start_task_check_in_timer(app.handle().clone());
+            app.manage(Mutex::new(check_in_timer));
+            start_check_in_timer(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
             // the check-in popups into non-activating NSPanels so they overlay
@@ -466,6 +476,8 @@ pub fn run() {
             commands::list_phase_check_ins,
             commands::latest_task_check_in,
             commands::submit_task_check_in,
+            commands::get_check_in_schedule,
+            commands::schedule_next_check_in,
             commands::submit_brain_dump,
             commands::list_brain_dumps,
             commands::metric_series,

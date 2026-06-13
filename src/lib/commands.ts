@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   BrainDump,
+  CheckInSchedule,
   Metric,
   MetricCheckIn,
   MetricCheckInWithRatings,
@@ -84,13 +85,19 @@ export function latestTaskCheckIn(): Promise<TaskCheckIn | null> {
 export function submitTaskCheckIn(
   stillWorkingPreviousTask: boolean,
   currentWork: string | null,
-  nextCheckInMinutes: number | null,
 ): Promise<TaskCheckIn> {
   return invoke("submit_task_check_in", {
     stillWorkingPreviousTask,
     currentWork,
-    nextCheckInMinutes,
   });
+}
+
+export function getCheckInSchedule(): Promise<CheckInSchedule> {
+  return invoke("get_check_in_schedule");
+}
+
+export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
+  return invoke("schedule_next_check_in", { minutes });
 }
 
 export function submitBrainDump(text: string): Promise<BrainDump> {

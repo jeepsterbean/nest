@@ -4,15 +4,14 @@ use tauri::State;
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    BrainDump, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput,
-    Phase, PhaseCheckIn, SeriesPoint, TaskCheckIn,
+    BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
+    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, TaskCheckIn,
 };
-use crate::TaskCheckInTimer;
+use crate::CheckInTimer;
 
-const DEFAULT_TASK_CHECK_IN_MINUTES: i64 = 15;
-const MIN_TASK_CHECK_IN_MINUTES: i64 = 5;
-const MAX_TASK_CHECK_IN_MINUTES: i64 = 30;
-const TASK_CHECK_IN_STEP_MINUTES: i64 = 5;
+const MIN_CHECK_IN_MINUTES: i64 = 5;
+const MAX_CHECK_IN_MINUTES: i64 = 30;
+const CHECK_IN_STEP_MINUTES: i64 = 5;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -25,9 +24,9 @@ fn trim_to_option(s: Option<String>) -> Option<String> {
     s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
-fn validate_task_interval(minutes: i64) -> Result<i64> {
-    if !(MIN_TASK_CHECK_IN_MINUTES..=MAX_TASK_CHECK_IN_MINUTES).contains(&minutes)
-        || minutes % TASK_CHECK_IN_STEP_MINUTES != 0
+fn validate_check_in_interval(minutes: i64) -> Result<i64> {
+    if !(MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
+        || minutes % CHECK_IN_STEP_MINUTES != 0
     {
         return Err(AppError::InvalidInput(
             "next check-in must be 5, 10, 15, 20, 25, or 30 minutes".into(),
@@ -403,7 +402,7 @@ pub fn list_phase_check_ins(
 
 fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
     let mut stmt = conn.prepare(
-        "SELECT id, created_at, task, next_check_in_minutes \
+        "SELECT id, created_at, task \
          FROM task_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
     )?;
     match stmt.query_row([], |row| {
@@ -411,7 +410,6 @@ fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
             id: row.get(0)?,
             created_at: row.get(1)?,
             task: row.get(2)?,
-            next_check_in_minutes: row.get(3)?,
         })
     }) {
         Ok(check_in) => Ok(Some(check_in)),
@@ -429,15 +427,11 @@ pub fn latest_task_check_in(state: State<'_, Mutex<Connection>>) -> Result<Optio
 #[tauri::command]
 pub fn submit_task_check_in(
     state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<TaskCheckInTimer>>,
     still_working_previous_task: bool,
     current_work: Option<String>,
-    next_check_in_minutes: Option<i64>,
 ) -> Result<TaskCheckIn> {
     let current_work_clean = trim_to_option(current_work);
 
-    let minutes =
-        validate_task_interval(next_check_in_minutes.unwrap_or(DEFAULT_TASK_CHECK_IN_MINUTES))?;
     let conn = state.lock().unwrap();
     let task = if still_working_previous_task {
         read_latest_task_check_in(&conn)?
@@ -451,26 +445,56 @@ pub fn submit_task_check_in(
         })?
     };
     let now = now_unix_secs();
-    let next_due_at = now + minutes * 60;
 
     conn.execute(
-        "INSERT INTO task_check_ins (created_at, task, next_check_in_minutes) \
-         VALUES (?1, ?2, ?3)",
-        params![now, task, minutes],
+        "INSERT INTO task_check_ins (created_at, task) VALUES (?1, ?2)",
+        params![now, task],
     )?;
-    let id = conn.last_insert_rowid();
-
-    {
-        let mut t = timer.lock().unwrap();
-        t.interval_minutes = minutes;
-        t.next_due_at = next_due_at;
-    }
 
     Ok(TaskCheckIn {
-        id,
+        id: conn.last_insert_rowid(),
         created_at: now,
         task,
-        next_check_in_minutes: minutes,
+    })
+}
+
+#[tauri::command]
+pub fn get_check_in_schedule(
+    timer: State<'_, Mutex<CheckInTimer>>,
+) -> Result<CheckInSchedule> {
+    let timer = timer.lock().unwrap();
+    Ok(CheckInSchedule {
+        interval_minutes: timer.interval_minutes,
+        next_due_at: timer.next_due_at,
+    })
+}
+
+#[tauri::command]
+pub fn schedule_next_check_in(
+    state: State<'_, Mutex<Connection>>,
+    timer: State<'_, Mutex<CheckInTimer>>,
+    minutes: i64,
+) -> Result<CheckInSchedule> {
+    let minutes = validate_check_in_interval(minutes)?;
+    let now = now_unix_secs();
+    let next_due_at = now + minutes * 60;
+
+    {
+        let conn = state.lock().unwrap();
+        conn.execute(
+            "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+            params![minutes, next_due_at],
+        )?;
+    }
+    {
+        let mut timer = timer.lock().unwrap();
+        timer.interval_minutes = minutes;
+        timer.next_due_at = next_due_at;
+    }
+
+    Ok(CheckInSchedule {
+        interval_minutes: minutes,
+        next_due_at,
     })
 }
 

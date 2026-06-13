@@ -70,7 +70,13 @@ pub struct TaskCheckIn {
     pub id: i64,
     pub created_at: i64,
     pub task: String,
-    pub next_check_in_minutes: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckInSchedule {
+    pub interval_minutes: i64,
+    pub next_due_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
