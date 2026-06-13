@@ -48,6 +48,15 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: "Cancelled",
 };
 
+type DashboardView = "overview" | "tasks" | "metrics" | "phases";
+
+const VIEWS: { key: DashboardView; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "tasks", label: "Tasks" },
+  { key: "metrics", label: "Metrics" },
+  { key: "phases", label: "Phases" },
+];
+
 type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
@@ -231,6 +240,7 @@ function Switch({
 }
 
 function Dashboard() {
+  const [view, setView] = useState<DashboardView>("overview");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskView, setTaskView] = useState<"kanban" | "table">("kanban");
   const [newTaskTitles, setNewTaskTitles] = useState<
@@ -680,38 +690,23 @@ function Dashboard() {
           </div>
           <h1 className="dash-header__greeting">{greeting}.</h1>
           <p className="dash-header__date">{dateLine}</p>
-          <ul className="dash-stats">
-            <li className="dash-stat dash-stat--phase">
-              {flagIcon}
-              <div>
-                <strong>{currentPhaseName ?? "None yet"}</strong>
-                <span>Current phase</span>
-              </div>
-            </li>
-            <li className="dash-stat dash-stat--checkins">
-              {checkCircleIcon}
-              <div>
-                <strong>{weeklyCheckIns}</strong>
-                <span>Check-ins · 7d</span>
-              </div>
-            </li>
-            <li className="dash-stat dash-stat--dumps">
-              {pencilIcon}
-              <div>
-                <strong>{weeklyDumps}</strong>
-                <span>Brain dumps · 7d</span>
-              </div>
-            </li>
-            <li className="dash-stat dash-stat--streak">
-              {flameIcon}
-              <div>
-                <strong>
-                  {streak === 0 ? "—" : `${streak} day${streak === 1 ? "" : "s"}`}
-                </strong>
-                <span>Streak</span>
-              </div>
-            </li>
-          </ul>
+          <nav className="dash-nav" aria-label="Views">
+            {VIEWS.map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                className={
+                  view === v.key
+                    ? "dash-nav__btn dash-nav__btn--active"
+                    : "dash-nav__btn"
+                }
+                aria-current={view === v.key ? "page" : undefined}
+                onClick={() => setView(v.key)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </nav>
         </header>
 
         {error && (
@@ -727,6 +722,7 @@ function Dashboard() {
           </div>
         )}
 
+        {view === "tasks" && (
         <section className="dash-section dash-section--tasks">
           <header className="dash-section__head">
             <div className="dash-section__title">
@@ -854,7 +850,9 @@ function Dashboard() {
             </div>
           )}
         </section>
+        )}
 
+        {view === "metrics" && (
         <section className="dash-section dash-section--metrics">
           <header className="dash-section__head">
             <div className="dash-section__title">
@@ -954,7 +952,9 @@ function Dashboard() {
             </ul>
           )}
         </section>
+        )}
 
+        {view === "phases" && (
         <section className="dash-section dash-section--phases">
           <header className="dash-section__head">
             <div className="dash-section__title">
@@ -1034,7 +1034,42 @@ function Dashboard() {
             </ul>
           )}
         </section>
+        )}
 
+        {view === "overview" && (
+        <>
+        <ul className="dash-stats">
+          <li className="dash-stat dash-stat--phase">
+            {flagIcon}
+            <div>
+              <strong>{currentPhaseName ?? "None yet"}</strong>
+              <span>Current phase</span>
+            </div>
+          </li>
+          <li className="dash-stat dash-stat--checkins">
+            {checkCircleIcon}
+            <div>
+              <strong>{weeklyCheckIns}</strong>
+              <span>Check-ins · 7d</span>
+            </div>
+          </li>
+          <li className="dash-stat dash-stat--dumps">
+            {pencilIcon}
+            <div>
+              <strong>{weeklyDumps}</strong>
+              <span>Brain dumps · 7d</span>
+            </div>
+          </li>
+          <li className="dash-stat dash-stat--streak">
+            {flameIcon}
+            <div>
+              <strong>
+                {streak === 0 ? "—" : `${streak} day${streak === 1 ? "" : "s"}`}
+              </strong>
+              <span>Streak</span>
+            </div>
+          </li>
+        </ul>
         <section className="dash-section dash-section--journal">
           <header className="dash-section__head">
             <div className="dash-section__title">
@@ -1060,6 +1095,8 @@ function Dashboard() {
             ))
           )}
         </section>
+        </>
+        )}
       </div>
     </main>
   );

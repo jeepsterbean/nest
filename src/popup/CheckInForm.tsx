@@ -50,6 +50,29 @@ const normalizeInterval = (minutes: number) => {
 const shiftInterval = (minutes: number, direction: -1 | 1) =>
   normalizeInterval(minutes + direction * INTERVAL_STEP_MINUTES);
 
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="10" height="10" rx="2" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d="M16.2 6.1 8.4 14 4 9.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
 function CheckInForm() {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>("inputs");
@@ -217,9 +240,6 @@ function CheckInForm() {
       {activeTasks.length === 0 ? (
         <div className="combined-empty">
           <span>No active tasks.</span>
-          <button type="button" onClick={openDashboard}>
-            Open Dashboard
-          </button>
         </div>
       ) : (
         <div className="active-task-list">
@@ -229,17 +249,21 @@ function CheckInForm() {
               <div className="active-task-row__actions">
                 <button
                   type="button"
+                  aria-label={`Pause ${task.title}`}
+                  title="Pause"
                   onClick={() => updateTaskStatus(task, "paused")}
                   disabled={submitting}
                 >
-                  Pause
+                  <StopIcon />
                 </button>
                 <button
                   type="button"
+                  aria-label={`Complete ${task.title}`}
+                  title="Complete"
                   onClick={() => updateTaskStatus(task, "completed")}
                   disabled={submitting}
                 >
-                  Complete
+                  <CheckIcon />
                 </button>
               </div>
             </div>
@@ -306,9 +330,6 @@ function CheckInForm() {
               {loaded.phases.length === 0 ? (
                 <div className="combined-empty">
                   <span>No active phases.</span>
-                  <button type="button" onClick={openDashboard}>
-                    Open Dashboard
-                  </button>
                 </div>
               ) : (
                 <div
@@ -351,9 +372,6 @@ function CheckInForm() {
               {loaded.metrics.length === 0 ? (
                 <div className="combined-empty">
                   <span>No active metrics.</span>
-                  <button type="button" onClick={openDashboard}>
-                    Open Dashboard
-                  </button>
                 </div>
               ) : (
                 <div className="combined-metrics">

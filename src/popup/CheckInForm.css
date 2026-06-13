@@ -193,24 +193,44 @@
 }
 
 .active-task-row__actions button {
-  padding: 5px 8px;
-  border: 1px solid rgba(128, 128, 128, 0.28);
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
-  font-weight: 750;
+  opacity: 0.28;
+  transition:
+    border-color 0.12s,
+    color 0.12s,
+    opacity 0.12s;
+}
+
+.active-task-row__actions svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.active-task-row:hover .active-task-row__actions button,
+.active-task-row__actions button:focus-visible {
+  border-color: rgba(128, 128, 128, 0.28);
+  opacity: 0.8;
 }
 
 .active-task-row__actions button:hover:not(:disabled) {
   border-color: #4a7dd1;
   color: #4a7dd1;
+  opacity: 1;
 }
 
 .active-task-row__actions button:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.18;
 }
 
 .combined-metrics {
