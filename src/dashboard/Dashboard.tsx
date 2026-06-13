@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   createTask,
@@ -18,6 +18,7 @@ import {
   setMetricActive,
   setPhaseActive,
   setTaskStatus,
+  submitBrainDump,
 } from "../lib/commands";
 import type {
   BrainDump,
@@ -266,8 +267,12 @@ function Dashboard() {
   const [editingName, setEditingName] = useState("");
   const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
   const [editingPhaseName, setEditingPhaseName] = useState("");
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
+  const [brainDumpText, setBrainDumpText] = useState("");
+  const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const brainDumpInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const reload = async () => {
     try {
@@ -341,9 +346,30 @@ function Dashboard() {
     }
   };
 
+  const onSubmitBrainDump = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = brainDumpText.trim();
+    if (!text || brainDumpSubmitting) return;
+    setBrainDumpSubmitting(true);
+    try {
+      await submitBrainDump(text);
+      setBrainDumpText("");
+      setBrainDumpOpen(false);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBrainDumpSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     reload();
   }, []);
+
+  useEffect(() => {
+    if (brainDumpOpen) brainDumpInputRef.current?.focus();
+  }, [brainDumpOpen]);
 
   // Refresh when a check-in is submitted from the popup
   useEffect(() => {
@@ -690,24 +716,97 @@ function Dashboard() {
           </div>
           <h1 className="dash-header__greeting">{greeting}.</h1>
           <p className="dash-header__date">{dateLine}</p>
-          <nav className="dash-nav" aria-label="Views">
-            {VIEWS.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                className={
-                  view === v.key
-                    ? "dash-nav__btn dash-nav__btn--active"
-                    : "dash-nav__btn"
-                }
-                aria-current={view === v.key ? "page" : undefined}
-                onClick={() => setView(v.key)}
-              >
-                {v.label}
-              </button>
-            ))}
-          </nav>
+          <div className="dash-header__nav-row">
+            <nav className="dash-nav" aria-label="Views">
+              {VIEWS.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className={
+                    view === v.key
+                      ? "dash-nav__btn dash-nav__btn--active"
+                      : "dash-nav__btn"
+                  }
+                  aria-current={view === v.key ? "page" : undefined}
+                  onClick={() => setView(v.key)}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </nav>
+            <button
+              type="button"
+              className="brain-dump-trigger"
+              aria-expanded={brainDumpOpen}
+              aria-controls="brain-dump-composer"
+              onClick={() => setBrainDumpOpen((open) => !open)}
+            >
+              <span className="brain-dump-trigger__icon">{pencilIcon}</span>
+              Brain dump
+            </button>
+          </div>
         </header>
+
+        {brainDumpOpen && (
+          <div
+            className="brain-dump-overlay"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setBrainDumpOpen(false);
+            }}
+          >
+            <form
+              id="brain-dump-composer"
+              className="brain-dump-composer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="brain-dump-title"
+              onSubmit={onSubmitBrainDump}
+            >
+              <div className="brain-dump-composer__head">
+                <h2 id="brain-dump-title">Brain dump</h2>
+                <button
+                  type="button"
+                  className="brain-dump-composer__close"
+                  onClick={() => setBrainDumpOpen(false)}
+                  aria-label="Close brain dump"
+                >
+                  ×
+                </button>
+              </div>
+              <textarea
+                ref={brainDumpInputRef}
+                value={brainDumpText}
+                onChange={(e) => setBrainDumpText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setBrainDumpOpen(false);
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="Drop the loose thoughts here..."
+                aria-label="Brain dump text"
+                rows={8}
+              />
+              <div className="brain-dump-composer__actions">
+                <button
+                  type="button"
+                  className="brain-dump-composer__cancel"
+                  onClick={() => setBrainDumpOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="brain-dump-composer__submit"
+                  disabled={!brainDumpText.trim() || brainDumpSubmitting}
+                >
+                  {brainDumpSubmitting ? "Saving..." : "Submit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {error && (
           <div className="dashboard__error" role="alert">
