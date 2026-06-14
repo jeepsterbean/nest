@@ -49,10 +49,11 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: "Cancelled",
 };
 
-type DashboardView = "overview" | "tasks" | "metrics" | "phases";
+type DashboardView = "overview" | "journal" | "tasks" | "metrics" | "phases";
 
 const VIEWS: { key: DashboardView; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "journal", label: "Journal" },
   { key: "tasks", label: "Tasks" },
   { key: "metrics", label: "Metrics" },
   { key: "phases", label: "Phases" },
@@ -260,6 +261,7 @@ function Dashboard() {
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
   const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
+  const [allBrainDumps, setAllBrainDumps] = useState<BrainDump[]>([]);
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [newMetricName, setNewMetricName] = useState("");
   const [newPhaseName, setNewPhaseName] = useState("");
@@ -270,6 +272,9 @@ function Dashboard() {
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [brainDumpText, setBrainDumpText] = useState("");
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const [quickBrainDumpText, setQuickBrainDumpText] = useState("");
+  const [quickBrainDumpSubmitting, setQuickBrainDumpSubmitting] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const brainDumpInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -279,13 +284,14 @@ function Dashboard() {
       const now = Math.floor(Date.now() / 1000);
       const from = now - THIRTY_DAYS_SECONDS;
       const to = now + 1;
-      const [t, m, p, ci, pci, bd, lp] = await Promise.all([
+      const [t, m, p, ci, pci, bd, allBd, lp] = await Promise.all([
         listTasks(),
         listMetrics(true),
         listPhases(true),
         listMetricCheckIns(from, to),
         listPhaseCheckIns(from, to),
         listBrainDumps(from, to),
+        listBrainDumps(0, to),
         latestPhaseCheckIn(),
       ]);
       setTasks(t);
@@ -294,6 +300,7 @@ function Dashboard() {
       setCheckIns(ci);
       setPhaseCheckIns(pci);
       setBrainDumps(bd);
+      setAllBrainDumps(allBd);
       setLatestPhase(lp);
     } catch (e) {
       setError(String(e));
@@ -360,6 +367,22 @@ function Dashboard() {
       setError(String(e));
     } finally {
       setBrainDumpSubmitting(false);
+    }
+  };
+
+  const onSubmitQuickBrainDump = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = quickBrainDumpText.trim();
+    if (!text || quickBrainDumpSubmitting) return;
+    setQuickBrainDumpSubmitting(true);
+    try {
+      await submitBrainDump(text);
+      setQuickBrainDumpText("");
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setQuickBrainDumpSubmitting(false);
     }
   };
 
@@ -572,6 +595,15 @@ function Dashboard() {
     return groups;
   }, [events]);
 
+  const recentBrainDumps = useMemo(
+    () =>
+      [...allBrainDumps]
+        .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
+        .slice(0, 3)
+        .reverse(),
+    [allBrainDumps],
+  );
+
   const now = new Date();
   const greeting = greetingForHour(now.getHours());
   const dateLine = now.toLocaleDateString(undefined, {
@@ -638,6 +670,34 @@ function Dashboard() {
         </option>
       ))}
     </select>
+  );
+
+  const renderOverviewTasks = (
+    status: Extract<TaskStatus, "active" | "backlog">,
+  ) => (
+    <section className="overview-task-group">
+      <header className="overview-task-group__head">
+        <h3>{TASK_STATUS_LABEL[status]}</h3>
+        <span>{tasksByStatus[status].length}</span>
+      </header>
+      {tasksByStatus[status].length === 0 ? (
+        <div className="overview-task-group__empty">
+          No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
+        </div>
+      ) : (
+        <ol className="overview-task-list">
+          {tasksByStatus[status].map((task) => (
+            <li key={task.id} className={`task-card task-card--${task.status}`}>
+              {renderTaskTitle(task)}
+              <div className="task-card__meta">
+                <span>Updated {formatDate(task.updatedAt)}</span>
+                {renderStatusSelect(task)}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 
   const renderEvent = (ev: TimelineEvent) => {
@@ -1169,6 +1229,85 @@ function Dashboard() {
             </div>
           </li>
         </ul>
+        <section className="overview-panels" aria-label="Overview">
+          <section className="overview-panel overview-panel--tasks">
+            <header className="overview-panel__head">
+              <div>
+                <h2>Task focus</h2>
+                <span>Active and backlog work</span>
+              </div>
+            </header>
+            <div className="overview-panel__scroll">
+              {renderOverviewTasks("active")}
+              {renderOverviewTasks("backlog")}
+            </div>
+          </section>
+
+          <section className="overview-panel overview-panel--dumps">
+            <header className="overview-panel__head">
+              <div>
+                <h2>Brain dumps</h2>
+                <span>Latest three notes</span>
+              </div>
+            </header>
+            <div className="overview-panel__scroll overview-panel__scroll--with-composer">
+              {loaded && recentBrainDumps.length === 0 ? (
+                <div className="overview-dump-empty">
+                  Nothing captured yet
+                </div>
+              ) : (
+                <ol className="overview-dump-list">
+                  {recentBrainDumps.map((dump) => (
+                    <li key={dump.id} className="overview-dump">
+                      <time className="overview-dump__time">
+                        {new Date(dump.createdAt * 1000).toLocaleDateString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </time>
+                      <p>{dump.text}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <form
+              className="overview-dump-composer"
+              onSubmit={onSubmitQuickBrainDump}
+            >
+              <textarea
+                value={quickBrainDumpText}
+                onChange={(e) => setQuickBrainDumpText(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="Capture a loose thought..."
+                aria-label="New brain dump"
+                rows={3}
+              />
+              <button
+                type="submit"
+                disabled={
+                  !quickBrainDumpText.trim() || quickBrainDumpSubmitting
+                }
+              >
+                {quickBrainDumpSubmitting ? "Saving..." : "Add"}
+              </button>
+            </form>
+          </section>
+        </section>
+        </>
+        )}
+
+        {view === "journal" && (
         <section className="dash-section dash-section--journal">
           <header className="dash-section__head">
             <div className="dash-section__title">
@@ -1194,7 +1333,6 @@ function Dashboard() {
             ))
           )}
         </section>
-        </>
         )}
       </div>
     </main>
