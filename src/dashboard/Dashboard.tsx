@@ -17,6 +17,7 @@ import {
   renameTask,
   setMetricActive,
   setPhaseActive,
+  setTaskDescription,
   setTaskStatus,
   submitBrainDump,
 } from "../lib/commands";
@@ -36,8 +37,8 @@ const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const TASK_STATUSES: TaskStatus[] = [
   "backlog",
   "active",
-  "paused",
   "completed",
+  "paused",
   "cancelled",
 ];
 
@@ -254,8 +255,24 @@ function Dashboard() {
     completed: "",
     cancelled: "",
   });
+  const [newTaskDescriptions, setNewTaskDescriptions] = useState<
+    Record<TaskStatus, string>
+  >({
+    backlog: "",
+    active: "",
+    paused: "",
+    completed: "",
+    cancelled: "",
+  });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState("");
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const [editingDescriptionId, setEditingDescriptionId] = useState<
+    number | null
+  >(null);
+  const [editingDescription, setEditingDescription] = useState("");
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
@@ -313,9 +330,11 @@ function Dashboard() {
     e.preventDefault();
     const title = newTaskTitles[status].trim();
     if (!title) return;
+    const description = newTaskDescriptions[status].trim();
     try {
-      await createTask(title, status);
+      await createTask(title, description, status);
       setNewTaskTitles((prev) => ({ ...prev, [status]: "" }));
+      setNewTaskDescriptions((prev) => ({ ...prev, [status]: "" }));
       await reload();
     } catch (e) {
       setError(String(e));
@@ -337,6 +356,36 @@ function Dashboard() {
     if (current && current.title === title) return;
     try {
       await renameTask(id, title);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const toggleTaskExpanded = (id: number) => {
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const startDescriptionEdit = (task: Task) => {
+    setExpandedTaskIds((prev) => new Set(prev).add(task.id));
+    setEditingDescriptionId(task.id);
+    setEditingDescription(task.description);
+  };
+
+  const commitDescriptionEdit = async () => {
+    if (editingDescriptionId === null) return;
+    const description = editingDescription.trim();
+    const id = editingDescriptionId;
+    setEditingDescriptionId(null);
+    const current = tasks.find((t) => t.id === id);
+    if (current && current.description === description) return;
+    try {
+      await setTaskDescription(id, description);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -672,6 +721,70 @@ function Dashboard() {
     </select>
   );
 
+  const renderTaskDescription = (task: Task) =>
+    editingDescriptionId === task.id ? (
+      <textarea
+        className="task-card__description-input"
+        value={editingDescription}
+        autoFocus
+        rows={3}
+        placeholder="Add a description…"
+        onChange={(e) => setEditingDescription(e.target.value)}
+        onBlur={commitDescriptionEdit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            commitDescriptionEdit();
+          }
+          if (e.key === "Escape") setEditingDescriptionId(null);
+        }}
+      />
+    ) : (
+      <button
+        type="button"
+        className={
+          task.description
+            ? "task-card__description"
+            : "task-card__description task-card__description--empty"
+        }
+        onClick={() => startDescriptionEdit(task)}
+        title="Click to edit description"
+      >
+        {task.description || "Add a description…"}
+      </button>
+    );
+
+  const renderTaskCard = (task: Task) => {
+    const expanded = expandedTaskIds.has(task.id);
+    return (
+      <li
+        key={task.id}
+        className={`task-card task-card--${task.status}${
+          expanded ? " task-card--expanded" : ""
+        }`}
+      >
+        <div className="task-card__top">
+          {renderTaskTitle(task)}
+          <button
+            type="button"
+            className="task-card__expand"
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse task" : "Expand task"}
+            title={expanded ? "Collapse" : "Expand"}
+            onClick={() => toggleTaskExpanded(task.id)}
+          >
+            {expanded ? "▾" : "▸"}
+          </button>
+        </div>
+        {expanded && renderTaskDescription(task)}
+        <div className="task-card__meta">
+          <span>Updated {formatDate(task.updatedAt)}</span>
+          {renderStatusSelect(task)}
+        </div>
+      </li>
+    );
+  };
+
   const renderOverviewTasks = (
     status: Extract<TaskStatus, "active" | "backlog">,
   ) => (
@@ -928,41 +1041,45 @@ function Dashboard() {
                     className="task-create"
                     onSubmit={(e) => onCreateTask(e, status)}
                   >
+                    <div className="task-create__row">
+                      <input
+                        type="text"
+                        placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
+                        aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
+                        value={newTaskTitles[status]}
+                        onChange={(e) =>
+                          setNewTaskTitles((prev) => ({
+                            ...prev,
+                            [status]: e.target.value,
+                          }))
+                        }
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newTaskTitles[status].trim()}
+                      >
+                        Add
+                      </button>
+                    </div>
                     <input
                       type="text"
-                      placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
-                      aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
-                      value={newTaskTitles[status]}
+                      className="task-create__description"
+                      placeholder="Description (optional)…"
+                      aria-label={`New ${TASK_STATUS_LABEL[status]} task description`}
+                      value={newTaskDescriptions[status]}
                       onChange={(e) =>
-                        setNewTaskTitles((prev) => ({
+                        setNewTaskDescriptions((prev) => ({
                           ...prev,
                           [status]: e.target.value,
                         }))
                       }
                     />
-                    <button
-                      type="submit"
-                      disabled={!newTaskTitles[status].trim()}
-                    >
-                      Add
-                    </button>
                   </form>
                   {tasksByStatus[status].length === 0 ? (
                     <div className="task-column__empty">No tasks</div>
                   ) : (
                     <ol className="task-card-list">
-                      {tasksByStatus[status].map((task) => (
-                        <li
-                          key={task.id}
-                          className={`task-card task-card--${task.status}`}
-                        >
-                          {renderTaskTitle(task)}
-                          <div className="task-card__meta">
-                            <span>Updated {formatDate(task.updatedAt)}</span>
-                            {renderStatusSelect(task)}
-                          </div>
-                        </li>
-                      ))}
+                      {tasksByStatus[status].map((task) => renderTaskCard(task))}
                     </ol>
                   )}
                 </section>

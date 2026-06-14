@@ -77,6 +77,7 @@ pub struct TaskCheckIn {
 pub struct Task {
     pub id: i64,
     pub title: String,
+    pub description: String,
     pub status: String,
     pub created_at: i64,
     pub updated_at: i64,

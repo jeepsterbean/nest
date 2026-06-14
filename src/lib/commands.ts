@@ -57,12 +57,23 @@ export function listTaskStatusEvents(
   return invoke("list_task_status_events", { taskId: taskId ?? null });
 }
 
-export function createTask(title: string, status: TaskStatus): Promise<Task> {
-  return invoke("create_task", { title, status });
+export function createTask(
+  title: string,
+  description: string,
+  status: TaskStatus,
+): Promise<Task> {
+  return invoke("create_task", { title, description, status });
 }
 
 export function renameTask(id: number, title: string): Promise<Task> {
   return invoke("rename_task", { id, title });
+}
+
+export function setTaskDescription(
+  id: number,
+  description: string,
+): Promise<Task> {
+  return invoke("set_task_description", { id, description });
 }
 
 export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {

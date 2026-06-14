@@ -467,6 +467,7 @@ pub fn run() {
             commands::list_task_status_events,
             commands::create_task,
             commands::rename_task,
+            commands::set_task_description,
             commands::set_task_status,
             commands::create_metric,
             commands::rename_metric,

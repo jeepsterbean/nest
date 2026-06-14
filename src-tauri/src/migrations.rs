@@ -346,6 +346,11 @@ CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
 PRAGMA foreign_keys = ON;
 "#,
         ),
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN description TEXT NOT NULL DEFAULT '';
+"#,
+        ),
     ])
 }
 

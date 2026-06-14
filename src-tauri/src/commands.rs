@@ -46,15 +46,16 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, status, created_at, updated_at FROM tasks WHERE id = ?1",
+        "SELECT id, title, description, status, created_at, updated_at FROM tasks WHERE id = ?1",
         params![id],
         |row| {
             Ok(Task {
                 id: row.get(0)?,
                 title: row.get(1)?,
-                status: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
+                description: row.get(2)?,
+                status: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
             })
         },
     )
@@ -97,7 +98,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, status, created_at, updated_at \
+        "SELECT id, title, description, status, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -105,9 +106,10 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
             Ok(Task {
                 id: row.get(0)?,
                 title: row.get(1)?,
-                status: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
+                description: row.get(2)?,
+                status: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -151,19 +153,22 @@ pub fn list_task_status_events(
 pub fn create_task(
     state: State<'_, Mutex<Connection>>,
     title: String,
+    description: String,
     status: String,
 ) -> Result<Task> {
     let title = title.trim().to_string();
     if title.is_empty() {
         return Err(AppError::InvalidInput("task title cannot be empty".into()));
     }
+    let description = description.trim().to_string();
     let status = validate_task_status(status.as_str())?;
     let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO tasks (title, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-        params![title, status, now, now],
+        "INSERT INTO tasks (title, description, status, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![title, description, status, now, now],
     )?;
     let id = tx.last_insert_rowid();
     tx.execute(
@@ -185,6 +190,24 @@ pub fn rename_task(state: State<'_, Mutex<Connection>>, id: i64, title: String) 
     let updated = conn.execute(
         "UPDATE tasks SET title = ?1, updated_at = ?2 WHERE id = ?3",
         params![title, now_unix_secs(), id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_description(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    description: String,
+) -> Result<Task> {
+    let description = description.trim().to_string();
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE tasks SET description = ?1, updated_at = ?2 WHERE id = ?3",
+        params![description, now_unix_secs(), id],
     )?;
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
