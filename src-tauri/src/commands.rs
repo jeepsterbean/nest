@@ -681,20 +681,33 @@ pub fn schedule_next_check_in(
 }
 
 #[tauri::command]
-pub fn submit_brain_dump(state: State<'_, Mutex<Connection>>, text: String) -> Result<BrainDump> {
+pub fn submit_brain_dump(
+    state: State<'_, Mutex<Connection>>,
+    text: String,
+    title: Option<String>,
+) -> Result<BrainDump> {
     let text_clean = text.trim().to_string();
     if text_clean.is_empty() {
         return Err(AppError::InvalidInput("brain dump cannot be empty".into()));
     }
+    let title_clean = title.and_then(|t| {
+        let trimmed = t.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
     let conn = state.lock().unwrap();
     let now = now_unix_secs();
     conn.execute(
-        "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",
-        params![now, text_clean],
+        "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, ?2, ?3)",
+        params![now, title_clean, text_clean],
     )?;
     Ok(BrainDump {
         id: conn.last_insert_rowid(),
         created_at: now,
+        title: title_clean,
         text: text_clean,
     })
 }
@@ -707,7 +720,7 @@ pub fn list_brain_dumps(
 ) -> Result<Vec<BrainDump>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, created_at, text FROM brain_dumps \
+        "SELECT id, created_at, title, text FROM brain_dumps \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
     let rows = stmt
@@ -715,7 +728,8 @@ pub fn list_brain_dumps(
             Ok(BrainDump {
                 id: row.get(0)?,
                 created_at: row.get(1)?,
-                text: row.get(2)?,
+                title: row.get(2)?,
+                text: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

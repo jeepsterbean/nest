@@ -351,6 +351,11 @@ PRAGMA foreign_keys = ON;
 ALTER TABLE tasks ADD COLUMN description TEXT NOT NULL DEFAULT '';
 "#,
         ),
+        M::up(
+            r#"
+ALTER TABLE brain_dumps ADD COLUMN title TEXT;
+"#,
+        ),
     ])
 }
 
@@ -387,6 +392,16 @@ CREATE TABLE task_check_ins (
             )
             .unwrap();
         assert_eq!(table_count, 1);
+
+        let title_column_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('brain_dumps') \
+                 WHERE name = 'title'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(title_column_count, 1);
 
         conn.execute(
             "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",

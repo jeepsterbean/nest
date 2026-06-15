@@ -288,11 +288,16 @@ function Dashboard() {
   const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
   const [editingPhaseName, setEditingPhaseName] = useState("");
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
+  const [brainDumpTitle, setBrainDumpTitle] = useState("");
   const [brainDumpText, setBrainDumpText] = useState("");
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const [quickBrainDumpTitle, setQuickBrainDumpTitle] = useState("");
   const [quickBrainDumpText, setQuickBrainDumpText] = useState("");
   const [quickBrainDumpSubmitting, setQuickBrainDumpSubmitting] =
     useState(false);
+  const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -407,11 +412,13 @@ function Dashboard() {
 
   const onSubmitBrainDump = async (e: React.FormEvent) => {
     e.preventDefault();
+    const title = brainDumpTitle.trim();
     const text = brainDumpText.trim();
     if (!text || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
     try {
-      await submitBrainDump(text);
+      await submitBrainDump(text, title || null);
+      setBrainDumpTitle("");
       setBrainDumpText("");
       setBrainDumpOpen(false);
       await reload();
@@ -424,11 +431,13 @@ function Dashboard() {
 
   const onSubmitQuickBrainDump = async (e: React.FormEvent) => {
     e.preventDefault();
+    const title = quickBrainDumpTitle.trim();
     const text = quickBrainDumpText.trim();
     if (!text || quickBrainDumpSubmitting) return;
     setQuickBrainDumpSubmitting(true);
     try {
-      await submitBrainDump(text);
+      await submitBrainDump(text, title || null);
+      setQuickBrainDumpTitle("");
       setQuickBrainDumpText("");
       await reload();
     } catch (e) {
@@ -571,6 +580,15 @@ function Dashboard() {
   const metricById = (id: number) => metrics.find((m) => m.id === id);
   const phaseById = (id: number) => phases.find((p) => p.id === id);
 
+  const toggleDumpExpanded = (id: number) => {
+    setExpandedDumpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, Task[]> = {
       backlog: [],
@@ -697,6 +715,47 @@ function Dashboard() {
           month: "short",
           day: "numeric",
         });
+
+  const formatDateTime = (ts: number) =>
+    new Date(ts * 1000).toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  const brainDumpTitleFor = (dump: BrainDump) =>
+    dump.title?.trim() || formatDateTime(dump.createdAt);
+
+  const renderBrainDump = (
+    dump: BrainDump,
+    className: "overview-dump" | "event-dump",
+  ) => {
+    const expanded = expandedDumpIds.has(dump.id);
+    const title = brainDumpTitleFor(dump);
+    return (
+      <div className={className}>
+        <button
+          type="button"
+          className={`${className}__toggle`}
+          aria-expanded={expanded}
+          onClick={() => toggleDumpExpanded(dump.id)}
+        >
+          <span className={`${className}__chevron`} aria-hidden="true">
+            {expanded ? "▾" : "▸"}
+          </span>
+          <span className={`${className}__title`}>{title}</span>
+          {dump.title?.trim() ? (
+            <time className={`${className}__time`}>
+              {formatDateTime(dump.createdAt)}
+            </time>
+          ) : null}
+        </button>
+        {expanded && <p className={`${className}__text`}>{dump.text}</p>}
+      </div>
+    );
+  };
 
   const renderTaskTitle = (task: Task) =>
     editingTaskId === task.id ? (
@@ -881,7 +940,7 @@ function Dashboard() {
               <span className="event__type">Brain dump</span>
               <time className="event__time">{formatTime(ev.at)}</time>
             </div>
-            <p className="event__text">{ev.dump.text}</p>
+            {renderBrainDump(ev.dump, "event-dump")}
           </li>
         );
     }
@@ -958,6 +1017,17 @@ function Dashboard() {
                   ×
                 </button>
               </div>
+              <input
+                type="text"
+                className="brain-dump-composer__title"
+                value={brainDumpTitle}
+                onChange={(e) => setBrainDumpTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setBrainDumpOpen(false);
+                }}
+                placeholder="Optional title"
+                aria-label="Brain dump title"
+              />
               <textarea
                 ref={brainDumpInputRef}
                 value={brainDumpText}
@@ -1438,19 +1508,8 @@ function Dashboard() {
               ) : (
                 <ol className="overview-dump-list">
                   {overviewBrainDumps.map((dump) => (
-                    <li key={dump.id} className="overview-dump">
-                      <time className="overview-dump__time">
-                        {new Date(dump.createdAt * 1000).toLocaleDateString(
-                          undefined,
-                          {
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          },
-                        )}
-                      </time>
-                      <p>{dump.text}</p>
+                    <li key={dump.id} className="overview-dump-item">
+                      {renderBrainDump(dump, "overview-dump")}
                     </li>
                   ))}
                 </ol>
@@ -1460,19 +1519,28 @@ function Dashboard() {
               className="overview-dump-composer"
               onSubmit={onSubmitQuickBrainDump}
             >
-              <textarea
-                value={quickBrainDumpText}
-                onChange={(e) => setQuickBrainDumpText(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    e.currentTarget.form?.requestSubmit();
-                  }
-                }}
-                placeholder="Capture a loose thought..."
-                aria-label="New brain dump"
-                rows={3}
-              />
+              <div className="overview-dump-composer__fields">
+                <input
+                  type="text"
+                  value={quickBrainDumpTitle}
+                  onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
+                  placeholder="Optional title"
+                  aria-label="New brain dump title"
+                />
+                <textarea
+                  value={quickBrainDumpText}
+                  onChange={(e) => setQuickBrainDumpText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  placeholder="Capture a loose thought..."
+                  aria-label="New brain dump"
+                  rows={3}
+                />
+              </div>
               <button
                 type="submit"
                 disabled={

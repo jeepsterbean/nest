@@ -136,8 +136,11 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
   return invoke("schedule_next_check_in", { minutes });
 }
 
-export function submitBrainDump(text: string): Promise<BrainDump> {
-  return invoke("submit_brain_dump", { text });
+export function submitBrainDump(
+  text: string,
+  title: string | null = null,
+): Promise<BrainDump> {
+  return invoke("submit_brain_dump", { text, title });
 }
 
 export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {

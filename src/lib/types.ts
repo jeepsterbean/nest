@@ -84,5 +84,6 @@ export type CheckInSchedule = {
 export type BrainDump = {
   id: number;
   createdAt: number;
+  title: string | null;
   text: string;
 };
