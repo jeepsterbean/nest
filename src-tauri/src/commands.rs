@@ -33,6 +33,16 @@ fn validate_task_status(status: &str) -> Result<&str> {
     }
 }
 
+fn validate_task_score(score: Option<i64>, label: &str) -> Result<Option<i64>> {
+    match score {
+        None => Ok(None),
+        Some(n) if (1..=5).contains(&n) => Ok(Some(n)),
+        Some(n) => Err(AppError::InvalidInput(format!(
+            "task {label} must be between 1 and 5, got {n}"
+        ))),
+    }
+}
+
 fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     if !(MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
         || minutes % CHECK_IN_STEP_MINUTES != 0
@@ -46,7 +56,8 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, created_at, updated_at FROM tasks WHERE id = ?1",
+        "SELECT id, title, description, status, value, effort, created_at, updated_at \
+         FROM tasks WHERE id = ?1",
         params![id],
         |row| {
             Ok(Task {
@@ -54,8 +65,10 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                value: row.get(4)?,
+                effort: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         },
     )
@@ -98,7 +111,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, created_at, updated_at \
+        "SELECT id, title, description, status, value, effort, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -108,8 +121,10 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                value: row.get(4)?,
+                effort: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -248,6 +263,26 @@ pub fn set_task_status(
         )?;
     }
     tx.commit()?;
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_score(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    value: Option<i64>,
+    effort: Option<i64>,
+) -> Result<Task> {
+    let value = validate_task_score(value, "value")?;
+    let effort = validate_task_score(effort, "effort")?;
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE tasks SET value = ?1, effort = ?2, updated_at = ?3 WHERE id = ?4",
+        params![value, effort, now_unix_secs(), id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
     fetch_task(&conn, id)
 }
 

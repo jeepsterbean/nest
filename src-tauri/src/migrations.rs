@@ -356,6 +356,12 @@ ALTER TABLE tasks ADD COLUMN description TEXT NOT NULL DEFAULT '';
 ALTER TABLE brain_dumps ADD COLUMN title TEXT;
 "#,
         ),
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN value INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5);
+ALTER TABLE tasks ADD COLUMN effort INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5);
+"#,
+        ),
     ])
 }
 

@@ -58,6 +58,8 @@ export type Task = {
   title: string;
   description: string;
   status: TaskStatus;
+  value: RatingValue | null;
+  effort: RatingValue | null;
   createdAt: number;
   updatedAt: number;
 };

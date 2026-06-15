@@ -8,6 +8,7 @@ import type {
   MetricRatingInput,
   Phase,
   PhaseCheckIn,
+  RatingValue,
   SeriesPoint,
   Task,
   TaskCheckIn,
@@ -78,6 +79,14 @@ export function setTaskDescription(
 
 export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {
   return invoke("set_task_status", { id, status });
+}
+
+export function setTaskScore(
+  id: number,
+  value: RatingValue | null,
+  effort: RatingValue | null,
+): Promise<Task> {
+  return invoke("set_task_score", { id, value, effort });
 }
 
 export function submitMetricCheckIn(

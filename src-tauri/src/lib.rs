@@ -469,6 +469,7 @@ pub fn run() {
             commands::rename_task,
             commands::set_task_description,
             commands::set_task_status,
+            commands::set_task_score,
             commands::create_metric,
             commands::rename_metric,
             commands::set_metric_active,

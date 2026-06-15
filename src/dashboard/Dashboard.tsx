@@ -18,6 +18,7 @@ import {
   setMetricActive,
   setPhaseActive,
   setTaskDescription,
+  setTaskScore,
   setTaskStatus,
   submitBrainDump,
   submitPhaseCheckIn,
@@ -28,6 +29,7 @@ import type {
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
+  RatingValue,
   Task,
   TaskStatus,
 } from "../lib/types";
@@ -50,6 +52,8 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
 
 type DashboardView = "overview" | "journal" | "tasks" | "metrics" | "phases";
 
@@ -246,7 +250,9 @@ function Switch({
 function Dashboard() {
   const [view, setView] = useState<DashboardView>("overview");
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [taskView, setTaskView] = useState<"kanban" | "table">("kanban");
+  const [taskView, setTaskView] = useState<"kanban" | "table" | "matrix">(
+    "kanban",
+  );
   const [newTaskTitles, setNewTaskTitles] = useState<
     Record<TaskStatus, string>
   >({
@@ -404,6 +410,20 @@ function Dashboard() {
     if (task.status === status) return;
     try {
       await setTaskStatus(task.id, status);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onSetTaskScore = async (
+    task: Task,
+    value: RatingValue | null,
+    effort: RatingValue | null,
+  ) => {
+    if (task.value === value && task.effort === effort) return;
+    try {
+      await setTaskScore(task.id, value, effort);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -800,6 +820,54 @@ function Dashboard() {
     </select>
   );
 
+  const parseScore = (raw: string): RatingValue | null =>
+    raw === "" ? null : (Number(raw) as RatingValue);
+
+  const renderScoreControls = (task: Task) => (
+    <div
+      className="task-score"
+      role="group"
+      aria-label={`Priority scores for ${task.title}`}
+    >
+      <label className="task-score__field">
+        <span className="task-score__tag">V</span>
+        <select
+          className="task-score-select"
+          value={task.value ?? ""}
+          onChange={(e) =>
+            onSetTaskScore(task, parseScore(e.target.value), task.effort)
+          }
+          aria-label={`Value for ${task.title}`}
+        >
+          <option value="">–</option>
+          {RATING_VALUES.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="task-score__field">
+        <span className="task-score__tag">E</span>
+        <select
+          className="task-score-select"
+          value={task.effort ?? ""}
+          onChange={(e) =>
+            onSetTaskScore(task, task.value, parseScore(e.target.value))
+          }
+          aria-label={`Effort for ${task.title}`}
+        >
+          <option value="">–</option>
+          {RATING_VALUES.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
   const renderTaskDescription = (task: Task) =>
     editingDescriptionId === task.id ? (
       <textarea
@@ -860,7 +928,101 @@ function Dashboard() {
           <span>Updated {formatDate(task.updatedAt)}</span>
           {renderStatusSelect(task)}
         </div>
+        <div className="task-card__scores">{renderScoreControls(task)}</div>
       </li>
+    );
+  };
+
+  const renderTaskMatrix = () => {
+    const open = tasks.filter(
+      (t) => t.status === "backlog" || t.status === "active",
+    );
+    const scored = open.filter((t) => t.value !== null && t.effort !== null);
+    const unscored = open.filter((t) => t.value === null || t.effort === null);
+    const ranked = [...scored].sort(
+      (a, b) =>
+        (b.value ?? 0) - (a.value ?? 0) ||
+        (a.effort ?? 0) - (b.effort ?? 0) ||
+        b.updatedAt - a.updatedAt,
+    );
+    return (
+      <div className="task-matrix-layout">
+        <div className="task-matrix">
+          <span className="task-matrix__axis task-matrix__axis--value">
+            Value
+          </span>
+          <div className="task-matrix__plot">
+            <div className="task-matrix__quadrants" aria-hidden="true">
+              <span className="task-matrix__quadrant">Quick wins</span>
+              <span className="task-matrix__quadrant">Big bets</span>
+              <span className="task-matrix__quadrant">Fill-ins</span>
+              <span className="task-matrix__quadrant">Thankless</span>
+            </div>
+            {scored.length === 0 ? (
+              <p className="task-matrix__empty">
+                Score a task's value and effort to place it here.
+              </p>
+            ) : (
+              scored.map((task) => {
+                const x = 8 + (((task.effort ?? 3) - 1) / 4) * 84;
+                const y = 8 + (((task.value ?? 3) - 1) / 4) * 84;
+                return (
+                  <span
+                    key={task.id}
+                    className="task-matrix__chip"
+                    style={{ left: `${x}%`, bottom: `${y}%` }}
+                    title={`${task.title} · value ${task.value}, effort ${task.effort}`}
+                  >
+                    {task.title}
+                  </span>
+                );
+              })
+            )}
+          </div>
+          <span className="task-matrix__axis task-matrix__axis--effort">
+            Effort
+          </span>
+        </div>
+        <div className="task-ranked">
+          <h3 className="task-ranked__head">Do next</h3>
+          {ranked.length === 0 ? (
+            <p className="task-ranked__empty">Score some tasks to rank them.</p>
+          ) : (
+            <ol className="task-ranked__list">
+              {ranked.map((task, i) => (
+                <li key={task.id} className="task-ranked__item">
+                  <span className="task-ranked__rank">{i + 1}</span>
+                  <span className="task-ranked__title">{task.title}</span>
+                  <span className="task-ranked__badges">
+                    <span className="task-badge" title="Value">
+                      V{task.value}
+                    </span>
+                    <span className="task-badge" title="Effort">
+                      E{task.effort}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+          {unscored.length > 0 && (
+            <div className="task-ranked__unscored">
+              <h4 className="task-ranked__subhead">Needs scoring</h4>
+              <ol className="task-ranked__list">
+                {unscored.map((task) => (
+                  <li
+                    key={task.id}
+                    className="task-ranked__item task-ranked__item--unscored"
+                  >
+                    <span className="task-ranked__title">{task.title}</span>
+                    {renderScoreControls(task)}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -1108,10 +1270,21 @@ function Dashboard() {
               >
                 Table
               </button>
+              <button
+                type="button"
+                className={
+                  taskView === "matrix"
+                    ? "view-toggle__btn view-toggle__btn--active"
+                    : "view-toggle__btn"
+                }
+                onClick={() => setTaskView("matrix")}
+              >
+                Matrix
+              </button>
             </div>
           </header>
 
-          {taskView === "kanban" ? (
+          {taskView === "kanban" && (
             <div className="task-board">
               {TASK_STATUSES.map((status) => (
                 <section className="task-column" key={status}>
@@ -1167,13 +1340,15 @@ function Dashboard() {
                 </section>
               ))}
             </div>
-          ) : (
+          )}
+          {taskView === "table" && (
             <div className="task-table-wrap">
               <table className="task-table">
                 <thead>
                   <tr>
                     <th>Title</th>
                     <th>Status</th>
+                    <th>Priority</th>
                     <th>Created</th>
                     <th>Updated</th>
                   </tr>
@@ -1181,7 +1356,7 @@ function Dashboard() {
                 <tbody>
                   {tasks.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="task-table__empty">
+                      <td colSpan={5} className="task-table__empty">
                         Add a task from the Kanban view to start the board.
                       </td>
                     </tr>
@@ -1198,6 +1373,7 @@ function Dashboard() {
                         <tr key={task.id}>
                           <td>{renderTaskTitle(task)}</td>
                           <td>{renderStatusSelect(task)}</td>
+                          <td>{renderScoreControls(task)}</td>
                           <td>{formatDate(task.createdAt)}</td>
                           <td>{formatDate(task.updatedAt)}</td>
                         </tr>
@@ -1207,6 +1383,7 @@ function Dashboard() {
               </table>
             </div>
           )}
+          {taskView === "matrix" && renderTaskMatrix()}
         </section>
         )}
 
