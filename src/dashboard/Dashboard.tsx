@@ -819,15 +819,7 @@ function Dashboard() {
         </div>
       ) : (
         <ol className="overview-task-list">
-          {tasksByStatus[status].map((task) => (
-            <li key={task.id} className={`task-card task-card--${task.status}`}>
-              {renderTaskTitle(task)}
-              <div className="task-card__meta">
-                <span>Updated {formatDate(task.updatedAt)}</span>
-                {renderStatusSelect(task)}
-              </div>
-            </li>
-          ))}
+          {tasksByStatus[status].map((task) => renderTaskCard(task))}
         </ol>
       )}
     </section>
