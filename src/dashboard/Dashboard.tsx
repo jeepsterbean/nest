@@ -20,6 +20,7 @@ import {
   setTaskDescription,
   setTaskStatus,
   submitBrainDump,
+  submitPhaseCheckIn,
 } from "../lib/commands";
 import type {
   BrainDump,
@@ -292,6 +293,8 @@ function Dashboard() {
   const [quickBrainDumpText, setQuickBrainDumpText] = useState("");
   const [quickBrainDumpSubmitting, setQuickBrainDumpSubmitting] =
     useState(false);
+  const [phasePickerOpen, setPhasePickerOpen] = useState(false);
+  const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const brainDumpInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -542,6 +545,20 @@ function Dashboard() {
     }
   };
 
+  const onSelectPhase = async (p: Phase) => {
+    setPhasePickerOpen(false);
+    if (latestPhase?.phaseId === p.id || phaseChangingId !== null) return;
+    setPhaseChangingId(p.id);
+    try {
+      await submitPhaseCheckIn(p.id);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setPhaseChangingId(null);
+    }
+  };
+
   const onDeleteCheckIn = async (id: number) => {
     try {
       await deleteMetricCheckIn(id);
@@ -644,11 +661,10 @@ function Dashboard() {
     return groups;
   }, [events]);
 
-  const recentBrainDumps = useMemo(
+  const overviewBrainDumps = useMemo(
     () =>
       [...allBrainDumps]
         .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
-        .slice(0, 3)
         .reverse(),
     [allBrainDumps],
   );
@@ -669,6 +685,10 @@ function Dashboard() {
       latestPhase.phaseLabel ??
       `Phase ${latestPhase.phaseId}`)
     : null;
+  const activePhases = useMemo(
+    () => sortedPhases.filter((p) => p.inactiveSince === null),
+    [sortedPhases],
+  );
 
   const formatDate = (ts: number | null) =>
     ts === null
@@ -1315,12 +1335,63 @@ function Dashboard() {
         {view === "overview" && (
         <>
         <ul className="dash-stats">
-          <li className="dash-stat dash-stat--phase">
-            {flagIcon}
-            <div>
-              <strong>{currentPhaseName ?? "None yet"}</strong>
-              <span>Current phase</span>
-            </div>
+          <li
+            className="dash-stat dash-stat--phase"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPhasePickerOpen(false);
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="phase-summary"
+              aria-haspopup="listbox"
+              aria-expanded={phasePickerOpen}
+              disabled={activePhases.length === 0 || phaseChangingId !== null}
+              onClick={() => setPhasePickerOpen((open) => !open)}
+            >
+              {flagIcon}
+              <span className="phase-summary__copy">
+                <span>currently</span>
+                <strong>
+                  {phaseChangingId !== null
+                    ? "Changing..."
+                    : currentPhaseName ?? "None yet"}
+                </strong>
+              </span>
+              <span className="phase-summary__chevron" aria-hidden="true">
+                ▾
+              </span>
+            </button>
+            {phasePickerOpen && (
+              <div className="phase-picker" role="listbox" aria-label="Phase">
+                {activePhases.length === 0 ? (
+                  <div className="phase-picker__empty">No active phases</div>
+                ) : (
+                  activePhases.map((p) => {
+                    const selected = latestPhase?.phaseId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className="phase-picker__option"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onSelectPhase(p)}
+                      >
+                        <span className="phase-picker__dot" />
+                        <span>{p.name}</span>
+                        {selected && (
+                          <span className="phase-picker__mark">Current</span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </li>
           <li className="dash-stat dash-stat--checkins">
             {checkCircleIcon}
@@ -1364,17 +1435,17 @@ function Dashboard() {
             <header className="overview-panel__head">
               <div>
                 <h2>Brain dumps</h2>
-                <span>Latest three notes</span>
+                <span>Full note history</span>
               </div>
             </header>
             <div className="overview-panel__scroll overview-panel__scroll--with-composer">
-              {loaded && recentBrainDumps.length === 0 ? (
+              {loaded && overviewBrainDumps.length === 0 ? (
                 <div className="overview-dump-empty">
                   Nothing captured yet
                 </div>
               ) : (
                 <ol className="overview-dump-list">
-                  {recentBrainDumps.map((dump) => (
+                  {overviewBrainDumps.map((dump) => (
                     <li key={dump.id} className="overview-dump">
                       <time className="overview-dump__time">
                         {new Date(dump.createdAt * 1000).toLocaleDateString(

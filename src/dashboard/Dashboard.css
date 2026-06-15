@@ -420,6 +420,138 @@
   color: var(--phase);
 }
 
+.dash-stat--phase {
+  position: relative;
+  padding: 0;
+}
+
+.phase-summary {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phase-summary:hover,
+.phase-summary:focus-visible {
+  background: var(--phase-soft);
+  outline: none;
+}
+
+.phase-summary:disabled {
+  cursor: default;
+}
+
+.phase-summary__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.phase-summary__copy > span {
+  display: block;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.phase-summary__copy strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  font-size: 15px;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.phase-summary__chevron {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.phase-picker {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(260px, calc(100vw - 48px));
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px -18px rgba(60, 48, 30, 0.42),
+    0 2px 8px rgba(60, 48, 30, 0.08);
+}
+
+.phase-picker__option {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phase-picker__option:hover,
+.phase-picker__option:focus-visible,
+.phase-picker__option[aria-selected="true"] {
+  background: var(--phase-soft);
+  outline: none;
+}
+
+.phase-picker__option > span:nth-child(2) {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.phase-picker__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--phase);
+}
+
+.phase-picker__mark {
+  color: var(--phase);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.phase-picker__empty {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
 .dash-stat--checkins svg {
   color: var(--accent);
 }
@@ -443,6 +575,7 @@
 
 .overview-panel {
   display: flex;
+  min-width: 0;
   min-height: 0;
   max-height: clamp(420px, calc(100vh - 305px), 680px);
   flex-direction: column;
@@ -494,7 +627,7 @@
 
 .overview-task-group {
   display: flex;
-  min-height: 0;
+  flex: none;
   flex-direction: column;
   gap: 10px;
 }
