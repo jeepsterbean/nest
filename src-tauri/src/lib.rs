@@ -8,6 +8,8 @@ use std::{
     fs::OpenOptions,
     io::Write,
     path::PathBuf,
+    ptr,
+    sync::atomic::{AtomicI64, Ordering},
     sync::{Mutex, OnceLock},
 };
 use tauri::{
@@ -36,6 +38,10 @@ tauri_panel! {
             can_become_main_window: false
         }
     })
+
+    panel_event!(NestPanelEventHandler {
+        window_did_resign_key(notification: &tauri_nspanel::NSNotification) -> ()
+    })
 }
 
 #[cfg(target_os = "macos")]
@@ -54,8 +60,11 @@ const DEFAULT_CHECK_IN_MINUTES: i64 = 15;
 const MIN_CHECK_IN_MINUTES: i64 = 5;
 const MAX_CHECK_IN_MINUTES: i64 = 30;
 const CHECK_IN_STEP_MINUTES: i64 = 5;
+const POPUP_DISMISS_GRACE_MS: i64 = 750;
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+#[cfg(target_os = "macos")]
+static POPUP_LAST_SUMMONED_AT_MS: AtomicI64 = AtomicI64::new(0);
 
 fn append_diagnostic_log(message: impl AsRef<str>) {
     let message = message.as_ref();
@@ -98,6 +107,14 @@ fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+#[cfg(target_os = "macos")]
+fn now_unix_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
 }
 
@@ -295,6 +312,7 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
 #[cfg(target_os = "macos")]
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_macos label={label}"));
+    POPUP_LAST_SUMMONED_AT_MS.store(now_unix_millis(), Ordering::Relaxed);
     let panel = match app.get_webview_panel(label) {
         Ok(panel) => panel,
         Err(e) => {
@@ -316,6 +334,61 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     }
     panel.show_and_make_key();
     append_diagnostic_log(format!("popup_summon_macos_shown label={label}"));
+}
+
+#[cfg(target_os = "macos")]
+fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
+    let elapsed_ms = now_unix_millis() - POPUP_LAST_SUMMONED_AT_MS.load(Ordering::Relaxed);
+    if elapsed_ms <= POPUP_DISMISS_GRACE_MS {
+        append_diagnostic_log(format!(
+            "popup_hide_ignored reason={reason} elapsed_ms={elapsed_ms}"
+        ));
+        return;
+    }
+
+    match app.get_webview_panel("popup") {
+        Ok(panel) if panel.is_visible() => {
+            append_diagnostic_log(format!("popup_hide_native reason={reason}"));
+            panel.hide();
+        }
+        Ok(_) => {}
+        Err(e) => append_diagnostic_log(format!("popup_hide_native_failed error={e:?}")),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn install_popup_escape_monitor(app: tauri::AppHandle) {
+    let block = block2::RcBlock::new(
+        move |event: std::ptr::NonNull<tauri_nspanel::objc2_app_kit::NSEvent>| {
+            let event_ref = unsafe { event.as_ref() };
+            if event_ref.keyCode() == 53 {
+                let visible = app
+                    .get_webview_panel("popup")
+                    .map(|panel| panel.is_visible())
+                    .unwrap_or(false);
+                if visible {
+                    dismiss_popup_after_focus_grace(&app, "escape");
+                    return ptr::null_mut();
+                }
+            }
+
+            event.as_ptr()
+        },
+    );
+
+    let block = Box::leak(Box::new(block));
+    let monitor = unsafe {
+        tauri_nspanel::objc2_app_kit::NSEvent::addLocalMonitorForEventsMatchingMask_handler(
+            tauri_nspanel::objc2_app_kit::NSEventMask::from_type(
+                tauri_nspanel::objc2_app_kit::NSEventType::KeyDown,
+            ),
+            block,
+        )
+    };
+
+    if monitor.is_none() {
+        append_diagnostic_log("popup_escape_monitor_install_failed");
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -375,6 +448,12 @@ pub fn run() {
                     };
                     match window.to_panel::<NestPanel>() {
                         Ok(panel) => {
+                            let handler = NestPanelEventHandler::new();
+                            let app_handle = app.handle().clone();
+                            handler.window_did_resign_key(move |_| {
+                                dismiss_popup_after_focus_grace(&app_handle, "resign_key");
+                            });
+                            panel.set_event_handler(Some(handler.as_ref()));
                             panel.set_level(PanelLevel::Floating.value());
                             panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
                             panel.set_collection_behavior(
@@ -390,6 +469,8 @@ pub fn run() {
                         Err(e) => eprintln!("nest: failed to convert '{label}' to NSPanel: {e:?}"),
                     }
                 }
+
+                install_popup_escape_monitor(app.handle().clone());
             }
 
             // Global hotkeys — non-fatal: if a combo is already owned by another app,
