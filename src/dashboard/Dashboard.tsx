@@ -214,7 +214,7 @@ const buildScopeTree = (taskList: Task[]) => {
   };
   sortNodes(roots);
 
-  return { roots, paths: new Set(byPath.keys()) };
+  return { roots, byPath, paths: new Set(byPath.keys()) };
 };
 
 const iconProps = {
@@ -252,6 +252,23 @@ const checkCircleIcon = (
 const pencilIcon = (
   <svg {...iconProps}>
     <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+
+const plusIcon = (
+  <svg {...iconProps}>
+    <line x1="12" x2="12" y1="5" y2="19" />
+    <line x1="5" x2="19" y1="12" y2="12" />
+  </svg>
+);
+
+const trashIcon = (
+  <svg {...iconProps}>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14H6L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4h6v2" />
   </svg>
 );
 
@@ -365,8 +382,6 @@ function Dashboard() {
     number | null
   >(null);
   const [editingDescription, setEditingDescription] = useState("");
-  const [editingScopeId, setEditingScopeId] = useState<number | null>(null);
-  const [editingScope, setEditingScope] = useState("");
   const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
     null,
   );
@@ -379,6 +394,16 @@ function Dashboard() {
     top: number;
     up: boolean;
   } | null>(null);
+  const [scopeMenu, setScopeMenu] = useState<{
+    taskId: number;
+    left: number;
+    top: number;
+    maxHeight: number;
+    adding: boolean;
+    currentPath: string | null;
+  } | null>(null);
+  const [newScopeName, setNewScopeName] = useState("");
+  const newScopeInputRef = useRef<HTMLInputElement | null>(null);
   const [backlogCollapsed, setBacklogCollapsed] = useState(false);
   const [quickAddStatus, setQuickAddStatus] = useState<
     "active" | "backlog" | null
@@ -519,12 +544,6 @@ function Dashboard() {
     setEditingDescription(task.description);
   };
 
-  const startScopeEdit = (task: Task) => {
-    setExpandedTaskIds((prev) => new Set(prev).add(task.id));
-    setEditingScopeId(task.id);
-    setEditingScope(task.scope ?? "");
-  };
-
   const commitDescriptionEdit = async () => {
     if (editingDescriptionId === null) return;
     const description = editingDescription.trim();
@@ -534,21 +553,6 @@ function Dashboard() {
     if (current && current.description === description) return;
     try {
       await setTaskDescription(id, description);
-      await reload();
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const commitScopeEdit = async () => {
-    if (editingScopeId === null) return;
-    const scope = normalizeTaskScope(editingScope);
-    const id = editingScopeId;
-    setEditingScopeId(null);
-    const current = tasks.find((t) => t.id === id);
-    if (current && current.scope === scope) return;
-    try {
-      await setTaskScope(id, scope);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -658,6 +662,26 @@ function Dashboard() {
       window.removeEventListener("keydown", onKey);
     };
   }, [statusMenu]);
+
+  // The scope menu has its own scrollable option list, so scrolling should not
+  // dismiss it. Outside click, resize, and Escape still close it.
+  useEffect(() => {
+    if (!scopeMenu) return;
+    const close = () => setScopeMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [scopeMenu]);
+
+  useEffect(() => {
+    if (scopeMenu?.adding) newScopeInputRef.current?.focus();
+  }, [scopeMenu?.adding]);
 
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -989,6 +1013,7 @@ function Dashboard() {
       setStatusMenu(null);
       return;
     }
+    setScopeMenu(null);
     const rect = anchor.getBoundingClientRect();
     // ~5 options at 36px plus padding; flip up when there isn't room below.
     const estHeight = 5 * 36 + 12;
@@ -1163,28 +1188,89 @@ function Dashboard() {
     });
   };
 
+  const openScopeMenu = (task: Task, anchor: HTMLElement) => {
+    if (scopeMenu?.taskId === task.id) {
+      setScopeMenu(null);
+      return;
+    }
+    setStatusMenu(null);
+    const rect = anchor.getBoundingClientRect();
+    const initialPath =
+      task.scope && scopeTree.byPath.has(task.scope) ? task.scope : null;
+    const initialNode = initialPath ? scopeTree.byPath.get(initialPath) : null;
+    const initialOptions = initialNode ? initialNode.children : scopeTree.roots;
+    const visibleOptions = Math.min(Math.max(initialOptions.length, 1), 6);
+    const viewportPad = 8;
+    const estHeight = visibleOptions * 36 + 132;
+    const menuWidth = 280;
+    const maxHeight = Math.max(180, window.innerHeight - viewportPad * 2);
+    const boundedHeight = Math.min(estHeight, maxHeight);
+    const preferredBelowTop = rect.bottom + 6;
+    const preferredAboveTop = rect.top - boundedHeight - 6;
+    const top =
+      window.innerHeight - preferredBelowTop >= boundedHeight
+        ? preferredBelowTop
+        : rect.top >= boundedHeight
+          ? preferredAboveTop
+          : Math.max(
+              viewportPad,
+              Math.min(
+                preferredBelowTop,
+                window.innerHeight - boundedHeight - viewportPad,
+              ),
+            );
+    setNewScopeName("");
+    setScopeMenu({
+      taskId: task.id,
+      left: Math.max(
+        viewportPad,
+        Math.min(rect.left, window.innerWidth - menuWidth - viewportPad),
+      ),
+      top,
+      maxHeight: boundedHeight,
+      adding: false,
+      currentPath: initialPath,
+    });
+  };
+
+  const onSetTaskScope = async (task: Task, scope: string | null) => {
+    if (task.scope === scope) {
+      setScopeMenu(null);
+      return;
+    }
+    try {
+      await setTaskScope(task.id, scope);
+      setScopeMenu(null);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const submitNewScope = async (e: React.FormEvent, task: Task) => {
+    e.preventDefault();
+    const enteredScope = normalizeTaskScope(newScopeName);
+    const scope =
+      enteredScope && scopeMenu?.currentPath
+        ? `${scopeMenu.currentPath} / ${enteredScope}`
+        : enteredScope;
+    if (!scope) return;
+    await onSetTaskScope(task, scope);
+    setNewScopeName("");
+  };
+
   const renderTaskScope = (task: Task, display: "leaf" | "path" = "path") =>
-    editingScopeId === task.id ? (
-      <input
-        className="task-card__scope-input"
-        value={editingScope}
-        autoFocus
-        placeholder="Code / Personal Projects / Nest"
-        onChange={(e) => setEditingScope(e.target.value)}
-        onBlur={commitScopeEdit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitScopeEdit();
-          if (e.key === "Escape") setEditingScopeId(null);
-        }}
-      />
-    ) : (
+    (
       <button
         type="button"
         className={
           task.scope ? "task-card__scope" : "task-card__scope task-card__scope--empty"
         }
-        onClick={() => startScopeEdit(task)}
-        title={task.scope ? `Scope: ${task.scope}` : "Add scope"}
+        aria-haspopup="menu"
+        aria-expanded={scopeMenu?.taskId === task.id}
+        aria-label={task.scope ? `Scope: ${task.scope}` : "Set task scope"}
+        onClick={(e) => openScopeMenu(task, e.currentTarget)}
+        title={task.scope ? `Scope: ${task.scope}` : "Set scope"}
       >
         {task.scope ? (
           (display === "leaf"
@@ -1203,10 +1289,173 @@ function Dashboard() {
               </span>
             ))
         ) : (
-          "Add scope"
+          <span className="task-card__scope-dot" aria-hidden="true" />
         )}
       </button>
     );
+
+  const renderScopeMenu = () => {
+    if (!scopeMenu) return null;
+    const task = tasks.find((t) => t.id === scopeMenu.taskId);
+    if (!task) return null;
+    const currentNode = scopeMenu.currentPath
+      ? scopeTree.byPath.get(scopeMenu.currentPath)
+      : null;
+    const visibleScopeNodes = currentNode ? currentNode.children : scopeTree.roots;
+    const currentPathSegments = scopeMenu.currentPath
+      ? scopeSegments(scopeMenu.currentPath)
+      : [];
+    const setScopeMenuPath = (currentPath: string | null) => {
+      setNewScopeName("");
+      setScopeMenu((prev) =>
+        prev ? { ...prev, currentPath, adding: false } : prev,
+      );
+    };
+    return (
+      <>
+        <div
+          className="task-scope-menu-backdrop"
+          onClick={() => setScopeMenu(null)}
+        />
+        <div
+          className="task-scope-menu"
+          role="menu"
+          aria-label={`Scope for ${task.title}`}
+          style={
+            {
+              left: scopeMenu.left,
+              top: scopeMenu.top,
+              "--task-scope-menu-max-height": `${scopeMenu.maxHeight}px`,
+            } as CSSProperties
+          }
+        >
+          <div className="task-scope-menu__head">
+            <div
+              className="task-scope-menu__path"
+              aria-label="Current scope path"
+            >
+              <button
+                type="button"
+                className="task-scope-menu__crumb"
+                onClick={() => setScopeMenuPath(null)}
+              >
+                Scopes
+              </button>
+              {currentPathSegments.map((segment, index) => {
+                const path = currentPathSegments.slice(0, index + 1).join(" / ");
+                return (
+                  <span className="task-scope-menu__crumb-wrap" key={path}>
+                    <span className="task-scope-menu__crumb-separator">/</span>
+                    <button
+                      type="button"
+                      className="task-scope-menu__crumb"
+                      onClick={() => setScopeMenuPath(path)}
+                    >
+                      {segment}
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+            <div className="task-scope-menu__actions">
+              <button
+                type="button"
+                className="task-scope-menu__icon-btn"
+                aria-label={
+                  scopeMenu.currentPath
+                    ? `Add scope under ${scopeMenu.currentPath}`
+                    : "Add root scope"
+                }
+                title={
+                  scopeMenu.currentPath
+                    ? `Add scope under ${scopeMenu.currentPath}`
+                    : "Add root scope"
+                }
+                onClick={() =>
+                  setScopeMenu((prev) =>
+                    prev ? { ...prev, adding: true } : prev,
+                  )
+                }
+              >
+                {plusIcon}
+              </button>
+              {task.scope && (
+                <button
+                  type="button"
+                  className="task-scope-menu__icon-btn task-scope-menu__icon-btn--danger"
+                  aria-label="Remove scope"
+                  title="Remove scope"
+                  onClick={() => onSetTaskScope(task, null)}
+                >
+                  {trashIcon}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="task-scope-menu__options">
+            {visibleScopeNodes.length === 0 ? (
+              <div className="task-scope-menu__empty">No child scopes</div>
+            ) : (
+              visibleScopeNodes.map((node) => {
+                const selected = task.scope === node.path;
+                const hasChildren = node.children.length > 0;
+                return (
+                  <div
+                    key={node.path}
+                    className={`task-scope-menu__option-row${
+                      selected ? " is-selected" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      className="task-scope-menu__select"
+                      onClick={() => onSetTaskScope(task, node.path)}
+                    >
+                      <span className="task-scope-menu__label">{node.label}</span>
+                      {selected && (
+                        <span className="task-scope-menu__check" aria-hidden="true">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                    {hasChildren && (
+                      <button
+                        type="button"
+                        className="task-scope-menu__drill"
+                        aria-label={`Show scopes under ${node.path}`}
+                        onClick={() => setScopeMenuPath(node.path)}
+                      >
+                        ›
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          {scopeMenu.adding ? (
+            <form
+              className="task-scope-menu__new"
+              onSubmit={(e) => submitNewScope(e, task)}
+            >
+              <input
+                ref={newScopeInputRef}
+                value={newScopeName}
+                placeholder="New scope"
+                aria-label="New task scope"
+                onChange={(e) => setNewScopeName(e.target.value)}
+              />
+              <button type="submit" disabled={!normalizeTaskScope(newScopeName)}>
+                Add
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </>
+    );
+  };
 
   const renderScopeNode = (node: ScopeNode) => {
     const selected = selectedTaskScope === node.path;
@@ -1305,7 +1554,7 @@ function Dashboard() {
       >
         <div className="task-card__top">
           <div className="task-card__identity">
-            {task.scope && !expanded && renderTaskScope(task, "leaf")}
+            {!expanded && renderTaskScope(task, "leaf")}
             {renderTaskTitle(task)}
           </div>
           <button
@@ -2302,6 +2551,7 @@ function Dashboard() {
         </section>
         )}
       </div>
+      {renderScopeMenu()}
       {renderStatusMenu()}
     </main>
   );
