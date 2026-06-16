@@ -73,6 +73,21 @@ function CheckIcon() {
   );
 }
 
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d="M12.5 4.5 7 10l5.5 5.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 function CheckInForm() {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>("inputs");
@@ -127,6 +142,22 @@ function CheckInForm() {
 
   const setRating = (metricId: number, value: RatingValue) => {
     setRatings((prev) => ({ ...prev, [metricId]: value }));
+  };
+
+  // Move the phase selection one step in either direction, wrapping around the
+  // ends. When nothing is selected yet (no latest phase), a step forward lands
+  // on the first phase and a step back lands on the last.
+  const shiftPhase = (direction: -1 | 1) => {
+    const phases = loaded?.phases ?? [];
+    if (phases.length === 0) return;
+    const currentIndex = phases.findIndex((p) => p.id === selectedPhaseId);
+    const nextIndex =
+      currentIndex === -1
+        ? direction === 1
+          ? 0
+          : phases.length - 1
+        : (currentIndex + direction + phases.length) % phases.length;
+    setSelectedPhaseId(phases[nextIndex].id);
   };
 
   const openDashboard = async () => {
@@ -230,23 +261,26 @@ function CheckInForm() {
 
   const activeTasks = loaded.tasks.filter((task) => task.status === "active");
   const activeTaskView = (
-    <section className="combined-section">
-      <div className="combined-section__head">
-        <span className="combined-section__kicker">Active tasks</span>
+    <section className="now-card">
+      <div className="now-card__head">
+        <span className="now-card__kicker">
+          <span className="now-dot" aria-hidden="true" />
+          Working on
+        </span>
         <button type="button" className="combined-link" onClick={openDashboard}>
           Dashboard
         </button>
       </div>
       {activeTasks.length === 0 ? (
-        <div className="combined-empty">
-          <span>No active tasks.</span>
-        </div>
+        <p className="now-card__empty">
+          Nothing active right now. Open the dashboard to pick something up.
+        </p>
       ) : (
-        <div className="active-task-list">
+        <ul className="now-list">
           {activeTasks.map((task) => (
-            <div className="active-task-row" key={task.id}>
-              <span>{task.title}</span>
-              <div className="active-task-row__actions">
+            <li className="now-task" key={task.id}>
+              <span className="now-task__title">{task.title}</span>
+              <div className="now-task__actions">
                 <button
                   type="button"
                   aria-label={`Pause ${task.title}`}
@@ -266,12 +300,18 @@ function CheckInForm() {
                   <CheckIcon />
                 </button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );
+
+  const currentPhaseIndex = loaded.phases.findIndex(
+    (p) => p.id === selectedPhaseId,
+  );
+  const currentPhase =
+    currentPhaseIndex === -1 ? null : loaded.phases[currentPhaseIndex];
 
   return (
     <form className="combined-checkin" onSubmit={onSubmit}>
@@ -326,6 +366,11 @@ function CheckInForm() {
             <section className="combined-section">
               <div className="combined-section__head">
                 <span className="combined-section__kicker">Phase</span>
+                {loaded.phases.length > 0 && (
+                  <span className="phase-stepper__hint" aria-hidden="true">
+                    ← → switch
+                  </span>
+                )}
               </div>
               {loaded.phases.length === 0 ? (
                 <div className="combined-empty">
@@ -333,30 +378,68 @@ function CheckInForm() {
                 </div>
               ) : (
                 <div
-                  className="phase-grid"
+                  className="phase-stepper"
                   role="radiogroup"
                   aria-label="Current phase"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    switch (e.key) {
+                      case "ArrowLeft":
+                      case "ArrowUp":
+                        e.preventDefault();
+                        shiftPhase(-1);
+                        break;
+                      case "ArrowRight":
+                      case "ArrowDown":
+                        e.preventDefault();
+                        shiftPhase(1);
+                        break;
+                      case "Home":
+                        e.preventDefault();
+                        setSelectedPhaseId(loaded.phases[0].id);
+                        break;
+                      case "End":
+                        e.preventDefault();
+                        setSelectedPhaseId(
+                          loaded.phases[loaded.phases.length - 1].id,
+                        );
+                        break;
+                    }
+                  }}
                 >
-                  {loaded.phases.map((phase) => (
-                    <button
-                      key={phase.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selectedPhaseId === phase.id}
-                      className={`phase-choice${
-                        selectedPhaseId === phase.id
-                          ? " phase-choice--active"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        setSelectedPhaseId((current) =>
-                          current === phase.id ? null : phase.id,
-                        )
-                      }
-                    >
-                      {phase.name}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className="phase-stepper__chevron"
+                    aria-label="Previous phase"
+                    tabIndex={-1}
+                    onClick={() => shiftPhase(-1)}
+                  >
+                    <ChevronIcon />
+                  </button>
+                  <div className="phase-stepper__display">
+                    <span className="phase-stepper__name" aria-live="polite">
+                      {currentPhase ? currentPhase.name : "Pick a phase"}
+                    </span>
+                    <div className="phase-stepper__dots" aria-hidden="true">
+                      {loaded.phases.map((phase, i) => (
+                        <span
+                          key={phase.id}
+                          className={`phase-dot${
+                            i === currentPhaseIndex ? " phase-dot--active" : ""
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="phase-stepper__chevron phase-stepper__chevron--next"
+                    aria-label="Next phase"
+                    tabIndex={-1}
+                    onClick={() => shiftPhase(1)}
+                  >
+                    <ChevronIcon />
+                  </button>
                 </div>
               )}
             </section>
@@ -404,7 +487,7 @@ function CheckInForm() {
                               type="button"
                               role="radio"
                               aria-checked={rating === value}
-                              className={`metric-rating${
+                              className={`metric-rating metric-rating--v${value}${
                                 rating === value ? " metric-rating--active" : ""
                               }`}
                               onClick={() => setRating(metric.id, value)}
