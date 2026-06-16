@@ -286,6 +286,12 @@ function Dashboard() {
     top: number;
     up: boolean;
   } | null>(null);
+  const [backlogCollapsed, setBacklogCollapsed] = useState(false);
+  const [quickAddStatus, setQuickAddStatus] = useState<
+    "active" | "backlog" | null
+  >(null);
+  const [quickAddTitle, setQuickAddTitle] = useState("");
+  const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
@@ -355,6 +361,29 @@ function Dashboard() {
       await createTask(title, description, status);
       setNewTaskTitles((prev) => ({ ...prev, [status]: "" }));
       setNewTaskDescriptions((prev) => ({ ...prev, [status]: "" }));
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const openQuickAdd = (status: "active" | "backlog") => {
+    if (status === "backlog") setBacklogCollapsed(false);
+    setQuickAddTitle("");
+    setQuickAddStatus(status);
+  };
+
+  const submitQuickAdd = async (
+    e: React.FormEvent,
+    status: "active" | "backlog",
+  ) => {
+    e.preventDefault();
+    const title = quickAddTitle.trim();
+    if (!title) return;
+    try {
+      await createTask(title, "", status);
+      setQuickAddTitle("");
+      quickAddRef.current?.focus();
       await reload();
     } catch (e) {
       setError(String(e));
@@ -480,6 +509,10 @@ function Dashboard() {
   useEffect(() => {
     if (brainDumpOpen) brainDumpInputRef.current?.focus();
   }, [brainDumpOpen]);
+
+  useEffect(() => {
+    if (quickAddStatus) quickAddRef.current?.focus();
+  }, [quickAddStatus]);
 
   // Refresh when a check-in is submitted from the popup
   useEffect(() => {
@@ -1055,11 +1088,15 @@ function Dashboard() {
           </button>
         </div>
         {expanded && renderTaskDescription(task)}
-        <div className="task-card__meta">
-          <span>Updated {formatDate(task.updatedAt)}</span>
-          {renderStatusSelect(task)}
-        </div>
+        <div className="task-card__meta">{renderStatusSelect(task)}</div>
         <div className="task-card__scores">{renderScoreControls(task)}</div>
+        {expanded && (
+          <div className="task-card__footer">
+            <time className="task-card__date">
+              {formatDate(task.updatedAt)}
+            </time>
+          </div>
+        )}
       </li>
     );
   };
@@ -1157,25 +1194,118 @@ function Dashboard() {
     );
   };
 
-  const renderOverviewTasks = (
-    status: Extract<TaskStatus, "active" | "backlog">,
-  ) => (
-    <section className="overview-task-group">
-      <header className="overview-task-group__head">
-        <h3>{TASK_STATUS_LABEL[status]}</h3>
-        <span>{tasksByStatus[status].length}</span>
-      </header>
-      {tasksByStatus[status].length === 0 ? (
-        <div className="overview-task-group__empty">
-          No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
-        </div>
-      ) : (
-        <ol className="overview-task-list">
-          {tasksByStatus[status].map((task) => renderTaskCard(task))}
-        </ol>
-      )}
-    </section>
+  const renderQuickAdd = (status: "active" | "backlog") =>
+    quickAddStatus === status ? (
+      <form
+        className="overview-quick-add"
+        onSubmit={(e) => submitQuickAdd(e, status)}
+      >
+        <input
+          ref={quickAddRef}
+          type="text"
+          value={quickAddTitle}
+          placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
+          aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
+          onChange={(e) => setQuickAddTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setQuickAddStatus(null);
+          }}
+          onBlur={() => {
+            if (!quickAddTitle.trim()) setQuickAddStatus(null);
+          }}
+        />
+        <button type="submit" disabled={!quickAddTitle.trim()}>
+          Add
+        </button>
+      </form>
+    ) : null;
+
+  const renderAddButton = (status: "active" | "backlog") => (
+    <button
+      type="button"
+      className="overview-group__add"
+      aria-label={`Add task to ${TASK_STATUS_LABEL[status].toLowerCase()}`}
+      title={`Add ${TASK_STATUS_LABEL[status].toLowerCase()} task`}
+      onClick={() => openQuickAdd(status)}
+    >
+      +
+    </button>
   );
+
+  const renderTaskList = (status: "active" | "backlog") =>
+    tasksByStatus[status].length === 0 ? (
+      <div className="overview-task-group__empty">
+        No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
+      </div>
+    ) : (
+      <ol className="overview-task-list">
+        {tasksByStatus[status].map((task) => renderTaskCard(task))}
+      </ol>
+    );
+
+  const renderOverviewGroup = (status: "active" | "backlog") => {
+    const collapsible = status === "backlog";
+    const collapsed = collapsible && backlogCollapsed;
+    const headingInner = (
+      <>
+        <span
+          className={`status-dot status-dot--${status}`}
+          aria-hidden="true"
+        />
+        <span className="overview-group__name">
+          {TASK_STATUS_LABEL[status]}
+        </span>
+        <span
+          className={`overview-group__count${
+            status === "active" ? " overview-group__count--accent" : ""
+          }`}
+        >
+          {tasksByStatus[status].length}
+        </span>
+      </>
+    );
+    const body = (
+      <div className="overview-group__reveal-body">
+        {renderQuickAdd(status)}
+        {renderTaskList(status)}
+      </div>
+    );
+    return (
+      <section className={`overview-group overview-group--${status}`}>
+        <header className="overview-group__head">
+          <h3 className="overview-group__heading">
+            {collapsible ? (
+              <button
+                type="button"
+                className="overview-group__toggle"
+                aria-expanded={!collapsed}
+                onClick={() => setBacklogCollapsed((c) => !c)}
+              >
+                <span className="overview-group__chevron" aria-hidden="true">
+                  ▾
+                </span>
+                {headingInner}
+              </button>
+            ) : (
+              <span className="overview-group__static">{headingInner}</span>
+            )}
+          </h3>
+          {renderAddButton(status)}
+        </header>
+        {collapsible ? (
+          <div
+            className={`overview-group__reveal${
+              collapsed ? " is-collapsed" : ""
+            }`}
+          >
+            <div className="overview-group__reveal-inner">{body}</div>
+          </div>
+        ) : (
+          body
+        )}
+      </section>
+    );
+  };
 
   const renderEvent = (ev: TimelineEvent) => {
     switch (ev.kind) {
@@ -1796,8 +1926,8 @@ function Dashboard() {
               </div>
             </header>
             <div className="overview-panel__scroll">
-              {renderOverviewTasks("active")}
-              {renderOverviewTasks("backlog")}
+              {renderOverviewGroup("active")}
+              {renderOverviewGroup("backlog")}
             </div>
           </section>
 
