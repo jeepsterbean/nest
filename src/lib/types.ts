@@ -58,6 +58,7 @@ export type Task = {
   title: string;
   description: string;
   status: TaskStatus;
+  scope: string | null;
   value: RatingValue | null;
   effort: RatingValue | null;
   createdAt: number;

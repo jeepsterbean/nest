@@ -79,6 +79,7 @@ pub struct Task {
     pub title: String,
     pub description: String,
     pub status: String,
+    pub scope: Option<String>,
     pub value: Option<i64>,
     pub effort: Option<i64>,
     pub created_at: i64,

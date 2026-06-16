@@ -362,6 +362,7 @@ ALTER TABLE tasks ADD COLUMN value INTEGER CHECK (value IS NULL OR value BETWEEN
 ALTER TABLE tasks ADD COLUMN effort INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5);
 "#,
         ),
+        M::up("ALTER TABLE tasks ADD COLUMN scope TEXT;"),
     ])
 }
 
@@ -477,5 +478,14 @@ CREATE TABLE task_check_ins (
             )
             .unwrap();
         assert_eq!(terminal_timestamp_columns, 0);
+
+        let scope_column_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'scope'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(scope_column_count, 1);
     }
 }

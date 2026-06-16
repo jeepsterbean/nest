@@ -62,8 +62,9 @@ export function createTask(
   title: string,
   description: string,
   status: TaskStatus,
+  scope: string | null = null,
 ): Promise<Task> {
-  return invoke("create_task", { title, description, status });
+  return invoke("create_task", { title, description, status, scope });
 }
 
 export function renameTask(id: number, title: string): Promise<Task> {
@@ -75,6 +76,10 @@ export function setTaskDescription(
   description: string,
 ): Promise<Task> {
   return invoke("set_task_description", { id, description });
+}
+
+export function setTaskScope(id: number, scope: string | null): Promise<Task> {
+  return invoke("set_task_scope", { id, scope });
 }
 
 export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {

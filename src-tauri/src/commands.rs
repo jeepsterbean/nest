@@ -24,6 +24,19 @@ fn trim_to_option(s: Option<String>) -> Option<String> {
     s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
+fn normalize_task_scope(scope: Option<String>) -> Option<String> {
+    scope
+        .map(|value| {
+            value
+                .split('/')
+                .map(str::trim)
+                .filter(|segment| !segment.is_empty())
+                .collect::<Vec<_>>()
+                .join(" / ")
+        })
+        .filter(|value| !value.is_empty())
+}
+
 fn validate_task_status(status: &str) -> Result<&str> {
     match status {
         "backlog" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
@@ -56,7 +69,7 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, value, effort, created_at, updated_at \
+        "SELECT id, title, description, status, scope, value, effort, created_at, updated_at \
          FROM tasks WHERE id = ?1",
         params![id],
         |row| {
@@ -65,10 +78,11 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                value: row.get(4)?,
-                effort: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
+                scope: row.get(4)?,
+                value: row.get(5)?,
+                effort: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         },
     )
@@ -111,7 +125,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, value, effort, created_at, updated_at \
+        "SELECT id, title, description, status, scope, value, effort, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -121,10 +135,11 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                value: row.get(4)?,
-                effort: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
+                scope: row.get(4)?,
+                value: row.get(5)?,
+                effort: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -170,6 +185,7 @@ pub fn create_task(
     title: String,
     description: String,
     status: String,
+    scope: Option<String>,
 ) -> Result<Task> {
     let title = title.trim().to_string();
     if title.is_empty() {
@@ -177,13 +193,14 @@ pub fn create_task(
     }
     let description = description.trim().to_string();
     let status = validate_task_status(status.as_str())?;
+    let scope = normalize_task_scope(scope);
     let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO tasks (title, description, status, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![title, description, status, now, now],
+        "INSERT INTO tasks (title, description, status, scope, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![title, description, status, scope, now, now],
     )?;
     let id = tx.last_insert_rowid();
     tx.execute(
@@ -223,6 +240,24 @@ pub fn set_task_description(
     let updated = conn.execute(
         "UPDATE tasks SET description = ?1, updated_at = ?2 WHERE id = ?3",
         params![description, now_unix_secs(), id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_scope(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    scope: Option<String>,
+) -> Result<Task> {
+    let scope = normalize_task_scope(scope);
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE tasks SET scope = ?1, updated_at = ?2 WHERE id = ?3",
+        params![scope, now_unix_secs(), id],
     )?;
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
@@ -795,4 +830,19 @@ pub fn metric_series(
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_task_scope;
+
+    #[test]
+    fn normalizes_task_scope_segments() {
+        assert_eq!(
+            normalize_task_scope(Some(" Code // Personal Projects / Nest ".into())),
+            Some("Code / Personal Projects / Nest".into())
+        );
+        assert_eq!(normalize_task_scope(Some(" /// ".into())), None);
+        assert_eq!(normalize_task_scope(None), None);
+    }
 }

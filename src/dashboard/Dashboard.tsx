@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   createTask,
@@ -18,6 +18,7 @@ import {
   setMetricActive,
   setPhaseActive,
   setTaskDescription,
+  setTaskScope,
   setTaskScore,
   setTaskStatus,
   submitBrainDump,
@@ -71,6 +72,14 @@ type TimelineEvent =
   | { kind: "dump"; at: number; dump: BrainDump };
 
 type DayGroup = { key: number; label: string; events: TimelineEvent[] };
+
+type ScopeNode = {
+  path: string;
+  label: string;
+  depth: number;
+  count: number;
+  children: ScopeNode[];
+};
 
 // A popup submit writes phase, then metrics, then the brain dump within the
 // same second — rank them so the feed still reads newest-first.
@@ -131,6 +140,82 @@ const formatTime = (ts: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+const normalizeTaskScope = (scope: string) => {
+  const normalized = scope
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join(" / ");
+  return normalized || null;
+};
+
+const scopeSegments = (scope: string) =>
+  scope
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+const scopeMatches = (taskScope: string | null, selectedScope: string | null) =>
+  selectedScope === null ||
+  taskScope === selectedScope ||
+  taskScope?.startsWith(`${selectedScope} /`) === true;
+
+const groupTasksByStatus = (taskList: Task[]) => {
+  const grouped: Record<TaskStatus, Task[]> = {
+    backlog: [],
+    active: [],
+    paused: [],
+    completed: [],
+    cancelled: [],
+  };
+  for (const task of taskList) grouped[task.status].push(task);
+  for (const status of TASK_STATUSES) {
+    grouped[status].sort(
+      (a, b) =>
+        b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id - a.id,
+    );
+  }
+  return grouped;
+};
+
+const buildScopeTree = (taskList: Task[]) => {
+  const roots: ScopeNode[] = [];
+  const byPath = new Map<string, ScopeNode>();
+
+  for (const task of taskList) {
+    if (!task.scope) continue;
+    const segments = scopeSegments(task.scope);
+    let siblings = roots;
+    let path = "";
+
+    segments.forEach((label, index) => {
+      path = path ? `${path} / ${label}` : label;
+      let node = byPath.get(path);
+      if (!node) {
+        node = {
+          path,
+          label,
+          depth: index,
+          count: 0,
+          children: [],
+        };
+        byPath.set(path, node);
+        siblings.push(node);
+      }
+      node.count += 1;
+      siblings = node.children;
+    });
+  }
+
+  const sortNodes = (nodes: ScopeNode[]) => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label));
+    for (const node of nodes) sortNodes(node.children);
+  };
+  sortNodes(roots);
+
+  return { roots, paths: new Set(byPath.keys()) };
+};
 
 const iconProps = {
   viewBox: "0 0 24 24",
@@ -280,6 +365,14 @@ function Dashboard() {
     number | null
   >(null);
   const [editingDescription, setEditingDescription] = useState("");
+  const [editingScopeId, setEditingScopeId] = useState<number | null>(null);
+  const [editingScope, setEditingScope] = useState("");
+  const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
+    null,
+  );
+  const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
+    new Set(),
+  );
   const [statusMenu, setStatusMenu] = useState<{
     taskId: number;
     left: number;
@@ -426,6 +519,12 @@ function Dashboard() {
     setEditingDescription(task.description);
   };
 
+  const startScopeEdit = (task: Task) => {
+    setExpandedTaskIds((prev) => new Set(prev).add(task.id));
+    setEditingScopeId(task.id);
+    setEditingScope(task.scope ?? "");
+  };
+
   const commitDescriptionEdit = async () => {
     if (editingDescriptionId === null) return;
     const description = editingDescription.trim();
@@ -435,6 +534,21 @@ function Dashboard() {
     if (current && current.description === description) return;
     try {
       await setTaskDescription(id, description);
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const commitScopeEdit = async () => {
+    if (editingScopeId === null) return;
+    const scope = normalizeTaskScope(editingScope);
+    const id = editingScopeId;
+    setEditingScopeId(null);
+    const current = tasks.find((t) => t.id === id);
+    if (current && current.scope === scope) return;
+    try {
+      await setTaskScope(id, scope);
       await reload();
     } catch (e) {
       setError(String(e));
@@ -666,23 +780,31 @@ function Dashboard() {
     });
   };
 
-  const tasksByStatus = useMemo(() => {
-    const grouped: Record<TaskStatus, Task[]> = {
-      backlog: [],
-      active: [],
-      paused: [],
-      completed: [],
-      cancelled: [],
-    };
-    for (const task of tasks) grouped[task.status].push(task);
-    for (const status of TASK_STATUSES) {
-      grouped[status].sort(
-        (a, b) =>
-          b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id - a.id,
-      );
+  const scopeTree = useMemo(() => buildScopeTree(tasks), [tasks]);
+
+  useEffect(() => {
+    if (selectedTaskScope !== null && !scopeTree.paths.has(selectedTaskScope)) {
+      setSelectedTaskScope(null);
     }
-    return grouped;
-  }, [tasks]);
+    setCollapsedScopePaths((prev) => {
+      const next = new Set(
+        [...prev].filter((path) => scopeTree.paths.has(path)),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [scopeTree.paths, selectedTaskScope]);
+
+  const visibleTasks = useMemo(
+    () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
+    [tasks, selectedTaskScope],
+  );
+
+  const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
+
+  const visibleTasksByStatus = useMemo(
+    () => groupTasksByStatus(visibleTasks),
+    [visibleTasks],
+  );
 
   const sortedMetrics = useMemo(
     () =>
@@ -1032,6 +1154,109 @@ function Dashboard() {
     </div>
   );
 
+  const toggleScopeCollapsed = (path: string) => {
+    setCollapsedScopePaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  const renderTaskScope = (task: Task, display: "leaf" | "path" = "path") =>
+    editingScopeId === task.id ? (
+      <input
+        className="task-card__scope-input"
+        value={editingScope}
+        autoFocus
+        placeholder="Code / Personal Projects / Nest"
+        onChange={(e) => setEditingScope(e.target.value)}
+        onBlur={commitScopeEdit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitScopeEdit();
+          if (e.key === "Escape") setEditingScopeId(null);
+        }}
+      />
+    ) : (
+      <button
+        type="button"
+        className={
+          task.scope ? "task-card__scope" : "task-card__scope task-card__scope--empty"
+        }
+        onClick={() => startScopeEdit(task)}
+        title={task.scope ? `Scope: ${task.scope}` : "Add scope"}
+      >
+        {task.scope ? (
+          (display === "leaf"
+            ? scopeSegments(task.scope).slice(-1)
+            : scopeSegments(task.scope)
+          ).map((segment, index, segments) => (
+              <span
+                key={`${segment}-${index}`}
+                className={
+                  index === segments.length - 1
+                    ? "task-card__scope-segment task-card__scope-segment--leaf"
+                    : "task-card__scope-segment"
+                }
+              >
+                {segment}
+              </span>
+            ))
+        ) : (
+          "Add scope"
+        )}
+      </button>
+    );
+
+  const renderScopeNode = (node: ScopeNode) => {
+    const selected = selectedTaskScope === node.path;
+    const collapsed = collapsedScopePaths.has(node.path);
+    const hasChildren = node.children.length > 0;
+    return (
+      <li className="task-scope-tree__item" key={node.path}>
+        <div
+          className="task-scope-tree__row"
+          style={{ "--scope-depth": node.depth } as CSSProperties}
+        >
+          <button
+            type="button"
+            className={
+              selected
+                ? "task-scope-tree__btn task-scope-tree__btn--active"
+                : "task-scope-tree__btn"
+            }
+            onClick={() => setSelectedTaskScope(node.path)}
+            title={node.path}
+          >
+            <span className="task-scope-tree__label">{node.label}</span>
+          </button>
+          <button
+            type="button"
+            className="task-scope-tree__count"
+            onClick={() => hasChildren && toggleScopeCollapsed(node.path)}
+            aria-label={
+              hasChildren
+                ? `${collapsed ? "Show" : "Hide"} child scopes for ${node.path}`
+                : `${node.count} tasks in ${node.path}`
+            }
+            title={
+              hasChildren
+                ? `${collapsed ? "Show" : "Hide"} child scopes`
+                : `${node.count} tasks`
+            }
+          >
+            {node.count}
+          </button>
+        </div>
+        {hasChildren && !collapsed && (
+          <ol className="task-scope-tree">
+            {node.children.map(renderScopeNode)}
+          </ol>
+        )}
+      </li>
+    );
+  };
+
   const renderTaskDescription = (task: Task) =>
     editingDescriptionId === task.id ? (
       <textarea
@@ -1065,7 +1290,11 @@ function Dashboard() {
       </button>
     );
 
-  const renderTaskCard = (task: Task) => {
+  const renderTaskCard = (
+    task: Task,
+    options: { showStatus?: boolean } = {},
+  ) => {
+    const { showStatus = true } = options;
     const expanded = expandedTaskIds.has(task.id);
     return (
       <li
@@ -1075,7 +1304,10 @@ function Dashboard() {
         }`}
       >
         <div className="task-card__top">
-          {renderTaskTitle(task)}
+          <div className="task-card__identity">
+            {task.scope && !expanded && renderTaskScope(task, "leaf")}
+            {renderTaskTitle(task)}
+          </div>
           <button
             type="button"
             className="task-card__expand"
@@ -1087,9 +1319,18 @@ function Dashboard() {
             {expanded ? "▾" : "▸"}
           </button>
         </div>
-        {expanded && renderTaskDescription(task)}
-        <div className="task-card__meta">{renderStatusSelect(task)}</div>
-        <div className="task-card__scores">{renderScoreControls(task)}</div>
+        {expanded && (
+          <div className="task-card__details">
+            {renderTaskScope(task, "path")}
+            {renderTaskDescription(task)}
+          </div>
+        )}
+        <div className="task-card__controls">
+          <div className="task-card__scores">{renderScoreControls(task)}</div>
+          {showStatus && (
+            <div className="task-card__meta">{renderStatusSelect(task)}</div>
+          )}
+        </div>
         {expanded && (
           <div className="task-card__footer">
             <time className="task-card__date">
@@ -1102,7 +1343,7 @@ function Dashboard() {
   };
 
   const renderTaskMatrix = () => {
-    const open = tasks.filter(
+    const open = visibleTasks.filter(
       (t) => t.status === "backlog" || t.status === "active",
     );
     const scored = open.filter((t) => t.value !== null && t.effort !== null);
@@ -1545,106 +1786,146 @@ function Dashboard() {
             </div>
           </header>
 
-          {taskView === "kanban" && (
-            <div className="task-board">
-              {TASK_STATUSES.map((status) => (
-                <section className="task-column" key={status}>
-                  <header className="task-column__head">
-                    <h3>{TASK_STATUS_LABEL[status]}</h3>
-                    <span>{tasksByStatus[status].length}</span>
-                  </header>
-                  <form
-                    className="task-create"
-                    onSubmit={(e) => onCreateTask(e, status)}
-                  >
-                    <div className="task-create__row">
-                      <input
-                        type="text"
-                        placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
-                        aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
-                        value={newTaskTitles[status]}
-                        onChange={(e) =>
-                          setNewTaskTitles((prev) => ({
-                            ...prev,
-                            [status]: e.target.value,
-                          }))
-                        }
-                      />
-                      <button
-                        type="submit"
-                        disabled={!newTaskTitles[status].trim()}
+          <div
+            className={
+              scopeTree.roots.length > 0
+                ? "task-workspace"
+                : "task-workspace task-workspace--no-scopes"
+            }
+          >
+            {scopeTree.roots.length > 0 && (
+              <aside className="task-scope-panel" aria-label="Task scopes">
+                <div className="task-scope-panel__head">
+                  <span>Scopes</span>
+                  <span>{tasks.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className={
+                    selectedTaskScope === null
+                      ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
+                      : "task-scope-tree__btn task-scope-tree__btn--all"
+                  }
+                  onClick={() => setSelectedTaskScope(null)}
+                >
+                  <span className="task-scope-tree__label">All tasks</span>
+                  <span className="task-scope-tree__count">{tasks.length}</span>
+                </button>
+                <ol className="task-scope-tree">
+                  {scopeTree.roots.map(renderScopeNode)}
+                </ol>
+              </aside>
+            )}
+
+            <div className="task-workspace__main">
+              {taskView === "kanban" && (
+                <div className="task-board">
+                  {TASK_STATUSES.map((status) => (
+                    <section className="task-column" key={status}>
+                      <header className="task-column__head">
+                        <h3>{TASK_STATUS_LABEL[status]}</h3>
+                        <span>{visibleTasksByStatus[status].length}</span>
+                      </header>
+                      <form
+                        className="task-create"
+                        onSubmit={(e) => onCreateTask(e, status)}
                       >
-                        Add
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      className="task-create__description"
-                      placeholder="Description (optional)…"
-                      aria-label={`New ${TASK_STATUS_LABEL[status]} task description`}
-                      value={newTaskDescriptions[status]}
-                      onChange={(e) =>
-                        setNewTaskDescriptions((prev) => ({
-                          ...prev,
-                          [status]: e.target.value,
-                        }))
-                      }
-                    />
-                  </form>
-                  {tasksByStatus[status].length === 0 ? (
-                    <div className="task-column__empty">No tasks</div>
-                  ) : (
-                    <ol className="task-card-list">
-                      {tasksByStatus[status].map((task) => renderTaskCard(task))}
-                    </ol>
-                  )}
-                </section>
-              ))}
-            </div>
-          )}
-          {taskView === "table" && (
-            <div className="task-table-wrap">
-              <table className="task-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Created</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="task-table__empty">
-                        Add a task from the Kanban view to start the board.
-                      </td>
-                    </tr>
-                  ) : (
-                    [...tasks]
-                      .sort(
-                        (a, b) =>
-                          TASK_STATUSES.indexOf(a.status) -
-                            TASK_STATUSES.indexOf(b.status) ||
-                          b.updatedAt - a.updatedAt ||
-                          b.id - a.id,
-                      )
-                      .map((task) => (
-                        <tr key={task.id}>
-                          <td>{renderTaskTitle(task)}</td>
-                          <td>{renderStatusSelect(task)}</td>
-                          <td>{renderScoreControls(task)}</td>
-                          <td>{formatDate(task.createdAt)}</td>
-                          <td>{formatDate(task.updatedAt)}</td>
+                        <div className="task-create__row">
+                          <input
+                            type="text"
+                            placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
+                            aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
+                            value={newTaskTitles[status]}
+                            onChange={(e) =>
+                              setNewTaskTitles((prev) => ({
+                                ...prev,
+                                [status]: e.target.value,
+                              }))
+                            }
+                          />
+                          <button
+                            type="submit"
+                            disabled={!newTaskTitles[status].trim()}
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          className="task-create__description"
+                          placeholder="Description (optional)…"
+                          aria-label={`New ${TASK_STATUS_LABEL[status]} task description`}
+                          value={newTaskDescriptions[status]}
+                          onChange={(e) =>
+                            setNewTaskDescriptions((prev) => ({
+                              ...prev,
+                              [status]: e.target.value,
+                            }))
+                          }
+                        />
+                      </form>
+                      {visibleTasksByStatus[status].length === 0 ? (
+                        <div className="task-column__empty">No tasks</div>
+                      ) : (
+                        <ol className="task-card-list">
+                          {visibleTasksByStatus[status].map((task) =>
+                            renderTaskCard(task, { showStatus: false }),
+                          )}
+                        </ol>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
+              {taskView === "table" && (
+                <div className="task-table-wrap">
+                  <table className="task-table">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Scope</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleTasks.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="task-table__empty">
+                            {tasks.length === 0
+                              ? "Add a task from the Kanban view to start the board."
+                              : "No tasks match this scope."}
+                          </td>
                         </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
+                      ) : (
+                        [...visibleTasks]
+                          .sort(
+                            (a, b) =>
+                              TASK_STATUSES.indexOf(a.status) -
+                                TASK_STATUSES.indexOf(b.status) ||
+                              b.updatedAt - a.updatedAt ||
+                              b.id - a.id,
+                          )
+                          .map((task) => (
+                            <tr key={task.id}>
+                              <td>{renderTaskTitle(task)}</td>
+                              <td>{renderTaskScope(task)}</td>
+                              <td>{renderStatusSelect(task)}</td>
+                              <td>{renderScoreControls(task)}</td>
+                              <td>{formatDate(task.createdAt)}</td>
+                              <td>{formatDate(task.updatedAt)}</td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {taskView === "matrix" && renderTaskMatrix()}
             </div>
-          )}
-          {taskView === "matrix" && renderTaskMatrix()}
+          </div>
         </section>
         )}
 
