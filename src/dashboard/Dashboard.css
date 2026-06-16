@@ -1181,24 +1181,19 @@
   gap: 6px;
 }
 
-.task-create input,
-.task-status-select {
+.task-create input {
   min-width: 0;
+  padding: 7px 9px;
   border: 1px solid var(--border-strong);
+  border-radius: 8px;
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+  font-size: 13px;
   outline: none;
 }
 
-.task-create input {
-  padding: 7px 9px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.task-create input:focus,
-.task-status-select:focus {
+.task-create input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
@@ -1366,12 +1361,142 @@
   font-size: 12px;
 }
 
-.task-status-select {
-  max-width: 118px;
-  padding: 4px 7px;
-  border-radius: 7px;
+/* ---------- Task status dropdown ---------- */
+
+.status-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status-dot--active {
+  background: var(--accent);
+}
+
+.status-dot--completed {
+  background: var(--rating-5);
+}
+
+.status-dot--paused {
+  background: var(--dump);
+}
+
+.status-dot--backlog {
+  background: var(--border-strong);
+}
+
+.status-dot--cancelled {
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+.task-status-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px 4px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
   font-size: 12.5px;
   font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.task-status-trigger:hover,
+.task-status-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.task-status-trigger__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-status-trigger--cancelled .task-status-trigger__label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.task-status-trigger__chevron {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.task-status-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.task-status-menu {
+  position: fixed;
+  z-index: 81;
+  min-width: 172px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px -18px rgba(60, 48, 30, 0.42),
+    0 2px 8px rgba(60, 48, 30, 0.08);
+}
+
+.task-status-menu--up {
+  transform: translateY(-100%);
+}
+
+.task-status-menu__option {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-status-menu__option:hover,
+.task-status-menu__option:focus-visible,
+.task-status-menu__option.is-selected {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.task-status-menu__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-status-menu__text--cancelled {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.task-status-menu__check {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .task-table-wrap {
@@ -1425,35 +1550,83 @@
 
 .task-score {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 18px;
 }
 
-.task-score__field {
+.task-dots {
+  --dot-fill: var(--accent);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
+  gap: 9px;
 }
 
-.task-score-select {
-  min-width: 0;
-  padding: 3px 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
+/* Effort isn't "good when high", so it stays neutral rather than green. */
+.task-dots--effort {
+  --dot-fill: var(--muted);
+}
+
+.task-dots__label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.task-dots__track {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
   outline: none;
 }
 
-.task-score-select:focus {
-  border-color: var(--accent);
+.task-dots__track:focus-visible {
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-dot {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.task-dot__pip {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+
+.task-dot--filled .task-dot__pip {
+  background: var(--dot-fill);
+  border-color: var(--dot-fill);
+}
+
+.task-dot:hover .task-dot__pip {
+  transform: scale(1.18);
+}
+
+/* Hover preview: neutralize the committed fill, then light up the hovered
+   dot and every dot before it (lower scores). */
+.task-dots__track:hover .task-dot__pip {
+  background: transparent;
+  border-color: var(--border-strong);
+}
+
+.task-dots__track:hover .task-dot:hover .task-dot__pip,
+.task-dots__track:hover .task-dot:has(~ .task-dot:hover) .task-dot__pip {
+  background: var(--dot-fill);
+  border-color: var(--dot-fill);
 }
 
 /* ---------- Task priority matrix ---------- */

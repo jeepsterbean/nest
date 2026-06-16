@@ -280,6 +280,12 @@ function Dashboard() {
     number | null
   >(null);
   const [editingDescription, setEditingDescription] = useState("");
+  const [statusMenu, setStatusMenu] = useState<{
+    taskId: number;
+    left: number;
+    top: number;
+    up: boolean;
+  } | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
@@ -487,6 +493,24 @@ function Dashboard() {
       if (unlisten) unlisten();
     };
   }, []);
+
+  // The status menu is fixed-positioned against its trigger, so any scroll,
+  // resize, or Escape detaches it — close rather than let it drift.
+  useEffect(() => {
+    if (!statusMenu) return;
+    const close = () => setStatusMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [statusMenu]);
 
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -805,23 +829,164 @@ function Dashboard() {
       </button>
     );
 
-  const renderStatusSelect = (task: Task) => (
-    <select
-      className="task-status-select"
-      value={task.status}
-      onChange={(e) => onSetTaskStatus(task, e.target.value as TaskStatus)}
-      aria-label={`Status for ${task.title}`}
-    >
-      {TASK_STATUSES.map((status) => (
-        <option key={status} value={status}>
-          {TASK_STATUS_LABEL[status]}
-        </option>
-      ))}
-    </select>
-  );
+  const openStatusMenu = (task: Task, anchor: HTMLElement) => {
+    if (statusMenu?.taskId === task.id) {
+      setStatusMenu(null);
+      return;
+    }
+    const rect = anchor.getBoundingClientRect();
+    // ~5 options at 36px plus padding; flip up when there isn't room below.
+    const estHeight = 5 * 36 + 12;
+    const menuWidth = 172;
+    const up = window.innerHeight - rect.bottom < estHeight && rect.top > estHeight;
+    setStatusMenu({
+      taskId: task.id,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+      top: up ? rect.top - 6 : rect.bottom + 6,
+      up,
+    });
+  };
 
-  const parseScore = (raw: string): RatingValue | null =>
-    raw === "" ? null : (Number(raw) as RatingValue);
+  const renderStatusSelect = (task: Task) => {
+    const open = statusMenu?.taskId === task.id;
+    return (
+      <button
+        type="button"
+        className={`task-status-trigger task-status-trigger--${task.status}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Status for ${task.title}`}
+        onClick={(e) => openStatusMenu(task, e.currentTarget)}
+      >
+        <span
+          className={`status-dot status-dot--${task.status}`}
+          aria-hidden="true"
+        />
+        <span className="task-status-trigger__label">
+          {TASK_STATUS_LABEL[task.status]}
+        </span>
+        <span className="task-status-trigger__chevron" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    );
+  };
+
+  const renderStatusMenu = () => {
+    if (!statusMenu) return null;
+    const task = tasks.find((t) => t.id === statusMenu.taskId);
+    if (!task) return null;
+    return (
+      <>
+        <div
+          className="task-status-backdrop"
+          onClick={() => setStatusMenu(null)}
+        />
+        <div
+          className={`task-status-menu${
+            statusMenu.up ? " task-status-menu--up" : ""
+          }`}
+          role="listbox"
+          aria-label={`Status for ${task.title}`}
+          style={{ left: statusMenu.left, top: statusMenu.top }}
+        >
+          {TASK_STATUSES.map((status) => {
+            const selected = status === task.status;
+            return (
+              <button
+                key={status}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                autoFocus={selected}
+                className={`task-status-menu__option${
+                  selected ? " is-selected" : ""
+                }`}
+                onClick={() => {
+                  onSetTaskStatus(task, status);
+                  setStatusMenu(null);
+                }}
+              >
+                <span
+                  className={`status-dot status-dot--${status}`}
+                  aria-hidden="true"
+                />
+                <span
+                  className={`task-status-menu__text task-status-menu__text--${status}`}
+                >
+                  {TASK_STATUS_LABEL[status]}
+                </span>
+                {selected && (
+                  <span className="task-status-menu__check" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
+  const renderDotScale = (
+    kind: "value" | "effort",
+    label: string,
+    task: Task,
+    current: RatingValue | null,
+  ) => {
+    const commit = (next: RatingValue | null) =>
+      kind === "value"
+        ? onSetTaskScore(task, next, task.effort)
+        : onSetTaskScore(task, task.value, next);
+    return (
+      <div className={`task-dots task-dots--${kind}`}>
+        <span className="task-dots__label">{label}</span>
+        <div
+          className="task-dots__track"
+          role="radiogroup"
+          aria-label={`${label} for ${task.title}`}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            let next: RatingValue | null | undefined;
+            if (e.key >= "1" && e.key <= "5") next = Number(e.key) as RatingValue;
+            else if (e.key === "0" || e.key === "Backspace" || e.key === "Delete")
+              next = null;
+            else if (e.key === "ArrowRight" || e.key === "ArrowUp")
+              next = Math.min(5, (current ?? 0) + 1) as RatingValue;
+            else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+              const v = (current ?? 0) - 1;
+              next = v <= 0 ? null : (v as RatingValue);
+            } else return;
+            e.preventDefault();
+            commit(next);
+          }}
+        >
+          {RATING_VALUES.map((n) => {
+            const filled = current !== null && n <= current;
+            return (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={current === n}
+                tabIndex={-1}
+                className={`task-dot${filled ? " task-dot--filled" : ""}`}
+                title={
+                  current === n
+                    ? `${label} ${n} — click to clear`
+                    : `Set ${label.toLowerCase()} to ${n}`
+                }
+                onClick={() => commit(current === n ? null : n)}
+              >
+                <span className="task-dot__pip" aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const renderScoreControls = (task: Task) => (
     <div
@@ -829,42 +994,8 @@ function Dashboard() {
       role="group"
       aria-label={`Priority scores for ${task.title}`}
     >
-      <label className="task-score__field">
-        <span className="task-score__tag">V</span>
-        <select
-          className="task-score-select"
-          value={task.value ?? ""}
-          onChange={(e) =>
-            onSetTaskScore(task, parseScore(e.target.value), task.effort)
-          }
-          aria-label={`Value for ${task.title}`}
-        >
-          <option value="">–</option>
-          {RATING_VALUES.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="task-score__field">
-        <span className="task-score__tag">E</span>
-        <select
-          className="task-score-select"
-          value={task.effort ?? ""}
-          onChange={(e) =>
-            onSetTaskScore(task, task.value, parseScore(e.target.value))
-          }
-          aria-label={`Effort for ${task.title}`}
-        >
-          <option value="">–</option>
-          {RATING_VALUES.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
+      {renderDotScale("value", "Value", task, task.value)}
+      {renderDotScale("effort", "Effort", task, task.effort)}
     </div>
   );
 
@@ -1760,6 +1891,7 @@ function Dashboard() {
         </section>
         )}
       </div>
+      {renderStatusMenu()}
     </main>
   );
 }
