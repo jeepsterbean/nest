@@ -1,8 +1,10 @@
+mod check_in;
 mod commands;
 mod db;
 mod error;
 mod migrations;
 mod models;
+mod time;
 
 use std::{
     fs::OpenOptions,
@@ -19,6 +21,10 @@ use tauri::{
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+
+use crate::time::now_unix_secs;
+#[cfg(target_os = "macos")]
+use crate::time::now_unix_millis;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -56,10 +62,6 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const DEFAULT_CHECK_IN_MINUTES: i64 = 15;
-const MIN_CHECK_IN_MINUTES: i64 = 5;
-const MAX_CHECK_IN_MINUTES: i64 = 30;
-const CHECK_IN_STEP_MINUTES: i64 = 5;
 const POPUP_DISMISS_GRACE_MS: i64 = 750;
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
@@ -103,26 +105,6 @@ pub struct CheckInTimer {
     pub next_due_at: i64,
 }
 
-fn now_unix_secs() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
-#[cfg(target_os = "macos")]
-fn now_unix_millis() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
-}
-
-fn valid_check_in_interval(minutes: i64) -> bool {
-    (MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
-        && minutes % CHECK_IN_STEP_MINUTES == 0
-}
-
 fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
     let now = now_unix_secs();
     let persisted = conn
@@ -134,13 +116,10 @@ fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
         .ok();
 
     let (interval_minutes, next_due_at) = match persisted {
-        Some((minutes, due_at)) if valid_check_in_interval(minutes) => (minutes, due_at),
+        Some((minutes, due_at)) if check_in::is_valid_interval(minutes) => (minutes, due_at),
         // Missing row or a bad interval (corrupt/hand-edited db): fall back to
         // the default cadence starting now.
-        _ => (
-            DEFAULT_CHECK_IN_MINUTES,
-            now + DEFAULT_CHECK_IN_MINUTES * 60,
-        ),
+        _ => (check_in::DEFAULT_MINUTES, now + check_in::DEFAULT_MINUTES * 60),
     };
 
     append_diagnostic_log(format!(
@@ -545,7 +524,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_metrics,
             commands::list_tasks,
-            commands::list_task_status_events,
             commands::create_task,
             commands::rename_task,
             commands::set_task_description,
@@ -565,13 +543,10 @@ pub fn run() {
             commands::submit_phase_check_in,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
-            commands::latest_task_check_in,
-            commands::submit_task_check_in,
             commands::get_check_in_schedule,
             commands::schedule_next_check_in,
             commands::submit_brain_dump,
             commands::list_brain_dumps,
-            commands::metric_series,
             log_client_event,
         ])
         .run(tauri::generate_context!())

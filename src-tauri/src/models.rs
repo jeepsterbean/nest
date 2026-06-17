@@ -39,13 +39,6 @@ pub struct MetricCheckInWithRatings {
     pub ratings: Vec<MetricRating>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SeriesPoint {
-    pub timestamp: i64,
-    pub value: i32,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Phase {
@@ -66,14 +59,6 @@ pub struct PhaseCheckIn {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TaskCheckIn {
-    pub id: i64,
-    pub created_at: i64,
-    pub task: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: i64,
     pub title: String,
@@ -84,16 +69,6 @@ pub struct Task {
     pub effort: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskStatusEvent {
-    pub id: i64,
-    pub task_id: i64,
-    pub from_status: Option<String>,
-    pub to_status: String,
-    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]

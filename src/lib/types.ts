@@ -25,11 +25,6 @@ export type MetricCheckInWithRatings = MetricCheckIn & {
   ratings: MetricRating[];
 };
 
-export type SeriesPoint = {
-  timestamp: number;
-  value: number;
-};
-
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
 
 export type Phase = {
@@ -63,20 +58,6 @@ export type Task = {
   effort: RatingValue | null;
   createdAt: number;
   updatedAt: number;
-};
-
-export type TaskStatusEvent = {
-  id: number;
-  taskId: number;
-  fromStatus: TaskStatus | null;
-  toStatus: TaskStatus;
-  createdAt: number;
-};
-
-export type TaskCheckIn = {
-  id: number;
-  createdAt: number;
-  task: string;
 };
 
 export type CheckInSchedule = {

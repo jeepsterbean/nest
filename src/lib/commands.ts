@@ -9,11 +9,8 @@ import type {
   Phase,
   PhaseCheckIn,
   RatingValue,
-  SeriesPoint,
   Task,
-  TaskCheckIn,
   TaskStatus,
-  TaskStatusEvent,
 } from "./types";
 
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
@@ -50,12 +47,6 @@ export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
 
 export function listTasks(): Promise<Task[]> {
   return invoke("list_tasks");
-}
-
-export function listTaskStatusEvents(
-  taskId?: number,
-): Promise<TaskStatusEvent[]> {
-  return invoke("list_task_status_events", { taskId: taskId ?? null });
 }
 
 export function createTask(
@@ -128,20 +119,6 @@ export function listPhaseCheckIns(
   return invoke("list_phase_check_ins", { from, to });
 }
 
-export function latestTaskCheckIn(): Promise<TaskCheckIn | null> {
-  return invoke("latest_task_check_in");
-}
-
-export function submitTaskCheckIn(
-  stillWorkingPreviousTask: boolean,
-  currentWork: string | null,
-): Promise<TaskCheckIn> {
-  return invoke("submit_task_check_in", {
-    stillWorkingPreviousTask,
-    currentWork,
-  });
-}
-
 export function getCheckInSchedule(): Promise<CheckInSchedule> {
   return invoke("get_check_in_schedule");
 }
@@ -159,14 +136,6 @@ export function submitBrainDump(
 
 export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
   return invoke("list_brain_dumps", { from, to });
-}
-
-export function metricSeries(
-  metricId: number,
-  from: number,
-  to: number,
-): Promise<SeriesPoint[]> {
-  return invoke("metric_series", { metricId, from, to });
 }
 
 export function logClientEvent(message: string): Promise<void> {

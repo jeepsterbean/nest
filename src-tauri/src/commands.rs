@@ -5,24 +5,10 @@ use tauri::State;
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, SeriesPoint, Task, TaskCheckIn, TaskStatusEvent,
+    MetricRatingInput, Phase, PhaseCheckIn, Task,
 };
+use crate::time::now_unix_secs;
 use crate::CheckInTimer;
-
-const MIN_CHECK_IN_MINUTES: i64 = 5;
-const MAX_CHECK_IN_MINUTES: i64 = 30;
-const CHECK_IN_STEP_MINUTES: i64 = 5;
-
-fn now_unix_secs() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
-fn trim_to_option(s: Option<String>) -> Option<String> {
-    s.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
-}
 
 fn normalize_task_scope(scope: Option<String>) -> Option<String> {
     scope
@@ -57,9 +43,7 @@ fn validate_task_score(score: Option<i64>, label: &str) -> Result<Option<i64>> {
 }
 
 fn validate_check_in_interval(minutes: i64) -> Result<i64> {
-    if !(MIN_CHECK_IN_MINUTES..=MAX_CHECK_IN_MINUTES).contains(&minutes)
-        || minutes % CHECK_IN_STEP_MINUTES != 0
-    {
+    if !crate::check_in::is_valid_interval(minutes) {
         return Err(AppError::InvalidInput(
             "next check-in must be 5, 10, 15, 20, 25, or 30 minutes".into(),
         ));
@@ -143,39 +127,6 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
-}
-
-#[tauri::command]
-pub fn list_task_status_events(
-    state: State<'_, Mutex<Connection>>,
-    task_id: Option<i64>,
-) -> Result<Vec<TaskStatusEvent>> {
-    let conn = state.lock().unwrap();
-    let sql = if task_id.is_some() {
-        "SELECT id, task_id, from_status, to_status, created_at \
-         FROM task_status_events WHERE task_id = ?1 ORDER BY created_at ASC, id ASC"
-    } else {
-        "SELECT id, task_id, from_status, to_status, created_at \
-         FROM task_status_events ORDER BY created_at ASC, id ASC"
-    };
-    let mut stmt = conn.prepare(sql)?;
-    let map_row = |row: &rusqlite::Row<'_>| {
-        Ok(TaskStatusEvent {
-            id: row.get(0)?,
-            task_id: row.get(1)?,
-            from_status: row.get(2)?,
-            to_status: row.get(3)?,
-            created_at: row.get(4)?,
-        })
-    };
-    let rows = if let Some(task_id) = task_id {
-        stmt.query_map(params![task_id], map_row)?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    } else {
-        stmt.query_map([], map_row)?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    };
     Ok(rows)
 }
 
@@ -654,64 +605,6 @@ pub fn list_phase_check_ins(
     Ok(rows)
 }
 
-fn read_latest_task_check_in(conn: &Connection) -> Result<Option<TaskCheckIn>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at, task \
-         FROM task_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
-    )?;
-    match stmt.query_row([], |row| {
-        Ok(TaskCheckIn {
-            id: row.get(0)?,
-            created_at: row.get(1)?,
-            task: row.get(2)?,
-        })
-    }) {
-        Ok(check_in) => Ok(Some(check_in)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
-}
-
-#[tauri::command]
-pub fn latest_task_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<TaskCheckIn>> {
-    let conn = state.lock().unwrap();
-    read_latest_task_check_in(&conn)
-}
-
-#[tauri::command]
-pub fn submit_task_check_in(
-    state: State<'_, Mutex<Connection>>,
-    still_working_previous_task: bool,
-    current_work: Option<String>,
-) -> Result<TaskCheckIn> {
-    let current_work_clean = trim_to_option(current_work);
-
-    let conn = state.lock().unwrap();
-    let task = if still_working_previous_task {
-        read_latest_task_check_in(&conn)?
-            .map(|check_in| check_in.task)
-            .ok_or_else(|| AppError::InvalidInput("there is no previous task to continue".into()))?
-    } else {
-        current_work_clean.ok_or_else(|| {
-            AppError::InvalidInput(
-                "current work is required when you are not on the previous task".into(),
-            )
-        })?
-    };
-    let now = now_unix_secs();
-
-    conn.execute(
-        "INSERT INTO task_check_ins (created_at, task) VALUES (?1, ?2)",
-        params![now, task],
-    )?;
-
-    Ok(TaskCheckIn {
-        id: conn.last_insert_rowid(),
-        created_at: now,
-        task,
-    })
-}
-
 #[tauri::command]
 pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<CheckInSchedule> {
     let timer = timer.lock().unwrap();
@@ -800,32 +693,6 @@ pub fn list_brain_dumps(
                 created_at: row.get(1)?,
                 title: row.get(2)?,
                 text: row.get(3)?,
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
-}
-
-#[tauri::command]
-pub fn metric_series(
-    state: State<'_, Mutex<Connection>>,
-    metric_id: i64,
-    from: i64,
-    to: i64,
-) -> Result<Vec<SeriesPoint>> {
-    let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT c.created_at, r.value \
-         FROM metric_ratings r \
-         JOIN metric_check_ins c ON c.id = r.check_in_id \
-         WHERE r.metric_id = ?1 AND c.created_at >= ?2 AND c.created_at < ?3 \
-         ORDER BY c.created_at ASC",
-    )?;
-    let rows = stmt
-        .query_map(params![metric_id, from, to], |row| {
-            Ok(SeriesPoint {
-                timestamp: row.get(0)?,
-                value: row.get(1)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
