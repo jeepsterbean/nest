@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   createTask,
+  summonCheckIn,
   submitBrainDump,
   submitPhaseCheckIn,
 } from "../../lib/commands";
@@ -16,30 +17,32 @@ import {
   clockIcon,
   eyeOffIcon,
   flagIcon,
-  flameIcon,
   pencilIcon,
 } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { latestPulseState } from "../lib/pulse";
 import { groupTasksByStatus, TASK_STATUS_LABEL } from "../lib/tasks";
-import { computeStreak } from "../lib/time";
-import { buildTimeline } from "../lib/timeline";
+import {
+  formatCheckInCountdown,
+  formatElapsedMinutes,
+} from "../lib/time";
 import { initialBrainDumpStart } from "../lib/brainDumps";
 import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
-const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const OLDER_DUMP_BATCH_SIZE = 10;
 
 export function OverviewView() {
   const {
     tasks,
     phases,
+    metrics,
     checkIns,
-    phaseCheckIns,
-    brainDumps,
     allBrainDumps,
     latestPhase,
+    checkInSchedule,
     loaded,
+    setError,
     mutate,
   } = useDashboardData();
   const [backlogCollapsed, setBacklogCollapsed] = useState(false);
@@ -68,16 +71,19 @@ export function OverviewView() {
   >(null);
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(new Set());
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [pulseOpening, setPulseOpening] = useState(false);
 
   useEffect(() => {
     if (quickAddStatus) quickAddRef.current?.focus();
   }, [quickAddStatus]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
-  const events = useMemo(
-    () => buildTimeline(checkIns, phaseCheckIns, brainDumps),
-    [checkIns, phaseCheckIns, brainDumps],
-  );
   const overviewBrainDumps = useMemo(
     () =>
       [...allBrainDumps]
@@ -101,17 +107,31 @@ export function OverviewView() {
     [phases],
   );
 
-  const now = new Date();
-  const weekAgo = Math.floor(now.getTime() / 1000) - SEVEN_DAYS_SECONDS;
-  const weeklyCheckIns = checkIns.filter((c) => c.createdAt >= weekAgo).length;
-  const weeklyDumps = brainDumps.filter((d) => d.createdAt >= weekAgo).length;
-  const streak = computeStreak(events.map((ev) => ev.at));
   const phaseById = (id: number) => phases.find((p) => p.id === id);
   const currentPhaseName = latestPhase
     ? (phaseById(latestPhase.phaseId)?.name ??
       latestPhase.phaseLabel ??
       `Phase ${latestPhase.phaseId}`)
     : null;
+  const currentPhaseDuration = latestPhase
+    ? formatElapsedMinutes(latestPhase.createdAt, nowMs)
+    : null;
+  const nextCheckIn = checkInSchedule
+    ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
+    : "Not scheduled";
+  const pulse = latestPulseState(checkIns, metrics, nowMs);
+
+  const openPulseCheckIn = async () => {
+    if (pulseOpening) return;
+    setPulseOpening(true);
+    try {
+      await summonCheckIn();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setPulseOpening(false);
+    }
+  };
 
   useEffect(() => {
     if (!loaded || visibleBrainDumpStart !== null) return;
@@ -402,12 +422,16 @@ export function OverviewView() {
           >
             {flagIcon}
             <span className="phase-summary__copy">
-              <span>currently</span>
               <strong>
                 {phaseChangingId !== null
                   ? "Changing..."
                   : currentPhaseName ?? "None yet"}
               </strong>
+              {currentPhaseDuration && (
+                <span className="phase-summary__meta">
+                  {currentPhaseDuration}
+                </span>
+              )}
             </span>
             <span className="phase-summary__chevron" aria-hidden="true">
               ▾
@@ -442,27 +466,32 @@ export function OverviewView() {
             </div>
           )}
         </li>
-        <li className="dash-stat dash-stat--checkins">
+        <li className="dash-stat dash-stat--next-checkin">
+          {clockIcon}
+          <div className="dash-stat__copy">
+            <span>Next check-in</span>
+            <strong>{nextCheckIn}</strong>
+          </div>
+        </li>
+        <li
+          className={`dash-stat dash-stat--pulse${
+            pulse.overdue ? " dash-stat--pulse-overdue" : ""
+          }`}
+        >
           {checkCircleIcon}
-          <div>
-            <strong>{weeklyCheckIns}</strong>
-            <span>Check-ins · 7d</span>
-          </div>
-        </li>
-        <li className="dash-stat dash-stat--dumps">
-          {pencilIcon}
-          <div>
-            <strong>{weeklyDumps}</strong>
-            <span>Brain dumps · 7d</span>
-          </div>
-        </li>
-        <li className="dash-stat dash-stat--streak">
-          {flameIcon}
-          <div>
-            <strong>
-              {streak === 0 ? "—" : `${streak} day${streak === 1 ? "" : "s"}`}
-            </strong>
-            <span>Streak</span>
+          <div className="dash-stat__copy">
+            <span>Latest pulse</span>
+            <strong>{pulse.message}</strong>
+            {pulse.overdue && (
+              <button
+                type="button"
+                className="pulse-check-in"
+                onClick={openPulseCheckIn}
+                disabled={pulseOpening}
+              >
+                {pulseOpening ? "Opening…" : "Check in now"}
+              </button>
+            )}
           </div>
         </li>
       </ul>

@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeStreak,
   dayLabel,
+  elapsedMinutes,
+  formatCheckInCountdown,
   formatDate,
   formatDateTime,
+  formatElapsedMinutes,
   formatTime,
   greetingForHour,
   previousDayMs,
@@ -105,5 +108,26 @@ describe("format helpers", () => {
     expect(typeof formatTime(ts)).toBe("string");
     expect(typeof formatDate(ts)).toBe("string");
     expect(typeof formatDateTime(ts)).toBe("string");
+  });
+});
+
+describe("minute helpers", () => {
+  const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
+
+  it("formats elapsed whole minutes without going negative", () => {
+    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(5);
+    expect(formatElapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(
+      "5 min",
+    );
+    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 31)), now)).toBe(0);
+  });
+
+  it("rounds future countdowns up and marks due schedules", () => {
+    expect(
+      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
+    ).toBe("in 1 min");
+    expect(
+      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
+    ).toBe("Due now");
   });
 });

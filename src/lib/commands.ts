@@ -127,6 +127,10 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
   return invoke("schedule_next_check_in", { minutes });
 }
 
+export function summonCheckIn(): Promise<void> {
+  return invoke("summon_check_in");
+}
+
 export function submitBrainDump(
   text: string,
   title: string | null = null,

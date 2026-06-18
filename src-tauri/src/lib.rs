@@ -97,6 +97,11 @@ fn log_client_event(message: String) {
     append_diagnostic_log(format!("client {message}"));
 }
 
+#[tauri::command]
+fn summon_check_in(app: tauri::AppHandle) {
+    summon_popup_with_route(&app, "popup", "#/popup");
+}
+
 // Cadence of the recurring check-in popup. The popup fires on this timer
 // regardless of what (if anything) gets submitted from it; task check-ins are
 // just records of what the user was doing.
@@ -548,6 +553,7 @@ pub fn run() {
             commands::submit_brain_dump,
             commands::update_brain_dump_title,
             commands::list_brain_dumps,
+            summon_check_in,
             log_client_event,
         ])
         .run(tauri::generate_context!())

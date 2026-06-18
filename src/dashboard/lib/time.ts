@@ -73,3 +73,20 @@ export const formatDateTime = (ts: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+export const elapsedMinutes = (startedAt: number, nowMs: number = Date.now()) =>
+  Math.max(0, Math.floor((nowMs / 1000 - startedAt) / 60));
+
+export const formatElapsedMinutes = (
+  startedAt: number,
+  nowMs: number = Date.now(),
+) => `${elapsedMinutes(startedAt, nowMs)} min`;
+
+export const formatCheckInCountdown = (
+  nextDueAt: number,
+  nowMs: number = Date.now(),
+) => {
+  const secondsRemaining = nextDueAt - nowMs / 1000;
+  if (secondsRemaining <= 0) return "Due now";
+  return `in ${Math.ceil(secondsRemaining / 60)} min`;
+};
