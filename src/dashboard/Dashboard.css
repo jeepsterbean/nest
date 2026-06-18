@@ -1419,6 +1419,14 @@
   border: 1px solid var(--border);
   border-radius: 13px;
   background: var(--surface-2);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.task-column--drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface-2));
 }
 
 .task-column__head {
@@ -1529,6 +1537,47 @@
   border: 1px solid var(--border);
   border-radius: 11px;
   background: var(--surface);
+}
+
+.task-card--draggable {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.task-card--draggable:active {
+  cursor: grabbing;
+}
+
+.task-card--dragging {
+  opacity: 0.22;
+}
+
+.task-drag-in-progress,
+.task-drag-in-progress * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.task-drag-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  display: block;
+  min-height: 0;
+  max-width: calc(100vw - 24px);
+  background: transparent;
+  contain: layout paint style;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.task-drag-preview > .task-card {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .task-card--active {

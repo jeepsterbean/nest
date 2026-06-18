@@ -1,11 +1,15 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FormEvent,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
-import { createTask } from "../../lib/commands";
+import { createPortal } from "react-dom";
+import { createTask, setTaskStatus } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
@@ -25,6 +29,35 @@ const EMPTY_BY_STATUS: Record<TaskStatus, string> = {
   cancelled: "",
 };
 
+const DRAG_START_DISTANCE = 6;
+
+const isTaskStatus = (value: string | undefined): value is TaskStatus =>
+  value !== undefined && TASK_STATUSES.some((status) => status === value);
+
+type TaskDragSession = {
+  pointerId: number;
+  taskId: number;
+  card: HTMLLIElement;
+  startX: number;
+  startY: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+  dragging: boolean;
+  removeListeners: () => void;
+};
+
+type TaskDragPreview = {
+  taskId: number;
+  x: number;
+  y: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+};
+
 export function TasksView() {
   const { tasks, scopeTree, mutate } = useDashboardData();
   const [taskView, setTaskView] = useState<"kanban" | "table" | "matrix">(
@@ -41,6 +74,11 @@ export function TasksView() {
   const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
     new Set(),
   );
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
+  const [dragPreview, setDragPreview] = useState<TaskDragPreview | null>(null);
+  const dragSessionRef = useRef<TaskDragSession | null>(null);
+  const suppressClickTaskIdRef = useRef<number | null>(null);
 
   // Drop scope selection / collapse state for paths that no longer exist.
   useEffect(() => {
@@ -54,6 +92,18 @@ export function TasksView() {
       return next.size === prev.size ? prev : next;
     });
   }, [scopeTree.paths, selectedTaskScope]);
+
+  useEffect(
+    () => () => {
+      const session = dragSessionRef.current;
+      session?.removeListeners();
+      if (session?.card.hasPointerCapture(session.pointerId)) {
+        session.card.releasePointerCapture(session.pointerId);
+      }
+      document.documentElement.classList.remove("task-drag-in-progress");
+    },
+    [],
+  );
 
   const visibleTasks = useMemo(
     () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
@@ -92,6 +142,154 @@ export function TasksView() {
       return next;
     });
   };
+
+  const statusAtPoint = (clientX: number, clientY: number) => {
+    const column = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-task-status]");
+    const status = column?.dataset.taskStatus;
+    return isTaskStatus(status) ? status : null;
+  };
+
+  const clearTaskDrag = () => {
+    const session = dragSessionRef.current;
+    session?.removeListeners();
+    if (session?.card.hasPointerCapture(session.pointerId)) {
+      session.card.releasePointerCapture(session.pointerId);
+    }
+    document.documentElement.classList.remove("task-drag-in-progress");
+    dragSessionRef.current = null;
+    setDraggedTaskId(null);
+    setDragOverStatus(null);
+    setDragPreview(null);
+  };
+
+  const updateTaskDrag = (e: globalThis.PointerEvent) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+
+    if (!session.dragging) {
+      const distance = Math.hypot(
+        e.clientX - session.startX,
+        e.clientY - session.startY,
+      );
+      if (distance < DRAG_START_DISTANCE) return;
+      session.dragging = true;
+      session.card.setPointerCapture(e.pointerId);
+      document.documentElement.classList.add("task-drag-in-progress");
+      setDraggedTaskId(session.taskId);
+    }
+
+    e.preventDefault();
+    setDragPreview({
+      taskId: session.taskId,
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: session.offsetX,
+      offsetY: session.offsetY,
+      width: session.width,
+      height: session.height,
+    });
+    setDragOverStatus(statusAtPoint(e.clientX, e.clientY));
+  };
+
+  const finishTaskDrag = (e: globalThis.PointerEvent) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+
+    const targetStatus = session.dragging
+      ? statusAtPoint(e.clientX, e.clientY)
+      : null;
+    const task = tasks.find((candidate) => candidate.id === session.taskId);
+
+    if (session.dragging) {
+      e.preventDefault();
+      suppressClickTaskIdRef.current = session.taskId;
+      window.setTimeout(() => {
+        if (suppressClickTaskIdRef.current === session.taskId) {
+          suppressClickTaskIdRef.current = null;
+        }
+      }, 0);
+    }
+
+    clearTaskDrag();
+
+    if (!task || !targetStatus || task.status === targetStatus) return;
+    void mutate(() => setTaskStatus(task.id, targetStatus));
+  };
+
+  const onTaskPointerDown = (
+    e: ReactPointerEvent<HTMLLIElement>,
+    taskId: number,
+  ) => {
+    if (e.button !== 0 || !e.isPrimary) return;
+    if (
+      (e.target as HTMLElement).closest(
+        "input, textarea, select, [contenteditable='true']",
+      )
+    ) {
+      return;
+    }
+
+    const cardRect = e.currentTarget.getBoundingClientRect();
+    const onPointerMove = (event: globalThis.PointerEvent) =>
+      updateTaskDrag(event);
+    const onPointerUp = (event: globalThis.PointerEvent) =>
+      finishTaskDrag(event);
+    const onPointerCancel = () => clearTaskDrag();
+    const removeListeners = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+    };
+
+    dragSessionRef.current = {
+      pointerId: e.pointerId,
+      taskId,
+      card: e.currentTarget,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - cardRect.left,
+      offsetY: e.clientY - cardRect.top,
+      width: cardRect.width,
+      height: cardRect.height,
+      dragging: false,
+      removeListeners,
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+  };
+
+  const onTaskClickCapture = (e: MouseEvent<HTMLLIElement>, taskId: number) => {
+    if (suppressClickTaskIdRef.current !== taskId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressClickTaskIdRef.current = null;
+  };
+
+  const previewTask = dragPreview
+    ? tasks.find((task) => task.id === dragPreview.taskId)
+    : null;
+  const previewLeft = dragPreview
+    ? Math.max(
+        8,
+        Math.min(
+          dragPreview.x - dragPreview.offsetX,
+          window.innerWidth - dragPreview.width - 8,
+        ),
+      )
+    : 0;
+  const previewTop = dragPreview
+    ? Math.max(
+        8,
+        Math.min(
+          dragPreview.y - dragPreview.offsetY,
+          window.innerHeight - dragPreview.height - 8,
+        ),
+      )
+    : 0;
 
   const renderScopeNode = (node: ScopeNode) => {
     const selected = selectedTaskScope === node.path;
@@ -316,7 +514,15 @@ export function TasksView() {
           {taskView === "kanban" && (
             <div className="task-board">
               {TASK_STATUSES.map((status) => (
-                <section className="task-column" key={status}>
+                <section
+                  className={`task-column${
+                    dragOverStatus === status
+                      ? " task-column--drag-over"
+                      : ""
+                  }`}
+                  key={status}
+                  data-task-status={status}
+                >
                   <header className="task-column__head">
                     <h3>{TASK_STATUS_LABEL[status]}</h3>
                     <span>{visibleTasksByStatus[status].length}</span>
@@ -370,6 +576,14 @@ export function TasksView() {
                           expanded={expandedTaskIds.has(task.id)}
                           onToggleExpand={() => toggleTaskExpanded(task.id)}
                           showStatus={false}
+                          draggable
+                          dragging={draggedTaskId === task.id}
+                          onPointerDown={(e) =>
+                            onTaskPointerDown(e, task.id)
+                          }
+                          onClickCapture={(e) =>
+                            onTaskClickCapture(e, task.id)
+                          }
                         />
                       ))}
                     </ol>
@@ -435,6 +649,26 @@ export function TasksView() {
           {taskView === "matrix" && renderTaskMatrix()}
         </div>
       </div>
+      {dragPreview &&
+        previewTask &&
+        createPortal(
+          <div
+            className="dashboard task-drag-preview"
+            style={{
+              width: dragPreview.width,
+              transform: `translate3d(${previewLeft}px, ${previewTop}px, 0)`,
+            }}
+            aria-hidden="true"
+          >
+            <TaskCard
+              task={previewTask}
+              expanded={expandedTaskIds.has(previewTask.id)}
+              onToggleExpand={() => undefined}
+              showStatus={false}
+            />
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }

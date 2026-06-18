@@ -1,3 +1,7 @@
+import type {
+  MouseEventHandler,
+  PointerEventHandler,
+} from "react";
 import type { Task } from "../../lib/types";
 import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
@@ -11,17 +15,29 @@ export function TaskCard({
   expanded,
   onToggleExpand,
   showStatus = true,
+  draggable = false,
+  dragging = false,
+  onPointerDown,
+  onClickCapture,
 }: {
   task: Task;
   expanded: boolean;
   onToggleExpand: () => void;
   showStatus?: boolean;
+  draggable?: boolean;
+  dragging?: boolean;
+  onPointerDown?: PointerEventHandler<HTMLLIElement>;
+  onClickCapture?: MouseEventHandler<HTMLLIElement>;
 }) {
   return (
     <li
       className={`task-card task-card--${task.status}${
         expanded ? " task-card--expanded" : ""
+      }${draggable ? " task-card--draggable" : ""}${
+        dragging ? " task-card--dragging" : ""
       }`}
+      onPointerDown={onPointerDown}
+      onClickCapture={onClickCapture}
     >
       <div className="task-card__top">
         <div className="task-card__identity">
