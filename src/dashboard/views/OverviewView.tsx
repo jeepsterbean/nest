@@ -124,7 +124,13 @@ export function OverviewView() {
   }, [loaded, overviewBrainDumps, visibleBrainDumpStart]);
 
   useEffect(() => {
-    if (brainDumpExpanded || visibleBrainDumpStart === null) return;
+    if (
+      brainDumpExpanded ||
+      brainDumpLogsHidden ||
+      visibleBrainDumpStart === null
+    ) {
+      return;
+    }
     if (suppressHistoryAutoScrollRef.current) {
       suppressHistoryAutoScrollRef.current = false;
       return;
@@ -133,7 +139,7 @@ export function OverviewView() {
       const history = brainDumpHistoryRef.current;
       if (history) history.scrollTop = history.scrollHeight;
     });
-  }, [brainDumpExpanded, visibleBrainDumpStart]);
+  }, [brainDumpExpanded, brainDumpLogsHidden, visibleBrainDumpStart]);
 
   const onSelectPhase = async (p: Phase) => {
     setPhasePickerOpen(false);
@@ -178,6 +184,22 @@ export function OverviewView() {
   const showBrainDumpComposer = () => {
     setBrainDumpExpanded(true);
     requestAnimationFrame(() => brainDumpTextRef.current?.focus());
+  };
+
+  const toggleBrainDumpLogs = () => {
+    if (!brainDumpLogsHidden) {
+      setBrainDumpLogsHidden(true);
+      return;
+    }
+    loadingOlderDumpsRef.current = false;
+    suppressHistoryAutoScrollRef.current = false;
+    setVisibleBrainDumpStart(
+      initialBrainDumpStart(
+        overviewBrainDumps,
+        Math.floor(Date.now() / 1000),
+      ),
+    );
+    setBrainDumpLogsHidden(false);
   };
 
   const loadOlderBrainDumps = () => {
@@ -484,7 +506,7 @@ export function OverviewView() {
                   title={
                     brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
                   }
-                  onClick={() => setBrainDumpLogsHidden((hidden) => !hidden)}
+                  onClick={toggleBrainDumpLogs}
                 >
                   <span aria-hidden="true">
                     {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
