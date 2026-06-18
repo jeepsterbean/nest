@@ -358,7 +358,6 @@ function CheckInForm() {
                 className="combined-input"
                 value={brainDumpText}
                 onChange={(e) => setBrainDumpText(e.target.value)}
-                placeholder="Brain dump"
                 rows={3}
               />
             </section>

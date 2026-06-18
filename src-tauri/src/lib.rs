@@ -546,6 +546,7 @@ pub fn run() {
             commands::get_check_in_schedule,
             commands::schedule_next_check_in,
             commands::submit_brain_dump,
+            commands::update_brain_dump_title,
             commands::list_brain_dumps,
             log_client_event,
         ])

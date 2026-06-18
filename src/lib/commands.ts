@@ -134,6 +134,13 @@ export function submitBrainDump(
   return invoke("submit_brain_dump", { text, title });
 }
 
+export function updateBrainDumpTitle(
+  id: number,
+  title: string | null,
+): Promise<BrainDump> {
+  return invoke("update_brain_dump_title", { id, title });
+}
+
 export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
   return invoke("list_brain_dumps", { from, to });
 }

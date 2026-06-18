@@ -23,6 +23,12 @@ fn normalize_task_scope(scope: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn normalize_optional_title(title: Option<String>) -> Option<String> {
+    title
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 fn validate_task_status(status: &str) -> Result<&str> {
     match status {
         "backlog" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
@@ -653,14 +659,7 @@ pub fn submit_brain_dump(
     if text_clean.is_empty() {
         return Err(AppError::InvalidInput("brain dump cannot be empty".into()));
     }
-    let title_clean = title.and_then(|t| {
-        let trimmed = t.trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    });
+    let title_clean = normalize_optional_title(title);
     let conn = state.lock().unwrap();
     let now = now_unix_secs();
     conn.execute(
@@ -673,6 +672,36 @@ pub fn submit_brain_dump(
         title: title_clean,
         text: text_clean,
     })
+}
+
+#[tauri::command]
+pub fn update_brain_dump_title(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    title: Option<String>,
+) -> Result<BrainDump> {
+    let title = normalize_optional_title(title);
+    let conn = state.lock().unwrap();
+    let updated = conn.execute(
+        "UPDATE brain_dumps SET title = ?1 WHERE id = ?2",
+        params![title, id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("brain dump {id}")));
+    }
+    conn.query_row(
+        "SELECT id, created_at, title, text FROM brain_dumps WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(BrainDump {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                title: row.get(2)?,
+                text: row.get(3)?,
+            })
+        },
+    )
+    .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -701,7 +730,7 @@ pub fn list_brain_dumps(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_task_scope;
+    use super::{normalize_optional_title, normalize_task_scope};
 
     #[test]
     fn normalizes_task_scope_segments() {
@@ -711,5 +740,15 @@ mod tests {
         );
         assert_eq!(normalize_task_scope(Some(" /// ".into())), None);
         assert_eq!(normalize_task_scope(None), None);
+    }
+
+    #[test]
+    fn normalizes_optional_titles() {
+        assert_eq!(
+            normalize_optional_title(Some("  A clearer thought  ".into())),
+            Some("A clearer thought".into())
+        );
+        assert_eq!(normalize_optional_title(Some("   ".into())), None);
+        assert_eq!(normalize_optional_title(None), None);
     }
 }

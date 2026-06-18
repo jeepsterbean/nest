@@ -38,6 +38,22 @@ export const pencilIcon = (
   </svg>
 );
 
+export const clockIcon = (
+  <svg {...iconProps}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+export const eyeOffIcon = (
+  <svg {...iconProps}>
+    <path d="M3 3l18 18" />
+    <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
+    <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9 6 9 6a15.6 15.6 0 0 1-2.1 2.8" />
+    <path d="M6.2 6.2C4.2 7.5 3 10 3 10s3.5 6 9 6a9.8 9.8 0 0 0 3-.5" />
+  </svg>
+);
+
 export const plusIcon = (
   <svg {...iconProps}>
     <line x1="12" x2="12" y1="5" y2="19" />

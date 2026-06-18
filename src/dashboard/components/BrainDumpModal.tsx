@@ -86,7 +86,6 @@ export function BrainDumpModal({
               e.currentTarget.form?.requestSubmit();
             }
           }}
-          placeholder="Drop the loose thoughts here..."
           aria-label="Brain dump text"
           rows={8}
         />
