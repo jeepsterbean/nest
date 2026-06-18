@@ -31,7 +31,7 @@ fn normalize_optional_title(title: Option<String>) -> Option<String> {
 
 fn validate_task_status(status: &str) -> Result<&str> {
     match status {
-        "backlog" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
+        "backlog" | "up_next" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
         _ => Err(AppError::InvalidInput(format!(
             "invalid task status {status}"
         ))),
@@ -730,7 +730,7 @@ pub fn list_brain_dumps(
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_optional_title, normalize_task_scope};
+    use super::{normalize_optional_title, normalize_task_scope, validate_task_status};
 
     #[test]
     fn normalizes_task_scope_segments() {
@@ -750,5 +750,10 @@ mod tests {
         );
         assert_eq!(normalize_optional_title(Some("   ".into())), None);
         assert_eq!(normalize_optional_title(None), None);
+    }
+
+    #[test]
+    fn accepts_up_next_task_status() {
+        assert_eq!(validate_task_status("up_next").unwrap(), "up_next");
     }
 }

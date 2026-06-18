@@ -2,6 +2,7 @@ import type { RatingValue, Task, TaskStatus } from "../../lib/types";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "backlog",
+  "up_next",
   "active",
   "completed",
   "paused",
@@ -10,6 +11,7 @@ export const TASK_STATUSES: TaskStatus[] = [
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
+  up_next: "Up next",
   active: "Active",
   paused: "Paused",
   completed: "Completed",
@@ -21,6 +23,7 @@ export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
 export const groupTasksByStatus = (taskList: Task[]) => {
   const grouped: Record<TaskStatus, Task[]> = {
     backlog: [],
+    up_next: [],
     active: [],
     paused: [],
     completed: [],

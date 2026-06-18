@@ -43,6 +43,7 @@ export type PhaseCheckIn = {
 
 export type TaskStatus =
   | "backlog"
+  | "up_next"
   | "active"
   | "paused"
   | "completed"

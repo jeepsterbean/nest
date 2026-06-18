@@ -2355,6 +2355,10 @@
   background: var(--accent);
 }
 
+.status-dot--up_next {
+  background: var(--rating-4);
+}
+
 .status-dot--completed {
   background: var(--rating-5);
 }

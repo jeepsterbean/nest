@@ -363,6 +363,64 @@ ALTER TABLE tasks ADD COLUMN effort INTEGER CHECK (effort IS NULL OR effort BETW
 "#,
         ),
         M::up("ALTER TABLE tasks ADD COLUMN scope TEXT;"),
+        M::up(
+            r#"
+PRAGMA foreign_keys = OFF;
+
+DROP INDEX IF EXISTS idx_task_status_events_task_id_created_at;
+DROP INDEX IF EXISTS idx_tasks_status_updated_at;
+
+CREATE TABLE task_status_events_up_next_copy (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+
+INSERT INTO task_status_events_up_next_copy (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events;
+
+DROP TABLE task_status_events;
+
+CREATE TABLE tasks_up_next (
+  id          INTEGER PRIMARY KEY,
+  title       TEXT NOT NULL,
+  status      TEXT NOT NULL CHECK (status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  value       INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5),
+  effort      INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5),
+  scope       TEXT
+);
+
+INSERT INTO tasks_up_next (id, title, status, created_at, updated_at, description, value, effort, scope)
+SELECT id, title, status, created_at, updated_at, description, value, effort, scope FROM tasks;
+
+DROP TABLE tasks;
+ALTER TABLE tasks_up_next RENAME TO tasks;
+
+CREATE TABLE task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+
+INSERT INTO task_status_events (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events_up_next_copy;
+
+DROP TABLE task_status_events_up_next_copy;
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE INDEX idx_task_status_events_task_id_created_at
+ON task_status_events(task_id, created_at DESC, id DESC);
+
+PRAGMA foreign_keys = ON;
+"#,
+        ),
     ])
 }
 
@@ -487,5 +545,97 @@ CREATE TABLE task_check_ins (
             )
             .unwrap();
         assert_eq!(scope_column_count, 1);
+    }
+
+    #[test]
+    fn adds_up_next_status_without_losing_tasks_or_status_events() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 19).unwrap();
+
+        conn.execute(
+            "INSERT INTO tasks \
+             (id, title, status, created_at, updated_at, description, value, effort, scope) \
+             VALUES (1, 'Existing task', 'backlog', 100, 200, 'Keep me', 5, 2, 'Work')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events \
+             (id, task_id, from_status, to_status, created_at) \
+             VALUES (1, 1, NULL, 'backlog', 100)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let task: (
+            String,
+            String,
+            String,
+            Option<i64>,
+            Option<i64>,
+            Option<String>,
+        ) = conn
+            .query_row(
+                "SELECT title, status, description, value, effort, scope FROM tasks WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            task,
+            (
+                "Existing task".into(),
+                "backlog".into(),
+                "Keep me".into(),
+                Some(5),
+                Some(2),
+                Some("Work".into()),
+            )
+        );
+
+        let event_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_status_events WHERE task_id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(event_count, 1);
+
+        conn.execute("UPDATE tasks SET status = 'up_next' WHERE id = 1", [])
+            .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events \
+             (task_id, from_status, to_status, created_at) \
+             VALUES (1, 'backlog', 'up_next', 300)",
+            [],
+        )
+        .unwrap();
+
+        let foreign_keys_enabled: i64 = conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(foreign_keys_enabled, 1);
+
+        let foreign_key_errors: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_foreign_key_check",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(foreign_key_errors, 0);
     }
 }

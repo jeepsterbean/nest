@@ -31,9 +31,14 @@ describe("groupTasksByStatus", () => {
   });
 
   it("places each task in its own status bucket", () => {
-    const grouped = groupTasksByStatus([task(1, "active"), task(2, "backlog")]);
+    const grouped = groupTasksByStatus([
+      task(1, "active"),
+      task(2, "backlog"),
+      task(3, "up_next"),
+    ]);
     expect(grouped.active.map((t) => t.id)).toEqual([1]);
     expect(grouped.backlog.map((t) => t.id)).toEqual([2]);
+    expect(grouped.up_next.map((t) => t.id)).toEqual([3]);
   });
 
   it("sorts by updatedAt desc, then createdAt desc, then id desc", () => {

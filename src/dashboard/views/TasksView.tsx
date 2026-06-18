@@ -23,6 +23,7 @@ import { TaskTitle } from "../task/TaskTitle";
 
 const EMPTY_BY_STATUS: Record<TaskStatus, string> = {
   backlog: "",
+  up_next: "",
   active: "",
   paused: "",
   completed: "",
@@ -342,7 +343,10 @@ export function TasksView() {
 
   const renderTaskMatrix = () => {
     const open = visibleTasks.filter(
-      (t) => t.status === "backlog" || t.status === "active",
+      (t) =>
+        t.status === "backlog" ||
+        t.status === "up_next" ||
+        t.status === "active",
     );
     const scored = open.filter((t) => t.value !== null && t.effort !== null);
     const unscored = open.filter((t) => t.value === null || t.effort === null);
@@ -439,7 +443,7 @@ export function TasksView() {
         <div className="dash-section__title">
           <h2>Tasks</h2>
           <span className="dash-section__sub">
-            Move work through backlog, active, paused and done
+            Move work through backlog, up next, active, paused and done
           </span>
         </div>
         <div className="view-toggle" role="group" aria-label="Task view">

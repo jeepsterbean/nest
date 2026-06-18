@@ -31,6 +31,7 @@ import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
 const OLDER_DUMP_BATCH_SIZE = 10;
+type OverviewTaskStatus = "active" | "up_next" | "backlog";
 
 export function OverviewView() {
   const {
@@ -46,9 +47,8 @@ export function OverviewView() {
     mutate,
   } = useDashboardData();
   const [backlogCollapsed, setBacklogCollapsed] = useState(false);
-  const [quickAddStatus, setQuickAddStatus] = useState<
-    "active" | "backlog" | null
-  >(null);
+  const [quickAddStatus, setQuickAddStatus] =
+    useState<OverviewTaskStatus | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [phasePickerOpen, setPhasePickerOpen] = useState(false);
@@ -247,13 +247,13 @@ export function OverviewView() {
     });
   };
 
-  const openQuickAdd = (status: "active" | "backlog") => {
+  const openQuickAdd = (status: OverviewTaskStatus) => {
     if (status === "backlog") setBacklogCollapsed(false);
     setQuickAddTitle("");
     setQuickAddStatus(status);
   };
 
-  const submitQuickAdd = async (e: FormEvent, status: "active" | "backlog") => {
+  const submitQuickAdd = async (e: FormEvent, status: OverviewTaskStatus) => {
     e.preventDefault();
     const title = quickAddTitle.trim();
     if (!title) return;
@@ -281,7 +281,7 @@ export function OverviewView() {
     });
   };
 
-  const renderQuickAdd = (status: "active" | "backlog") =>
+  const renderQuickAdd = (status: OverviewTaskStatus) =>
     quickAddStatus === status ? (
       <form
         className="overview-quick-add"
@@ -307,7 +307,7 @@ export function OverviewView() {
       </form>
     ) : null;
 
-  const renderAddButton = (status: "active" | "backlog") => (
+  const renderAddButton = (status: OverviewTaskStatus) => (
     <button
       type="button"
       className="overview-group__add"
@@ -319,7 +319,7 @@ export function OverviewView() {
     </button>
   );
 
-  const renderTaskList = (status: "active" | "backlog") =>
+  const renderTaskList = (status: OverviewTaskStatus) =>
     tasksByStatus[status].length === 0 ? (
       <div className="overview-task-group__empty">
         No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
@@ -337,7 +337,7 @@ export function OverviewView() {
       </ol>
     );
 
-  const renderOverviewGroup = (status: "active" | "backlog") => {
+  const renderOverviewGroup = (status: OverviewTaskStatus) => {
     const collapsible = status === "backlog";
     const collapsed = collapsible && backlogCollapsed;
     const headingInner = (
@@ -500,11 +500,12 @@ export function OverviewView() {
           <header className="overview-panel__head">
             <div>
               <h2>Task focus</h2>
-              <span>Active and backlog work</span>
+              <span>Active, up next and backlog work</span>
             </div>
           </header>
           <div className="overview-panel__scroll">
             {renderOverviewGroup("active")}
+            {renderOverviewGroup("up_next")}
             {renderOverviewGroup("backlog")}
           </div>
         </section>
