@@ -3,6 +3,7 @@ import { nestMark, pencilIcon } from "./icons";
 
 export type DashboardView =
   | "overview"
+  | "insights"
   | "journal"
   | "tasks"
   | "metrics"
@@ -10,6 +11,7 @@ export type DashboardView =
 
 const VIEWS: { key: DashboardView; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "insights", label: "Insights" },
   { key: "journal", label: "Journal" },
   { key: "tasks", label: "Tasks" },
   { key: "metrics", label: "Metrics" },

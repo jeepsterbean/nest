@@ -10,6 +10,7 @@ import type {
   PhaseCheckIn,
   RatingValue,
   Task,
+  TaskStatusEvent,
   TaskStatus,
 } from "./types";
 
@@ -47,6 +48,13 @@ export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
 
 export function listTasks(): Promise<Task[]> {
   return invoke("list_tasks");
+}
+
+export function listTaskStatusEvents(
+  from: number,
+  to: number,
+): Promise<TaskStatusEvent[]> {
+  return invoke("list_task_status_events", { from, to });
 }
 
 export function createTask(

@@ -71,6 +71,16 @@ pub struct Task {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskStatusEvent {
+    pub id: i64,
+    pub task_id: i64,
+    pub from_status: Option<String>,
+    pub to_status: String,
+    pub created_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckInSchedule {

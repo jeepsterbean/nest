@@ -5,7 +5,7 @@ use tauri::State;
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Task,
+    MetricRatingInput, Phase, PhaseCheckIn, Task, TaskStatusEvent,
 };
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
@@ -130,6 +130,33 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 effort: row.get(6)?,
                 created_at: row.get(7)?,
                 updated_at: row.get(8)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn list_task_status_events(
+    state: State<'_, Mutex<Connection>>,
+    from: i64,
+    to: i64,
+) -> Result<Vec<TaskStatusEvent>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, task_id, from_status, to_status, created_at \
+         FROM task_status_events \
+         WHERE created_at >= ?1 AND created_at < ?2 \
+         ORDER BY created_at ASC, id ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![from, to], |row| {
+            Ok(TaskStatusEvent {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                from_status: row.get(2)?,
+                to_status: row.get(3)?,
+                created_at: row.get(4)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

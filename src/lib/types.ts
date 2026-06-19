@@ -61,6 +61,14 @@ export type Task = {
   updatedAt: number;
 };
 
+export type TaskStatusEvent = {
+  id: number;
+  taskId: number;
+  fromStatus: TaskStatus | null;
+  toStatus: TaskStatus;
+  createdAt: number;
+};
+
 export type CheckInSchedule = {
   intervalMinutes: number;
   nextDueAt: number;
