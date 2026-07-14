@@ -421,6 +421,29 @@ ON task_status_events(task_id, created_at DESC, id DESC);
 PRAGMA foreign_keys = ON;
 "#,
         ),
+        // A task belongs to at most one parent, while execution dependencies
+        // remain a separate many-to-many DAG. Keeping the relationships
+        // distinct prevents hierarchy from silently acquiring scheduling
+        // semantics.
+        M::up(
+            r#"
+ALTER TABLE tasks
+ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
+
+CREATE TABLE task_dependencies (
+  blocker_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  blocked_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_at      INTEGER NOT NULL,
+  CHECK (blocker_task_id <> blocked_task_id),
+  PRIMARY KEY (blocker_task_id, blocked_task_id)
+);
+
+CREATE INDEX idx_task_dependencies_blocked
+ON task_dependencies(blocked_task_id, blocker_task_id);
+"#,
+        ),
     ])
 }
 
@@ -630,11 +653,9 @@ CREATE TABLE task_check_ins (
         assert_eq!(foreign_keys_enabled, 1);
 
         let foreign_key_errors: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM pragma_foreign_key_check",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(foreign_key_errors, 0);
     }

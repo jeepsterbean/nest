@@ -18,6 +18,7 @@ const task = (id: number, status: Task["status"], scope: string | null = null): 
   scope,
   value: 2,
   effort: 1,
+  parentTaskId: null,
   createdAt: 10,
   updatedAt: 100,
 });

@@ -67,8 +67,17 @@ pub struct Task {
     pub scope: Option<String>,
     pub value: Option<i64>,
     pub effort: Option<i64>,
+    pub parent_task_id: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskDependency {
+    pub blocker_task_id: i64,
+    pub blocked_task_id: i64,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

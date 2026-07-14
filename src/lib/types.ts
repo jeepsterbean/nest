@@ -57,8 +57,15 @@ export type Task = {
   scope: string | null;
   value: RatingValue | null;
   effort: RatingValue | null;
+  parentTaskId: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type TaskDependency = {
+  blockerTaskId: number;
+  blockedTaskId: number;
+  createdAt: number;
 };
 
 export type TaskStatusEvent = {

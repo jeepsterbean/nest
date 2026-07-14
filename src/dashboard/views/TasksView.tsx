@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -20,6 +22,14 @@ import { TaskCard } from "../task/TaskCard";
 import { TaskScopeButton } from "../task/TaskScopeButton";
 import { TaskScoreControls } from "../task/TaskScoreControls";
 import { TaskTitle } from "../task/TaskTitle";
+import { TaskGraphBadges } from "../task/TaskRelations";
+import { isTaskBlocked } from "../lib/taskGraph";
+
+const TaskGraphView = lazy(() =>
+  import("../task/TaskGraphView").then((module) => ({
+    default: module.TaskGraphView,
+  })),
+);
 
 const EMPTY_BY_STATUS: Record<TaskStatus, string> = {
   backlog: "",
@@ -60,8 +70,8 @@ type TaskDragPreview = {
 };
 
 export function TasksView() {
-  const { tasks, scopeTree, mutate } = useDashboardData();
-  const [taskView, setTaskView] = useState<"kanban" | "table" | "matrix">(
+  const { tasks, scopeTree, taskGraph, mutate } = useDashboardData();
+  const [taskView, setTaskView] = useState<"kanban" | "table" | "matrix" | "graph">(
     "kanban",
   );
   const [newTaskTitles, setNewTaskTitles] =
@@ -348,8 +358,10 @@ export function TasksView() {
         t.status === "up_next" ||
         t.status === "active",
     );
-    const scored = open.filter((t) => t.value !== null && t.effort !== null);
-    const unscored = open.filter((t) => t.value === null || t.effort === null);
+    const readyOpen = open.filter((task) => !isTaskBlocked(taskGraph, task.id));
+    const blockedOpen = open.filter((task) => isTaskBlocked(taskGraph, task.id));
+    const scored = readyOpen.filter((t) => t.value !== null && t.effort !== null);
+    const unscored = readyOpen.filter((t) => t.value === null || t.effort === null);
     const ranked = [...scored].sort(
       (a, b) =>
         (b.value ?? 0) - (a.value ?? 0) ||
@@ -432,6 +444,11 @@ export function TasksView() {
               </ol>
             </div>
           )}
+          {blockedOpen.length > 0 && (
+            <p className="task-ranked__blocked">
+              {blockedOpen.length} {blockedOpen.length === 1 ? "task is" : "tasks are"} waiting on blockers.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -479,6 +496,17 @@ export function TasksView() {
             onClick={() => setTaskView("matrix")}
           >
             Matrix
+          </button>
+          <button
+            type="button"
+            className={
+              taskView === "graph"
+                ? "view-toggle__btn view-toggle__btn--active"
+                : "view-toggle__btn"
+            }
+            onClick={() => setTaskView("graph")}
+          >
+            Graph
           </button>
         </div>
       </header>
@@ -603,7 +631,9 @@ export function TasksView() {
                   <tr>
                     <th>Title</th>
                     <th>Scope</th>
+                    <th>Parent</th>
                     <th>Status</th>
+                    <th>Readiness</th>
                     <th>Priority</th>
                     <th>Created</th>
                     <th>Updated</th>
@@ -612,7 +642,7 @@ export function TasksView() {
                 <tbody>
                   {visibleTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="task-table__empty">
+                      <td colSpan={8} className="task-table__empty">
                         {tasks.length === 0
                           ? "Add a task from the Kanban view to start the board."
                           : "No tasks match this scope."}
@@ -636,7 +666,15 @@ export function TasksView() {
                             <TaskScopeButton task={task} />
                           </td>
                           <td>
+                            {task.parentTaskId === null
+                              ? "—"
+                              : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
+                          </td>
+                          <td>
                             <StatusTrigger task={task} />
+                          </td>
+                          <td>
+                            <TaskGraphBadges task={task} />
                           </td>
                           <td>
                             <TaskScoreControls task={task} />
@@ -651,6 +689,15 @@ export function TasksView() {
             </div>
           )}
           {taskView === "matrix" && renderTaskMatrix()}
+          {taskView === "graph" && (
+            <Suspense
+              fallback={
+                <div className="task-graph-empty">Preparing task map…</div>
+              }
+            >
+              <TaskGraphView visibleTasks={visibleTasks} />
+            </Suspense>
+          )}
         </div>
       </div>
       {dragPreview &&

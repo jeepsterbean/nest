@@ -2461,6 +2461,196 @@
   gap: 8px;
 }
 
+.task-relations {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.task-relations__heading,
+.task-relation-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-relations__heading > span:first-child,
+.task-relation-group__head > span:first-child,
+.task-relation-field__label {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.task-readiness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--rating-5);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.task-readiness__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.task-readiness--blocked {
+  color: var(--dump);
+}
+
+.task-graph-badges {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-graph-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.task-graph-badge--blocked {
+  background: var(--dump-soft);
+  color: var(--dump);
+}
+
+.task-relation-field {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.task-relation-field select,
+.task-relation-add,
+.task-child-create input {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.task-relation-field select:focus,
+.task-relation-add:focus,
+.task-child-create input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-relation-group {
+  display: grid;
+  gap: 6px;
+}
+
+.task-relation-group__head > span:last-child {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-relation-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-relation-list li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.task-relation-list li > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-relation-list__remove {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.task-relation-list__remove:hover {
+  background: var(--dump-soft);
+  color: var(--dump);
+}
+
+.task-child-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+}
+
+.task-child-create button {
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 750;
+}
+
+.task-child-create button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.task-relation-add {
+  width: 100%;
+  color: var(--muted);
+}
+
+.task-relation-group--dependents {
+  padding-top: 2px;
+}
+
 .task-card__scope-row {
   display: flex;
   min-width: 0;
@@ -3011,6 +3201,14 @@
   font-size: 13.5px;
 }
 
+.task-table td:nth-child(3) {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task-table__empty {
   color: var(--muted);
   text-align: center !important;
@@ -3223,6 +3421,201 @@
   border: 1px solid var(--border);
   border-radius: 13px;
   background: var(--surface-2);
+}
+
+.task-ranked__blocked {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--dump);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* ---------- Task dependency graph ---------- */
+
+.task-graph-canvas {
+  height: clamp(430px, calc(100vh - 280px), 720px);
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background:
+    linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--surface-2) 84%, transparent),
+      transparent 48%
+    ),
+    var(--surface);
+}
+
+.task-graph-canvas .react-flow {
+  --xy-background-pattern-dot-color-default: color-mix(
+    in srgb,
+    var(--border-strong) 64%,
+    transparent
+  );
+  --xy-controls-button-background-color-default: var(--surface);
+  --xy-controls-button-background-color-hover-default: var(--surface-2);
+  --xy-controls-button-color-default: var(--ink);
+  --xy-controls-button-border-color-default: var(--border);
+  --xy-minimap-background-color-default: var(--surface-2);
+}
+
+.task-graph-canvas .react-flow__controls,
+.task-graph-canvas .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 8px 24px -20px rgba(60, 48, 30, 0.45);
+}
+
+.task-graph-node {
+  position: relative;
+  display: flex;
+  width: 220px;
+  height: 78px;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 7px 20px -18px rgba(60, 48, 30, 0.5);
+}
+
+.task-graph-node--active {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+}
+
+.task-graph-node--completed {
+  border-color: color-mix(in srgb, var(--rating-5) 52%, var(--border));
+}
+
+.task-graph-node--cancelled {
+  opacity: 0.66;
+}
+
+.task-graph-node--blocked {
+  outline: 2px solid color-mix(in srgb, var(--dump) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.task-graph-node--context {
+  opacity: 0.58;
+}
+
+.task-graph-node__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.task-graph-node__context {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.task-graph-node strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-graph-node__readiness {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.task-graph-node--blocked .task-graph-node__readiness {
+  color: var(--dump);
+  font-weight: 700;
+}
+
+.task-graph-node .react-flow__handle {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--surface);
+  background: var(--accent);
+}
+
+.task-graph-group {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: baseline;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 25%, transparent);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.task-graph-group > span {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.task-graph-group > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-graph-group > small {
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.task-graph-edge .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--accent) 68%, var(--muted));
+  stroke-width: 1.8;
+}
+
+.task-graph-empty {
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 28px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 13px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.task-graph-empty strong {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .task-ranked__head {

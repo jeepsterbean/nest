@@ -17,6 +17,7 @@ import {
   listPhaseCheckIns,
   listPhases,
   listTasks,
+  listTaskDependencies,
 } from "../../lib/commands";
 import type {
   BrainDump,
@@ -26,13 +27,17 @@ import type {
   Phase,
   PhaseCheckIn,
   Task,
+  TaskDependency,
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
+import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 type DashboardData = {
   tasks: Task[];
+  taskDependencies: TaskDependency[];
+  taskGraph: TaskGraphProjection;
   metrics: Metric[];
   phases: Phase[];
   checkIns: MetricCheckInWithRatings[];
@@ -56,6 +61,7 @@ const DashboardDataContext = createContext<DashboardData | null>(null);
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
@@ -73,8 +79,9 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = now - THIRTY_DAYS_SECONDS;
       const to = now + 1;
-      const [t, m, p, ci, pci, bd, allBd, lp, schedule] = await Promise.all([
+      const [t, td, m, p, ci, pci, bd, allBd, lp, schedule] = await Promise.all([
         listTasks(),
+        listTaskDependencies(),
         listMetrics(true),
         listPhases(true),
         listMetricCheckIns(from, to),
@@ -85,6 +92,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         getCheckInSchedule(),
       ]);
       setTasks(t);
+      setTaskDependencies(td);
       setMetrics(m);
       setPhases(p);
       setCheckIns(ci);
@@ -143,10 +151,16 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   const scopeTree = useMemo(() => buildScopeTree(tasks), [tasks]);
+  const taskGraph = useMemo(
+    () => buildTaskGraph(tasks, taskDependencies),
+    [tasks, taskDependencies],
+  );
 
   const value = useMemo<DashboardData>(
     () => ({
       tasks,
+      taskDependencies,
+      taskGraph,
       metrics,
       phases,
       checkIns,
@@ -164,6 +178,8 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     }),
     [
       tasks,
+      taskDependencies,
+      taskGraph,
       metrics,
       phases,
       checkIns,

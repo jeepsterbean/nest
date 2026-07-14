@@ -18,6 +18,7 @@ const task = (
   scope: null,
   value: null,
   effort: null,
+  parentTaskId: null,
   createdAt,
   updatedAt,
 });

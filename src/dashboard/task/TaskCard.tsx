@@ -9,6 +9,7 @@ import { TaskDescription } from "./TaskDescription";
 import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
+import { TaskGraphBadges, TaskRelations } from "./TaskRelations";
 
 export function TaskCard({
   task,
@@ -55,10 +56,12 @@ export function TaskCard({
           {expanded ? "▾" : "▸"}
         </button>
       </div>
+      {!expanded && <TaskGraphBadges task={task} />}
       {expanded && (
         <div className="task-card__details">
           <TaskScopeButton task={task} display="path" />
           <TaskDescription task={task} />
+          <TaskRelations task={task} />
         </div>
       )}
       <div className="task-card__controls">

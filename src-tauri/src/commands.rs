@@ -5,8 +5,9 @@ use tauri::State;
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Task, TaskStatusEvent,
+    MetricRatingInput, Phase, PhaseCheckIn, Task, TaskDependency, TaskStatusEvent,
 };
+use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
 
@@ -59,7 +60,7 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, scope, value, effort, created_at, updated_at \
+        "SELECT id, title, description, status, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks WHERE id = ?1",
         params![id],
         |row| {
@@ -71,8 +72,9 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 scope: row.get(4)?,
                 value: row.get(5)?,
                 effort: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                parent_task_id: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         },
     )
@@ -115,7 +117,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, scope, value, effort, created_at, updated_at \
+        "SELECT id, title, description, status, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -128,12 +130,19 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 scope: row.get(4)?,
                 value: row.get(5)?,
                 effort: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                parent_task_id: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
+}
+
+#[tauri::command]
+pub fn list_task_dependencies(state: State<'_, Mutex<Connection>>) -> Result<Vec<TaskDependency>> {
+    let conn = state.lock().unwrap();
+    TaskGraph::list_dependencies(&conn)
 }
 
 #[tauri::command]
@@ -170,6 +179,7 @@ pub fn create_task(
     description: String,
     status: String,
     scope: Option<String>,
+    parent_task_id: Option<i64>,
 ) -> Result<Task> {
     let title = title.trim().to_string();
     if title.is_empty() {
@@ -181,10 +191,21 @@ pub fn create_task(
     let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
     let tx = conn.transaction()?;
+    if let Some(parent_id) = parent_task_id {
+        let parent_exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?1)",
+            params![parent_id],
+            |row| row.get(0),
+        )?;
+        if !parent_exists {
+            return Err(AppError::NotFound(format!("task {parent_id}")));
+        }
+    }
     tx.execute(
-        "INSERT INTO tasks (title, description, status, scope, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![title, description, status, scope, now, now],
+        "INSERT INTO tasks \
+         (title, description, status, scope, parent_task_id, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![title, description, status, scope, parent_task_id, now, now],
     )?;
     let id = tx.last_insert_rowid();
     tx.execute(
@@ -247,6 +268,37 @@ pub fn set_task_scope(
         return Err(AppError::NotFound(format!("task {id}")));
     }
     fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_parent(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    parent_task_id: Option<i64>,
+) -> Result<Task> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::set_parent(&mut conn, id, parent_task_id)?;
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn add_task_dependency(
+    state: State<'_, Mutex<Connection>>,
+    blocker_task_id: i64,
+    blocked_task_id: i64,
+) -> Result<()> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::add_dependency(&mut conn, blocker_task_id, blocked_task_id)
+}
+
+#[tauri::command]
+pub fn remove_task_dependency(
+    state: State<'_, Mutex<Connection>>,
+    blocker_task_id: i64,
+    blocked_task_id: i64,
+) -> Result<()> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::remove_dependency(&mut conn, blocker_task_id, blocked_task_id)
 }
 
 #[tauri::command]

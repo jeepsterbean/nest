@@ -4,6 +4,7 @@ mod db;
 mod error;
 mod migrations;
 mod models;
+mod task_graph;
 mod time;
 
 use std::{
@@ -22,9 +23,9 @@ use tauri::{
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use crate::time::now_unix_secs;
 #[cfg(target_os = "macos")]
 use crate::time::now_unix_millis;
+use crate::time::now_unix_secs;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -124,7 +125,10 @@ fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
         Some((minutes, due_at)) if check_in::is_valid_interval(minutes) => (minutes, due_at),
         // Missing row or a bad interval (corrupt/hand-edited db): fall back to
         // the default cadence starting now.
-        _ => (check_in::DEFAULT_MINUTES, now + check_in::DEFAULT_MINUTES * 60),
+        _ => (
+            check_in::DEFAULT_MINUTES,
+            now + check_in::DEFAULT_MINUTES * 60,
+        ),
     };
 
     append_diagnostic_log(format!(
@@ -529,11 +533,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_metrics,
             commands::list_tasks,
+            commands::list_task_dependencies,
             commands::list_task_status_events,
             commands::create_task,
             commands::rename_task,
             commands::set_task_description,
             commands::set_task_scope,
+            commands::set_task_parent,
+            commands::add_task_dependency,
+            commands::remove_task_dependency,
             commands::set_task_status,
             commands::set_task_score,
             commands::create_metric,
