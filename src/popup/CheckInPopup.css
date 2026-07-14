@@ -1,0 +1,79 @@
+/* The popup shares the dashboard bundle but the dashboard's design tokens are
+   scoped to `.dashboard`, so the popup gets none of them. Re-declare the same
+   warm "journal" token set on `.checkin` here. Kept as a local copy (rather than
+   a shared file) so the popup theme stays self-contained and independent of the
+   dashboard window. Keep in sync with Dashboard.css if the palette changes. */
+.checkin {
+  --bg: #f6f1e8;
+  --bg-glow-1: rgba(116, 153, 217, 0.16);
+  --bg-glow-2: rgba(214, 164, 88, 0.14);
+  --surface: #fffdf8;
+  --surface-2: #f3ede1;
+  --border: #e6ddcc;
+  --border-strong: #d4c8b2;
+  --ink: #322b21;
+  --muted: #8a8071;
+  --accent: #4a7dd1;
+  --accent-soft: rgba(74, 125, 209, 0.13);
+  --phase: #8a63d2;
+  --phase-soft: rgba(138, 99, 210, 0.12);
+  --dump: #b27c33;
+  --dump-soft: rgba(193, 142, 67, 0.13);
+  --danger: #c0392b;
+  --danger-soft: rgba(220, 50, 50, 0.1);
+  --rating-1: #c2674f;
+  --rating-2: #c89a4e;
+  --rating-3: #b3a44c;
+  --rating-4: #7da95c;
+  --rating-5: #4d9b6f;
+  --shadow:
+    0 1px 2px rgba(60, 48, 30, 0.05),
+    0 8px 24px -16px rgba(60, 48, 30, 0.25);
+  --serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
+
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(560px 280px at 14% -8%, var(--bg-glow-1), transparent 70%),
+    radial-gradient(480px 260px at 88% -4%, var(--bg-glow-2), transparent 70%),
+    var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .checkin {
+    --bg: #191613;
+    --bg-glow-1: rgba(101, 142, 214, 0.12);
+    --bg-glow-2: rgba(206, 153, 74, 0.1);
+    --surface: #211d18;
+    --surface-2: #2a251e;
+    --border: #383127;
+    --border-strong: #4a4133;
+    --ink: #ece5d8;
+    --muted: #a89d8a;
+    --accent: #6f9be0;
+    --accent-soft: rgba(111, 155, 224, 0.18);
+    --phase: #a98ee6;
+    --phase-soft: rgba(169, 142, 230, 0.16);
+    --dump: #d4a35c;
+    --dump-soft: rgba(212, 163, 92, 0.13);
+    --danger: #e07a6d;
+    --danger-soft: rgba(224, 122, 109, 0.14);
+    --rating-1: #d07c63;
+    --rating-2: #d3a75e;
+    --rating-3: #bdb35e;
+    --rating-4: #8fbb6e;
+    --rating-5: #62b184;
+    --shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 8px 24px -16px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.checkin__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

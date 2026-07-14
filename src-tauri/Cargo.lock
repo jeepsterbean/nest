@@ -1974,6 +1974,7 @@ dependencies = [
 name = "nest"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "cocoa",
  "rusqlite",
  "rusqlite_migration",

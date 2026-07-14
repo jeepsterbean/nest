@@ -30,8 +30,11 @@ Open work items, roughly in priority order. Closed items are not tracked here â€
 
 - [ ] **Per-metric trend chart (last 30 days)**
 
-  `metric_series(metricId, from, to)` already exists on the backend but has no consumer. Render
-  a small line/sparkline chart for each metric, showing values over the last 30 days.
+  Render a small line/sparkline chart for each metric, showing values over the last 30 days.
+  The dashboard already derives per-metric series client-side (the `seriesByMetric` memo over
+  `listMetricCheckIns`), so a chart can reuse that â€” no backend command needed. (A `metric_series`
+  command existed for this but was removed as dead code; re-add only if server-side aggregation
+  is ever wanted.)
 
   Decision needed: hand-rolled SVG vs. a chart library (recharts, visx, chart.js).
   Recommendation: hand-rolled SVG â€” single component, ~50 lines, zero bundle weight, fits the
@@ -39,6 +42,15 @@ Open work items, roughly in priority order. Closed items are not tracked here â€
 
   Layout: chart next to each metric in the Metrics section, OR a dedicated Trends section.
   Decide during implementation based on how cluttered the metric list feels.
+
+- [ ] **Task status history view**
+
+  Every task create and status change already writes a row to `task_status_events`
+  (`from_status`, `to_status`, `created_at`), but nothing reads it. The `list_task_status_events`
+  command + `TaskStatusEvent` DTO were removed as dead code in the Jun 2026 cleanup, while the
+  writes were deliberately kept as groundwork. To use it: re-add a read command and render a
+  per-task activity timeline (e.g. in the expanded task card). If it never earns its keep, drop
+  the table + writes via a migration instead.
 
 ---
 

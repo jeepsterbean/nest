@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import CheckInPopup from "./CheckInPopup";
-import Dashboard from "./Dashboard";
+import CheckInPopup from "./popup/CheckInPopup";
+import Dashboard from "./dashboard/Dashboard";
 import "./App.css";
 
 function App() {
