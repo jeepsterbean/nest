@@ -14,6 +14,7 @@ import {
 import type { Phase } from "../../lib/types";
 import {
   checkCircleIcon,
+  chevronDownIcon,
   clockIcon,
   eyeOffIcon,
   flagIcon,
@@ -419,7 +420,7 @@ export function OverviewView() {
               )}
             </span>
             <span className="phase-summary__chevron" aria-hidden="true">
-              ▾
+              {chevronDownIcon}
             </span>
           </button>
           {phasePickerOpen && (

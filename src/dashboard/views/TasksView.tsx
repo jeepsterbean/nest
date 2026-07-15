@@ -27,7 +27,11 @@ import {
   WORKING_STATUSES,
 } from "../lib/tasks";
 import { formatDate } from "../lib/time";
-import { chevronRightIcon } from "../components/icons";
+import {
+  checkIcon,
+  chevronDownIcon,
+  chevronRightIcon,
+} from "../components/icons";
 import { StatusTrigger } from "../task/StatusTrigger";
 import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
@@ -86,6 +90,7 @@ export function TasksView() {
   const [taskView, setTaskView] = useState<TaskViewKey>("kanban");
   const [composerTitle, setComposerTitle] = useState("");
   const [composerStatus, setComposerStatus] = useState<TaskStatus>("backlog");
+  const [composerStatusOpen, setComposerStatusOpen] = useState(false);
   const [closedRailOpen, setClosedRailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
@@ -100,6 +105,7 @@ export function TasksView() {
   const dragSessionRef = useRef<TaskDragSession | null>(null);
   const suppressClickTaskIdRef = useRef<number | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
+  const composerStatusTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { statusMenu, scopeMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
@@ -651,20 +657,103 @@ export function TasksView() {
                   value={composerTitle}
                   onChange={(e) => setComposerTitle(e.target.value)}
                 />
-                <select
-                  className="task-composer__status"
-                  aria-label="Status for the new task"
-                  value={composerStatus}
-                  onChange={(e) =>
-                    setComposerStatus(e.target.value as TaskStatus)
-                  }
+                <div
+                  className="task-composer__status-wrap"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                      setComposerStatusOpen(false);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && composerStatusOpen) {
+                      e.preventDefault();
+                      setComposerStatusOpen(false);
+                      composerStatusTriggerRef.current?.focus();
+                    }
+                    if (
+                      composerStatusOpen &&
+                      (e.key === "ArrowDown" || e.key === "ArrowUp")
+                    ) {
+                      e.preventDefault();
+                      const options = Array.from(
+                        e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                          "[role='option']",
+                        ),
+                      );
+                      const index = options.indexOf(
+                        document.activeElement as HTMLButtonElement,
+                      );
+                      const delta = e.key === "ArrowDown" ? 1 : -1;
+                      options[
+                        (index + delta + options.length) % options.length
+                      ]?.focus();
+                    }
+                  }}
                 >
-                  {WORKING_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {TASK_STATUS_LABEL[status]}
-                    </option>
-                  ))}
-                </select>
+                  <button
+                    ref={composerStatusTriggerRef}
+                    type="button"
+                    className="task-composer__status"
+                    aria-haspopup="listbox"
+                    aria-expanded={composerStatusOpen}
+                    onClick={() => setComposerStatusOpen((open) => !open)}
+                  >
+                    <span
+                      className={`status-dot status-dot--${composerStatus}`}
+                      aria-hidden="true"
+                    />
+                    <span>{TASK_STATUS_LABEL[composerStatus]}</span>
+                    <span
+                      className="task-composer__status-chevron"
+                      aria-hidden="true"
+                    >
+                      {chevronDownIcon}
+                    </span>
+                  </button>
+                  {composerStatusOpen && (
+                    <div
+                      className="task-composer__status-menu"
+                      role="listbox"
+                      aria-label="Status for the new task"
+                    >
+                      {WORKING_STATUSES.map((status) => {
+                        const selected = status === composerStatus;
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            className={
+                              selected
+                                ? "task-composer__status-option is-selected"
+                                : "task-composer__status-option"
+                            }
+                            onClick={() => {
+                              setComposerStatus(status);
+                              setComposerStatusOpen(false);
+                              composerStatusTriggerRef.current?.focus();
+                            }}
+                          >
+                            <span
+                              className={`status-dot status-dot--${status}`}
+                              aria-hidden="true"
+                            />
+                            <span>{TASK_STATUS_LABEL[status]}</span>
+                            {selected && (
+                              <span
+                                className="task-composer__status-check"
+                                aria-hidden="true"
+                              >
+                                {checkIcon}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <button type="submit" disabled={!composerTitle.trim()}>
                   Add
                 </button>

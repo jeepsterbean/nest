@@ -10,6 +10,7 @@ import type {
   TaskStatusEvent,
 } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { MenuSelect } from "../components/MenuSelect";
 import {
   buildActivityBuckets,
   comparisonText,
@@ -226,20 +227,21 @@ export function InsightsView() {
               </button>
             ))}
           </div>
-          <label className="insights-scope">
+          <div className="insights-scope">
             <span>Scope</span>
-            <select
+            <MenuSelect
               value={selectedScope ?? ""}
-              onChange={(event) => setSelectedScope(event.target.value || null)}
-            >
-              <option value="">All tasks</option>
-              {[...scopeTree.paths].sort().map((scope) => (
-                <option key={scope} value={scope}>
-                  {scope}
-                </option>
-              ))}
-            </select>
-          </label>
+              placeholder="All tasks"
+              ariaLabel="Insight scope"
+              options={[
+                { value: "", label: "All tasks" },
+                ...[...scopeTree.paths]
+                  .sort()
+                  .map((scope) => ({ value: scope, label: scope })),
+              ]}
+              onChange={(value) => setSelectedScope(value || null)}
+            />
+          </div>
         </div>
       </header>
 

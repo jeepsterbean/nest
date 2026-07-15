@@ -6,6 +6,7 @@ import {
   setTaskParent,
 } from "../../lib/commands";
 import type { Task } from "../../lib/types";
+import { MenuSelect, type MenuSelectOption } from "../components/MenuSelect";
 import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
@@ -41,6 +42,12 @@ export function TaskRelations({ task }: { task: Task }) {
   const blockerCandidates = tasks
     .filter((candidate) => candidate.id !== task.id && !blockerIds.has(candidate.id))
     .sort(byTitle);
+  const taskOptions = (candidates: Task[]): MenuSelectOption[] =>
+    candidates.map((candidate) => ({
+      value: String(candidate.id),
+      label: candidate.title,
+      marker: <span className={`status-dot status-dot--${candidate.status}`} />,
+    }));
 
   const addChild = (event: FormEvent) => {
     event.preventDefault();
@@ -70,25 +77,23 @@ export function TaskRelations({ task }: { task: Task }) {
         </span>
       </div>
 
-      <label className="task-relation-field">
+      <div className="task-relation-field">
         <span className="task-relation-field__label">Parent</span>
-        <select
-          value={parent?.id ?? ""}
-          onChange={(event) => {
-            const value = event.target.value;
+        <MenuSelect
+          value={parent ? String(parent.id) : ""}
+          placeholder="No parent"
+          ariaLabel={`Parent for ${task.title}`}
+          options={[
+            { value: "", label: "No parent" },
+            ...taskOptions(parentCandidates),
+          ]}
+          onChange={(value) => {
             void mutate(() =>
               setTaskParent(task.id, value ? Number(value) : null),
             );
           }}
-        >
-          <option value="">No parent</option>
-          {parentCandidates.map((candidate) => (
-            <option value={candidate.id} key={candidate.id}>
-              {candidate.title}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </div>
 
       <div className="task-relation-group">
         <div className="task-relation-group__head">
@@ -146,24 +151,19 @@ export function TaskRelations({ task }: { task: Task }) {
             ))}
           </ul>
         )}
-        <select
+        <MenuSelect
           className="task-relation-add"
           value=""
-          aria-label={`Add blocker for ${task.title}`}
-          onChange={(event) => {
-            if (!event.target.value) return;
+          placeholder="Add blocker…"
+          ariaLabel={`Add blocker for ${task.title}`}
+          options={taskOptions(blockerCandidates)}
+          onChange={(value) => {
+            if (!value) return;
             void mutate(() =>
-              addTaskDependency(Number(event.target.value), task.id),
+              addTaskDependency(Number(value), task.id),
             );
           }}
-        >
-          <option value="">Add blocker…</option>
-          {blockerCandidates.map((candidate) => (
-            <option value={candidate.id} key={candidate.id}>
-              {candidate.title}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       {dependents.length > 0 && (
