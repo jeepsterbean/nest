@@ -6,6 +6,7 @@ import {
   setTaskParent,
 } from "../../lib/commands";
 import type { Task } from "../../lib/types";
+import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   childProgress,
@@ -139,7 +140,7 @@ export function TaskRelations({ task }: { task: Task }) {
                     void mutate(() => removeTaskDependency(blocker.id, task.id))
                   }
                 >
-                  ×
+                  {xIcon}
                 </button>
               </li>
             ))}

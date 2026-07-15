@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Task } from "../../lib/types";
+import { TASK_STATUSES } from "../lib/tasks";
 import { useDashboardData } from "./DashboardDataContext";
 
 type StatusMenuState = {
@@ -58,8 +59,9 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
       }
       setScopeMenu(null);
       const rect = anchor.getBoundingClientRect();
-      // ~5 options at 36px plus padding; flip up when there isn't room below.
-      const estHeight = 5 * 36 + 12;
+      // One option per status at 36px plus padding; flip up when there isn't
+      // room below.
+      const estHeight = TASK_STATUSES.length * 36 + 12;
       const menuWidth = 172;
       const up =
         window.innerHeight - rect.bottom < estHeight && rect.top > estHeight;

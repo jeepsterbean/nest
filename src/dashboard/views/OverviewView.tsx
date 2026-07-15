@@ -70,7 +70,6 @@ export function OverviewView() {
     number | null
   >(null);
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(new Set());
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pulseOpening, setPulseOpening] = useState(false);
 
@@ -263,15 +262,6 @@ export function OverviewView() {
     }
   };
 
-  const toggleTaskExpanded = (id: number) => {
-    setExpandedTaskIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const toggleDumpExpanded = (id: number) => {
     setExpandedDumpIds((prev) => {
       const next = new Set(prev);
@@ -327,12 +317,7 @@ export function OverviewView() {
     ) : (
       <ol className="overview-task-list">
         {tasksByStatus[status].map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            expanded={expandedTaskIds.has(task.id)}
-            onToggleExpand={() => toggleTaskExpanded(task.id)}
-          />
+          <TaskCard key={task.id} task={task} />
         ))}
       </ol>
     );

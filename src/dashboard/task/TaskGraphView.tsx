@@ -233,8 +233,10 @@ async function layoutGraph(
 
 export function TaskGraphView({
   visibleTasks,
+  onSelectTask,
 }: {
   visibleTasks: Task[];
+  onSelectTask?: (id: number) => void;
 }) {
   const { tasks, taskDependencies, taskGraph } = useDashboardDataForGraph();
   const [layout, setLayout] = useState<{ nodes: GraphNode[]; edges: Edge[] }>({
@@ -293,6 +295,10 @@ export function TaskGraphView({
         nodesConnectable={false}
         elementsSelectable
         proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, node) => {
+          if (node.id.startsWith("group:")) return;
+          onSelectTask?.(Number(node.id));
+        }}
       >
         <Background gap={24} size={1} />
         <MiniMap pannable zoomable nodeStrokeWidth={2} />

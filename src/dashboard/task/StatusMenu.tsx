@@ -1,5 +1,6 @@
 import { setTaskStatus } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
+import { checkIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
@@ -22,6 +23,20 @@ export function StatusMenu() {
         role="listbox"
         aria-label={`Status for ${task.title}`}
         style={{ left: statusMenu.left, top: statusMenu.top }}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+          e.preventDefault();
+          const options = Array.from(
+            e.currentTarget.querySelectorAll<HTMLButtonElement>(
+              "[role='option']",
+            ),
+          );
+          const index = options.indexOf(
+            document.activeElement as HTMLButtonElement,
+          );
+          const delta = e.key === "ArrowDown" ? 1 : -1;
+          options[(index + delta + options.length) % options.length]?.focus();
+        }}
       >
         {TASK_STATUSES.map((status) => {
           const selected = status === task.status;
@@ -53,7 +68,7 @@ export function StatusMenu() {
               </span>
               {selected && (
                 <span className="task-status-menu__check" aria-hidden="true">
-                  ✓
+                  {checkIcon}
                 </span>
               )}
             </button>

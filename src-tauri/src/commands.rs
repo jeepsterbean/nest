@@ -302,6 +302,12 @@ pub fn remove_task_dependency(
 }
 
 #[tauri::command]
+pub fn delete_task(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::delete_task(&mut conn, id)
+}
+
+#[tauri::command]
 pub fn set_task_status(
     state: State<'_, Mutex<Connection>>,
     id: i64,

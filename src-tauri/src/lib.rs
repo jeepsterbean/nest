@@ -542,6 +542,7 @@ pub fn run() {
             commands::set_task_parent,
             commands::add_task_dependency,
             commands::remove_task_dependency,
+            commands::delete_task,
             commands::set_task_status,
             commands::set_task_score,
             commands::create_metric,

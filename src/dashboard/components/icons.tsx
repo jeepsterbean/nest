@@ -71,6 +71,31 @@ export const trashIcon = (
   </svg>
 );
 
+export const chevronDownIcon = (
+  <svg {...iconProps}>
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+export const chevronRightIcon = (
+  <svg {...iconProps}>
+    <polyline points="9 6 15 12 9 18" />
+  </svg>
+);
+
+export const checkIcon = (
+  <svg {...iconProps}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+export const xIcon = (
+  <svg {...iconProps}>
+    <line x1="18" x2="6" y1="6" y2="18" />
+    <line x1="6" x2="18" y1="6" y2="18" />
+  </svg>
+);
+
 export const flameIcon = (
   <svg {...iconProps}>
     <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />

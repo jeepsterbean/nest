@@ -140,6 +140,27 @@ impl TaskGraph {
         Ok(())
     }
 
+    pub fn delete_task(conn: &mut Connection, id: i64) -> Result<()> {
+        let tx = conn.transaction()?;
+        Self::require_task(&tx, id)?;
+        // Deleting relies on the schema's FK actions: children are promoted to
+        // root (parent_task_id SET NULL) and dependency edges plus status
+        // events cascade away. Bump the affected neighbors first so list
+        // ordering reflects the change.
+        tx.execute(
+            "UPDATE tasks SET updated_at = ?1 \
+             WHERE parent_task_id = ?2 \
+                OR id IN (SELECT blocked_task_id FROM task_dependencies \
+                          WHERE blocker_task_id = ?2) \
+                OR id IN (SELECT blocker_task_id FROM task_dependencies \
+                          WHERE blocked_task_id = ?2)",
+            params![now_unix_secs(), id],
+        )?;
+        tx.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn require_task(conn: &Connection, id: i64) -> Result<()> {
         let exists = conn
             .query_row("SELECT 1 FROM tasks WHERE id = ?1", params![id], |_| Ok(()))
@@ -210,5 +231,70 @@ mod tests {
 
         TaskGraph::remove_dependency(&mut conn, 1, 2).unwrap();
         assert!(TaskGraph::list_dependencies(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn deleting_a_parent_promotes_children_but_keeps_grandchildren_nested() {
+        let mut conn = database();
+        TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
+        TaskGraph::set_parent(&mut conn, 3, Some(2)).unwrap();
+
+        TaskGraph::delete_task(&mut conn, 1).unwrap();
+
+        let child_parent: Option<i64> = conn
+            .query_row("SELECT parent_task_id FROM tasks WHERE id = 2", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(child_parent, None);
+
+        let grandchild_parent: Option<i64> = conn
+            .query_row("SELECT parent_task_id FROM tasks WHERE id = 3", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(grandchild_parent, Some(2));
+    }
+
+    #[test]
+    fn deleting_a_blocker_dissolves_its_dependencies() {
+        let mut conn = database();
+        TaskGraph::add_dependency(&mut conn, 1, 2).unwrap();
+        TaskGraph::add_dependency(&mut conn, 3, 2).unwrap();
+
+        TaskGraph::delete_task(&mut conn, 1).unwrap();
+
+        let remaining = TaskGraph::list_dependencies(&conn).unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].blocker_task_id, 3);
+    }
+
+    #[test]
+    fn deleting_a_task_removes_its_status_events() {
+        let mut conn = database();
+        conn.execute(
+            "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+             VALUES (1, NULL, 'backlog', 1)",
+            [],
+        )
+        .unwrap();
+
+        TaskGraph::delete_task(&mut conn, 1).unwrap();
+
+        let events: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_status_events WHERE task_id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(events, 0);
+    }
+
+    #[test]
+    fn deleting_an_unknown_task_is_not_found() {
+        let mut conn = database();
+        let error = TaskGraph::delete_task(&mut conn, 99).unwrap_err();
+        assert!(error.to_string().contains("task 99"));
     }
 }

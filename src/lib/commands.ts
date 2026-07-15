@@ -114,6 +114,10 @@ export function removeTaskDependency(
   return invoke("remove_task_dependency", { blockerTaskId, blockedTaskId });
 }
 
+export function deleteTask(id: number): Promise<void> {
+  return invoke("delete_task", { id });
+}
+
 export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {
   return invoke("set_task_status", { id, status });
 }

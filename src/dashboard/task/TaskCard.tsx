@@ -3,28 +3,30 @@ import type {
   PointerEventHandler,
 } from "react";
 import type { Task } from "../../lib/types";
-import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
-import { TaskDescription } from "./TaskDescription";
 import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
-import { TaskGraphBadges, TaskRelations } from "./TaskRelations";
+import { TaskGraphBadges } from "./TaskRelations";
 
 export function TaskCard({
   task,
-  expanded,
-  onToggleExpand,
+  selected = false,
+  onSelect,
   showStatus = true,
+  statusCompact = false,
   draggable = false,
   dragging = false,
   onPointerDown,
   onClickCapture,
 }: {
   task: Task;
-  expanded: boolean;
-  onToggleExpand: () => void;
+  selected?: boolean;
+  // When provided, the title opens the detail panel; without it (overview)
+  // the title keeps its inline-rename behavior.
+  onSelect?: (origin: HTMLElement) => void;
   showStatus?: boolean;
+  statusCompact?: boolean;
   draggable?: boolean;
   dragging?: boolean;
   onPointerDown?: PointerEventHandler<HTMLLIElement>;
@@ -33,7 +35,7 @@ export function TaskCard({
   return (
     <li
       className={`task-card task-card--${task.status}${
-        expanded ? " task-card--expanded" : ""
+        selected ? " task-card--selected" : ""
       }${draggable ? " task-card--draggable" : ""}${
         dragging ? " task-card--dragging" : ""
       }`}
@@ -42,43 +44,30 @@ export function TaskCard({
     >
       <div className="task-card__top">
         <div className="task-card__identity">
-          {!expanded && <TaskScopeButton task={task} display="leaf" />}
-          <TaskTitle task={task} />
+          <TaskScopeButton task={task} display="leaf" />
+          {onSelect ? (
+            <button
+              type="button"
+              className="task-card__open"
+              title="Open details"
+              onClick={(e) => onSelect(e.currentTarget)}
+            >
+              {task.title}
+            </button>
+          ) : (
+            <TaskTitle task={task} />
+          )}
         </div>
-        <button
-          type="button"
-          className="task-card__expand"
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse task" : "Expand task"}
-          title={expanded ? "Collapse" : "Expand"}
-          onClick={onToggleExpand}
-        >
-          {expanded ? "▾" : "▸"}
-        </button>
+        {showStatus && (
+          <StatusTrigger task={task} compact={statusCompact} />
+        )}
       </div>
-      {!expanded && <TaskGraphBadges task={task} />}
-      {expanded && (
-        <div className="task-card__details">
-          <TaskScopeButton task={task} display="path" />
-          <TaskDescription task={task} />
-          <TaskRelations task={task} />
-        </div>
-      )}
+      <TaskGraphBadges task={task} />
       <div className="task-card__controls">
         <div className="task-card__scores">
           <TaskScoreControls task={task} />
         </div>
-        {showStatus && (
-          <div className="task-card__meta">
-            <StatusTrigger task={task} />
-          </div>
-        )}
       </div>
-      {expanded && (
-        <div className="task-card__footer">
-          <time className="task-card__date">{formatDate(task.updatedAt)}</time>
-        </div>
-      )}
     </li>
   );
 }
