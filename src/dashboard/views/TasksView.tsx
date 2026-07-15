@@ -33,7 +33,6 @@ import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskScopeButton } from "../task/TaskScopeButton";
 import { TaskScoreControls } from "../task/TaskScoreControls";
-import { TaskTitle } from "../task/TaskTitle";
 import { TaskGraphBadges } from "../task/TaskRelations";
 import { isTaskBlocked } from "../lib/taskGraph";
 
@@ -607,38 +606,36 @@ export function TasksView() {
       {!loaded ? (
         <div className="task-board__loading">Laying out the board…</div>
       ) : (
-      <div
-        className={
-          scopeTree.roots.length > 0
-            ? "task-workspace"
-            : "task-workspace task-workspace--no-scopes"
-        }
-      >
-        {scopeTree.roots.length > 0 && (
-          <aside className="task-scope-panel" aria-label="Task scopes">
-            <div className="task-scope-panel__head">
-              <span>Scopes</span>
-              <span>{tasks.length}</span>
-            </div>
-            <button
-              type="button"
-              className={
-                selectedTaskScope === null
-                  ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
-                  : "task-scope-tree__btn task-scope-tree__btn--all"
-              }
-              onClick={() => setSelectedTaskScope(null)}
-            >
-              <span className="task-scope-tree__label">All tasks</span>
-              <span className="task-scope-tree__count">{tasks.length}</span>
-            </button>
-            <ol className="task-scope-tree">
-              {scopeTree.roots.map(renderScopeNode)}
-            </ol>
-          </aside>
-        )}
+        <div
+          className={`task-workspace${
+            scopeTree.roots.length === 0 ? " task-workspace--no-scopes" : ""
+          }${selectedTask ? " task-workspace--detail" : ""}`}
+        >
+          {scopeTree.roots.length > 0 && (
+            <aside className="task-scope-panel" aria-label="Task scopes">
+              <div className="task-scope-panel__head">
+                <span>Scopes</span>
+                <span>{tasks.length}</span>
+              </div>
+              <button
+                type="button"
+                className={
+                  selectedTaskScope === null
+                    ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
+                    : "task-scope-tree__btn task-scope-tree__btn--all"
+                }
+                onClick={() => setSelectedTaskScope(null)}
+              >
+                <span className="task-scope-tree__label">All tasks</span>
+                <span className="task-scope-tree__count">{tasks.length}</span>
+              </button>
+              <ol className="task-scope-tree">
+                {scopeTree.roots.map(renderScopeNode)}
+              </ol>
+            </aside>
+          )}
 
-        <div className="task-workspace__main">
+          <div className="task-workspace__main">
           {taskView === "kanban" && (
             <>
               <form className="task-composer" onSubmit={onComposerSubmit}>
@@ -786,9 +783,7 @@ export function TasksView() {
                             selectTask(task.id, e.currentTarget);
                           }}
                         >
-                          <td>
-                            <TaskTitle task={task} />
-                          </td>
+                          <td className="task-table__title">{task.title}</td>
                           <td>
                             <TaskScopeButton task={task} />
                           </td>
@@ -828,8 +823,15 @@ export function TasksView() {
               />
             </Suspense>
           )}
+          </div>
+          {selectedTask && (
+            <TaskDetailPanel
+              key={selectedTask.id}
+              task={selectedTask}
+              onClose={closeDetail}
+            />
+          )}
         </div>
-      </div>
       )}
       {dragPreview &&
         previewTask &&
@@ -843,17 +845,6 @@ export function TasksView() {
             aria-hidden="true"
           >
             <TaskCard task={previewTask} showStatus={false} />
-          </div>,
-          document.body,
-        )}
-      {selectedTask &&
-        createPortal(
-          <div className="dashboard task-detail-layer">
-            <TaskDetailPanel
-              key={selectedTask.id}
-              task={selectedTask}
-              onClose={closeDetail}
-            />
           </div>,
           document.body,
         )}
