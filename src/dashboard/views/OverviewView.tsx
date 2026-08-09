@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   createTask,
+  scheduleNextCheckIn,
   summonCheckIn,
   submitBrainDump,
   submitPhaseCheckIn,
@@ -32,6 +33,7 @@ import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
 const OLDER_DUMP_BATCH_SIZE = 10;
+const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 type OverviewTaskStatus = "active" | "up_next" | "backlog";
 
 export function OverviewView() {
@@ -54,6 +56,8 @@ export function OverviewView() {
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
+  const [checkInPickerOpen, setCheckInPickerOpen] = useState(false);
+  const [checkInScheduling, setCheckInScheduling] = useState(false);
   const [brainDumpExpanded, setBrainDumpExpanded] = useState(true);
   const [brainDumpLogsHidden, setBrainDumpLogsHidden] = useState(false);
   const [quickBrainDumpTitle, setQuickBrainDumpTitle] = useState("");
@@ -79,7 +83,7 @@ export function OverviewView() {
   }, [quickAddStatus]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -167,6 +171,14 @@ export function OverviewView() {
     setPhaseChangingId(p.id);
     await mutate(() => submitPhaseCheckIn(p.id));
     setPhaseChangingId(null);
+  };
+
+  const onSelectCheckInInterval = async (minutes: number) => {
+    setCheckInPickerOpen(false);
+    if (checkInScheduling) return;
+    setCheckInScheduling(true);
+    await mutate(() => scheduleNextCheckIn(minutes));
+    setCheckInScheduling(false);
   };
 
   const onSubmitQuickBrainDump = async (e: FormEvent) => {
@@ -452,12 +464,61 @@ export function OverviewView() {
             </div>
           )}
         </li>
-        <li className="dash-stat dash-stat--next-checkin">
-          {clockIcon}
-          <div className="dash-stat__copy">
-            <span>Next check-in</span>
-            <strong>{nextCheckIn}</strong>
-          </div>
+        <li
+          className="dash-stat dash-stat--next-checkin"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setCheckInPickerOpen(false);
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="checkin-summary"
+            aria-haspopup="listbox"
+            aria-expanded={checkInPickerOpen}
+            disabled={checkInScheduling}
+            onClick={() => setCheckInPickerOpen((open) => !open)}
+          >
+            {clockIcon}
+            <span className="checkin-summary__copy">
+              <span>Next check-in</span>
+              <strong>
+                {checkInScheduling ? "Scheduling…" : nextCheckIn}
+              </strong>
+            </span>
+            <span className="checkin-summary__chevron" aria-hidden="true">
+              {chevronDownIcon}
+            </span>
+          </button>
+          {checkInPickerOpen && (
+            <div
+              className="checkin-picker"
+              role="listbox"
+              aria-label="Next check-in in"
+            >
+              {CHECK_IN_INTERVALS.map((minutes) => {
+                const selected =
+                  checkInSchedule?.intervalMinutes === minutes;
+                return (
+                  <button
+                    key={minutes}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className="checkin-picker__option"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onSelectCheckInInterval(minutes)}
+                  >
+                    <span>{minutes} min</span>
+                    {selected && (
+                      <span className="checkin-picker__mark">Current</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </li>
         <li
           className={`dash-stat dash-stat--pulse${
