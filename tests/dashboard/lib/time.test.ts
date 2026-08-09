@@ -122,10 +122,13 @@ describe("minute helpers", () => {
     expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 31)), now)).toBe(0);
   });
 
-  it("rounds future countdowns up and marks due schedules", () => {
+  it("shows second-precision countdowns and marks due schedules", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
-    ).toBe("in 1 min");
+    ).toBe("in 30s");
+    expect(
+      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 32, 5)), now),
+    ).toBe("in 1m 35s");
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
     ).toBe("Due now");

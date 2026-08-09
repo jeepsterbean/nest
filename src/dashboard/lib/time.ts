@@ -86,7 +86,10 @@ export const formatCheckInCountdown = (
   nextDueAt: number,
   nowMs: number = Date.now(),
 ) => {
-  const secondsRemaining = nextDueAt - nowMs / 1000;
+  const secondsRemaining = Math.ceil(nextDueAt - nowMs / 1000);
   if (secondsRemaining <= 0) return "Due now";
-  return `in ${Math.ceil(secondsRemaining / 60)} min`;
+  const minutes = Math.floor(secondsRemaining / 60);
+  const seconds = secondsRemaining % 60;
+  if (minutes === 0) return `in ${seconds}s`;
+  return `in ${minutes}m ${String(seconds).padStart(2, "0")}s`;
 };

@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -99,6 +98,7 @@ export function TasksView() {
   const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
     new Set(),
   );
+  const [scopePanelCollapsed, setScopePanelCollapsed] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
   const [dragPreview, setDragPreview] = useState<TaskDragPreview | null>(null);
@@ -361,10 +361,7 @@ export function TasksView() {
     const hasChildren = node.children.length > 0;
     return (
       <li className="task-scope-tree__item" key={node.path}>
-        <div
-          className="task-scope-tree__row"
-          style={{ "--scope-depth": node.depth } as CSSProperties}
-        >
+        <div className="task-scope-tree__row">
           <button
             type="button"
             className={
@@ -375,12 +372,34 @@ export function TasksView() {
             onClick={() => setSelectedTaskScope(node.path)}
             title={node.path}
           >
+            <span
+              className={`task-scope-tree__branch${
+                node.depth === 0 ? " task-scope-tree__branch--root" : ""
+              }`}
+              aria-hidden="true"
+            >
+              {node.depth === 0 ? (
+                <span className="task-scope-tree__root-dot" />
+              ) : (
+                Array.from({ length: Math.min(node.depth, 4) }, (_, index) => (
+                  <span
+                    className={`task-scope-tree__rail${
+                      index === Math.min(node.depth, 4) - 1
+                        ? " task-scope-tree__rail--branch"
+                        : ""
+                    }`}
+                    key={index}
+                  />
+                ))
+              )}
+            </span>
             <span className="task-scope-tree__label">{node.label}</span>
           </button>
           <button
             type="button"
             className="task-scope-tree__count"
             onClick={() => hasChildren && toggleScopeCollapsed(node.path)}
+            aria-expanded={hasChildren ? !collapsed : undefined}
             aria-label={
               hasChildren
                 ? `${collapsed ? "Show" : "Hide"} child scopes for ${node.path}`
@@ -615,29 +634,61 @@ export function TasksView() {
         <div
           className={`task-workspace${
             scopeTree.roots.length === 0 ? " task-workspace--no-scopes" : ""
-          }${selectedTask ? " task-workspace--detail" : ""}`}
+          }${selectedTask ? " task-workspace--detail" : ""}${
+            scopePanelCollapsed ? " task-workspace--scope-collapsed" : ""
+          }`}
         >
           {scopeTree.roots.length > 0 && (
-            <aside className="task-scope-panel" aria-label="Task scopes">
+            <aside
+              className={`task-scope-panel${
+                scopePanelCollapsed ? " task-scope-panel--collapsed" : ""
+              }`}
+              aria-label="Task scopes"
+            >
               <div className="task-scope-panel__head">
-                <span>Scopes</span>
-                <span>{tasks.length}</span>
+                {!scopePanelCollapsed && <span>Scopes</span>}
+                <button
+                  type="button"
+                  className="task-scope-panel__toggle"
+                  aria-expanded={!scopePanelCollapsed}
+                  aria-label={
+                    scopePanelCollapsed
+                      ? "Expand task scopes"
+                      : "Collapse task scopes"
+                  }
+                  title={scopePanelCollapsed ? "Show scopes" : "Hide scopes"}
+                  onClick={() =>
+                    setScopePanelCollapsed((collapsed) => !collapsed)
+                  }
+                >
+                  {chevronRightIcon}
+                </button>
               </div>
-              <button
-                type="button"
-                className={
-                  selectedTaskScope === null
-                    ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
-                    : "task-scope-tree__btn task-scope-tree__btn--all"
-                }
-                onClick={() => setSelectedTaskScope(null)}
-              >
-                <span className="task-scope-tree__label">All tasks</span>
-                <span className="task-scope-tree__count">{tasks.length}</span>
-              </button>
-              <ol className="task-scope-tree">
-                {scopeTree.roots.map(renderScopeNode)}
-              </ol>
+              {!scopePanelCollapsed && (
+                <>
+                  <button
+                    type="button"
+                    className={
+                      selectedTaskScope === null
+                        ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
+                        : "task-scope-tree__btn task-scope-tree__btn--all"
+                    }
+                    onClick={() => setSelectedTaskScope(null)}
+                  >
+                    <span
+                      className="task-scope-tree__branch task-scope-tree__branch--all"
+                      aria-hidden="true"
+                    >
+                      <span className="task-scope-tree__root-dot" />
+                    </span>
+                    <span className="task-scope-tree__label">All tasks</span>
+                    <span className="task-scope-tree__count">{tasks.length}</span>
+                  </button>
+                  <ol className="task-scope-tree">
+                    {scopeTree.roots.map(renderScopeNode)}
+                  </ol>
+                </>
+              )}
             </aside>
           )}
 
