@@ -6,7 +6,7 @@ import {
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
-import type { Task, TaskStatus } from "../../../src/lib/types";
+import type { RatingValue, Task, TaskStatus } from "../../../src/lib/types";
 
 const task = (
   id: number,
@@ -18,6 +18,7 @@ const task = (
   title: `Task ${id}`,
   description: "",
   status,
+  workingNow: false,
   scope: null,
   value: null,
   effort: null,
@@ -28,8 +29,8 @@ const task = (
 
 const scoredTask = (
   id: number,
-  value: number | null,
-  effort: number | null,
+  value: RatingValue | null,
+  effort: RatingValue | null,
 ): Task => ({
   ...task(id, "backlog"),
   value,
@@ -103,5 +104,15 @@ describe("groupTasksByStatus", () => {
       task(4, "active", 20, 100), // ties #2 on updatedAt+createdAt, lower id -> after #4? id desc
     ]);
     expect(grouped.active.map((t) => t.id)).toEqual([3, 4, 2, 1]);
+  });
+
+  it("puts working-now tasks first within active", () => {
+    const grouped = groupTasksByStatus([
+      task(1, "active", 1, 200),
+      { ...task(2, "active", 1, 100), workingNow: true },
+      task(3, "backlog", 1, 300),
+    ]);
+    expect(grouped.active.map((t) => t.id)).toEqual([2, 1]);
+    expect(grouped.backlog.map((t) => t.id)).toEqual([3]);
   });
 });

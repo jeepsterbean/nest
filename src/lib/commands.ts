@@ -122,6 +122,10 @@ export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {
   return invoke("set_task_status", { id, status });
 }
 
+export function setTaskWorking(id: number, working: boolean): Promise<Task> {
+  return invoke("set_task_working", { id, working });
+}
+
 export function setTaskScore(
   id: number,
   value: RatingValue | null,

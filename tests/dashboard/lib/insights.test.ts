@@ -15,6 +15,7 @@ const task = (id: number, status: Task["status"], scope: string | null = null): 
   title: `Task ${id}`,
   description: "",
   status,
+  workingNow: false,
   scope,
   value: 2,
   effort: 1,

@@ -172,11 +172,28 @@
 }
 
 .now-task {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 5px 2px;
+  border-radius: 7px;
+  transition: background 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.now-task--working {
+  padding-left: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
+.now-task--working::before {
+  position: absolute;
+  inset: 5px auto 5px 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  content: "";
 }
 
 .now-task + .now-task {
@@ -192,6 +209,30 @@
   font-weight: 600;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.now-task__working-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+
+.now-task__working-label::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+  animation: working-beacon-breathe 1.8s cubic-bezier(0.65, 0, 0.35, 1)
+    infinite;
 }
 
 /* The first active task reads as the primary focus. */
@@ -245,6 +286,10 @@
 .now-task__actions button:disabled {
   cursor: not-allowed;
   opacity: 0.22;
+}
+
+.now-task__actions .working-toggle[aria-pressed="true"] {
+  opacity: 1;
 }
 
 /* ---------- Brain dump ---------- */
@@ -578,7 +623,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .now-card,
-  .now-dot {
+  .now-dot,
+  .now-task__working-label::before {
     animation: none;
   }
 }

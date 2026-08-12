@@ -37,6 +37,10 @@ import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskScopeButton } from "../task/TaskScopeButton";
 import { TaskScoreControls } from "../task/TaskScoreControls";
 import { TaskGraphBadges } from "../task/TaskRelations";
+import {
+  TaskWorkingControl,
+  WorkingBadge,
+} from "../task/TaskWorkingControl";
 import { isTaskBlocked } from "../lib/taskGraph";
 
 const TaskGraphView = lazy(() =>
@@ -504,7 +508,11 @@ export function TasksView() {
                       <button
                         key={task.id}
                         type="button"
-                        className="task-matrix__chip"
+                        className={`task-matrix__chip${
+                          task.workingNow
+                            ? " task-matrix__chip--working is-working-now"
+                            : ""
+                        }`}
                         style={{
                           left: `${x}%`,
                           bottom: `${y}%`,
@@ -512,8 +520,14 @@ export function TasksView() {
                           zIndex: visible.length - i,
                         }}
                         title={`${task.title} · value ${task.value}, effort ${task.effort}`}
+                        aria-label={`${task.title}${
+                          task.workingNow ? ", working now" : ""
+                        } · value ${task.value}, effort ${task.effort}`}
                         onClick={(e) => selectTask(task.id, e.currentTarget)}
                       >
+                        {task.workingNow && (
+                          <span className="working-beacon" aria-hidden="true" />
+                        )}
                         {task.title}
                       </button>
                     ))}
@@ -899,11 +913,11 @@ export function TasksView() {
                       .map((task) => (
                         <tr
                           key={task.id}
-                          className={
+                          className={`task-table__row${
                             selectedTaskId === task.id
-                              ? "task-table__row task-table__row--selected"
-                              : "task-table__row"
-                          }
+                              ? " task-table__row--selected"
+                              : ""
+                          }${task.workingNow ? " task-table__row--working" : ""}`}
                           tabIndex={0}
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
@@ -919,7 +933,10 @@ export function TasksView() {
                             selectTask(task.id, e.currentTarget);
                           }}
                         >
-                          <td className="task-table__title">{task.title}</td>
+                          <td className="task-table__title">
+                            <span>{task.title}</span>
+                            {task.workingNow && <WorkingBadge compact />}
+                          </td>
                           <td>
                             <TaskScopeButton task={task} />
                           </td>
@@ -929,7 +946,12 @@ export function TasksView() {
                               : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
                           </td>
                           <td>
-                            <StatusTrigger task={task} />
+                            <div className="task-table__status">
+                              <StatusTrigger task={task} />
+                              {task.status === "active" && (
+                                <TaskWorkingControl task={task} compact />
+                              )}
+                            </div>
                           </td>
                           <td>
                             <TaskGraphBadges task={task} />

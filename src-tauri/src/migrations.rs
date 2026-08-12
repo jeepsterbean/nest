@@ -444,6 +444,10 @@ CREATE INDEX idx_task_dependencies_blocked
 ON task_dependencies(blocked_task_id, blocker_task_id);
 "#,
         ),
+        M::up(
+            "ALTER TABLE tasks ADD COLUMN working_now INTEGER NOT NULL DEFAULT 0 \
+             CHECK (working_now IN (0, 1));",
+        ),
     ])
 }
 
@@ -658,5 +662,24 @@ CREATE TABLE task_check_ins (
             })
             .unwrap();
         assert_eq!(foreign_key_errors, 0);
+    }
+
+    #[test]
+    fn existing_tasks_default_to_not_working_now() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 21).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (title, status, created_at, updated_at) \
+             VALUES ('Existing task', 'active', 100, 100)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let working_now: bool = conn
+            .query_row("SELECT working_now FROM tasks", [], |row| row.get(0))
+            .unwrap();
+        assert!(!working_now);
     }
 }

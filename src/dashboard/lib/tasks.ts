@@ -59,6 +59,7 @@ export const groupTasksByStatus = (taskList: Task[]) => {
   for (const status of TASK_STATUSES) {
     grouped[status].sort(
       (a, b) =>
+        Number(b.workingNow) - Number(a.workingNow) ||
         b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id - a.id,
     );
   }

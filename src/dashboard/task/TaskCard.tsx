@@ -8,6 +8,7 @@ import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
 import { TaskGraphBadges } from "./TaskRelations";
+import { TaskWorkingControl } from "./TaskWorkingControl";
 
 export function TaskCard({
   task,
@@ -36,7 +37,9 @@ export function TaskCard({
     <li
       className={`task-card task-card--${task.status}${
         selected ? " task-card--selected" : ""
-      }${draggable ? " task-card--draggable" : ""}${
+      }${task.workingNow ? " task-card--working" : ""}${
+        draggable ? " task-card--draggable" : ""
+      }${
         dragging ? " task-card--dragging" : ""
       }`}
       onPointerDown={onPointerDown}
@@ -67,6 +70,7 @@ export function TaskCard({
         <div className="task-card__scores">
           <TaskScoreControls task={task} />
         </div>
+        {task.status === "active" && <TaskWorkingControl task={task} />}
       </div>
     </li>
   );

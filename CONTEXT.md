@@ -37,6 +37,11 @@ _Avoid_: Paused
 A user-defined path that categorizes Tasks independently of their hierarchy.
 _Avoid_: Parent, project
 
+**Working now**:
+An independently toggled marker on an Active Task that shows it is currently
+being worked on. Multiple Tasks may be Working now; leaving Active clears it.
+_Avoid_: Status, Ready
+
 ## Relationships
 
 - A **Task** has zero or one **Parent** and zero or more **Children**

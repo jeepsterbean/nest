@@ -10,6 +10,7 @@ import { TaskRelations } from "./TaskRelations";
 import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
+import { TaskWorkingControl } from "./TaskWorkingControl";
 
 export function TaskDetailPanel({
   task,
@@ -50,7 +51,10 @@ export function TaskDetailPanel({
       }}
     >
       <header className="task-detail__head">
-        <StatusTrigger task={task} />
+        <div className="task-detail__state">
+          <StatusTrigger task={task} />
+          {task.status === "active" && <TaskWorkingControl task={task} />}
+        </div>
         <button
           type="button"
           className="task-detail__close"

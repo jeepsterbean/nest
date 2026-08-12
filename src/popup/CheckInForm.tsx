@@ -8,6 +8,7 @@ import {
   listPhases,
   listTasks,
   setTaskStatus,
+  setTaskWorking,
   submitBrainDump,
   submitMetricCheckIn,
   submitPhaseCheckIn,
@@ -22,6 +23,7 @@ import type {
   Task,
 } from "../lib/types";
 import { formatCheckInCountdown } from "../dashboard/lib/time";
+import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
 
 const DEFAULT_INTERVAL_MINUTES = 15;
@@ -201,6 +203,26 @@ function CheckInForm({
     }
   };
 
+  const updateTaskWorking = async (task: Task, working: boolean) => {
+    if (!loaded || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await setTaskWorking(task.id, working);
+      setLoaded({
+        ...loaded,
+        tasks: loaded.tasks.map((candidate) =>
+          candidate.id === task.id ? updated : candidate,
+        ),
+      });
+      await emit("check-in-submitted");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitPrimary = async () => {
     if (!loaded || submitting || step !== "inputs") return;
     setSubmitting(true);
@@ -266,13 +288,20 @@ function CheckInForm({
     );
   }
 
-  const activeTasks = loaded.tasks.filter((task) => task.status === "active");
+  const activeTasks = loaded.tasks
+    .filter((task) => task.status === "active")
+    .sort(
+      (a, b) =>
+        Number(b.workingNow) - Number(a.workingNow) ||
+        b.updatedAt - a.updatedAt ||
+        b.id - a.id,
+    );
   const activeTaskView = (
     <section className="now-card">
       <div className="now-card__head">
         <span className="now-card__kicker">
           <span className="now-dot" aria-hidden="true" />
-          Working on
+          Active tasks
         </span>
       </div>
       {activeTasks.length === 0 ? (
@@ -282,9 +311,23 @@ function CheckInForm({
       ) : (
         <ul className="now-list">
           {activeTasks.map((task) => (
-            <li className="now-task" key={task.id}>
-              <span className="now-task__title">{task.title}</span>
+            <li
+              className={`now-task${task.workingNow ? " now-task--working" : ""}`}
+              key={task.id}
+            >
+              <span className="now-task__title">
+                {task.title}
+                {task.workingNow && (
+                  <span className="now-task__working-label">Working now</span>
+                )}
+              </span>
               <div className="now-task__actions">
+                <WorkingToggle
+                  task={task}
+                  compact
+                  disabled={submitting}
+                  onToggle={(working) => updateTaskWorking(task, working)}
+                />
                 <button
                   type="button"
                   aria-label={`Pause ${task.title}`}

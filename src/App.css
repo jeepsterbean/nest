@@ -35,3 +35,99 @@ textarea {
 button {
   cursor: pointer;
 }
+
+@keyframes working-beacon-breathe {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.working-beacon {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.working-toggle[aria-pressed="true"] .working-beacon,
+.working-badge .working-beacon {
+  animation: working-beacon-breathe 1.8s cubic-bezier(0.65, 0, 0.35, 1)
+    infinite;
+}
+
+.working-toggle,
+.working-badge {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition:
+    background 0.14s cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 0.14s cubic-bezier(0.25, 1, 0.5, 1),
+    color 0.14s cubic-bezier(0.25, 1, 0.5, 1),
+    transform 0.1s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.working-toggle:hover:not(:disabled),
+.working-toggle:focus-visible,
+.working-toggle[aria-pressed="true"],
+.working-badge {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
+  color: var(--accent);
+}
+
+.working-toggle:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.working-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.working-toggle:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.working-toggle--compact,
+.working-badge--compact {
+  width: 26px;
+  min-height: 26px;
+  justify-content: center;
+  padding: 0;
+}
+
+.working-badge--compact {
+  width: 18px;
+  min-height: 18px;
+  border: none;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working-toggle,
+  .working-toggle .working-beacon,
+  .working-badge .working-beacon {
+    animation: none;
+    transition: none;
+  }
+}
