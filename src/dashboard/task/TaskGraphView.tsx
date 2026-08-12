@@ -48,7 +48,7 @@ function TaskNodeCard({ data }: NodeProps<TaskNode>) {
       className={`task-graph-node task-graph-node--${data.task.status}${
         data.blocked ? " task-graph-node--blocked" : ""
       }${data.context ? " task-graph-node--context" : ""}${
-        data.task.workingNow ? " task-graph-node--working" : ""
+        data.task.workingNow ? " task-graph-node--working is-working-now" : ""
       }`}
     >
       <Handle type="target" position={Position.Left} />

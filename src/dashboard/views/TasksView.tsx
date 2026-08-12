@@ -917,7 +917,11 @@ export function TasksView() {
                             selectedTaskId === task.id
                               ? " task-table__row--selected"
                               : ""
-                          }${task.workingNow ? " task-table__row--working" : ""}`}
+                          }${
+                            task.workingNow
+                              ? " task-table__row--working"
+                              : ""
+                          }`}
                           tabIndex={0}
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
@@ -933,7 +937,11 @@ export function TasksView() {
                             selectTask(task.id, e.currentTarget);
                           }}
                         >
-                          <td className="task-table__title">
+                          <td
+                            className={`task-table__title${
+                              task.workingNow ? " is-working-now" : ""
+                            }`}
+                          >
                             <span>{task.title}</span>
                             {task.workingNow && <WorkingBadge compact />}
                           </td>

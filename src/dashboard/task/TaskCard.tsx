@@ -37,7 +37,7 @@ export function TaskCard({
     <li
       className={`task-card task-card--${task.status}${
         selected ? " task-card--selected" : ""
-      }${task.workingNow ? " task-card--working" : ""}${
+      }${task.workingNow ? " task-card--working is-working-now" : ""}${
         draggable ? " task-card--draggable" : ""
       }${
         dragging ? " task-card--dragging" : ""

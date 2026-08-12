@@ -36,16 +36,22 @@ button {
   cursor: pointer;
 }
 
-@keyframes working-beacon-breathe {
+@keyframes working-periodic-glow {
   0%,
+  68%,
   100% {
-    opacity: 0.52;
-    transform: scale(0.72);
+    box-shadow: 0 0 0 0 transparent;
   }
-  50% {
-    opacity: 1;
-    transform: scale(1);
+  82% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent),
+      0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
   }
+}
+
+.is-working-now {
+  animation: working-periodic-glow 2.2s cubic-bezier(0.65, 0, 0.35, 1)
+    infinite;
 }
 
 .working-beacon {
@@ -54,12 +60,6 @@ button {
   flex: none;
   border-radius: 50%;
   background: var(--accent);
-}
-
-.working-toggle[aria-pressed="true"] .working-beacon,
-.working-badge .working-beacon {
-  animation: working-beacon-breathe 1.8s cubic-bezier(0.65, 0, 0.35, 1)
-    infinite;
 }
 
 .working-toggle,
@@ -125,8 +125,7 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .working-toggle,
-  .working-toggle .working-beacon,
-  .working-badge .working-beacon {
+  .is-working-now {
     animation: none;
     transition: none;
   }

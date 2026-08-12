@@ -9,9 +9,6 @@ const BLUR_DISMISS_GRACE_MS = 750;
 const DISMISS_INTERVAL_MINUTES = 5;
 const isTimerSummon = () => window.location.hash.includes("source=timer");
 
-export const shouldRescheduleAfterCompletion = (timerTriggered: boolean) =>
-  timerTriggered;
-
 function CheckInPopup() {
   // Bumped on every summon so the form starts at step 1 and reloads latest data.
   const [summonKey, setSummonKey] = useState(0);
@@ -57,11 +54,12 @@ function CheckInPopup() {
     }
   }, []);
 
-  const complete = useCallback(async (minutes: number) => {
+  const timerStarted = useCallback(() => {
+    timerTriggeredRef.current = false;
+  }, []);
+
+  const complete = useCallback(async () => {
     if (resolvedRef.current) return;
-    if (shouldRescheduleAfterCompletion(timerTriggeredRef.current)) {
-      await scheduleNextCheckIn(minutes);
-    }
     resolvedRef.current = true;
     await emit("check-in-submitted").catch(() => undefined);
     await getCurrentWebviewWindow().hide();
@@ -120,6 +118,7 @@ function CheckInPopup() {
         <CheckInForm
           timerTriggered={timerTriggered}
           onDismiss={dismiss}
+          onTimerStarted={timerStarted}
           onComplete={complete}
         />
       </div>

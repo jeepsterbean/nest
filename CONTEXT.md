@@ -63,9 +63,9 @@ _Avoid_: Status, Ready
 ## Check-in cadence
 
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
-- At zero, the timer pauses and opens the check-in popup. It stays at `0:00`
-  until the popup is resolved.
+- At zero, the timer pauses, plays the system alert sound, and opens the
+  check-in popup. It stays at `0:00` until the popup is resolved.
 - Completing an automatic popup starts the selected interval. Dismissing it
   starts a five-minute interval.
 - Manually summoned popups show the live countdown and do not reset it when
-  completed or dismissed.
+  completed or dismissed. Clicking the countdown can start a new timer.

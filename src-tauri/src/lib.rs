@@ -174,6 +174,8 @@ fn start_check_in_timer(app: tauri::AppHandle) {
         if due {
             let app_for_ui = app.clone();
             if let Err(e) = app.run_on_main_thread(move || {
+                #[cfg(target_os = "macos")]
+                tauri_nspanel::objc2_app_kit::NSBeep();
                 summon_popup_with_route(&app_for_ui, "popup", "#/popup?source=timer");
             }) {
                 append_diagnostic_log(format!(
