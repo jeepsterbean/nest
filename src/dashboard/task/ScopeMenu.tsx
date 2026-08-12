@@ -3,7 +3,12 @@ import { setTaskScope } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { normalizeTaskScope, scopeSegments } from "../lib/scope";
-import { plusIcon, trashIcon } from "../components/icons";
+import {
+  checkIcon,
+  chevronRightIcon,
+  plusIcon,
+  trashIcon,
+} from "../components/icons";
 
 // Fixed-position scope picker rendered once at the dashboard root. Unlike the
 // status menu it keeps its own scrollable option list, so scrolling does not
@@ -19,10 +24,20 @@ export function ScopeMenu() {
     beginAddingScope,
   } = useTaskMenus();
   const newScopeInputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (scopeMenu?.adding) newScopeInputRef.current?.focus();
-  }, [scopeMenu?.adding]);
+    else if (scopeMenu) {
+      const menu = menuRef.current;
+      (
+        menu?.querySelector<HTMLButtonElement>(".task-scope-menu__select") ??
+        menu?.querySelector<HTMLButtonElement>(
+          ".task-scope-menu__crumb, .task-scope-menu__icon-btn",
+        )
+      )?.focus();
+    }
+  }, [scopeMenu?.adding, scopeMenu?.currentPath]);
 
   if (!scopeMenu) return null;
   const task = tasks.find((t) => t.id === scopeMenu.taskId);
@@ -60,8 +75,9 @@ export function ScopeMenu() {
         onClick={() => closeScopeMenu()}
       />
       <div
+        ref={menuRef}
         className="task-scope-menu"
-        role="menu"
+        role="dialog"
         aria-label={`Scope for ${task.title}`}
         style={
           {
@@ -143,15 +159,14 @@ export function ScopeMenu() {
                 >
                   <button
                     type="button"
-                    role="menuitemradio"
-                    aria-checked={selected}
+                    aria-pressed={selected}
                     className="task-scope-menu__select"
                     onClick={() => setScope(node.path)}
                   >
                     <span className="task-scope-menu__label">{node.label}</span>
                     {selected && (
                       <span className="task-scope-menu__check" aria-hidden="true">
-                        ✓
+                        {checkIcon}
                       </span>
                     )}
                   </button>
@@ -162,7 +177,7 @@ export function ScopeMenu() {
                       aria-label={`Show scopes under ${node.path}`}
                       onClick={() => setScopeMenuPath(node.path)}
                     >
-                      ›
+                      {chevronRightIcon}
                     </button>
                   )}
                 </div>

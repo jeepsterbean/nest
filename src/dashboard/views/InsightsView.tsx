@@ -10,6 +10,7 @@ import type {
   TaskStatusEvent,
 } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { MenuSelect } from "../components/MenuSelect";
 import {
   buildActivityBuckets,
   comparisonText,
@@ -201,12 +202,7 @@ export function InsightsView() {
     <section className="insights" aria-busy={!ready}>
       <header className="insights__head">
         <div>
-          <p className="insights__eyebrow">Personal retrospective</p>
-          <h2>What the days held</h2>
-          <p>
-            A factual look at completed work, check-ins, and where your time
-            seemed to go.
-          </p>
+          <h2>Insights</h2>
         </div>
         <div className="insights__filters">
           <div className="insights-range" aria-label="Insight period">
@@ -226,20 +222,21 @@ export function InsightsView() {
               </button>
             ))}
           </div>
-          <label className="insights-scope">
+          <div className="insights-scope">
             <span>Scope</span>
-            <select
+            <MenuSelect
               value={selectedScope ?? ""}
-              onChange={(event) => setSelectedScope(event.target.value || null)}
-            >
-              <option value="">All tasks</option>
-              {[...scopeTree.paths].sort().map((scope) => (
-                <option key={scope} value={scope}>
-                  {scope}
-                </option>
-              ))}
-            </select>
-          </label>
+              placeholder="All tasks"
+              ariaLabel="Insight scope"
+              options={[
+                { value: "", label: "All tasks" },
+                ...[...scopeTree.paths]
+                  .sort()
+                  .map((scope) => ({ value: scope, label: scope })),
+              ]}
+              onChange={(value) => setSelectedScope(value || null)}
+            />
+          </div>
         </div>
       </header>
 
@@ -292,13 +289,6 @@ export function InsightsView() {
               <header>
                 <div>
                   <h3>Completion rhythm</h3>
-                  <p>
-                    {range === "24h"
-                      ? "Hour by hour"
-                      : range === "90d"
-                        ? "Three-day intervals"
-                        : "Day by day"}
-                  </p>
                 </div>
                 <span>{rangeDefinition.label}</span>
               </header>
@@ -338,7 +328,6 @@ export function InsightsView() {
               <header>
                 <div>
                   <h3>What stands out</h3>
-                  <p>Direct comparisons from this record</p>
                 </div>
               </header>
               {observations.length ? (
@@ -360,7 +349,6 @@ export function InsightsView() {
               <header>
                 <div>
                   <h3>How it felt</h3>
-                  <p>Averages with the previous period beside them</p>
                 </div>
               </header>
               {metricRows.length ? (
@@ -399,7 +387,6 @@ export function InsightsView() {
               <header>
                 <div>
                   <h3>Time by phase</h3>
-                  <p>Estimated between phase check-ins</p>
                 </div>
               </header>
               {phaseRows.length ? (

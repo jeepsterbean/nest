@@ -18,7 +18,7 @@ export function TaskScopeButton({
           ? "task-card__scope"
           : "task-card__scope task-card__scope--empty"
       }
-      aria-haspopup="menu"
+      aria-haspopup="dialog"
       aria-expanded={scopeMenu?.taskId === task.id}
       aria-label={task.scope ? `Scope: ${task.scope}` : "Set task scope"}
       onClick={(e) => openScopeMenu(task, e.currentTarget)}

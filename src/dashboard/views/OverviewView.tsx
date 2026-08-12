@@ -7,25 +7,15 @@ import {
 } from "react";
 import {
   createTask,
-  summonCheckIn,
   submitBrainDump,
-  submitPhaseCheckIn,
 } from "../../lib/commands";
-import type { Phase } from "../../lib/types";
 import {
-  checkCircleIcon,
   clockIcon,
   eyeOffIcon,
-  flagIcon,
   pencilIcon,
 } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { latestPulseState } from "../lib/pulse";
 import { groupTasksByStatus, TASK_STATUS_LABEL } from "../lib/tasks";
-import {
-  formatCheckInCountdown,
-  formatElapsedMinutes,
-} from "../lib/time";
 import { initialBrainDumpStart } from "../lib/brainDumps";
 import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
@@ -36,14 +26,8 @@ type OverviewTaskStatus = "active" | "up_next" | "backlog";
 export function OverviewView() {
   const {
     tasks,
-    phases,
-    metrics,
-    checkIns,
     allBrainDumps,
-    latestPhase,
-    checkInSchedule,
     loaded,
-    setError,
     mutate,
   } = useDashboardData();
   const [backlogCollapsed, setBacklogCollapsed] = useState(false);
@@ -51,8 +35,6 @@ export function OverviewView() {
     useState<OverviewTaskStatus | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const quickAddRef = useRef<HTMLInputElement | null>(null);
-  const [phasePickerOpen, setPhasePickerOpen] = useState(false);
-  const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [brainDumpExpanded, setBrainDumpExpanded] = useState(true);
   const [brainDumpLogsHidden, setBrainDumpLogsHidden] = useState(false);
   const [quickBrainDumpTitle, setQuickBrainDumpTitle] = useState("");
@@ -70,18 +52,10 @@ export function OverviewView() {
     number | null
   >(null);
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(new Set());
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const [pulseOpening, setPulseOpening] = useState(false);
 
   useEffect(() => {
     if (quickAddStatus) quickAddRef.current?.focus();
   }, [quickAddStatus]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setNowMs(Date.now()), 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
   const overviewBrainDumps = useMemo(
@@ -99,39 +73,6 @@ export function OverviewView() {
   );
   const hasOlderBrainDumps =
     visibleBrainDumpStart !== null && visibleBrainDumpStart > 0;
-  const activePhases = useMemo(
-    () =>
-      [...phases]
-        .filter((p) => p.inactiveSince === null)
-        .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id),
-    [phases],
-  );
-
-  const phaseById = (id: number) => phases.find((p) => p.id === id);
-  const currentPhaseName = latestPhase
-    ? (phaseById(latestPhase.phaseId)?.name ??
-      latestPhase.phaseLabel ??
-      `Phase ${latestPhase.phaseId}`)
-    : null;
-  const currentPhaseDuration = latestPhase
-    ? formatElapsedMinutes(latestPhase.createdAt, nowMs)
-    : null;
-  const nextCheckIn = checkInSchedule
-    ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
-    : "Not scheduled";
-  const pulse = latestPulseState(checkIns, metrics, nowMs);
-
-  const openPulseCheckIn = async () => {
-    if (pulseOpening) return;
-    setPulseOpening(true);
-    try {
-      await summonCheckIn();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setPulseOpening(false);
-    }
-  };
 
   useEffect(() => {
     if (!loaded || visibleBrainDumpStart !== null) return;
@@ -160,14 +101,6 @@ export function OverviewView() {
       if (history) history.scrollTop = history.scrollHeight;
     });
   }, [brainDumpExpanded, brainDumpLogsHidden, visibleBrainDumpStart]);
-
-  const onSelectPhase = async (p: Phase) => {
-    setPhasePickerOpen(false);
-    if (latestPhase?.phaseId === p.id || phaseChangingId !== null) return;
-    setPhaseChangingId(p.id);
-    await mutate(() => submitPhaseCheckIn(p.id));
-    setPhaseChangingId(null);
-  };
 
   const onSubmitQuickBrainDump = async (e: FormEvent) => {
     e.preventDefault();
@@ -263,15 +196,6 @@ export function OverviewView() {
     }
   };
 
-  const toggleTaskExpanded = (id: number) => {
-    setExpandedTaskIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const toggleDumpExpanded = (id: number) => {
     setExpandedDumpIds((prev) => {
       const next = new Set(prev);
@@ -327,12 +251,7 @@ export function OverviewView() {
     ) : (
       <ol className="overview-task-list">
         {tasksByStatus[status].map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            expanded={expandedTaskIds.has(task.id)}
-            onToggleExpand={() => toggleTaskExpanded(task.id)}
-          />
+          <TaskCard key={task.id} task={task} focusLayout />
         ))}
       </ol>
     );
@@ -403,106 +322,11 @@ export function OverviewView() {
 
   return (
     <>
-      <ul className="dash-stats">
-        <li
-          className="dash-stat dash-stat--phase"
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setPhasePickerOpen(false);
-            }
-          }}
-        >
-          <button
-            type="button"
-            className="phase-summary"
-            aria-haspopup="listbox"
-            aria-expanded={phasePickerOpen}
-            disabled={activePhases.length === 0 || phaseChangingId !== null}
-            onClick={() => setPhasePickerOpen((open) => !open)}
-          >
-            {flagIcon}
-            <span className="phase-summary__copy">
-              <strong>
-                {phaseChangingId !== null
-                  ? "Changing..."
-                  : currentPhaseName ?? "None yet"}
-              </strong>
-              {currentPhaseDuration && (
-                <span className="phase-summary__meta">
-                  {currentPhaseDuration}
-                </span>
-              )}
-            </span>
-            <span className="phase-summary__chevron" aria-hidden="true">
-              ▾
-            </span>
-          </button>
-          {phasePickerOpen && (
-            <div className="phase-picker" role="listbox" aria-label="Phase">
-              {activePhases.length === 0 ? (
-                <div className="phase-picker__empty">No active phases</div>
-              ) : (
-                activePhases.map((p) => {
-                  const selected = latestPhase?.phaseId === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className="phase-picker__option"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => onSelectPhase(p)}
-                    >
-                      <span className="phase-picker__dot" />
-                      <span>{p.name}</span>
-                      {selected && (
-                        <span className="phase-picker__mark">Current</span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </li>
-        <li className="dash-stat dash-stat--next-checkin">
-          {clockIcon}
-          <div className="dash-stat__copy">
-            <span>Next check-in</span>
-            <strong>{nextCheckIn}</strong>
-          </div>
-        </li>
-        <li
-          className={`dash-stat dash-stat--pulse${
-            pulse.overdue ? " dash-stat--pulse-overdue" : ""
-          }`}
-        >
-          {checkCircleIcon}
-          <div className="dash-stat__copy">
-            <span>Latest pulse</span>
-            <strong>{pulse.message}</strong>
-            {pulse.overdue && (
-              <button
-                type="button"
-                className="pulse-check-in"
-                onClick={openPulseCheckIn}
-                disabled={pulseOpening}
-              >
-                {pulseOpening ? "Opening…" : "Check in now"}
-              </button>
-            )}
-          </div>
-        </li>
-      </ul>
       <section className="overview-panels" aria-label="Overview">
-        <section className="overview-panel overview-panel--tasks">
-          <header className="overview-panel__head">
-            <div>
-              <h2>Task focus</h2>
-              <span>Active, up next and backlog work</span>
-            </div>
-          </header>
+        <section
+          className="overview-panel overview-panel--tasks"
+          aria-label="Task focus"
+        >
           <div className="overview-panel__scroll">
             {renderOverviewGroup("active")}
             {renderOverviewGroup("up_next")}
@@ -510,86 +334,40 @@ export function OverviewView() {
           </div>
         </section>
 
-        <section className="overview-panel overview-panel--dumps">
-          <header className="overview-panel__head">
-            <div>
-              <h2>Brain dumps</h2>
-              <span>
-                {brainDumpExpanded
-                  ? "Capture a loose thought"
-                  : brainDumpLogsHidden
-                    ? "Logs hidden"
-                    : "Recent note history"}
-              </span>
-            </div>
-            <div className="overview-dump-actions">
-              {!brainDumpExpanded && (
-                <button
-                  type="button"
-                  className="overview-dump-visibility"
-                  aria-pressed={brainDumpLogsHidden}
-                  aria-label={
-                    brainDumpLogsHidden
-                      ? "Show recent brain dumps"
-                      : "Hide all brain dump logs"
-                  }
-                  title={
-                    brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
-                  }
-                  onClick={toggleBrainDumpLogs}
-                >
-                  <span aria-hidden="true">
-                    {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                className="overview-dump-mode"
-                aria-label={
-                  brainDumpExpanded
-                    ? "Minimize composer and show brain dump history"
-                    : "Open full brain dump composer"
-                }
-                title={
-                  brainDumpExpanded ? "Show history" : "Open full composer"
-                }
-                onClick={
-                  brainDumpExpanded
-                    ? showBrainDumpHistory
-                    : showBrainDumpComposer
-                }
-              >
-                {brainDumpExpanded ? (
-                  <span
-                    className="overview-dump-mode__minimize"
-                    aria-hidden="true"
-                  >
-                    −
-                  </span>
-                ) : (
-                  <span
-                    className="overview-dump-mode__pencil"
-                    aria-hidden="true"
-                  >
-                    {pencilIcon}
-                  </span>
-                )}
-              </button>
-            </div>
-          </header>
+        <section
+          className="overview-panel overview-panel--dumps"
+          aria-label="Brain dumps"
+        >
           {brainDumpExpanded ? (
             <form
               className="overview-dump-composer"
               onSubmit={onSubmitQuickBrainDump}
             >
-              <input
-                type="text"
-                value={quickBrainDumpTitle}
-                onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
-                placeholder="Optional title"
-                aria-label="New brain dump title"
-              />
+              <div className="overview-dump-composer__title-row">
+                <input
+                  type="text"
+                  value={quickBrainDumpTitle}
+                  onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
+                  placeholder="Optional title"
+                  aria-label="New brain dump title"
+                />
+                <div className="overview-dump-actions">
+                  <button
+                    type="button"
+                    className="overview-dump-mode"
+                    aria-label="Minimize composer and show brain dump history"
+                    title="Show history"
+                    onClick={showBrainDumpHistory}
+                  >
+                    <span
+                      className="overview-dump-mode__minimize"
+                      aria-hidden="true"
+                    >
+                      −
+                    </span>
+                  </button>
+                </div>
+              </div>
               <textarea
                 ref={brainDumpTextRef}
                 value={quickBrainDumpText}
@@ -623,6 +401,42 @@ export function OverviewView() {
             </form>
           ) : (
             <>
+              <div className="overview-dump-toolbar">
+                <div className="overview-dump-actions">
+                  <button
+                    type="button"
+                    className="overview-dump-visibility"
+                    aria-pressed={brainDumpLogsHidden}
+                    aria-label={
+                      brainDumpLogsHidden
+                        ? "Show recent brain dumps"
+                        : "Hide all brain dump logs"
+                    }
+                    title={
+                      brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
+                    }
+                    onClick={toggleBrainDumpLogs}
+                  >
+                    <span aria-hidden="true">
+                      {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-dump-mode"
+                    aria-label="Open full brain dump composer"
+                    title="Open full composer"
+                    onClick={showBrainDumpComposer}
+                  >
+                    <span
+                      className="overview-dump-mode__pencil"
+                      aria-hidden="true"
+                    >
+                      {pencilIcon}
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div
                 ref={brainDumpHistoryRef}
                 className={`overview-panel__scroll overview-dump-history${

@@ -4,10 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Task } from "../../lib/types";
+import { TASK_STATUSES } from "../lib/tasks";
 import { useDashboardData } from "./DashboardDataContext";
 
 type StatusMenuState = {
@@ -46,9 +48,13 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   const [statusMenu, setStatusMenu] = useState<StatusMenuState | null>(null);
   const [scopeMenu, setScopeMenu] = useState<ScopeMenuState | null>(null);
   const [newScopeName, setNewScopeName] = useState("");
+  const scopeAnchorRef = useRef<HTMLElement | null>(null);
 
   const closeStatusMenu = useCallback(() => setStatusMenu(null), []);
-  const closeScopeMenu = useCallback(() => setScopeMenu(null), []);
+  const closeScopeMenu = useCallback(() => {
+    setScopeMenu(null);
+    requestAnimationFrame(() => scopeAnchorRef.current?.focus());
+  }, []);
 
   const openStatusMenu = useCallback(
     (task: Task, anchor: HTMLElement) => {
@@ -58,8 +64,9 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
       }
       setScopeMenu(null);
       const rect = anchor.getBoundingClientRect();
-      // ~5 options at 36px plus padding; flip up when there isn't room below.
-      const estHeight = 5 * 36 + 12;
+      // One option per status at 36px plus padding; flip up when there isn't
+      // room below.
+      const estHeight = TASK_STATUSES.length * 36 + 12;
       const menuWidth = 172;
       const up =
         window.innerHeight - rect.bottom < estHeight && rect.top > estHeight;
@@ -76,10 +83,11 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   const openScopeMenu = useCallback(
     (task: Task, anchor: HTMLElement) => {
       if (scopeMenu?.taskId === task.id) {
-        setScopeMenu(null);
+        closeScopeMenu();
         return;
       }
       setStatusMenu(null);
+      scopeAnchorRef.current = anchor;
       const rect = anchor.getBoundingClientRect();
       const initialPath =
         task.scope && scopeTree.byPath.has(task.scope) ? task.scope : null;
@@ -118,7 +126,7 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
         currentPath: initialPath,
       });
     },
-    [scopeMenu, scopeTree],
+    [closeScopeMenu, scopeMenu, scopeTree],
   );
 
   const setScopeMenuPath = useCallback((currentPath: string | null) => {
@@ -154,17 +162,16 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   // dismiss it. Outside click, resize, and Escape still close it.
   useEffect(() => {
     if (!scopeMenu) return;
-    const close = () => setScopeMenu(null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") closeScopeMenu();
     };
-    window.addEventListener("resize", close);
+    window.addEventListener("resize", closeScopeMenu);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("resize", close);
+      window.removeEventListener("resize", closeScopeMenu);
       window.removeEventListener("keydown", onKey);
     };
-  }, [scopeMenu]);
+  }, [closeScopeMenu, scopeMenu]);
 
   const value = useMemo<TaskMenus>(
     () => ({

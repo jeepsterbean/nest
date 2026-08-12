@@ -18,6 +18,7 @@ import type { Task, TaskDependency } from "../../lib/types";
 import type { TaskGraphProjection } from "../lib/taskGraph";
 import { isTaskBlocked, unresolvedBlockers } from "../lib/taskGraph";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { WorkingBadge } from "./TaskWorkingControl";
 
 const elk = import("elkjs/lib/elk.bundled.js").then(
   ({ default: ELK }) => new ELK(),
@@ -46,12 +47,15 @@ function TaskNodeCard({ data }: NodeProps<TaskNode>) {
     <article
       className={`task-graph-node task-graph-node--${data.task.status}${
         data.blocked ? " task-graph-node--blocked" : ""
-      }${data.context ? " task-graph-node--context" : ""}`}
+      }${data.context ? " task-graph-node--context" : ""}${
+        data.task.workingNow ? " task-graph-node--working is-working-now" : ""
+      }`}
     >
       <Handle type="target" position={Position.Left} />
       <div className="task-graph-node__eyebrow">
         <span className={`status-dot status-dot--${data.task.status}`} />
         <span>{data.task.status.replace("_", " ")}</span>
+        {data.task.workingNow && <WorkingBadge compact />}
         {data.context && <span className="task-graph-node__context">context</span>}
       </div>
       <strong>{data.task.title}</strong>
@@ -233,8 +237,10 @@ async function layoutGraph(
 
 export function TaskGraphView({
   visibleTasks,
+  onSelectTask,
 }: {
   visibleTasks: Task[];
+  onSelectTask?: (id: number) => void;
 }) {
   const { tasks, taskDependencies, taskGraph } = useDashboardDataForGraph();
   const [layout, setLayout] = useState<{ nodes: GraphNode[]; edges: Edge[] }>({
@@ -293,6 +299,10 @@ export function TaskGraphView({
         nodesConnectable={false}
         elementsSelectable
         proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, node) => {
+          if (node.id.startsWith("group:")) return;
+          onSelectTask?.(Number(node.id));
+        }}
       >
         <Background gap={24} size={1} />
         <MiniMap pannable zoomable nodeStrokeWidth={2} />

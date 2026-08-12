@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -73,38 +74,40 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     useState<CheckInSchedule | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const reloadRequest = useRef(0);
 
   const reload = useCallback(async () => {
+    const request = ++reloadRequest.current;
     try {
       const now = Math.floor(Date.now() / 1000);
       const from = now - THIRTY_DAYS_SECONDS;
       const to = now + 1;
-      const [t, td, m, p, ci, pci, bd, allBd, lp, schedule] = await Promise.all([
+      const [t, td, m, p, ci, pci, allBd, lp, schedule] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
         listMetrics(true),
         listPhases(true),
         listMetricCheckIns(from, to),
         listPhaseCheckIns(from, to),
-        listBrainDumps(from, to),
         listBrainDumps(0, to),
         latestPhaseCheckIn(),
         getCheckInSchedule(),
       ]);
+      if (request !== reloadRequest.current) return;
       setTasks(t);
       setTaskDependencies(td);
       setMetrics(m);
       setPhases(p);
       setCheckIns(ci);
       setPhaseCheckIns(pci);
-      setBrainDumps(bd);
+      setBrainDumps(allBd.filter((dump) => dump.createdAt >= from));
       setAllBrainDumps(allBd);
       setLatestPhase(lp);
       setCheckInSchedule(schedule);
     } catch (e) {
-      setError(String(e));
+      if (request === reloadRequest.current) setError(String(e));
     } finally {
-      setLoaded(true);
+      if (request === reloadRequest.current) setLoaded(true);
     }
   }, []);
 
@@ -126,27 +129,19 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
-  // The native timer advances the schedule when a popup fires without
-  // emitting a dashboard event, so refresh this value independently.
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      void getCheckInSchedule()
-        .then(setCheckInSchedule)
-        .catch((e) => setError(String(e)));
-    }, 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
   // Refresh when a check-in is submitted from the popup.
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
-    listen("check-in-submitted", () => {
+    void listen("check-in-submitted", () => {
       reload();
     }).then((u) => {
-      unlisten = u;
+      if (cancelled) u();
+      else unlisten = u;
     });
     return () => {
-      if (unlisten) unlisten();
+      cancelled = true;
+      unlisten?.();
     };
   }, [reload]);
 

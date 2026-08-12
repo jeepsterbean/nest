@@ -58,9 +58,65 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
+fn write_primary_check_in(
+    conn: &mut Connection,
+    timer: &mut CheckInTimer,
+    brain_dump_text: Option<String>,
+    phase_id: Option<i64>,
+    minutes: i64,
+    now: i64,
+) -> Result<CheckInSchedule> {
+    let next_due_at = now + minutes * 60;
+    let text = brain_dump_text
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let tx = conn.transaction()?;
+
+    if let Some(text) = text {
+        tx.execute(
+            "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, NULL, ?2)",
+            params![now, text],
+        )?;
+    }
+    if let Some(phase_id) = phase_id {
+        let inactive_since: Option<i64> = tx
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE id = ?1",
+                params![phase_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| match error {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    AppError::NotFound(format!("phase {phase_id}"))
+                }
+                error => error.into(),
+            })?;
+        if inactive_since.is_some() {
+            return Err(AppError::InvalidInput("phase is paused".into()));
+        }
+        tx.execute(
+            "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
+            params![now, phase_id],
+        )?;
+    }
+    tx.execute(
+        "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+        params![minutes, next_due_at],
+    )?;
+    tx.commit()?;
+
+    timer.interval_minutes = minutes;
+    timer.next_due_at = next_due_at;
+    timer.waiting_for_response = false;
+    Ok(CheckInSchedule {
+        interval_minutes: minutes,
+        next_due_at,
+    })
+}
+
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks WHERE id = ?1",
         params![id],
         |row| {
@@ -69,12 +125,13 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                scope: row.get(4)?,
-                value: row.get(5)?,
-                effort: row.get(6)?,
-                parent_task_id: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                working_now: row.get(4)?,
+                scope: row.get(5)?,
+                value: row.get(6)?,
+                effort: row.get(7)?,
+                parent_task_id: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         },
     )
@@ -117,7 +174,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -127,12 +184,13 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: row.get(3)?,
-                scope: row.get(4)?,
-                value: row.get(5)?,
-                effort: row.get(6)?,
-                parent_task_id: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                working_now: row.get(4)?,
+                scope: row.get(5)?,
+                value: row.get(6)?,
+                effort: row.get(7)?,
+                parent_task_id: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -302,6 +360,12 @@ pub fn remove_task_dependency(
 }
 
 #[tauri::command]
+pub fn delete_task(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::delete_task(&mut conn, id)
+}
+
+#[tauri::command]
 pub fn set_task_status(
     state: State<'_, Mutex<Connection>>,
     id: i64,
@@ -309,6 +373,10 @@ pub fn set_task_status(
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
     let mut conn = state.lock().unwrap();
+    change_task_status(&mut conn, id, status)
+}
+
+fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Task> {
     let now = now_unix_secs();
     let tx = conn.transaction()?;
     let current_status: String = match tx.query_row(
@@ -324,7 +392,9 @@ pub fn set_task_status(
     };
     if current_status != status {
         tx.execute(
-            "UPDATE tasks SET status = ?1, updated_at = ?2 WHERE id = ?3",
+            "UPDATE tasks SET status = ?1, \
+             working_now = CASE WHEN ?1 = 'active' THEN working_now ELSE 0 END, \
+             updated_at = ?2 WHERE id = ?3",
             params![status, now, id],
         )?;
         tx.execute(
@@ -334,7 +404,43 @@ pub fn set_task_status(
         )?;
     }
     tx.commit()?;
-    fetch_task(&conn, id)
+    fetch_task(conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_working(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    working: bool,
+) -> Result<Task> {
+    let conn = state.lock().unwrap();
+    change_task_working(&conn, id, working)
+}
+
+fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
+    let (status, current): (String, bool) = match conn.query_row(
+        "SELECT status, working_now FROM tasks WHERE id = ?1",
+        params![id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ) {
+        Ok(task) => task,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(AppError::NotFound(format!("task {id}")));
+        }
+        Err(e) => return Err(e.into()),
+    };
+    if working && status != "active" {
+        return Err(AppError::InvalidInput(
+            "only active tasks can be marked as working now".into(),
+        ));
+    }
+    if current != working {
+        conn.execute(
+            "UPDATE tasks SET working_now = ?1, updated_at = ?2 WHERE id = ?3",
+            params![working, now_unix_secs(), id],
+        )?;
+    }
+    fetch_task(conn, id)
 }
 
 #[tauri::command]
@@ -720,12 +826,34 @@ pub fn schedule_next_check_in(
         let mut timer = timer.lock().unwrap();
         timer.interval_minutes = minutes;
         timer.next_due_at = next_due_at;
+        timer.waiting_for_response = false;
     }
 
     Ok(CheckInSchedule {
         interval_minutes: minutes,
         next_due_at,
     })
+}
+
+#[tauri::command]
+pub fn submit_primary_check_in(
+    state: State<'_, Mutex<Connection>>,
+    timer: State<'_, Mutex<CheckInTimer>>,
+    brain_dump_text: Option<String>,
+    phase_id: Option<i64>,
+    minutes: i64,
+) -> Result<CheckInSchedule> {
+    let minutes = validate_check_in_interval(minutes)?;
+    let mut conn = state.lock().unwrap();
+    let mut timer = timer.lock().unwrap();
+    write_primary_check_in(
+        &mut conn,
+        &mut timer,
+        brain_dump_text,
+        phase_id,
+        minutes,
+        now_unix_secs(),
+    )
 }
 
 #[tauri::command]
@@ -809,7 +937,13 @@ pub fn list_brain_dumps(
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_optional_title, normalize_task_scope, validate_task_status};
+    use super::{
+        change_task_status, change_task_working, normalize_optional_title, normalize_task_scope,
+        validate_task_status, write_primary_check_in,
+    };
+    use crate::migrations::migrations;
+    use crate::CheckInTimer;
+    use rusqlite::Connection;
 
     #[test]
     fn normalizes_task_scope_segments() {
@@ -834,5 +968,61 @@ mod tests {
     #[test]
     fn accepts_up_next_task_status() {
         assert_eq!(validate_task_status("up_next").unwrap(), "up_next");
+    }
+
+    #[test]
+    fn working_now_is_limited_to_active_tasks_and_cleared_on_status_change() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Active', 'active', 1, 1), (2, 'Backlog', 'backlog', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        assert!(change_task_working(&conn, 1, true).unwrap().working_now);
+        assert!(change_task_working(&conn, 2, true).is_err());
+        assert!(
+            !change_task_status(&mut conn, 1, "paused")
+                .unwrap()
+                .working_now
+        );
+    }
+
+    #[test]
+    fn primary_check_in_rolls_back_when_a_later_write_fails() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let mut timer = CheckInTimer {
+            interval_minutes: 15,
+            next_due_at: 900,
+            waiting_for_response: true,
+        };
+
+        let result = write_primary_check_in(
+            &mut conn,
+            &mut timer,
+            Some("Keep this only on success".into()),
+            Some(999),
+            20,
+            1_000,
+        );
+
+        assert!(result.is_err());
+        let dumps: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+            .unwrap();
+        let schedule: (i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(dumps, 0);
+        assert_eq!(schedule.0, 15);
+        assert_eq!(timer.interval_minutes, 15);
+        assert!(timer.waiting_for_response);
     }
 }

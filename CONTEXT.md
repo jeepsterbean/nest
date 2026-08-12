@@ -37,6 +37,11 @@ _Avoid_: Paused
 A user-defined path that categorizes Tasks independently of their hierarchy.
 _Avoid_: Parent, project
 
+**Working now**:
+An independently toggled marker on an Active Task that shows it is currently
+being worked on. Multiple Tasks may be Working now; leaving Active clears it.
+_Avoid_: Status, Ready
+
 ## Relationships
 
 - A **Task** has zero or one **Parent** and zero or more **Children**
@@ -54,3 +59,13 @@ _Avoid_: Parent, project
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; `paused` remains a user-selected status.
+
+## Check-in cadence
+
+- The dashboard header shows the countdown and controls its 5–30 minute interval.
+- At zero, the timer pauses, plays the system alert sound, and opens the
+  check-in popup. It stays at `0:00` until the popup is resolved.
+- Completing an automatic popup starts the selected interval. Dismissing it
+  starts a five-minute interval.
+- Manually summoned popups show the live countdown and do not reset it when
+  completed or dismissed. Clicking the countdown can start a new timer.

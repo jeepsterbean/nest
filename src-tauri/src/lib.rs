@@ -1,3 +1,5 @@
+#![allow(clippy::unused_unit)] // Required by tauri-nspanel's panel_event! syntax.
+
 mod check_in;
 mod commands;
 mod db;
@@ -99,16 +101,30 @@ fn log_client_event(message: String) {
 }
 
 #[tauri::command]
-fn summon_check_in(app: tauri::AppHandle) {
-    summon_popup_with_route(&app, "popup", "#/popup");
+fn summon_check_in(app: tauri::AppHandle, step: Option<String>) {
+    let route = match step.as_deref() {
+        Some("metrics") => "#/popup?step=metrics",
+        _ => "#/popup",
+    };
+    summon_popup_with_route(&app, "popup", route);
 }
 
-// Cadence of the recurring check-in popup. The popup fires on this timer
-// regardless of what (if anything) gets submitted from it; task check-ins are
-// just records of what the user was doing.
+// Cadence of the recurring check-in popup. At zero it pauses until the popup
+// is completed or dismissed; schedule_next_check_in starts the next cycle.
 pub struct CheckInTimer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
+    pub waiting_for_response: bool,
+}
+
+impl CheckInTimer {
+    fn pause_if_due(&mut self, now: i64) -> bool {
+        if self.waiting_for_response || now < self.next_due_at {
+            return false;
+        }
+        self.waiting_for_response = true;
+        true
+    }
 }
 
 fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
@@ -139,46 +155,34 @@ fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
     CheckInTimer {
         interval_minutes,
         next_due_at,
+        waiting_for_response: false,
     }
 }
 
 fn start_check_in_timer(app: tauri::AppHandle) {
     std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(30));
+        std::thread::sleep(std::time::Duration::from_secs(1));
         let now = now_unix_secs();
         let due = {
             let timer = app.state::<Mutex<CheckInTimer>>();
             let mut timer = timer.lock().unwrap();
-            if now < timer.next_due_at {
-                None
-            } else {
-                let previous_due_at = timer.next_due_at;
-                timer.next_due_at = now + timer.interval_minutes * 60;
+            if timer.pause_if_due(now) {
                 append_diagnostic_log(format!(
-                    "check_in_timer_due now={now} previous_due_at={previous_due_at} interval_minutes={} next_due_at={}",
-                    timer.interval_minutes, timer.next_due_at
+                    "check_in_timer_due now={now} next_due_at={} waiting_for_response=true",
+                    timer.next_due_at
                 ));
-                Some((timer.interval_minutes, timer.next_due_at))
+                true
+            } else {
+                false
             }
         };
 
-        if let Some((interval_minutes, next_due_at)) = due {
-            // Persist the auto-advanced schedule so a restart resumes the same
-            // rhythm instead of resetting the clock.
-            {
-                let conn = app.state::<Mutex<rusqlite::Connection>>();
-                let conn = conn.lock().unwrap();
-                if let Err(e) = conn.execute(
-                    "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
-                    rusqlite::params![interval_minutes, next_due_at],
-                ) {
-                    append_diagnostic_log(format!("check_in_timer_persist_failed error={e}"));
-                }
-            }
-
+        if due {
             let app_for_ui = app.clone();
             if let Err(e) = app.run_on_main_thread(move || {
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
+                #[cfg(target_os = "macos")]
+                tauri_nspanel::objc2_app_kit::NSBeep();
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup?source=timer");
             }) {
                 append_diagnostic_log(format!(
                     "check_in_timer_main_thread_dispatch_failed error={e}"
@@ -325,6 +329,18 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
 }
 
 #[cfg(target_os = "macos")]
+fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
+    match app.get_webview_panel("popup") {
+        Ok(panel) if panel.is_visible() => {
+            append_diagnostic_log(format!("popup_hide_native reason={reason}"));
+            panel.hide();
+        }
+        Ok(_) => {}
+        Err(e) => append_diagnostic_log(format!("popup_hide_native_failed error={e:?}")),
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
     let elapsed_ms = now_unix_millis() - POPUP_LAST_SUMMONED_AT_MS.load(Ordering::Relaxed);
     if elapsed_ms <= POPUP_DISMISS_GRACE_MS {
@@ -334,14 +350,7 @@ fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
         return;
     }
 
-    match app.get_webview_panel("popup") {
-        Ok(panel) if panel.is_visible() => {
-            append_diagnostic_log(format!("popup_hide_native reason={reason}"));
-            panel.hide();
-        }
-        Ok(_) => {}
-        Err(e) => append_diagnostic_log(format!("popup_hide_native_failed error={e:?}")),
-    }
+    hide_popup_panel(app, reason);
 }
 
 #[cfg(target_os = "macos")]
@@ -355,7 +364,22 @@ fn install_popup_escape_monitor(app: tauri::AppHandle) {
                     .map(|panel| panel.is_visible())
                     .unwrap_or(false);
                 if visible {
-                    dismiss_popup_after_focus_grace(&app, "escape");
+                    let dispatched = app.get_webview_window("popup").is_some_and(|window| {
+                        match window.eval(
+                            "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))",
+                        ) {
+                            Ok(()) => true,
+                            Err(error) => {
+                                append_diagnostic_log(format!(
+                                    "popup_escape_dispatch_failed error={error}"
+                                ));
+                                false
+                            }
+                        }
+                    });
+                    if !dispatched {
+                        hide_popup_panel(&app, "escape_dispatch_failed");
+                    }
                     return ptr::null_mut();
                 }
             }
@@ -542,7 +566,9 @@ pub fn run() {
             commands::set_task_parent,
             commands::add_task_dependency,
             commands::remove_task_dependency,
+            commands::delete_task,
             commands::set_task_status,
+            commands::set_task_working,
             commands::set_task_score,
             commands::create_metric,
             commands::rename_metric,
@@ -559,6 +585,7 @@ pub fn run() {
             commands::list_phase_check_ins,
             commands::get_check_in_schedule,
             commands::schedule_next_check_in,
+            commands::submit_primary_check_in,
             commands::submit_brain_dump,
             commands::update_brain_dump_title,
             commands::list_brain_dumps,
@@ -567,4 +594,26 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod check_in_timer_tests {
+    use super::CheckInTimer;
+
+    #[test]
+    fn due_timer_pauses_until_rescheduled() {
+        let mut timer = CheckInTimer {
+            interval_minutes: 15,
+            next_due_at: 100,
+            waiting_for_response: false,
+        };
+
+        assert!(!timer.pause_if_due(99));
+        assert!(timer.pause_if_due(100));
+        assert!(!timer.pause_if_due(101));
+
+        timer.next_due_at = 401;
+        timer.waiting_for_response = false;
+        assert!(!timer.pause_if_due(400));
+    }
 }

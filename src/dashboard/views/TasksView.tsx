@@ -1,11 +1,12 @@
 import {
+  Fragment,
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -14,15 +15,32 @@ import { createPortal } from "react-dom";
 import { createTask, setTaskStatus } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { useTaskMenus } from "../context/TaskMenuContext";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
-import { groupTasksByStatus, TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
+import {
+  CLOSED_STATUSES,
+  clusterByScore,
+  groupTasksByStatus,
+  TASK_STATUS_LABEL,
+  TASK_STATUSES,
+  WORKING_STATUSES,
+} from "../lib/tasks";
 import { formatDate } from "../lib/time";
+import {
+  checkIcon,
+  chevronDownIcon,
+  chevronRightIcon,
+} from "../components/icons";
 import { StatusTrigger } from "../task/StatusTrigger";
 import { TaskCard } from "../task/TaskCard";
+import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskScopeButton } from "../task/TaskScopeButton";
 import { TaskScoreControls } from "../task/TaskScoreControls";
-import { TaskTitle } from "../task/TaskTitle";
 import { TaskGraphBadges } from "../task/TaskRelations";
+import {
+  TaskWorkingControl,
+  WorkingBadge,
+} from "../task/TaskWorkingControl";
 import { isTaskBlocked } from "../lib/taskGraph";
 
 const TaskGraphView = lazy(() =>
@@ -31,14 +49,14 @@ const TaskGraphView = lazy(() =>
   })),
 );
 
-const EMPTY_BY_STATUS: Record<TaskStatus, string> = {
-  backlog: "",
-  up_next: "",
-  active: "",
-  paused: "",
-  completed: "",
-  cancelled: "",
-};
+const TASK_VIEWS = [
+  { key: "kanban", label: "Kanban" },
+  { key: "table", label: "Table" },
+  { key: "matrix", label: "Matrix" },
+  { key: "graph", label: "Graph" },
+] as const;
+
+type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
 
 const DRAG_START_DISTANCE = 6;
 
@@ -70,26 +88,65 @@ type TaskDragPreview = {
 };
 
 export function TasksView() {
-  const { tasks, scopeTree, taskGraph, mutate } = useDashboardData();
-  const [taskView, setTaskView] = useState<"kanban" | "table" | "matrix" | "graph">(
-    "kanban",
-  );
-  const [newTaskTitles, setNewTaskTitles] =
-    useState<Record<TaskStatus, string>>(EMPTY_BY_STATUS);
-  const [newTaskDescriptions, setNewTaskDescriptions] =
-    useState<Record<TaskStatus, string>>(EMPTY_BY_STATUS);
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
+  const { tasks, scopeTree, taskGraph, loaded, mutate, reload, setError } =
+    useDashboardData();
+  const [taskView, setTaskView] = useState<TaskViewKey>("kanban");
+  const [composerTitle, setComposerTitle] = useState("");
+  const [composerStatus, setComposerStatus] = useState<TaskStatus>("backlog");
+  const [composerStatusOpen, setComposerStatusOpen] = useState(false);
+  const [closedRailOpen, setClosedRailOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
     null,
   );
   const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
     new Set(),
   );
+  const [scopePanelCollapsed, setScopePanelCollapsed] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
   const [dragPreview, setDragPreview] = useState<TaskDragPreview | null>(null);
   const dragSessionRef = useRef<TaskDragSession | null>(null);
   const suppressClickTaskIdRef = useRef<number | null>(null);
+  const selectionOriginRef = useRef<HTMLElement | null>(null);
+  const composerStatusTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const { statusMenu, scopeMenu } = useTaskMenus();
+
+  const selectTask = useCallback((id: number, origin?: HTMLElement) => {
+    selectionOriginRef.current = origin ?? null;
+    setSelectedTaskId(id);
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setSelectedTaskId(null);
+    const origin = selectionOriginRef.current;
+    selectionOriginRef.current = null;
+    if (origin?.isConnected) origin.focus();
+  }, []);
+
+  // Drop the selection when the task disappears (deleted or reloaded away).
+  useEffect(() => {
+    if (selectedTaskId !== null && !taskGraph.byId.has(selectedTaskId)) {
+      setSelectedTaskId(null);
+    }
+  }, [taskGraph, selectedTaskId]);
+
+  // Escape closes the detail panel, but only once open menus and in-place
+  // editors have had their turn at the key.
+  useEffect(() => {
+    if (selectedTaskId === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (statusMenu || scopeMenu) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) {
+        return;
+      }
+      closeDetail();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedTaskId, statusMenu, scopeMenu, closeDetail]);
 
   // Drop scope selection / collapse state for paths that no longer exist.
   useEffect(() => {
@@ -125,24 +182,20 @@ export function TasksView() {
     [visibleTasks],
   );
 
-  const onCreateTask = async (e: FormEvent, status: TaskStatus) => {
+  // Creates in the composer's status, inherits the active scope filter, and
+  // opens the detail panel so the description and scores are one step away.
+  const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const title = newTaskTitles[status].trim();
+    const title = composerTitle.trim();
     if (!title) return;
-    const description = newTaskDescriptions[status].trim();
-    if (await mutate(() => createTask(title, description, status))) {
-      setNewTaskTitles((prev) => ({ ...prev, [status]: "" }));
-      setNewTaskDescriptions((prev) => ({ ...prev, [status]: "" }));
+    try {
+      const created = await createTask(title, "", composerStatus, selectedTaskScope);
+      await reload();
+      setComposerTitle("");
+      selectTask(created.id);
+    } catch (error) {
+      setError(String(error));
     }
-  };
-
-  const toggleTaskExpanded = (id: number) => {
-    setExpandedTaskIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   const toggleScopeCollapsed = (path: string) => {
@@ -280,6 +333,10 @@ export function TasksView() {
     suppressClickTaskIdRef.current = null;
   };
 
+  const selectedTask =
+    selectedTaskId === null
+      ? null
+      : taskGraph.byId.get(selectedTaskId) ?? null;
   const previewTask = dragPreview
     ? tasks.find((task) => task.id === dragPreview.taskId)
     : null;
@@ -308,10 +365,7 @@ export function TasksView() {
     const hasChildren = node.children.length > 0;
     return (
       <li className="task-scope-tree__item" key={node.path}>
-        <div
-          className="task-scope-tree__row"
-          style={{ "--scope-depth": node.depth } as CSSProperties}
-        >
+        <div className="task-scope-tree__row">
           <button
             type="button"
             className={
@@ -322,12 +376,34 @@ export function TasksView() {
             onClick={() => setSelectedTaskScope(node.path)}
             title={node.path}
           >
+            <span
+              className={`task-scope-tree__branch${
+                node.depth === 0 ? " task-scope-tree__branch--root" : ""
+              }`}
+              aria-hidden="true"
+            >
+              {node.depth === 0 ? (
+                <span className="task-scope-tree__root-dot" />
+              ) : (
+                Array.from({ length: Math.min(node.depth, 4) }, (_, index) => (
+                  <span
+                    className={`task-scope-tree__rail${
+                      index === Math.min(node.depth, 4) - 1
+                        ? " task-scope-tree__rail--branch"
+                        : ""
+                    }`}
+                    key={index}
+                  />
+                ))
+              )}
+            </span>
             <span className="task-scope-tree__label">{node.label}</span>
           </button>
           <button
             type="button"
             className="task-scope-tree__count"
             onClick={() => hasChildren && toggleScopeCollapsed(node.path)}
+            aria-expanded={hasChildren ? !collapsed : undefined}
             aria-label={
               hasChildren
                 ? `${collapsed ? "Show" : "Hide"} child scopes for ${node.path}`
@@ -350,6 +426,40 @@ export function TasksView() {
       </li>
     );
   };
+
+  const renderTaskColumn = (status: TaskStatus, closed = false) => (
+    <section
+      className={`task-column${closed ? " task-column--closed" : ""}${
+        dragOverStatus === status ? " task-column--drag-over" : ""
+      }`}
+      key={status}
+      data-task-status={status}
+    >
+      <header className="task-column__head">
+        <h3>{TASK_STATUS_LABEL[status]}</h3>
+        <span>{visibleTasksByStatus[status].length}</span>
+      </header>
+      {visibleTasksByStatus[status].length === 0 ? (
+        <div className="task-column__empty">Nothing here</div>
+      ) : (
+        <ol className="task-card-list">
+          {visibleTasksByStatus[status].map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              selected={selectedTaskId === task.id}
+              onSelect={(origin) => selectTask(task.id, origin)}
+              statusCompact
+              draggable
+              dragging={draggedTaskId === task.id}
+              onPointerDown={(e) => onTaskPointerDown(e, task.id)}
+              onClickCapture={(e) => onTaskClickCapture(e, task.id)}
+            />
+          ))}
+        </ol>
+      )}
+    </section>
+  );
 
   const renderTaskMatrix = () => {
     const open = visibleTasks.filter(
@@ -386,18 +496,55 @@ export function TasksView() {
                 Score a task's value and effort to place it here.
               </p>
             ) : (
-              scored.map((task) => {
-                const x = 8 + (((task.effort ?? 3) - 1) / 4) * 84;
-                const y = 8 + (((task.value ?? 3) - 1) / 4) * 84;
+              [...clusterByScore(ranked).entries()].map(([key, group]) => {
+                const first = group[0];
+                const x = 8 + (((first.effort ?? 3) - 1) / 4) * 84;
+                const y = 8 + (((first.value ?? 3) - 1) / 4) * 84;
+                const visible = group.slice(0, 3);
+                const hidden = group.slice(3);
                 return (
-                  <span
-                    key={task.id}
-                    className="task-matrix__chip"
-                    style={{ left: `${x}%`, bottom: `${y}%` }}
-                    title={`${task.title} · value ${task.value}, effort ${task.effort}`}
-                  >
-                    {task.title}
-                  </span>
+                  <Fragment key={key}>
+                    {visible.map((task, i) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        className={`task-matrix__chip${
+                          task.workingNow
+                            ? " task-matrix__chip--working is-working-now"
+                            : ""
+                        }`}
+                        style={{
+                          left: `${x}%`,
+                          bottom: `${y}%`,
+                          transform: `translate(-50%, 50%) translate(${i * 9}px, ${i * -11}px)`,
+                          zIndex: visible.length - i,
+                        }}
+                        title={`${task.title} · value ${task.value}, effort ${task.effort}`}
+                        aria-label={`${task.title}${
+                          task.workingNow ? ", working now" : ""
+                        } · value ${task.value}, effort ${task.effort}`}
+                        onClick={(e) => selectTask(task.id, e.currentTarget)}
+                      >
+                        {task.workingNow && (
+                          <span className="working-beacon" aria-hidden="true" />
+                        )}
+                        {task.title}
+                      </button>
+                    ))}
+                    {hidden.length > 0 && (
+                      <span
+                        className="task-matrix__chip-count"
+                        style={{
+                          left: `${x}%`,
+                          bottom: `${y}%`,
+                          transform: `translate(-50%, 50%) translate(${visible.length * 9 + 8}px, ${visible.length * -11}px)`,
+                        }}
+                        title={hidden.map((task) => task.title).join(", ")}
+                      >
+                        +{hidden.length}
+                      </span>
+                    )}
+                  </Fragment>
                 );
               })
             )}
@@ -415,7 +562,13 @@ export function TasksView() {
               {ranked.map((task, i) => (
                 <li key={task.id} className="task-ranked__item">
                   <span className="task-ranked__rank">{i + 1}</span>
-                  <span className="task-ranked__title">{task.title}</span>
+                  <button
+                    type="button"
+                    className="task-ranked__title"
+                    onClick={(e) => selectTask(task.id, e.currentTarget)}
+                  >
+                    {task.title}
+                  </button>
                   <span className="task-ranked__badges">
                     <span className="task-badge" title="Value">
                       V{task.value}
@@ -437,7 +590,13 @@ export function TasksView() {
                     key={task.id}
                     className="task-ranked__item task-ranked__item--unscored"
                   >
-                    <span className="task-ranked__title">{task.title}</span>
+                    <button
+                      type="button"
+                      className="task-ranked__title"
+                      onClick={(e) => selectTask(task.id, e.currentTarget)}
+                    >
+                      {task.title}
+                    </button>
                     <TaskScoreControls task={task} />
                   </li>
                 ))}
@@ -455,174 +614,268 @@ export function TasksView() {
   };
 
   return (
-    <section className="dash-section dash-section--tasks">
+    <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
         <div className="dash-section__title">
           <h2>Tasks</h2>
-          <span className="dash-section__sub">
-            Move work through backlog, up next, active, paused and done
-          </span>
         </div>
         <div className="view-toggle" role="group" aria-label="Task view">
-          <button
-            type="button"
-            className={
-              taskView === "kanban"
-                ? "view-toggle__btn view-toggle__btn--active"
-                : "view-toggle__btn"
-            }
-            onClick={() => setTaskView("kanban")}
-          >
-            Kanban
-          </button>
-          <button
-            type="button"
-            className={
-              taskView === "table"
-                ? "view-toggle__btn view-toggle__btn--active"
-                : "view-toggle__btn"
-            }
-            onClick={() => setTaskView("table")}
-          >
-            Table
-          </button>
-          <button
-            type="button"
-            className={
-              taskView === "matrix"
-                ? "view-toggle__btn view-toggle__btn--active"
-                : "view-toggle__btn"
-            }
-            onClick={() => setTaskView("matrix")}
-          >
-            Matrix
-          </button>
-          <button
-            type="button"
-            className={
-              taskView === "graph"
-                ? "view-toggle__btn view-toggle__btn--active"
-                : "view-toggle__btn"
-            }
-            onClick={() => setTaskView("graph")}
-          >
-            Graph
-          </button>
+          {TASK_VIEWS.map((view) => (
+            <button
+              key={view.key}
+              type="button"
+              className={
+                taskView === view.key
+                  ? "view-toggle__btn view-toggle__btn--active"
+                  : "view-toggle__btn"
+              }
+              aria-pressed={taskView === view.key}
+              onClick={() => setTaskView(view.key)}
+            >
+              {view.label}
+            </button>
+          ))}
         </div>
       </header>
 
-      <div
-        className={
-          scopeTree.roots.length > 0
-            ? "task-workspace"
-            : "task-workspace task-workspace--no-scopes"
-        }
-      >
-        {scopeTree.roots.length > 0 && (
-          <aside className="task-scope-panel" aria-label="Task scopes">
-            <div className="task-scope-panel__head">
-              <span>Scopes</span>
-              <span>{tasks.length}</span>
-            </div>
-            <button
-              type="button"
-              className={
-                selectedTaskScope === null
-                  ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
-                  : "task-scope-tree__btn task-scope-tree__btn--all"
-              }
-              onClick={() => setSelectedTaskScope(null)}
+      {!loaded ? (
+        <div className="task-board__loading">Laying out the board…</div>
+      ) : (
+        <div
+          className={`task-workspace${
+            scopeTree.roots.length === 0 ? " task-workspace--no-scopes" : ""
+          }${selectedTask ? " task-workspace--detail" : ""}${
+            scopePanelCollapsed ? " task-workspace--scope-collapsed" : ""
+          }`}
+        >
+          {scopeTree.roots.length > 0 && (
+            <aside
+              className={`task-scope-panel${
+                scopePanelCollapsed ? " task-scope-panel--collapsed" : ""
+              }`}
+              aria-label="Task scopes"
             >
-              <span className="task-scope-tree__label">All tasks</span>
-              <span className="task-scope-tree__count">{tasks.length}</span>
-            </button>
-            <ol className="task-scope-tree">
-              {scopeTree.roots.map(renderScopeNode)}
-            </ol>
-          </aside>
-        )}
-
-        <div className="task-workspace__main">
-          {taskView === "kanban" && (
-            <div className="task-board">
-              {TASK_STATUSES.map((status) => (
-                <section
-                  className={`task-column${
-                    dragOverStatus === status
-                      ? " task-column--drag-over"
-                      : ""
-                  }`}
-                  key={status}
-                  data-task-status={status}
+              <div className="task-scope-panel__head">
+                {!scopePanelCollapsed && <span>Scopes</span>}
+                <button
+                  type="button"
+                  className="task-scope-panel__toggle"
+                  aria-expanded={!scopePanelCollapsed}
+                  aria-label={
+                    scopePanelCollapsed
+                      ? "Expand task scopes"
+                      : "Collapse task scopes"
+                  }
+                  title={scopePanelCollapsed ? "Show scopes" : "Hide scopes"}
+                  onClick={() =>
+                    setScopePanelCollapsed((collapsed) => !collapsed)
+                  }
                 >
-                  <header className="task-column__head">
-                    <h3>{TASK_STATUS_LABEL[status]}</h3>
-                    <span>{visibleTasksByStatus[status].length}</span>
-                  </header>
-                  <form
-                    className="task-create"
-                    onSubmit={(e) => onCreateTask(e, status)}
+                  {chevronRightIcon}
+                </button>
+              </div>
+              {!scopePanelCollapsed && (
+                <>
+                  <button
+                    type="button"
+                    className={
+                      selectedTaskScope === null
+                        ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
+                        : "task-scope-tree__btn task-scope-tree__btn--all"
+                    }
+                    onClick={() => setSelectedTaskScope(null)}
                   >
-                    <div className="task-create__row">
-                      <input
-                        type="text"
-                        placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
-                        aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
-                        value={newTaskTitles[status]}
-                        onChange={(e) =>
-                          setNewTaskTitles((prev) => ({
-                            ...prev,
-                            [status]: e.target.value,
-                          }))
-                        }
-                      />
-                      <button
-                        type="submit"
-                        disabled={!newTaskTitles[status].trim()}
-                      >
-                        Add
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      className="task-create__description"
-                      placeholder="Description (optional)…"
-                      aria-label={`New ${TASK_STATUS_LABEL[status]} task description`}
-                      value={newTaskDescriptions[status]}
-                      onChange={(e) =>
-                        setNewTaskDescriptions((prev) => ({
-                          ...prev,
-                          [status]: e.target.value,
-                        }))
-                      }
+                    <span
+                      className="task-scope-tree__branch task-scope-tree__branch--all"
+                      aria-hidden="true"
+                    >
+                      <span className="task-scope-tree__root-dot" />
+                    </span>
+                    <span className="task-scope-tree__label">All tasks</span>
+                    <span className="task-scope-tree__count">{tasks.length}</span>
+                  </button>
+                  <ol className="task-scope-tree">
+                    {scopeTree.roots.map(renderScopeNode)}
+                  </ol>
+                </>
+              )}
+            </aside>
+          )}
+
+          <div className="task-workspace__main">
+          {taskView === "kanban" && (
+            <>
+              <form className="task-composer" onSubmit={onComposerSubmit}>
+                <input
+                  type="text"
+                  className="task-composer__title"
+                  placeholder={
+                    selectedTaskScope
+                      ? `Add a task in ${selectedTaskScope}…`
+                      : "Add a task…"
+                  }
+                  aria-label="New task title"
+                  value={composerTitle}
+                  onChange={(e) => setComposerTitle(e.target.value)}
+                />
+                <div
+                  className="task-composer__status-wrap"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                      setComposerStatusOpen(false);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && composerStatusOpen) {
+                      e.preventDefault();
+                      setComposerStatusOpen(false);
+                      composerStatusTriggerRef.current?.focus();
+                    }
+                    if (
+                      composerStatusOpen &&
+                      (e.key === "ArrowDown" || e.key === "ArrowUp")
+                    ) {
+                      e.preventDefault();
+                      const options = Array.from(
+                        e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                          "[role='option']",
+                        ),
+                      );
+                      const index = options.indexOf(
+                        document.activeElement as HTMLButtonElement,
+                      );
+                      const delta = e.key === "ArrowDown" ? 1 : -1;
+                      options[
+                        (index + delta + options.length) % options.length
+                      ]?.focus();
+                    }
+                  }}
+                >
+                  <button
+                    ref={composerStatusTriggerRef}
+                    type="button"
+                    className="task-composer__status"
+                    aria-haspopup="listbox"
+                    aria-expanded={composerStatusOpen}
+                    onClick={() => setComposerStatusOpen((open) => !open)}
+                  >
+                    <span
+                      className={`status-dot status-dot--${composerStatus}`}
+                      aria-hidden="true"
                     />
-                  </form>
-                  {visibleTasksByStatus[status].length === 0 ? (
-                    <div className="task-column__empty">No tasks</div>
-                  ) : (
-                    <ol className="task-card-list">
-                      {visibleTasksByStatus[status].map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          expanded={expandedTaskIds.has(task.id)}
-                          onToggleExpand={() => toggleTaskExpanded(task.id)}
-                          showStatus={false}
-                          draggable
-                          dragging={draggedTaskId === task.id}
-                          onPointerDown={(e) =>
-                            onTaskPointerDown(e, task.id)
-                          }
-                          onClickCapture={(e) =>
-                            onTaskClickCapture(e, task.id)
-                          }
-                        />
-                      ))}
-                    </ol>
+                    <span>{TASK_STATUS_LABEL[composerStatus]}</span>
+                    <span
+                      className="task-composer__status-chevron"
+                      aria-hidden="true"
+                    >
+                      {chevronDownIcon}
+                    </span>
+                  </button>
+                  {composerStatusOpen && (
+                    <div
+                      className="task-composer__status-menu"
+                      role="listbox"
+                      aria-label="Status for the new task"
+                    >
+                      {WORKING_STATUSES.map((status) => {
+                        const selected = status === composerStatus;
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            className={
+                              selected
+                                ? "task-composer__status-option is-selected"
+                                : "task-composer__status-option"
+                            }
+                            onClick={() => {
+                              setComposerStatus(status);
+                              setComposerStatusOpen(false);
+                              composerStatusTriggerRef.current?.focus();
+                            }}
+                          >
+                            <span
+                              className={`status-dot status-dot--${status}`}
+                              aria-hidden="true"
+                            />
+                            <span>{TASK_STATUS_LABEL[status]}</span>
+                            {selected && (
+                              <span
+                                className="task-composer__status-check"
+                                aria-hidden="true"
+                              >
+                                {checkIcon}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                </section>
-              ))}
-            </div>
+                </div>
+                <button type="submit" disabled={!composerTitle.trim()}>
+                  Add
+                </button>
+              </form>
+              {visibleTasks.length === 0 && (
+                <p className="task-board__empty">
+                  {tasks.length === 0
+                    ? "Nothing on the board yet — name the first task above."
+                    : "No tasks in this scope yet."}
+                </p>
+              )}
+              <div className="task-board">
+                {WORKING_STATUSES.map((status) => renderTaskColumn(status))}
+              </div>
+              <section className="task-closed-rail">
+                <button
+                  type="button"
+                  className="task-closed-rail__toggle"
+                  aria-expanded={closedRailOpen}
+                  onClick={() => setClosedRailOpen((open) => !open)}
+                >
+                  <span
+                    className={`task-closed-rail__chevron${
+                      closedRailOpen ? " task-closed-rail__chevron--open" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {chevronRightIcon}
+                  </span>
+                  <span className="task-closed-rail__label">Done</span>
+                  <span className="task-closed-rail__counts">
+                    {visibleTasksByStatus.completed.length} completed ·{" "}
+                    {visibleTasksByStatus.cancelled.length} cancelled
+                  </span>
+                </button>
+                {draggedTaskId !== null && !closedRailOpen && (
+                  <div className="task-closed-rail__dropzones">
+                    {CLOSED_STATUSES.map((status) => (
+                      <div
+                        key={status}
+                        className={`task-closed-rail__dropzone${
+                          dragOverStatus === status
+                            ? " task-closed-rail__dropzone--over"
+                            : ""
+                        }`}
+                        data-task-status={status}
+                      >
+                        {TASK_STATUS_LABEL[status]}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {closedRailOpen && (
+                  <div className="task-closed-rail__columns">
+                    {CLOSED_STATUSES.map((status) =>
+                      renderTaskColumn(status, true),
+                    )}
+                  </div>
+                )}
+              </section>
+            </>
           )}
           {taskView === "table" && (
             <div className="task-table-wrap">
@@ -658,9 +911,39 @@ export function TasksView() {
                           b.id - a.id,
                       )
                       .map((task) => (
-                        <tr key={task.id}>
-                          <td>
-                            <TaskTitle task={task} />
+                        <tr
+                          key={task.id}
+                          className={`task-table__row${
+                            selectedTaskId === task.id
+                              ? " task-table__row--selected"
+                              : ""
+                          }${
+                            task.workingNow
+                              ? " task-table__row--working"
+                              : ""
+                          }`}
+                          tabIndex={0}
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest("button, input, select, a, [role]")) {
+                              return;
+                            }
+                            selectTask(task.id, e.currentTarget);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter" || e.target !== e.currentTarget) {
+                              return;
+                            }
+                            selectTask(task.id, e.currentTarget);
+                          }}
+                        >
+                          <td
+                            className={`task-table__title${
+                              task.workingNow ? " is-working-now" : ""
+                            }`}
+                          >
+                            <span>{task.title}</span>
+                            {task.workingNow && <WorkingBadge compact />}
                           </td>
                           <td>
                             <TaskScopeButton task={task} />
@@ -671,7 +954,12 @@ export function TasksView() {
                               : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
                           </td>
                           <td>
-                            <StatusTrigger task={task} />
+                            <div className="task-table__status">
+                              <StatusTrigger task={task} />
+                              {task.status === "active" && (
+                                <TaskWorkingControl task={task} compact />
+                              )}
+                            </div>
                           </td>
                           <td>
                             <TaskGraphBadges task={task} />
@@ -695,11 +983,22 @@ export function TasksView() {
                 <div className="task-graph-empty">Preparing task map…</div>
               }
             >
-              <TaskGraphView visibleTasks={visibleTasks} />
+              <TaskGraphView
+                visibleTasks={visibleTasks}
+                onSelectTask={selectTask}
+              />
             </Suspense>
           )}
+          </div>
+          {selectedTask && (
+            <TaskDetailPanel
+              key={selectedTask.id}
+              task={selectedTask}
+              onClose={closeDetail}
+            />
+          )}
         </div>
-      </div>
+      )}
       {dragPreview &&
         previewTask &&
         createPortal(
@@ -711,12 +1010,7 @@ export function TasksView() {
             }}
             aria-hidden="true"
           >
-            <TaskCard
-              task={previewTask}
-              expanded={expandedTaskIds.has(previewTask.id)}
-              onToggleExpand={() => undefined}
-              showStatus={false}
-            />
+            <TaskCard task={previewTask} showStatus={false} />
           </div>,
           document.body,
         )}
