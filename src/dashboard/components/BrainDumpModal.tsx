@@ -13,13 +13,19 @@ export function BrainDumpModal({
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      dialog.showModal();
+      inputRef.current?.focus();
+    } else if (!open && dialog.open) {
+      dialog.close();
+    }
   }, [open]);
-
-  if (!open) return null;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,8 +45,14 @@ export function BrainDumpModal({
   };
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className="brain-dump-overlay"
+      aria-labelledby="brain-dump-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -48,9 +60,6 @@ export function BrainDumpModal({
       <form
         id="brain-dump-composer"
         className="brain-dump-composer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="brain-dump-title"
         onSubmit={onSubmit}
       >
         <div className="brain-dump-composer__head">
@@ -106,6 +115,6 @@ export function BrainDumpModal({
           </button>
         </div>
       </form>
-    </div>
+    </dialog>
   );
 }

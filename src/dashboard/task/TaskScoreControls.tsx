@@ -25,8 +25,8 @@ export function TaskScoreControls({ task }: { task: Task }) {
           className="task-dots__track"
           role="radiogroup"
           aria-label={`${label} for ${task.title}`}
-          tabIndex={0}
           onKeyDown={(e) => {
+            const track = e.currentTarget;
             let next: RatingValue | null | undefined;
             if (e.key >= "1" && e.key <= "5") next = Number(e.key) as RatingValue;
             else if (e.key === "0" || e.key === "Backspace" || e.key === "Delete")
@@ -39,6 +39,12 @@ export function TaskScoreControls({ task }: { task: Task }) {
             } else return;
             e.preventDefault();
             commit(next);
+            const focusValue = next ?? 1;
+            requestAnimationFrame(() =>
+              track
+                .querySelector<HTMLButtonElement>(`[data-value="${focusValue}"]`)
+                ?.focus(),
+            );
           }}
         >
           {RATING_VALUES.map((n) => {
@@ -49,7 +55,8 @@ export function TaskScoreControls({ task }: { task: Task }) {
                 type="button"
                 role="radio"
                 aria-checked={current === n}
-                tabIndex={-1}
+                data-value={n}
+                tabIndex={current === n || (current === null && n === 1) ? 0 : -1}
                 className={`task-dot${filled ? " task-dot--filled" : ""}`}
                 title={
                   current === n

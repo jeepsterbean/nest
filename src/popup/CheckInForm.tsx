@@ -10,9 +10,8 @@ import {
   scheduleNextCheckIn,
   setTaskStatus,
   setTaskWorking,
-  submitBrainDump,
   submitMetricCheckIn,
-  submitPhaseCheckIn,
+  submitPrimaryCheckIn,
 } from "../lib/commands";
 import type {
   CheckInSchedule,
@@ -133,6 +132,13 @@ function CheckInForm({
   const [timerStarted, setTimerStarted] = useState(false);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const isLoaded = loaded !== null;
+
+  const focusMetricRow = (idx: number) => {
+    rowRefs.current[idx]
+      ?.querySelector<HTMLButtonElement>('[role="radio"][tabindex="0"]')
+      ?.focus();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -170,13 +176,12 @@ function CheckInForm({
     if (step === "inputs") {
       requestAnimationFrame(() => brainDumpRef.current?.focus());
     } else {
-      requestAnimationFrame(() => rowRefs.current[0]?.focus());
+      requestAnimationFrame(() => focusMetricRow(0));
     }
-  }, [step]);
+  }, [step, isLoaded]);
 
   const focusAfterRow = (idx: number) => {
-    const next = rowRefs.current[idx + 1];
-    if (next) next.focus();
+    focusMetricRow(idx + 1);
   };
 
   const setRating = (metricId: number, value: RatingValue) => {
@@ -272,19 +277,11 @@ function CheckInForm({
     setSubmitting(true);
     setError(null);
     try {
-      const dump = brainDumpText.trim();
-      if (dump) {
-        await submitBrainDump(dump);
-      }
-
-      if (
-        selectedPhaseId !== null &&
-        selectedPhaseId !== loaded.latestPhase?.phaseId
-      ) {
-        await submitPhaseCheckIn(selectedPhaseId);
-      }
-
-      const schedule = await scheduleNextCheckIn(nextCheckInMinutes);
+      const schedule = await submitPrimaryCheckIn(
+        brainDumpText.trim() || null,
+        selectedPhaseId !== loaded.latestPhase?.phaseId ? selectedPhaseId : null,
+        nextCheckInMinutes,
+      );
       setLoaded((current) => (current ? { ...current, schedule } : current));
       setNowMs(Date.now());
       setTimerStarted(true);
@@ -332,7 +329,13 @@ function CheckInForm({
   if (!loaded) {
     return (
       <div className="combined-checkin combined-checkin--loading">
-        {error ? <div className="combined-checkin__error">{error}</div> : "Loading..."}
+        {error ? (
+          <div className="combined-checkin__error" role="alert">
+            {error}
+          </div>
+        ) : (
+          "Loading..."
+        )}
       </div>
     );
   }
@@ -504,7 +507,7 @@ function CheckInForm({
             ) : (
               <div
                 className="phase-stepper"
-                role="radiogroup"
+                role="group"
                 aria-label="Current phase"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -626,7 +629,6 @@ function CheckInForm({
                           className="metric-row__buttons"
                           role="radiogroup"
                           aria-label={metric.name}
-                          tabIndex={0}
                           onKeyDown={(e) => {
                             const key = e.key.toLowerCase();
                             if (key >= "1" && key <= "5") {
@@ -634,6 +636,29 @@ function CheckInForm({
                               e.stopPropagation();
                               setRating(metric.id, Number(key) as RatingValue);
                               focusAfterRow(idx);
+                            } else if (
+                              e.key === "ArrowRight" ||
+                              e.key === "ArrowDown" ||
+                              e.key === "ArrowLeft" ||
+                              e.key === "ArrowUp"
+                            ) {
+                              e.preventDefault();
+                              const direction =
+                                e.key === "ArrowRight" || e.key === "ArrowDown"
+                                  ? 1
+                                  : -1;
+                              const next = Math.min(
+                                5,
+                                Math.max(1, (rating ?? 1) + direction),
+                              ) as RatingValue;
+                              setRating(metric.id, next);
+                              requestAnimationFrame(() =>
+                                rowRefs.current[idx]
+                                  ?.querySelector<HTMLButtonElement>(
+                                    `[data-value="${next}"]`,
+                                  )
+                                  ?.focus(),
+                              );
                             }
                           }}
                         >
@@ -643,11 +668,16 @@ function CheckInForm({
                               type="button"
                               role="radio"
                               aria-checked={rating === value}
+                              data-value={value}
                               className={`metric-rating metric-rating--v${value}${
                                 rating === value ? " metric-rating--active" : ""
                               }`}
                               onClick={() => setRating(metric.id, value)}
-                              tabIndex={-1}
+                              tabIndex={
+                                rating === value || (rating === null && value === 1)
+                                  ? 0
+                                  : -1
+                              }
                             >
                               {value}
                             </button>
@@ -663,7 +693,11 @@ function CheckInForm({
         )}
       </div>
 
-      {error && <div className="combined-checkin__error">{error}</div>}
+      {error && (
+        <div className="combined-checkin__error" role="alert">
+          {error}
+        </div>
+      )}
       {step === "metrics" && (
         <button type="submit" className="combined-submit" disabled={submitting}>
           {submitting

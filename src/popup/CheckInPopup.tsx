@@ -96,6 +96,7 @@ function CheckInPopup() {
   // ordered front; ignore that bounce so the popup does not hide itself before
   // the user can see it.
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
     const popup = getCurrentWebviewWindow();
     popup
@@ -110,10 +111,12 @@ function CheckInPopup() {
         }
       })
       .then((u) => {
-        unlisten = u;
+        if (cancelled) u();
+        else unlisten = u;
       });
     return () => {
-      if (unlisten) unlisten();
+      cancelled = true;
+      unlisten?.();
     };
   }, [dismiss]);
 

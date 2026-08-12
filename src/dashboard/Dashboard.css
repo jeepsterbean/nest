@@ -9,22 +9,22 @@
   --border: #e6ddcc;
   --border-strong: #d4c8b2;
   --ink: #322b21;
-  --muted: #8a8071;
-  --accent: #4a7dd1;
+  --muted: #70675b;
+  --accent: #3f6cb7;
   --accent-soft: rgba(74, 125, 209, 0.13);
   --queue: #5f8fb8;
   --queue-soft: rgba(95, 143, 184, 0.14);
-  --phase: #8a63d2;
+  --phase: #6846a5;
   --phase-soft: rgba(138, 99, 210, 0.12);
-  --dump: #b27c33;
+  --dump: #805821;
   --dump-soft: rgba(193, 142, 67, 0.13);
   --danger: #c0392b;
   --danger-soft: rgba(220, 50, 50, 0.1);
-  --rating-1: #c2674f;
-  --rating-2: #c89a4e;
-  --rating-3: #b3a44c;
-  --rating-4: #7da95c;
-  --rating-5: #4d9b6f;
+  --rating-1: #9d4e3b;
+  --rating-2: #8e641f;
+  --rating-3: #766c21;
+  --rating-4: #4f7937;
+  --rating-5: #35764e;
   --shadow:
     0 1px 2px rgba(60, 48, 30, 0.05),
     0 8px 24px -16px rgba(60, 48, 30, 0.25);
@@ -405,13 +405,29 @@
   position: fixed;
   z-index: 50;
   inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
   display: grid;
   place-items: start center;
   padding: clamp(72px, 12vh, 128px) 20px 24px;
+  overflow: auto;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+}
+
+.brain-dump-overlay:not([open]) {
+  display: none;
+}
+
+.brain-dump-overlay::backdrop {
   background:
     radial-gradient(
       520px 240px at 50% 12%,
-      color-mix(in srgb, var(--dump) 16%, transparent),
+      color-mix(in srgb, var(--dump, #805821) 16%, transparent),
       transparent 72%
     ),
     rgba(30, 24, 17, 0.34);
@@ -3191,11 +3207,6 @@
   padding-top: 2px;
 }
 
-.task-card__scope-row {
-  display: flex;
-  min-width: 0;
-}
-
 .task-card__scope {
   display: inline-flex;
   flex: none;
@@ -4946,19 +4957,6 @@
 .event__phase strong {
   color: var(--phase);
   font-weight: 650;
-}
-
-.event__text {
-  margin: 7px 0 0;
-  padding: 10px 14px;
-  border-left: 3px solid var(--dump);
-  border-radius: 4px 10px 10px 4px;
-  background: var(--dump-soft);
-  font-family: var(--serif);
-  font-size: 14px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 /* ---------- Motion & responsive ---------- */

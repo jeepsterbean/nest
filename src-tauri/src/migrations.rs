@@ -323,9 +323,21 @@ WHERE NOT EXISTS (
         ),
         M::up(
             r#"
-PRAGMA foreign_keys = OFF;
-
 DROP INDEX IF EXISTS idx_tasks_status_updated_at;
+DROP INDEX IF EXISTS idx_task_status_events_task_id_created_at;
+
+CREATE TABLE task_status_events_compacted_copy (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+
+INSERT INTO task_status_events_compacted_copy (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events;
+
+DROP TABLE task_status_events;
 
 CREATE TABLE tasks_compacted (
   id         INTEGER PRIMARY KEY,
@@ -341,9 +353,22 @@ SELECT id, title, status, created_at, updated_at FROM tasks;
 DROP TABLE tasks;
 ALTER TABLE tasks_compacted RENAME TO tasks;
 
-CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE TABLE task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
 
-PRAGMA foreign_keys = ON;
+INSERT INTO task_status_events (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events_compacted_copy;
+
+DROP TABLE task_status_events_compacted_copy;
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE INDEX idx_task_status_events_task_id_created_at
+ON task_status_events(task_id, created_at DESC, id DESC);
 "#,
         ),
         M::up(
@@ -447,6 +472,20 @@ ON task_dependencies(blocked_task_id, blocker_task_id);
         M::up(
             "ALTER TABLE tasks ADD COLUMN working_now INTEGER NOT NULL DEFAULT 0 \
              CHECK (working_now IN (0, 1));",
+        ),
+        // Repair databases that crossed the old task-table rebuild, where
+        // SQLite's active foreign keys cascaded away status history. Exact lost
+        // transitions cannot be reconstructed, but every task gets a usable
+        // baseline event when its stream is empty.
+        M::up(
+            r#"
+INSERT INTO task_status_events (task_id, from_status, to_status, created_at)
+SELECT t.id, NULL, t.status, t.created_at
+FROM tasks t
+WHERE NOT EXISTS (
+  SELECT 1 FROM task_status_events e WHERE e.task_id = t.id
+);
+"#,
         ),
     ])
 }
@@ -681,5 +720,61 @@ CREATE TABLE task_check_ins (
             .query_row("SELECT working_now FROM tasks", [], |row| row.get(0))
             .unwrap();
         assert!(!working_now);
+    }
+
+    #[test]
+    fn task_table_rebuild_preserves_status_events() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 14).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Existing task', 'active', 100, 200)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events \
+             (id, task_id, from_status, to_status, created_at) \
+             VALUES (1, 1, 'backlog', 'active', 150)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let event: (Option<String>, String, i64) = conn
+            .query_row(
+                "SELECT from_status, to_status, created_at \
+                 FROM task_status_events WHERE task_id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(event, (Some("backlog".into()), "active".into(), 150));
+    }
+
+    #[test]
+    fn repairs_tasks_with_missing_status_history() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 22).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Missing history', 'active', 100, 200)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let event: (Option<String>, String, i64) = conn
+            .query_row(
+                "SELECT from_status, to_status, created_at \
+                 FROM task_status_events WHERE task_id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(event, (None, "active".into(), 100));
     }
 }

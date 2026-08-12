@@ -58,6 +58,62 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
+fn write_primary_check_in(
+    conn: &mut Connection,
+    timer: &mut CheckInTimer,
+    brain_dump_text: Option<String>,
+    phase_id: Option<i64>,
+    minutes: i64,
+    now: i64,
+) -> Result<CheckInSchedule> {
+    let next_due_at = now + minutes * 60;
+    let text = brain_dump_text
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let tx = conn.transaction()?;
+
+    if let Some(text) = text {
+        tx.execute(
+            "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, NULL, ?2)",
+            params![now, text],
+        )?;
+    }
+    if let Some(phase_id) = phase_id {
+        let inactive_since: Option<i64> = tx
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE id = ?1",
+                params![phase_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| match error {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    AppError::NotFound(format!("phase {phase_id}"))
+                }
+                error => error.into(),
+            })?;
+        if inactive_since.is_some() {
+            return Err(AppError::InvalidInput("phase is paused".into()));
+        }
+        tx.execute(
+            "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
+            params![now, phase_id],
+        )?;
+    }
+    tx.execute(
+        "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+        params![minutes, next_due_at],
+    )?;
+    tx.commit()?;
+
+    timer.interval_minutes = minutes;
+    timer.next_due_at = next_due_at;
+    timer.waiting_for_response = false;
+    Ok(CheckInSchedule {
+        interval_minutes: minutes,
+        next_due_at,
+    })
+}
+
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
         "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
@@ -780,6 +836,27 @@ pub fn schedule_next_check_in(
 }
 
 #[tauri::command]
+pub fn submit_primary_check_in(
+    state: State<'_, Mutex<Connection>>,
+    timer: State<'_, Mutex<CheckInTimer>>,
+    brain_dump_text: Option<String>,
+    phase_id: Option<i64>,
+    minutes: i64,
+) -> Result<CheckInSchedule> {
+    let minutes = validate_check_in_interval(minutes)?;
+    let mut conn = state.lock().unwrap();
+    let mut timer = timer.lock().unwrap();
+    write_primary_check_in(
+        &mut conn,
+        &mut timer,
+        brain_dump_text,
+        phase_id,
+        minutes,
+        now_unix_secs(),
+    )
+}
+
+#[tauri::command]
 pub fn submit_brain_dump(
     state: State<'_, Mutex<Connection>>,
     text: String,
@@ -862,9 +939,10 @@ pub fn list_brain_dumps(
 mod tests {
     use super::{
         change_task_status, change_task_working, normalize_optional_title, normalize_task_scope,
-        validate_task_status,
+        validate_task_status, write_primary_check_in,
     };
     use crate::migrations::migrations;
+    use crate::CheckInTimer;
     use rusqlite::Connection;
 
     #[test]
@@ -910,5 +988,41 @@ mod tests {
                 .unwrap()
                 .working_now
         );
+    }
+
+    #[test]
+    fn primary_check_in_rolls_back_when_a_later_write_fails() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let mut timer = CheckInTimer {
+            interval_minutes: 15,
+            next_due_at: 900,
+            waiting_for_response: true,
+        };
+
+        let result = write_primary_check_in(
+            &mut conn,
+            &mut timer,
+            Some("Keep this only on success".into()),
+            Some(999),
+            20,
+            1_000,
+        );
+
+        assert!(result.is_err());
+        let dumps: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+            .unwrap();
+        let schedule: (i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(dumps, 0);
+        assert_eq!(schedule.0, 15);
+        assert_eq!(timer.interval_minutes, 15);
+        assert!(timer.waiting_for_response);
     }
 }

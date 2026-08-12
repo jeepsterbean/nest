@@ -12,20 +12,20 @@
   --border: #e6ddcc;
   --border-strong: #d4c8b2;
   --ink: #322b21;
-  --muted: #8a8071;
-  --accent: #4a7dd1;
+  --muted: #70675b;
+  --accent: #3f6cb7;
   --accent-soft: rgba(74, 125, 209, 0.13);
-  --phase: #8a63d2;
+  --phase: #6846a5;
   --phase-soft: rgba(138, 99, 210, 0.12);
-  --dump: #b27c33;
+  --dump: #805821;
   --dump-soft: rgba(193, 142, 67, 0.13);
   --danger: #c0392b;
   --danger-soft: rgba(220, 50, 50, 0.1);
-  --rating-1: #c2674f;
-  --rating-2: #c89a4e;
-  --rating-3: #b3a44c;
-  --rating-4: #7da95c;
-  --rating-5: #4d9b6f;
+  --rating-1: #9d4e3b;
+  --rating-2: #8e641f;
+  --rating-3: #766c21;
+  --rating-4: #4f7937;
+  --rating-5: #35764e;
   --shadow:
     0 1px 2px rgba(60, 48, 30, 0.05),
     0 8px 24px -16px rgba(60, 48, 30, 0.25);
