@@ -342,33 +342,37 @@ function CheckInForm({
             Dashboard
           </button>
         </div>
-        <div className="combined-timer__interval">
-          <div className="combined-interval" aria-label="Interval">
-            <button
-              type="button"
-              className="combined-interval__btn"
-              onClick={() =>
-                setNextCheckInMinutes((minutes) => shiftInterval(minutes, -1))
-              }
-              disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
-              aria-label="Decrease interval"
-            >
-              −
-            </button>
-            <strong>{nextCheckInMinutes}m</strong>
-            <button
-              type="button"
-              className="combined-interval__btn"
-              onClick={() =>
-                setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1))
-              }
-              disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
-              aria-label="Increase interval"
-            >
-              +
-            </button>
+        {timerTriggered && (
+          <div className="combined-timer__interval">
+            <div className="combined-interval" aria-label="Interval">
+              <button
+                type="button"
+                className="combined-interval__btn"
+                onClick={() =>
+                  setNextCheckInMinutes((minutes) =>
+                    shiftInterval(minutes, -1),
+                  )
+                }
+                disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
+                aria-label="Decrease interval"
+              >
+                −
+              </button>
+              <strong>{nextCheckInMinutes}m</strong>
+              <button
+                type="button"
+                className="combined-interval__btn"
+                onClick={() =>
+                  setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1))
+                }
+                disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
+                aria-label="Increase interval"
+              >
+                +
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </section>
       <div className="combined-checkin__scroll">
         {step === "inputs" ? (

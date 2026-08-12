@@ -28,7 +28,7 @@
 
 .combined-timer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr) auto;
   flex: none;
   align-items: flex-end;
   gap: 16px;
