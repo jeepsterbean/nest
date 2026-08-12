@@ -3,6 +3,21 @@ import { setTaskWorking } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 
+function PlayPauseIcon({ pause }: { pause: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      {pause ? (
+        <>
+          <path d="M6.5 5.5v9" />
+          <path d="M13.5 5.5v9" />
+        </>
+      ) : (
+        <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
+      )}
+    </svg>
+  );
+}
+
 export function WorkingBadge({ compact = false }: { compact?: boolean }) {
   return (
     <span
@@ -20,11 +35,13 @@ export function WorkingToggle({
   task,
   onToggle,
   compact = false,
+  playPause = false,
   disabled = false,
 }: {
   task: Task;
   onToggle: (working: boolean) => Promise<unknown> | void;
   compact?: boolean;
+  playPause?: boolean;
   disabled?: boolean;
 }) {
   const [pending, setPending] = useState(false);
@@ -35,7 +52,7 @@ export function WorkingToggle({
       type="button"
       className={`working-toggle${
         compact ? " working-toggle--compact" : ""
-      }`}
+      }${playPause ? " working-toggle--play-pause" : ""}`}
       aria-label={`${label} on ${task.title}`}
       aria-pressed={task.workingNow}
       title={`${label} on this task`}
@@ -52,8 +69,14 @@ export function WorkingToggle({
         }
       }}
     >
-      <span className="working-beacon" aria-hidden="true" />
-      {!compact && <span>{task.workingNow ? "Working now" : "Start"}</span>}
+      {playPause ? (
+        <PlayPauseIcon pause={task.workingNow} />
+      ) : (
+        <>
+          <span className="working-beacon" aria-hidden="true" />
+          {!compact && <span>{task.workingNow ? "Working now" : "Start"}</span>}
+        </>
+      )}
     </button>
   );
 }
@@ -61,15 +84,18 @@ export function WorkingToggle({
 export function TaskWorkingControl({
   task,
   compact = false,
+  playPause = false,
 }: {
   task: Task;
   compact?: boolean;
+  playPause?: boolean;
 }) {
   const { mutate } = useDashboardData();
   return (
     <WorkingToggle
       task={task}
       compact={compact}
+      playPause={playPause}
       onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
     />
   );

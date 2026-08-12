@@ -16,6 +16,7 @@ export function TaskCard({
   onSelect,
   showStatus = true,
   statusCompact = false,
+  focusLayout = false,
   draggable = false,
   dragging = false,
   onPointerDown,
@@ -28,6 +29,7 @@ export function TaskCard({
   onSelect?: (origin: HTMLElement) => void;
   showStatus?: boolean;
   statusCompact?: boolean;
+  focusLayout?: boolean;
   draggable?: boolean;
   dragging?: boolean;
   onPointerDown?: PointerEventHandler<HTMLLIElement>;
@@ -37,7 +39,8 @@ export function TaskCard({
     <li
       className={`task-card task-card--${task.status}${
         selected ? " task-card--selected" : ""
-      }${task.workingNow ? " task-card--working is-working-now" : ""}${
+      }${focusLayout ? " task-card--focus" : ""}${
+        task.workingNow ? " task-card--working is-working-now" : ""}${
         draggable ? " task-card--draggable" : ""
       }${
         dragging ? " task-card--dragging" : ""
@@ -45,9 +48,16 @@ export function TaskCard({
       onPointerDown={onPointerDown}
       onClickCapture={onClickCapture}
     >
-      <div className="task-card__top">
+      <div
+        className={`task-card__top${
+          focusLayout ? " task-card__top--focus" : ""
+        }`}
+      >
+        {focusLayout && task.status === "active" && (
+          <TaskWorkingControl task={task} playPause />
+        )}
         <div className="task-card__identity">
-          <TaskScopeButton task={task} display="leaf" />
+          {!focusLayout && <TaskScopeButton task={task} display="leaf" />}
           {onSelect ? (
             <button
               type="button"
@@ -61,8 +71,15 @@ export function TaskCard({
             <TaskTitle task={task} />
           )}
         </div>
-        {showStatus && (
-          <StatusTrigger task={task} compact={statusCompact} />
+        {focusLayout ? (
+          <div className="task-card__top-actions">
+            <TaskScopeButton task={task} display="leaf" />
+            {showStatus && (
+              <StatusTrigger task={task} compact={statusCompact} />
+            )}
+          </div>
+        ) : (
+          showStatus && <StatusTrigger task={task} compact={statusCompact} />
         )}
       </div>
       <TaskGraphBadges task={task} />
@@ -70,7 +87,9 @@ export function TaskCard({
         <div className="task-card__scores">
           <TaskScoreControls task={task} />
         </div>
-        {task.status === "active" && <TaskWorkingControl task={task} />}
+        {!focusLayout && task.status === "active" && (
+          <TaskWorkingControl task={task} />
+        )}
       </div>
     </li>
   );

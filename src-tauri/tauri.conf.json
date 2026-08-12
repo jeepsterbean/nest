@@ -18,7 +18,8 @@
         "height": 700,
         "minWidth": 600,
         "minHeight": 500,
-        "resizable": true,
+        "resizable": false,
+        "maximizable": false,
         "visible": false,
         "center": true,
         "url": "index.html"

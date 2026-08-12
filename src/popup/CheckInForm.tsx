@@ -585,6 +585,7 @@ function CheckInForm({
                 ref={brainDumpRef}
                 className="combined-input"
                 aria-label="Brain dump"
+                placeholder="What’s on your mind?"
                 value={brainDumpText}
                 onChange={(e) => setBrainDumpText(e.target.value)}
                 onKeyDown={(e) => {

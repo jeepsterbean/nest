@@ -36,22 +36,54 @@ button {
   cursor: pointer;
 }
 
-@keyframes working-periodic-glow {
-  0%,
-  68%,
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-  82% {
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent),
-      0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+/* Travelling border highlight for tasks marked working-now. Animates the
+   conic-gradient angle so the glow orbits non-square cards without spinning
+   the rounded box itself. */
+@property --working-glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes working-orbit-glow {
+  to {
+    --working-glow-angle: 360deg;
   }
 }
 
 .is-working-now {
-  animation: working-periodic-glow 2.2s cubic-bezier(0.65, 0, 0.35, 1)
-    infinite;
+  position: relative;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.is-working-now::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--working-glow-angle),
+    transparent 0%,
+    transparent 62%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 72%,
+    color-mix(in srgb, var(--accent) 72%, white) 86%,
+    var(--accent) 93%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: working-orbit-glow 2.4s linear infinite;
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 58%, transparent)
+  );
 }
 
 .working-beacon {
@@ -116,6 +148,22 @@ button {
   padding: 0;
 }
 
+.working-toggle--play-pause {
+  width: 30px;
+  min-height: 30px;
+  justify-content: center;
+  padding: 0;
+}
+
+.working-toggle--play-pause svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
 .working-badge--compact {
   width: 18px;
   min-height: 18px;
@@ -124,9 +172,13 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .working-toggle,
-  .is-working-now {
-    animation: none;
+  .working-toggle {
     transition: none;
+  }
+
+  .is-working-now::before {
+    animation: none;
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+    filter: none;
   }
 }
