@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   scheduleNextCheckIn,
   submitPhaseCheckIn,
@@ -59,6 +59,8 @@ export function DashboardHeader({
   const [scheduling, setScheduling] = useState(false);
   const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [pulseOpening, setPulseOpening] = useState(false);
+  const phaseWrapRef = useRef<HTMLDivElement | null>(null);
+  const timerWrapRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
   const countdown = checkInSchedule
@@ -88,6 +90,41 @@ export function DashboardHeader({
     return () => window.clearInterval(interval);
   }, []);
 
+  // Blur alone misses clicks on non-focusable dashboard chrome; close on
+  // outside pointerdown so either picker dismisses when you click elsewhere.
+  useEffect(() => {
+    if (!pickerOpen && !phasePickerOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (
+        phasePickerOpen &&
+        phaseWrapRef.current &&
+        !phaseWrapRef.current.contains(target)
+      ) {
+        setPhasePickerOpen(false);
+      }
+      if (
+        pickerOpen &&
+        timerWrapRef.current &&
+        !timerWrapRef.current.contains(target)
+      ) {
+        setPickerOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setPhasePickerOpen(false);
+      setPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [pickerOpen, phasePickerOpen]);
+
   const selectInterval = async (minutes: number) => {
     setPickerOpen(false);
     if (scheduling) return;
@@ -108,7 +145,7 @@ export function DashboardHeader({
     if (pulseOpening) return;
     setPulseOpening(true);
     try {
-      await summonCheckIn();
+      await summonCheckIn("metrics");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -127,6 +164,7 @@ export function DashboardHeader({
         <h1 className="dash-header__greeting">{greeting}.</h1>
         <div className="dash-header__meta">
           <div
+            ref={phaseWrapRef}
             className="dash-header__phase-wrap"
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -143,7 +181,10 @@ export function DashboardHeader({
                 currentPhaseDuration ? `, ${currentPhaseDuration}` : ""
               }. Change phase`}
               disabled={activePhases.length === 0 || phaseChangingId !== null}
-              onClick={() => setPhasePickerOpen((open) => !open)}
+              onClick={() => {
+                setPickerOpen(false);
+                setPhasePickerOpen((open) => !open);
+              }}
             >
               <span className="dash-header__phase-name">{phaseLabel}</span>
               {currentPhaseDuration && phaseChangingId === null && (
@@ -203,6 +244,7 @@ export function DashboardHeader({
         </div>
       </div>
       <div
+        ref={timerWrapRef}
         className="dash-header__timer-wrap"
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -217,7 +259,10 @@ export function DashboardHeader({
           aria-expanded={pickerOpen}
           aria-label={`Next check-in: ${countdown}. Change interval`}
           disabled={!checkInSchedule || scheduling}
-          onClick={() => setPickerOpen((open) => !open)}
+          onClick={() => {
+            setPhasePickerOpen(false);
+            setPickerOpen((open) => !open);
+          }}
         >
           <strong>{countdown}</strong>
           <span className="dash-header__timer-chevron" aria-hidden="true">

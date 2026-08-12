@@ -99,8 +99,12 @@ fn log_client_event(message: String) {
 }
 
 #[tauri::command]
-fn summon_check_in(app: tauri::AppHandle) {
-    summon_popup_with_route(&app, "popup", "#/popup");
+fn summon_check_in(app: tauri::AppHandle, step: Option<String>) {
+    let route = match step.as_deref() {
+        Some("metrics") => "#/popup?step=metrics",
+        _ => "#/popup",
+    };
+    summon_popup_with_route(&app, "popup", route);
 }
 
 // Cadence of the recurring check-in popup. At zero it pauses until the popup

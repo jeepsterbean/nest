@@ -176,8 +176,8 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
   return invoke("schedule_next_check_in", { minutes });
 }
 
-export function summonCheckIn(): Promise<void> {
-  return invoke("summon_check_in");
+export function summonCheckIn(step?: "metrics"): Promise<void> {
+  return invoke("summon_check_in", { step: step ?? null });
 }
 
 export function submitBrainDump(

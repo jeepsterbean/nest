@@ -323,10 +323,10 @@ export function OverviewView() {
   return (
     <>
       <section className="overview-panels" aria-label="Overview">
-        <section className="overview-panel overview-panel--tasks">
-          <header className="overview-panel__head">
-            <h2>Task focus</h2>
-          </header>
+        <section
+          className="overview-panel overview-panel--tasks"
+          aria-label="Task focus"
+        >
           <div className="overview-panel__scroll">
             {renderOverviewGroup("active")}
             {renderOverviewGroup("up_next")}
@@ -334,77 +334,40 @@ export function OverviewView() {
           </div>
         </section>
 
-        <section className="overview-panel overview-panel--dumps">
-          <header className="overview-panel__head">
-            <h2>Brain dumps</h2>
-            <div className="overview-dump-actions">
-              {!brainDumpExpanded && (
-                <button
-                  type="button"
-                  className="overview-dump-visibility"
-                  aria-pressed={brainDumpLogsHidden}
-                  aria-label={
-                    brainDumpLogsHidden
-                      ? "Show recent brain dumps"
-                      : "Hide all brain dump logs"
-                  }
-                  title={
-                    brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
-                  }
-                  onClick={toggleBrainDumpLogs}
-                >
-                  <span aria-hidden="true">
-                    {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                className="overview-dump-mode"
-                aria-label={
-                  brainDumpExpanded
-                    ? "Minimize composer and show brain dump history"
-                    : "Open full brain dump composer"
-                }
-                title={
-                  brainDumpExpanded ? "Show history" : "Open full composer"
-                }
-                onClick={
-                  brainDumpExpanded
-                    ? showBrainDumpHistory
-                    : showBrainDumpComposer
-                }
-              >
-                {brainDumpExpanded ? (
-                  <span
-                    className="overview-dump-mode__minimize"
-                    aria-hidden="true"
-                  >
-                    −
-                  </span>
-                ) : (
-                  <span
-                    className="overview-dump-mode__pencil"
-                    aria-hidden="true"
-                  >
-                    {pencilIcon}
-                  </span>
-                )}
-              </button>
-            </div>
-          </header>
+        <section
+          className="overview-panel overview-panel--dumps"
+          aria-label="Brain dumps"
+        >
           {brainDumpExpanded ? (
             <form
               className="overview-dump-composer"
               onSubmit={onSubmitQuickBrainDump}
             >
-              <input
-                type="text"
-                value={quickBrainDumpTitle}
-                onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
-                placeholder="Optional title"
-                aria-label="New brain dump title"
-              />
+              <div className="overview-dump-composer__title-row">
+                <input
+                  type="text"
+                  value={quickBrainDumpTitle}
+                  onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
+                  placeholder="Optional title"
+                  aria-label="New brain dump title"
+                />
+                <div className="overview-dump-actions">
+                  <button
+                    type="button"
+                    className="overview-dump-mode"
+                    aria-label="Minimize composer and show brain dump history"
+                    title="Show history"
+                    onClick={showBrainDumpHistory}
+                  >
+                    <span
+                      className="overview-dump-mode__minimize"
+                      aria-hidden="true"
+                    >
+                      −
+                    </span>
+                  </button>
+                </div>
+              </div>
               <textarea
                 ref={brainDumpTextRef}
                 value={quickBrainDumpText}
@@ -438,6 +401,42 @@ export function OverviewView() {
             </form>
           ) : (
             <>
+              <div className="overview-dump-toolbar">
+                <div className="overview-dump-actions">
+                  <button
+                    type="button"
+                    className="overview-dump-visibility"
+                    aria-pressed={brainDumpLogsHidden}
+                    aria-label={
+                      brainDumpLogsHidden
+                        ? "Show recent brain dumps"
+                        : "Hide all brain dump logs"
+                    }
+                    title={
+                      brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
+                    }
+                    onClick={toggleBrainDumpLogs}
+                  >
+                    <span aria-hidden="true">
+                      {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-dump-mode"
+                    aria-label="Open full brain dump composer"
+                    title="Open full composer"
+                    onClick={showBrainDumpComposer}
+                  >
+                    <span
+                      className="overview-dump-mode__pencil"
+                      aria-hidden="true"
+                    >
+                      {pencilIcon}
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div
                 ref={brainDumpHistoryRef}
                 className={`overview-panel__scroll overview-dump-history${

@@ -105,18 +105,20 @@ function ExpandIcon() {
 }
 
 function CheckInForm({
+  initialStep = "inputs",
   timerTriggered,
   onDismiss,
   onTimerStarted,
   onComplete,
 }: {
+  initialStep?: Step;
   timerTriggered: boolean;
   onDismiss: () => Promise<void>;
   onTimerStarted: () => void;
   onComplete: () => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
-  const [step, setStep] = useState<Step>("inputs");
+  const [step, setStep] = useState<Step>(initialStep);
   const [nextCheckInMinutes, setNextCheckInMinutes] = useState(
     DEFAULT_INTERVAL_MINUTES,
   );
