@@ -7,7 +7,6 @@ import {
 } from "react";
 import {
   createTask,
-  scheduleNextCheckIn,
   summonCheckIn,
   submitBrainDump,
   submitPhaseCheckIn,
@@ -25,7 +24,6 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { latestPulseState } from "../lib/pulse";
 import { groupTasksByStatus, TASK_STATUS_LABEL } from "../lib/tasks";
 import {
-  formatCheckInCountdown,
   formatElapsedMinutes,
 } from "../lib/time";
 import { initialBrainDumpStart } from "../lib/brainDumps";
@@ -33,7 +31,6 @@ import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
 const OLDER_DUMP_BATCH_SIZE = 10;
-const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 type OverviewTaskStatus = "active" | "up_next" | "backlog";
 
 export function OverviewView() {
@@ -44,7 +41,6 @@ export function OverviewView() {
     checkIns,
     allBrainDumps,
     latestPhase,
-    checkInSchedule,
     loaded,
     setError,
     mutate,
@@ -56,8 +52,6 @@ export function OverviewView() {
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
-  const [checkInPickerOpen, setCheckInPickerOpen] = useState(false);
-  const [checkInScheduling, setCheckInScheduling] = useState(false);
   const [brainDumpExpanded, setBrainDumpExpanded] = useState(true);
   const [brainDumpLogsHidden, setBrainDumpLogsHidden] = useState(false);
   const [quickBrainDumpTitle, setQuickBrainDumpTitle] = useState("");
@@ -120,9 +114,6 @@ export function OverviewView() {
   const currentPhaseDuration = latestPhase
     ? formatElapsedMinutes(latestPhase.createdAt, nowMs)
     : null;
-  const nextCheckIn = checkInSchedule
-    ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
-    : "Not scheduled";
   const pulse = latestPulseState(checkIns, metrics, nowMs);
 
   const openPulseCheckIn = async () => {
@@ -171,14 +162,6 @@ export function OverviewView() {
     setPhaseChangingId(p.id);
     await mutate(() => submitPhaseCheckIn(p.id));
     setPhaseChangingId(null);
-  };
-
-  const onSelectCheckInInterval = async (minutes: number) => {
-    setCheckInPickerOpen(false);
-    if (checkInScheduling) return;
-    setCheckInScheduling(true);
-    await mutate(() => scheduleNextCheckIn(minutes));
-    setCheckInScheduling(false);
   };
 
   const onSubmitQuickBrainDump = async (e: FormEvent) => {
@@ -465,62 +448,6 @@ export function OverviewView() {
           )}
         </li>
         <li
-          className="dash-stat dash-stat--next-checkin"
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setCheckInPickerOpen(false);
-            }
-          }}
-        >
-          <button
-            type="button"
-            className="checkin-summary"
-            aria-haspopup="listbox"
-            aria-expanded={checkInPickerOpen}
-            disabled={checkInScheduling}
-            onClick={() => setCheckInPickerOpen((open) => !open)}
-          >
-            {clockIcon}
-            <span className="checkin-summary__copy">
-              <span>Next check-in</span>
-              <strong>
-                {checkInScheduling ? "Scheduling…" : nextCheckIn}
-              </strong>
-            </span>
-            <span className="checkin-summary__chevron" aria-hidden="true">
-              {chevronDownIcon}
-            </span>
-          </button>
-          {checkInPickerOpen && (
-            <div
-              className="checkin-picker"
-              role="listbox"
-              aria-label="Next check-in in"
-            >
-              {CHECK_IN_INTERVALS.map((minutes) => {
-                const selected =
-                  checkInSchedule?.intervalMinutes === minutes;
-                return (
-                  <button
-                    key={minutes}
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    className="checkin-picker__option"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => onSelectCheckInInterval(minutes)}
-                  >
-                    <span>{minutes} min</span>
-                    {selected && (
-                      <span className="checkin-picker__mark">Current</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </li>
-        <li
           className={`dash-stat dash-stat--pulse${
             pulse.overdue ? " dash-stat--pulse-overdue" : ""
           }`}
@@ -545,10 +472,7 @@ export function OverviewView() {
       <section className="overview-panels" aria-label="Overview">
         <section className="overview-panel overview-panel--tasks">
           <header className="overview-panel__head">
-            <div>
-              <h2>Task focus</h2>
-              <span>Active, up next and backlog work</span>
-            </div>
+            <h2>Task focus</h2>
           </header>
           <div className="overview-panel__scroll">
             {renderOverviewGroup("active")}
@@ -559,16 +483,7 @@ export function OverviewView() {
 
         <section className="overview-panel overview-panel--dumps">
           <header className="overview-panel__head">
-            <div>
-              <h2>Brain dumps</h2>
-              <span>
-                {brainDumpExpanded
-                  ? "Capture a loose thought"
-                  : brainDumpLogsHidden
-                    ? "Logs hidden"
-                    : "Recent note history"}
-              </span>
-            </div>
+            <h2>Brain dumps</h2>
             <div className="overview-dump-actions">
               {!brainDumpExpanded && (
                 <button

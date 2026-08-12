@@ -47,9 +47,7 @@ export function MetricsView() {
       <header className="dash-section__head">
         <div className="dash-section__title">
           <h2>Metrics</h2>
-          <span className="dash-section__sub">
-            How you've been feeling · last 30 days
-          </span>
+          <span className="dash-section__sub">Last 30 days</span>
         </div>
         <form className="add-form" onSubmit={onCreate}>
           <input

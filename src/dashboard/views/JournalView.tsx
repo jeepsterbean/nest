@@ -103,9 +103,7 @@ export function JournalView() {
       <header className="dash-section__head">
         <div className="dash-section__title">
           <h2>Journal</h2>
-          <span className="dash-section__sub">
-            Check-ins, phase changes &amp; brain dumps · last 30 days
-          </span>
+          <span className="dash-section__sub">Last 30 days</span>
         </div>
       </header>
       {loaded && dayGroups.length === 0 ? (

@@ -125,12 +125,12 @@ describe("minute helpers", () => {
   it("shows second-precision countdowns and marks due schedules", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
-    ).toBe("in 30s");
+    ).toBe("0:30");
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 32, 5)), now),
-    ).toBe("in 1m 35s");
+    ).toBe("1:35");
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
-    ).toBe("Due now");
+    ).toBe("0:00");
   });
 });

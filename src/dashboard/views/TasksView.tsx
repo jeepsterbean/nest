@@ -603,11 +603,7 @@ export function TasksView() {
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
         <div className="dash-section__title">
-          <p className="tasks__eyebrow">Personal work</p>
           <h2>Tasks</h2>
-          <span className="dash-section__sub">
-            Shape the work, then walk it through to done.
-          </span>
         </div>
         <div className="view-toggle" role="group" aria-label="Task view">
           {TASK_VIEWS.map((view) => (

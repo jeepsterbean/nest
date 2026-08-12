@@ -10,6 +10,8 @@ private, journal-like. Preserve light and dark system themes.
 
 - One heading per section. No eyebrow label or subtitle that just restates
   the title in other words.
+- Remove descriptions that only enumerate content or states already visible
+  in the section below. Keep unique context such as time ranges or caveats.
 - Don't caption self-explanatory controls (a labeled field, a dropdown with
   clear options) with extra headings or helper text.
 - Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,

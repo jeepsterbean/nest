@@ -43,9 +43,6 @@ export function PhasesView() {
       <header className="dash-section__head">
         <div className="dash-section__title">
           <h2>Phases</h2>
-          <span className="dash-section__sub">
-            Where your energy is going right now
-          </span>
         </div>
         <form className="add-form" onSubmit={onCreate}>
           <input

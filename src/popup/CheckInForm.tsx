@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { emit } from "@tauri-apps/api/event";
-import {
-  getCurrentWebviewWindow,
-  WebviewWindow,
-} from "@tauri-apps/api/webviewWindow";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   getCheckInSchedule,
   latestPhaseCheckIn,
   listMetrics,
   listPhases,
   listTasks,
-  scheduleNextCheckIn,
   setTaskStatus,
   submitBrainDump,
   submitMetricCheckIn,
@@ -25,6 +21,7 @@ import type {
   RatingValue,
   Task,
 } from "../lib/types";
+import { formatCheckInCountdown } from "../dashboard/lib/time";
 import "./CheckInForm.css";
 
 const DEFAULT_INTERVAL_MINUTES = 15;
@@ -88,7 +85,15 @@ function ChevronIcon() {
   );
 }
 
-function CheckInForm() {
+function CheckInForm({
+  timerTriggered,
+  onDismiss,
+  onComplete,
+}: {
+  timerTriggered: boolean;
+  onDismiss: () => Promise<void>;
+  onComplete: (minutes: number) => Promise<void>;
+}) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>("inputs");
   const [nextCheckInMinutes, setNextCheckInMinutes] = useState(
@@ -99,6 +104,7 @@ function CheckInForm() {
   const [brainDumpText, setBrainDumpText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -127,6 +133,11 @@ function CheckInForm() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -161,12 +172,12 @@ function CheckInForm() {
   };
 
   const openDashboard = async () => {
+    await onDismiss();
     const dashboard = await WebviewWindow.getByLabel("dashboard");
     if (dashboard) {
       await dashboard.show();
       await dashboard.setFocus();
     }
-    await getCurrentWebviewWindow().hide();
   };
 
   const updateTaskStatus = async (
@@ -195,10 +206,6 @@ function CheckInForm() {
     setSubmitting(true);
     setError(null);
     try {
-      // The interval picker sets the recurring popup's cadence, not a property
-      // of this task. Reschedule on every submit so checking in resets the clock.
-      await scheduleNextCheckIn(nextCheckInMinutes);
-
       const dump = brainDumpText.trim();
       if (dump) {
         await submitBrainDump(dump);
@@ -235,7 +242,7 @@ function CheckInForm() {
         await submitMetricCheckIn(ratingsInput);
         await emit("check-in-submitted");
       }
-      await getCurrentWebviewWindow().hide();
+      await onComplete(nextCheckInMinutes);
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
@@ -267,9 +274,6 @@ function CheckInForm() {
           <span className="now-dot" aria-hidden="true" />
           Working on
         </span>
-        <button type="button" className="combined-link" onClick={openDashboard}>
-          Dashboard
-        </button>
       </div>
       {activeTasks.length === 0 ? (
         <p className="now-card__empty">
@@ -312,9 +316,60 @@ function CheckInForm() {
   );
   const currentPhase =
     currentPhaseIndex === -1 ? null : loaded.phases[currentPhaseIndex];
+  const countdown = timerTriggered
+    ? "0:00"
+    : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
 
   return (
     <form className="combined-checkin" onSubmit={onSubmit}>
+      <section className="combined-timer">
+        <div>
+          {timerTriggered && (
+            <span className="combined-timer__label">Check-in due</span>
+          )}
+          <strong
+            className="combined-timer__value"
+            role="timer"
+            aria-label={timerTriggered ? "Check-in due" : `Timer ${countdown}`}
+          >
+            {countdown}
+          </strong>
+          <button
+            type="button"
+            className="combined-dashboard-link"
+            onClick={openDashboard}
+          >
+            Dashboard
+          </button>
+        </div>
+        <div className="combined-timer__interval">
+          <div className="combined-interval" aria-label="Interval">
+            <button
+              type="button"
+              className="combined-interval__btn"
+              onClick={() =>
+                setNextCheckInMinutes((minutes) => shiftInterval(minutes, -1))
+              }
+              disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
+              aria-label="Decrease interval"
+            >
+              −
+            </button>
+            <strong>{nextCheckInMinutes}m</strong>
+            <button
+              type="button"
+              className="combined-interval__btn"
+              onClick={() =>
+                setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1))
+              }
+              disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
+              aria-label="Increase interval"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      </section>
       <div className="combined-checkin__scroll">
         {step === "inputs" ? (
           <>
@@ -323,35 +378,6 @@ function CheckInForm() {
             <section className="combined-section">
               <div className="combined-section__head">
                 <span className="combined-section__kicker">Brain dump</span>
-                <div
-                  className="combined-interval"
-                  tabIndex={0}
-                  aria-label="Next check-in interval"
-                >
-                  <button
-                    type="button"
-                    className="combined-interval__btn"
-                    onClick={() =>
-                      setNextCheckInMinutes((m) => shiftInterval(m, -1))
-                    }
-                    disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
-                    aria-label="Decrease interval"
-                  >
-                    -
-                  </button>
-                  <strong>{nextCheckInMinutes}m</strong>
-                  <button
-                    type="button"
-                    className="combined-interval__btn"
-                    onClick={() =>
-                      setNextCheckInMinutes((m) => shiftInterval(m, 1))
-                    }
-                    disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
-                    aria-label="Increase interval"
-                  >
-                    +
-                  </button>
-                </div>
               </div>
               <textarea
                 ref={brainDumpRef}

@@ -126,17 +126,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
-  // The native timer advances the schedule when a popup fires without
-  // emitting a dashboard event, so refresh this value independently.
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      void getCheckInSchedule()
-        .then(setCheckInSchedule)
-        .catch((e) => setError(String(e)));
-    }, 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
   // Refresh when a check-in is submitted from the popup.
   useEffect(() => {
     let unlisten: (() => void) | undefined;

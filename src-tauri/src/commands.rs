@@ -726,6 +726,7 @@ pub fn schedule_next_check_in(
         let mut timer = timer.lock().unwrap();
         timer.interval_minutes = minutes;
         timer.next_due_at = next_due_at;
+        timer.waiting_for_response = false;
     }
 
     Ok(CheckInSchedule {

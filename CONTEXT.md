@@ -54,3 +54,13 @@ _Avoid_: Parent, project
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; `paused` remains a user-selected status.
+
+## Check-in cadence
+
+- The dashboard header shows the countdown and controls its 5–30 minute interval.
+- At zero, the timer pauses and opens the check-in popup. It stays at `0:00`
+  until the popup is resolved.
+- Completing the popup starts the selected interval. Dismissing an automatic
+  popup starts a five-minute interval.
+- Manually summoned popups show the live countdown and do not reset it when
+  dismissed.
