@@ -11,6 +11,21 @@ use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
 
+const REMINDERS: &[&str] = &[
+    "Put on some good music",
+    "Do a brain dump",
+    "Choose one small thing",
+    "Write down the next action",
+    "Clear the space in front of you",
+    "Close what you're not using",
+    "Start for just two minutes",
+];
+
+#[tauri::command]
+pub fn list_reminders() -> Vec<&'static str> {
+    REMINDERS.to_vec()
+}
+
 fn normalize_task_scope(scope: Option<String>) -> Option<String> {
     scope
         .map(|value| {

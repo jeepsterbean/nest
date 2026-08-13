@@ -611,6 +611,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::list_reminders,
             commands::list_metrics,
             commands::list_tasks,
             commands::list_task_dependencies,

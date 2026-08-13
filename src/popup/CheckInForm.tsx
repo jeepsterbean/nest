@@ -46,6 +46,14 @@ function StopIcon() {
   );
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="m7 5 7.5 5L7 15Z" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -619,7 +627,7 @@ function CheckInForm({
                       onClick={() => updateTaskStatus(task, "active")}
                       disabled={submitting}
                     >
-                      Activate
+                      <PlayIcon />
                     </button>
                   </div>
                 </li>
@@ -649,10 +657,10 @@ function CheckInForm({
       onSubmit={onSubmit}
       onKeyDownCapture={(e) => {
         if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-        if (e.altKey && e.target instanceof HTMLTextAreaElement) return;
-        if (e.target === taskInputRef.current && !e.shiftKey) return;
+        if (e.shiftKey && e.target instanceof HTMLTextAreaElement) return;
+        if (e.target === taskInputRef.current && !e.altKey) return;
         e.preventDefault();
-        if (e.shiftKey) void completePopup();
+        if (e.altKey) void completePopup();
         else e.currentTarget.requestSubmit();
       }}
     >

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  listReminders,
   scheduleNextCheckIn,
   submitPhaseCheckIn,
   summonCheckIn,
@@ -7,6 +8,11 @@ import {
 import type { Phase } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { latestPulseState } from "../lib/pulse";
+import {
+  advanceTypewriter,
+  INITIAL_TYPEWRITER_FRAME,
+  TYPEWRITER_CYCLE_MS,
+} from "../lib/typewriter";
 import {
   formatCheckInCountdown,
   formatElapsedMinutes,
@@ -59,10 +65,23 @@ export function DashboardHeader({
   const [scheduling, setScheduling] = useState(false);
   const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [pulseOpening, setPulseOpening] = useState(false);
+  const [reminders, setReminders] = useState<string[]>([]);
+  const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
   const phaseWrapRef = useRef<HTMLDivElement | null>(null);
   const timerWrapRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
+  const messages = useMemo(
+    () => [`${greeting}.`, ...reminders],
+    [greeting, reminders],
+  );
+  const message = messages[typewriter.messageIndex % messages.length];
+  const visibleMessage = reducedMotion
+    ? message
+    : message.slice(0, typewriter.characterIndex);
   const countdown = checkInSchedule
     ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
     : "—:—";
@@ -91,6 +110,56 @@ export function DashboardHeader({
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listReminders()
+      .then((items) => {
+        if (!cancelled) setReminders(items);
+      })
+      .catch((error) => {
+        if (!cancelled) setError(String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setError]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => {
+      setReducedMotion(query.matches);
+      setTypewriter(INITIAL_TYPEWRITER_FRAME);
+    };
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      const timeout = window.setTimeout(
+        () =>
+          setTypewriter({
+            messageIndex: (typewriter.messageIndex + 1) % messages.length,
+            characterIndex: 0,
+            deleting: false,
+          }),
+        TYPEWRITER_CYCLE_MS,
+      );
+      return () => window.clearTimeout(timeout);
+    }
+
+    const next = advanceTypewriter(
+      typewriter,
+      message.length,
+      messages.length,
+    );
+    const timeout = window.setTimeout(
+      () => setTypewriter(next.frame),
+      next.delay,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [message.length, messages.length, reducedMotion, typewriter]);
 
   // Blur alone misses clicks on non-focusable dashboard chrome; close on
   // outside pointerdown so either picker dismisses when you click elsewhere.
@@ -163,7 +232,15 @@ export function DashboardHeader({
   return (
     <header className="dash-header">
       <div className="dash-header__intro">
-        <h1 className="dash-header__greeting">{greeting}.</h1>
+        <h1 className="dash-header__greeting" aria-label={message}>
+          <span aria-hidden="true">{visibleMessage}</span>
+          {!reducedMotion && (
+            <span
+              className="dash-header__typewriter-caret"
+              aria-hidden="true"
+            />
+          )}
+        </h1>
         <div className="dash-header__meta">
           <div
             ref={phaseWrapRef}

@@ -15,6 +15,10 @@ import type {
   TaskStatus,
 } from "./types";
 
+export function listReminders(): Promise<string[]> {
+  return invoke("list_reminders");
+}
+
 export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
   return invoke("list_metrics", { includeInactive });
 }

@@ -132,6 +132,21 @@
   line-height: 1.1;
 }
 
+.dash-header__typewriter-caret {
+  display: inline-block;
+  width: 1px;
+  height: 0.82em;
+  margin-left: 0.08em;
+  background: currentColor;
+  animation: typewriter-caret 800ms steps(1, end) infinite;
+}
+
+@keyframes typewriter-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
 .dash-header__phase-wrap {
   position: relative;
   flex: none;
@@ -5064,6 +5079,10 @@
   .overview-panel {
     animation: none !important;
     transition: none !important;
+  }
+
+  .dash-header__typewriter-caret {
+    display: none;
   }
 }
 
