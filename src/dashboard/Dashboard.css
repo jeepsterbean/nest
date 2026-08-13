@@ -72,11 +72,19 @@
 
 .dashboard__inner {
   display: flex;
+  min-height: 100vh;
   flex-direction: column;
   gap: 28px;
   max-width: 1040px;
   margin: 0 auto;
   padding: 36px 32px 64px;
+}
+
+.dashboard__inner > .overview-panels,
+.dashboard__inner > .insights,
+.dashboard__inner > .dash-section {
+  min-height: 0;
+  flex: 1;
 }
 
 .dashboard kbd {
@@ -724,14 +732,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
   gap: 14px;
-  min-height: 0;
+  min-height: 420px;
 }
 
 .overview-panel {
   display: flex;
   min-width: 0;
   min-height: 0;
-  max-height: clamp(420px, calc(100vh - 305px), 680px);
   flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -1411,6 +1418,12 @@
   border-radius: 16px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.dash-section--tasks {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .dash-section__head {
@@ -2243,13 +2256,18 @@
 
 .task-workspace {
   display: grid;
+  min-height: 0;
+  flex: 1;
   grid-template-columns: 164px minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
   gap: 12px;
 }
 
 .task-workspace__main {
+  display: flex;
   min-width: 0;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .task-workspace--no-scopes {
@@ -2278,7 +2296,9 @@
   position: sticky;
   top: 12px;
   display: flex;
-  max-height: clamp(280px, calc(100vh - 260px), 620px);
+  height: 100%;
+  min-height: 0;
+  max-height: none;
   flex-direction: column;
   gap: 4px;
   overflow: auto;
@@ -2470,8 +2490,10 @@
 
 .task-board {
   display: grid;
+  min-height: 320px;
+  flex: 1;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -2658,8 +2680,8 @@
 
 .task-column {
   display: flex;
-  height: clamp(320px, calc(100vh - 300px), 560px);
-  min-height: 0;
+  height: auto;
+  min-height: 320px;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
@@ -3933,7 +3955,9 @@
 }
 
 .task-table-wrap {
-  overflow-x: auto;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 13px;
 }
@@ -4110,6 +4134,8 @@
 
 .task-matrix-layout {
   display: grid;
+  min-height: 300px;
+  flex: 1;
   grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
   align-items: start;
   gap: 18px;
@@ -4117,7 +4143,10 @@
 
 .task-matrix {
   display: grid;
+  height: 100%;
+  min-height: 0;
   grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-rows: minmax(300px, 1fr) auto;
   grid-template-areas:
     "yaxis plot"
     "blank xaxis";
@@ -4148,7 +4177,7 @@
 .task-matrix__plot {
   grid-area: plot;
   position: relative;
-  height: clamp(300px, 48vh, 460px);
+  min-height: 300px;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   background: var(--surface);
@@ -4269,8 +4298,9 @@
 /* ---------- Task dependency graph ---------- */
 
 .task-graph-canvas {
-  height: clamp(430px, calc(100vh - 280px), 720px);
+  height: auto;
   min-height: 430px;
+  flex: 1;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 13px;
@@ -4588,6 +4618,13 @@
   }
 }
 
+@media (min-width: 1001px) {
+  .task-detail {
+    height: 100%;
+    max-height: none;
+  }
+}
+
 @media (max-width: 760px) {
   .task-workspace,
   .task-workspace--detail,
@@ -4611,6 +4648,10 @@
 
   .task-matrix-layout {
     grid-template-columns: 1fr;
+  }
+
+  .task-matrix {
+    height: auto;
   }
 }
 

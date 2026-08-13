@@ -59,16 +59,19 @@
 
 .combined-timer__main {
   position: relative;
+  display: grid;
+  grid-template-rows: 13px 48px 30px;
+  gap: 4px;
   min-width: 0;
 }
 
 .combined-timer__label {
   display: block;
-  margin-bottom: 4px;
   color: var(--muted);
   font-size: 10.5px;
   font-weight: 750;
   letter-spacing: 0.08em;
+  line-height: 13px;
   text-transform: uppercase;
 }
 
@@ -85,6 +88,7 @@
 
 .combined-timer__trigger {
   display: inline-flex;
+  height: 48px;
   align-items: flex-end;
   gap: 6px;
   padding: 0;
@@ -153,11 +157,10 @@
   color: var(--accent);
 }
 
-.combined-timer__interval {
+.combined-timer__interval-slot {
   display: flex;
-  margin-top: 9px;
-  flex-direction: column;
-  align-items: flex-start;
+  height: 30px;
+  align-items: flex-end;
 }
 
 .combined-dashboard-link {

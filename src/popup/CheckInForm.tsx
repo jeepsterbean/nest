@@ -11,6 +11,7 @@ import {
   setTaskStatus,
   setTaskWorking,
   submitMetricCheckIn,
+  submitPhaseCheckIn,
   submitPrimaryCheckIn,
 } from "../lib/commands";
 import type {
@@ -103,6 +104,201 @@ function ExpandIcon() {
   );
 }
 
+function PopupTopPanel({
+  timerDue,
+  countdown,
+  timerPickerOpen,
+  schedulingTimer,
+  selectedInterval,
+  nextCheckInMinutes,
+  phases,
+  selectedPhaseId,
+  onTimerPickerOpenChange,
+  onStartTimer,
+  onShiftInterval,
+  onShiftPhase,
+  onSelectPhase,
+  onOpenDashboard,
+}: {
+  timerDue: boolean;
+  countdown: string;
+  timerPickerOpen: boolean;
+  schedulingTimer: boolean;
+  selectedInterval: number;
+  nextCheckInMinutes: number;
+  phases: Phase[];
+  selectedPhaseId: number | null;
+  onTimerPickerOpenChange: (open: boolean) => void;
+  onStartTimer: (minutes: number) => void;
+  onShiftInterval: (direction: -1 | 1) => void;
+  onShiftPhase: (direction: -1 | 1) => void;
+  onSelectPhase: (phaseId: number) => void;
+  onOpenDashboard: () => void;
+}) {
+  const currentPhase = phases.find((phase) => phase.id === selectedPhaseId);
+
+  return (
+    <header className="combined-timer">
+      <div
+        className="combined-timer__main"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            onTimerPickerOpenChange(false);
+          }
+        }}
+      >
+        <span className="combined-timer__label">
+          {timerDue ? "Check-in due" : "Next check-in"}
+        </span>
+        {timerDue ? (
+          <strong
+            className="combined-timer__value"
+            role="timer"
+            aria-label="Check-in due"
+          >
+            {countdown}
+          </strong>
+        ) : (
+          <button
+            type="button"
+            className="combined-timer__trigger"
+            aria-haspopup="listbox"
+            aria-expanded={timerPickerOpen}
+            aria-label={`Timer ${countdown}. Start a new timer`}
+            disabled={schedulingTimer}
+            onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
+          >
+            <strong className="combined-timer__value" role="timer">
+              {countdown}
+            </strong>
+            <span aria-hidden="true">▾</span>
+          </button>
+        )}
+        {timerPickerOpen && !timerDue && (
+          <div
+            className="combined-timer__picker"
+            role="listbox"
+            aria-label="Start timer"
+          >
+            {CHECK_IN_INTERVALS.map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                role="option"
+                aria-selected={selectedInterval === minutes}
+                disabled={schedulingTimer}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onStartTimer(minutes)}
+              >
+                {minutes} min
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="combined-timer__interval-slot">
+          {timerDue && (
+            <div
+              className="combined-interval"
+              aria-label="Next check-in interval"
+            >
+              <button
+                type="button"
+                className="combined-interval__btn"
+                onClick={() => onShiftInterval(-1)}
+                disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
+                aria-label="Decrease interval"
+              >
+                −
+              </button>
+              <strong>{nextCheckInMinutes}m</strong>
+              <button
+                type="button"
+                className="combined-interval__btn"
+                onClick={() => onShiftInterval(1)}
+                disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
+                aria-label="Increase interval"
+              >
+                +
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <section className="combined-phase">
+        {phases.length === 0 ? (
+          <div className="combined-empty">No active phases</div>
+        ) : (
+          <div
+            className="phase-stepper"
+            role="group"
+            aria-label="Current phase"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              switch (event.key) {
+                case "ArrowLeft":
+                case "ArrowUp":
+                  event.preventDefault();
+                  onShiftPhase(-1);
+                  break;
+                case "ArrowRight":
+                case "ArrowDown":
+                  event.preventDefault();
+                  onShiftPhase(1);
+                  break;
+                case "Home":
+                  event.preventDefault();
+                  onSelectPhase(phases[0].id);
+                  break;
+                case "End":
+                  event.preventDefault();
+                  onSelectPhase(phases[phases.length - 1].id);
+                  break;
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="phase-stepper__chevron"
+              aria-label="Previous phase"
+              tabIndex={-1}
+              onClick={() => onShiftPhase(-1)}
+            >
+              <ChevronIcon />
+            </button>
+            <div className="phase-stepper__display">
+              <span
+                className="phase-stepper__name"
+                aria-live="polite"
+                title={currentPhase?.name}
+              >
+                {currentPhase ? currentPhase.name : "Pick a phase"}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="phase-stepper__chevron phase-stepper__chevron--next"
+              aria-label="Next phase"
+              tabIndex={-1}
+              onClick={() => onShiftPhase(1)}
+            >
+              <ChevronIcon />
+            </button>
+          </div>
+        )}
+      </section>
+      <button
+        type="button"
+        className="combined-dashboard-link"
+        aria-label="Open dashboard"
+        title="Open dashboard"
+        onClick={onOpenDashboard}
+      >
+        <ExpandIcon />
+      </button>
+    </header>
+  );
+}
+
 function CheckInForm({
   initialStep = "inputs",
   timerTriggered,
@@ -130,8 +326,10 @@ function CheckInForm({
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
+  const savedPhaseIdRef = useRef<number | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const submitRef = useRef<HTMLButtonElement | null>(null);
   const isLoaded = loaded !== null;
 
   const focusMetricRow = (idx: number) => {
@@ -154,6 +352,7 @@ function CheckInForm({
         setLoaded({ latestPhase, phases, metrics, tasks, schedule });
         setNextCheckInMinutes(normalizeInterval(schedule.intervalMinutes));
         setSelectedPhaseId(latestPhase?.phaseId ?? null);
+        savedPhaseIdRef.current = latestPhase?.phaseId ?? null;
         setRatings(
           Object.fromEntries(metrics.map((metric) => [metric.id, null])),
         );
@@ -181,7 +380,11 @@ function CheckInForm({
   }, [step, isLoaded]);
 
   const focusAfterRow = (idx: number) => {
-    focusMetricRow(idx + 1);
+    if (idx + 1 < (loaded?.metrics.length ?? 0)) {
+      focusMetricRow(idx + 1);
+    } else {
+      submitRef.current?.focus();
+    }
   };
 
   const setRating = (metricId: number, value: RatingValue) => {
@@ -280,9 +483,10 @@ function CheckInForm({
       const schedule = await submitPrimaryCheckIn(
         brainDumpText.trim() || null,
         selectedPhaseId !== loaded.latestPhase?.phaseId ? selectedPhaseId : null,
-        nextCheckInMinutes,
+        timerDue ? nextCheckInMinutes : null,
       );
       setLoaded((current) => (current ? { ...current, schedule } : current));
+      savedPhaseIdRef.current = selectedPhaseId;
       setNowMs(Date.now());
       setTimerStarted(true);
       onTimerStarted();
@@ -300,6 +504,14 @@ function CheckInForm({
     setSubmitting(true);
     setError(null);
     try {
+      if (
+        selectedPhaseId !== null &&
+        selectedPhaseId !== savedPhaseIdRef.current
+      ) {
+        await submitPhaseCheckIn(selectedPhaseId);
+        savedPhaseIdRef.current = selectedPhaseId;
+        await emit("check-in-submitted");
+      }
       const ratingsInput: MetricRatingInput[] = Object.entries(ratings)
         .filter(([, value]) => value !== null)
         .map(([metricId, value]) => ({
@@ -399,183 +611,40 @@ function CheckInForm({
     </section>
   );
 
-  const currentPhaseIndex = loaded.phases.findIndex(
-    (p) => p.id === selectedPhaseId,
-  );
-  const currentPhase =
-    currentPhaseIndex === -1 ? null : loaded.phases[currentPhaseIndex];
   const timerDue = timerTriggered && !timerStarted;
   const countdown = timerDue
     ? "0:00"
     : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
 
   return (
-    <form className="combined-checkin" onSubmit={onSubmit}>
-      <section className="combined-timer">
-        <div
-          className="combined-timer__main"
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) {
-              setTimerPickerOpen(false);
-            }
-          }}
-        >
-          {timerDue && (
-            <span className="combined-timer__label">Check-in due</span>
-          )}
-          {timerDue ? (
-            <strong
-              className="combined-timer__value"
-              role="timer"
-              aria-label="Check-in due"
-            >
-              {countdown}
-            </strong>
-          ) : (
-            <button
-              type="button"
-              className="combined-timer__trigger"
-              aria-haspopup="listbox"
-              aria-expanded={timerPickerOpen}
-              aria-label={`Timer ${countdown}. Start a new timer`}
-              disabled={schedulingTimer}
-              onClick={() => setTimerPickerOpen((open) => !open)}
-            >
-              <strong className="combined-timer__value" role="timer">
-                {countdown}
-              </strong>
-              <span aria-hidden="true">▾</span>
-            </button>
-          )}
-          {timerPickerOpen && !timerDue && (
-            <div
-              className="combined-timer__picker"
-              role="listbox"
-              aria-label="Start timer"
-            >
-              {CHECK_IN_INTERVALS.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  role="option"
-                  aria-selected={loaded.schedule.intervalMinutes === minutes}
-                  disabled={schedulingTimer}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => startTimer(minutes)}
-                >
-                  {minutes} min
-                </button>
-              ))}
-            </div>
-          )}
-          {timerDue && (
-            <div className="combined-timer__interval">
-              <div className="combined-interval" aria-label="Interval">
-                <button
-                  type="button"
-                  className="combined-interval__btn"
-                  onClick={() =>
-                    setNextCheckInMinutes((minutes) =>
-                      shiftInterval(minutes, -1),
-                    )
-                  }
-                  disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
-                  aria-label="Decrease interval"
-                >
-                  −
-                </button>
-                <strong>{nextCheckInMinutes}m</strong>
-                <button
-                  type="button"
-                  className="combined-interval__btn"
-                  onClick={() =>
-                    setNextCheckInMinutes((minutes) => shiftInterval(minutes, 1))
-                  }
-                  disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
-                  aria-label="Increase interval"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        {step === "inputs" && (
-          <section className="combined-phase">
-            {loaded.phases.length === 0 ? (
-              <div className="combined-empty">No active phases</div>
-            ) : (
-              <div
-                className="phase-stepper"
-                role="group"
-                aria-label="Current phase"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  switch (e.key) {
-                    case "ArrowLeft":
-                    case "ArrowUp":
-                      e.preventDefault();
-                      shiftPhase(-1);
-                      break;
-                    case "ArrowRight":
-                    case "ArrowDown":
-                      e.preventDefault();
-                      shiftPhase(1);
-                      break;
-                    case "Home":
-                      e.preventDefault();
-                      setSelectedPhaseId(loaded.phases[0].id);
-                      break;
-                    case "End":
-                      e.preventDefault();
-                      setSelectedPhaseId(
-                        loaded.phases[loaded.phases.length - 1].id,
-                      );
-                      break;
-                  }
-                }}
-              >
-                <button
-                  type="button"
-                  className="phase-stepper__chevron"
-                  aria-label="Previous phase"
-                  tabIndex={-1}
-                  onClick={() => shiftPhase(-1)}
-                >
-                  <ChevronIcon />
-                </button>
-                <div className="phase-stepper__display">
-                  <span
-                    className="phase-stepper__name"
-                    aria-live="polite"
-                    title={currentPhase?.name}
-                  >
-                    {currentPhase ? currentPhase.name : "Pick a phase"}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="phase-stepper__chevron phase-stepper__chevron--next"
-                  aria-label="Next phase"
-                  tabIndex={-1}
-                  onClick={() => shiftPhase(1)}
-                >
-                  <ChevronIcon />
-                </button>
-              </div>
-            )}
-          </section>
-        )}
-        <button
-          type="button"
-          className="combined-dashboard-link"
-          aria-label="Open dashboard"
-          title="Open dashboard"
-          onClick={openDashboard}
-        >
-          <ExpandIcon />
-        </button>
-      </section>
+    <form
+      className="combined-checkin"
+      onSubmit={onSubmit}
+      onKeyDownCapture={(e) => {
+        if (step === "metrics" && e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
+      }}
+    >
+      <PopupTopPanel
+        timerDue={timerDue}
+        countdown={countdown}
+        timerPickerOpen={timerPickerOpen}
+        schedulingTimer={schedulingTimer}
+        selectedInterval={loaded.schedule.intervalMinutes}
+        nextCheckInMinutes={nextCheckInMinutes}
+        phases={loaded.phases}
+        selectedPhaseId={selectedPhaseId}
+        onTimerPickerOpenChange={setTimerPickerOpen}
+        onStartTimer={(minutes) => void startTimer(minutes)}
+        onShiftInterval={(direction) =>
+          setNextCheckInMinutes((minutes) => shiftInterval(minutes, direction))
+        }
+        onShiftPhase={shiftPhase}
+        onSelectPhase={setSelectedPhaseId}
+        onOpenDashboard={() => void openDashboard()}
+      />
       <div
         className={`combined-checkin__scroll${
           step === "inputs" ? " combined-checkin__scroll--inputs" : ""
@@ -604,10 +673,7 @@ function CheckInForm({
             </section>
           </>
         ) : (
-          <>
-            {activeTaskView}
-
-            <section className="combined-section combined-section--panel">
+          <section className="combined-section combined-section--panel">
               <div className="combined-section__head">
                 <span className="combined-section__kicker">Metrics</span>
               </div>
@@ -688,8 +754,7 @@ function CheckInForm({
                   })}
                 </div>
               )}
-            </section>
-          </>
+          </section>
         )}
       </div>
 
@@ -699,7 +764,12 @@ function CheckInForm({
         </div>
       )}
       {step === "metrics" && (
-        <button type="submit" className="combined-submit" disabled={submitting}>
+        <button
+          ref={submitRef}
+          type="submit"
+          className="combined-submit"
+          disabled={submitting}
+        >
           {submitting
             ? "Saving..."
             : Object.values(ratings).some((value) => value !== null)

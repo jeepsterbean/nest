@@ -5,7 +5,7 @@ import { logClientEvent, scheduleNextCheckIn } from "../lib/commands";
 import CheckInForm from "./CheckInForm";
 import "./CheckInPopup.css";
 
-const BLUR_DISMISS_GRACE_MS = 750;
+const BLUR_DISMISS_GRACE_MS = 2_000;
 const DISMISS_INTERVAL_MINUTES = 5;
 const isTimerSummon = () => window.location.hash.includes("source=timer");
 const isMetricsSummon = () => window.location.hash.includes("step=metrics");

@@ -65,7 +65,7 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const POPUP_DISMISS_GRACE_MS: i64 = 750;
+const POPUP_DISMISS_GRACE_MS: i64 = 2_000;
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 #[cfg(target_os = "macos")]

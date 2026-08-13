@@ -63,10 +63,9 @@ fn write_primary_check_in(
     timer: &mut CheckInTimer,
     brain_dump_text: Option<String>,
     phase_id: Option<i64>,
-    minutes: i64,
+    minutes: Option<i64>,
     now: i64,
 ) -> Result<CheckInSchedule> {
-    let next_due_at = now + minutes * 60;
     let text = brain_dump_text
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
@@ -99,18 +98,22 @@ fn write_primary_check_in(
             params![now, phase_id],
         )?;
     }
-    tx.execute(
-        "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
-        params![minutes, next_due_at],
-    )?;
+    if let Some(minutes) = minutes {
+        tx.execute(
+            "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+            params![minutes, now + minutes * 60],
+        )?;
+    }
     tx.commit()?;
 
-    timer.interval_minutes = minutes;
-    timer.next_due_at = next_due_at;
-    timer.waiting_for_response = false;
+    if let Some(minutes) = minutes {
+        timer.interval_minutes = minutes;
+        timer.next_due_at = now + minutes * 60;
+        timer.waiting_for_response = false;
+    }
     Ok(CheckInSchedule {
-        interval_minutes: minutes,
-        next_due_at,
+        interval_minutes: timer.interval_minutes,
+        next_due_at: timer.next_due_at,
     })
 }
 
@@ -841,9 +844,9 @@ pub fn submit_primary_check_in(
     timer: State<'_, Mutex<CheckInTimer>>,
     brain_dump_text: Option<String>,
     phase_id: Option<i64>,
-    minutes: i64,
+    minutes: Option<i64>,
 ) -> Result<CheckInSchedule> {
-    let minutes = validate_check_in_interval(minutes)?;
+    let minutes = minutes.map(validate_check_in_interval).transpose()?;
     let mut conn = state.lock().unwrap();
     let mut timer = timer.lock().unwrap();
     write_primary_check_in(
@@ -1005,7 +1008,7 @@ mod tests {
             &mut timer,
             Some("Keep this only on success".into()),
             Some(999),
-            20,
+            Some(20),
             1_000,
         );
 
@@ -1024,5 +1027,45 @@ mod tests {
         assert_eq!(schedule.0, 15);
         assert_eq!(timer.interval_minutes, 15);
         assert!(timer.waiting_for_response);
+    }
+
+    #[test]
+    fn primary_check_in_preserves_a_running_timer_without_an_interval() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "UPDATE check_in_schedule SET interval_minutes = 20, next_due_at = 4_200 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        let mut timer = CheckInTimer {
+            interval_minutes: 20,
+            next_due_at: 4_200,
+            waiting_for_response: false,
+        };
+
+        let schedule = write_primary_check_in(
+            &mut conn,
+            &mut timer,
+            Some("Keep the current timer".into()),
+            None,
+            None,
+            1_000,
+        )
+        .unwrap();
+
+        let persisted: (i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(persisted, (20, 4_200));
+        assert_eq!(timer.interval_minutes, 20);
+        assert_eq!(timer.next_due_at, 4_200);
+        assert!(!timer.waiting_for_response);
+        assert_eq!(schedule.interval_minutes, 20);
+        assert_eq!(schedule.next_due_at, 4_200);
     }
 }

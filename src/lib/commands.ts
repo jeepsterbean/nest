@@ -179,7 +179,7 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
 export function submitPrimaryCheckIn(
   brainDumpText: string | null,
   phaseId: number | null,
-  minutes: number,
+  minutes: number | null,
 ): Promise<CheckInSchedule> {
   return invoke("submit_primary_check_in", {
     brainDumpText,
