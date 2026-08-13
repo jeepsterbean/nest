@@ -80,6 +80,7 @@ export type TaskStatusEvent = {
 export type CheckInSchedule = {
   intervalMinutes: number;
   nextDueAt: number;
+  waitingForResponse: boolean;
 };
 
 export type BrainDump = {

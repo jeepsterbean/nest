@@ -147,9 +147,6 @@ function PopupTopPanel({
           }
         }}
       >
-        <span className="combined-timer__label">
-          {timerDue ? "Check-in due" : "Next check-in"}
-        </span>
         {timerDue ? (
           <strong
             className="combined-timer__value"
@@ -301,16 +298,12 @@ function PopupTopPanel({
 
 function CheckInForm({
   initialStep = "inputs",
-  timerTriggered,
   onDismiss,
-  onTimerStarted,
   onComplete,
 }: {
   initialStep?: Step;
-  timerTriggered: boolean;
   onDismiss: () => Promise<void>;
-  onTimerStarted: () => void;
-  onComplete: () => Promise<void>;
+  onComplete: (minutes: number | null) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>(initialStep);
@@ -325,7 +318,6 @@ function CheckInForm({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const [timerStarted, setTimerStarted] = useState(false);
   const savedPhaseIdRef = useRef<number | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
@@ -488,8 +480,6 @@ function CheckInForm({
       setLoaded((current) => (current ? { ...current, schedule } : current));
       savedPhaseIdRef.current = selectedPhaseId;
       setNowMs(Date.now());
-      setTimerStarted(true);
-      onTimerStarted();
       await emit("check-in-submitted");
       setStep("metrics");
     } catch (e) {
@@ -522,7 +512,7 @@ function CheckInForm({
         await submitMetricCheckIn(ratingsInput);
         await emit("check-in-submitted");
       }
-      await onComplete();
+      await onComplete(timerDue ? nextCheckInMinutes : null);
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
@@ -611,7 +601,7 @@ function CheckInForm({
     </section>
   );
 
-  const timerDue = timerTriggered && !timerStarted;
+  const timerDue = loaded.schedule.waitingForResponse;
   const countdown = timerDue
     ? "0:00"
     : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
@@ -674,9 +664,6 @@ function CheckInForm({
           </>
         ) : (
           <section className="combined-section combined-section--panel">
-              <div className="combined-section__head">
-                <span className="combined-section__kicker">Metrics</span>
-              </div>
               {loaded.metrics.length === 0 ? (
                 <div className="combined-empty">
                   <span>No active metrics.</span>
@@ -763,20 +750,20 @@ function CheckInForm({
           {error}
         </div>
       )}
-      {step === "metrics" && (
-        <button
-          ref={submitRef}
-          type="submit"
-          className="combined-submit"
-          disabled={submitting}
-        >
-          {submitting
-            ? "Saving..."
+      <button
+        ref={submitRef}
+        type="submit"
+        className="combined-submit"
+        disabled={submitting}
+      >
+        {submitting
+          ? "Saving..."
+          : step === "inputs"
+            ? "Continue"
             : Object.values(ratings).some((value) => value !== null)
               ? "Submit"
               : "Skip"}
-        </button>
-      )}
+      </button>
     </form>
   );
 }

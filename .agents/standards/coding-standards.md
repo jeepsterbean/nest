@@ -12,7 +12,7 @@ preserves calm, private, flow-friendly behavior.
   same change and commit.
 - Update the closest authoritative documentation:
   - `CONTEXT.md` for product language and lifecycle invariants;
-  - `BACKLOG.md` when closing, parking, or adding durable open work;
+  - `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` when closing, parking, or adding durable open work;
   - `.impeccable.md` for design context that assistants should follow;
   - `.agents/standards/ui-standards.md` for frontend and UI conventions;
   - `README.md` for product status, setup, or repository-wide guidance;

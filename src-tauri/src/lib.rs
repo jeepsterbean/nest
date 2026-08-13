@@ -20,7 +20,7 @@ use std::{
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Emitter, Manager,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -107,6 +107,20 @@ fn summon_check_in(app: tauri::AppHandle, step: Option<String>) {
         _ => "#/popup",
     };
     summon_popup_with_route(&app, "popup", route);
+}
+
+#[tauri::command]
+fn close_check_in_popup(
+    app: tauri::AppHandle,
+    dismissed: bool,
+    minutes: Option<i64>,
+) -> error::Result<()> {
+    resolve_and_hide_popup(
+        &app,
+        dismissed,
+        minutes,
+        if dismissed { "dismissed" } else { "completed" },
+    )
 }
 
 // Cadence of the recurring check-in popup. At zero it pauses until the popup
@@ -340,6 +354,37 @@ fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
+fn hide_check_in_popup(app: &tauri::AppHandle, reason: &str) {
+    #[cfg(target_os = "macos")]
+    hide_popup_panel(app, reason);
+
+    #[cfg(not(target_os = "macos"))]
+    if let Some(window) = app.get_webview_window("popup") {
+        let _ = window.hide();
+    }
+}
+
+fn resolve_and_hide_popup(
+    app: &tauri::AppHandle,
+    dismissed: bool,
+    minutes: Option<i64>,
+    reason: &str,
+) -> error::Result<()> {
+    let resolved = {
+        let state = app.state::<Mutex<rusqlite::Connection>>();
+        let timer_state = app.state::<Mutex<CheckInTimer>>();
+        let conn = state.lock().unwrap();
+        let mut timer = timer_state.lock().unwrap();
+        commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
+    };
+
+    if resolved {
+        let _ = app.emit("check-in-submitted", ());
+    }
+    hide_check_in_popup(app, reason);
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
     let elapsed_ms = now_unix_millis() - POPUP_LAST_SUMMONED_AT_MS.load(Ordering::Relaxed);
@@ -350,7 +395,11 @@ fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
         return;
     }
 
-    hide_popup_panel(app, reason);
+    if let Err(error) = resolve_and_hide_popup(app, true, None, reason) {
+        append_diagnostic_log(format!(
+            "popup_dismiss_failed reason={reason} error={error}"
+        ));
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -378,7 +427,13 @@ fn install_popup_escape_monitor(app: tauri::AppHandle) {
                         }
                     });
                     if !dispatched {
-                        hide_popup_panel(&app, "escape_dispatch_failed");
+                        if let Err(error) =
+                            resolve_and_hide_popup(&app, true, None, "escape_dispatch_failed")
+                        {
+                            append_diagnostic_log(format!(
+                                "popup_dismiss_failed reason=escape_dispatch_failed error={error}"
+                            ));
+                        }
                     }
                     return ptr::null_mut();
                 }
@@ -590,6 +645,7 @@ pub fn run() {
             commands::update_brain_dump_title,
             commands::list_brain_dumps,
             summon_check_in,
+            close_check_in_popup,
             log_client_event,
         ])
         .run(tauri::generate_context!())

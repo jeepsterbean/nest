@@ -60,26 +60,16 @@
 .combined-timer__main {
   position: relative;
   display: grid;
-  grid-template-rows: 13px 48px 30px;
+  grid-template-rows: 61px 30px;
   gap: 4px;
   min-width: 0;
-}
-
-.combined-timer__label {
-  display: block;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  line-height: 13px;
-  text-transform: uppercase;
 }
 
 .combined-timer__value {
   display: block;
   color: var(--accent);
   font-family: var(--serif);
-  font-size: 52px;
+  font-size: 64px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
@@ -88,7 +78,7 @@
 
 .combined-timer__trigger {
   display: inline-flex;
-  height: 48px;
+  height: 61px;
   align-items: flex-end;
   gap: 6px;
   padding: 0;
@@ -207,21 +197,6 @@
 
 .combined-section--panel {
   min-height: 178px;
-}
-
-.combined-section__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.combined-section__kicker {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* ---------- "Now" hero ---------- */

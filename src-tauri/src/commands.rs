@@ -66,6 +66,7 @@ fn write_primary_check_in(
     minutes: Option<i64>,
     now: i64,
 ) -> Result<CheckInSchedule> {
+    let minutes = minutes.or_else(|| timer.waiting_for_response.then_some(timer.interval_minutes));
     let text = brain_dump_text
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
@@ -114,7 +115,38 @@ fn write_primary_check_in(
     Ok(CheckInSchedule {
         interval_minutes: timer.interval_minutes,
         next_due_at: timer.next_due_at,
+        waiting_for_response: timer.waiting_for_response,
     })
+}
+
+pub(crate) fn resolve_due_check_in(
+    conn: &Connection,
+    timer: &mut CheckInTimer,
+    dismissed: bool,
+    minutes: Option<i64>,
+    now: i64,
+) -> Result<bool> {
+    let minutes = if dismissed {
+        crate::check_in::MIN_MINUTES
+    } else {
+        minutes
+            .map(validate_check_in_interval)
+            .transpose()?
+            .unwrap_or(timer.interval_minutes)
+    };
+    if !timer.waiting_for_response {
+        return Ok(false);
+    }
+
+    let next_due_at = now + minutes * 60;
+    conn.execute(
+        "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+        params![minutes, next_due_at],
+    )?;
+    timer.interval_minutes = minutes;
+    timer.next_due_at = next_due_at;
+    timer.waiting_for_response = false;
+    Ok(true)
 }
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
@@ -805,6 +837,7 @@ pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<Ch
     Ok(CheckInSchedule {
         interval_minutes: timer.interval_minutes,
         next_due_at: timer.next_due_at,
+        waiting_for_response: timer.waiting_for_response,
     })
 }
 
@@ -835,6 +868,7 @@ pub fn schedule_next_check_in(
     Ok(CheckInSchedule {
         interval_minutes: minutes,
         next_due_at,
+        waiting_for_response: false,
     })
 }
 
@@ -942,7 +976,7 @@ pub fn list_brain_dumps(
 mod tests {
     use super::{
         change_task_status, change_task_working, normalize_optional_title, normalize_task_scope,
-        validate_task_status, write_primary_check_in,
+        resolve_due_check_in, validate_task_status, write_primary_check_in,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -1067,5 +1101,62 @@ mod tests {
         assert!(!timer.waiting_for_response);
         assert_eq!(schedule.interval_minutes, 20);
         assert_eq!(schedule.next_due_at, 4_200);
+    }
+
+    #[test]
+    fn due_primary_check_in_uses_the_current_interval_when_none_is_sent() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let mut timer = CheckInTimer {
+            interval_minutes: 20,
+            next_due_at: 900,
+            waiting_for_response: true,
+        };
+
+        let schedule = write_primary_check_in(
+            &mut conn,
+            &mut timer,
+            Some("Resolve even from a stale client".into()),
+            None,
+            None,
+            1_000,
+        )
+        .unwrap();
+
+        assert_eq!(schedule.next_due_at, 2_200);
+        assert!(!schedule.waiting_for_response);
+        assert!(!timer.waiting_for_response);
+    }
+
+    #[test]
+    fn closing_a_due_popup_resolves_once_by_outcome() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let mut timer = CheckInTimer {
+            interval_minutes: 20,
+            next_due_at: 900,
+            waiting_for_response: true,
+        };
+
+        assert!(resolve_due_check_in(&conn, &mut timer, true, None, 1_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 5);
+        assert_eq!(timer.next_due_at, 1_300);
+        assert!(!timer.waiting_for_response);
+
+        assert!(!resolve_due_check_in(&conn, &mut timer, false, Some(30), 1_001,).unwrap());
+        assert_eq!(timer.next_due_at, 1_300);
+
+        timer.interval_minutes = 20;
+        timer.waiting_for_response = true;
+        assert!(resolve_due_check_in(&conn, &mut timer, false, Some(30), 2_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 30);
+        assert_eq!(timer.next_due_at, 3_800);
+
+        timer.interval_minutes = 20;
+        timer.waiting_for_response = true;
+        assert!(resolve_due_check_in(&conn, &mut timer, false, None, 4_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 20);
+        assert_eq!(timer.next_due_at, 5_200);
+        assert!(!timer.waiting_for_response);
     }
 }

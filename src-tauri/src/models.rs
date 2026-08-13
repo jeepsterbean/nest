@@ -96,6 +96,7 @@ pub struct TaskStatusEvent {
 pub struct CheckInSchedule {
     pub interval_minutes: i64,
     pub next_due_at: i64,
+    pub waiting_for_response: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

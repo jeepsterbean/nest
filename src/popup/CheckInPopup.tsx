@@ -1,25 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { logClientEvent, scheduleNextCheckIn } from "../lib/commands";
+import { closeCheckInPopup, logClientEvent } from "../lib/commands";
 import CheckInForm from "./CheckInForm";
 import "./CheckInPopup.css";
 
 const BLUR_DISMISS_GRACE_MS = 2_000;
-const DISMISS_INTERVAL_MINUTES = 5;
-const isTimerSummon = () => window.location.hash.includes("source=timer");
 const isMetricsSummon = () => window.location.hash.includes("step=metrics");
 
 function CheckInPopup() {
   // Bumped on every summon so the form starts at the right step and reloads latest data.
   const [summonKey, setSummonKey] = useState(0);
-  const [timerTriggered, setTimerTriggered] = useState(isTimerSummon);
   const [initialStep, setInitialStep] = useState<"inputs" | "metrics">(() =>
     isMetricsSummon() ? "metrics" : "inputs",
   );
   const lastSummonedAtRef = useRef(Date.now());
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const timerTriggeredRef = useRef(timerTriggered);
   const resolvedRef = useRef(false);
 
   const focusBodyStart = () => {
@@ -32,10 +27,7 @@ function CheckInPopup() {
   };
 
   const resetSummon = () => {
-    const fromTimer = isTimerSummon();
-    timerTriggeredRef.current = fromTimer;
     resolvedRef.current = false;
-    setTimerTriggered(fromTimer);
     setInitialStep(isMetricsSummon() ? "metrics" : "inputs");
     lastSummonedAtRef.current = Date.now();
     setSummonKey((key) => key + 1);
@@ -46,28 +38,24 @@ function CheckInPopup() {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
     try {
-      if (timerTriggeredRef.current) {
-        await scheduleNextCheckIn(DISMISS_INTERVAL_MINUTES);
-        await emit("check-in-submitted");
-      }
+      await closeCheckInPopup(true);
     } catch (error) {
+      resolvedRef.current = false;
       await logClientEvent(
-        `check_in_dismiss_schedule_failed error=${String(error)}`,
+        `check_in_dismiss_failed error=${String(error)}`,
       ).catch(() => undefined);
-    } finally {
-      await getCurrentWebviewWindow().hide();
     }
   }, []);
 
-  const timerStarted = useCallback(() => {
-    timerTriggeredRef.current = false;
-  }, []);
-
-  const complete = useCallback(async () => {
+  const complete = useCallback(async (minutes: number | null) => {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
-    await emit("check-in-submitted").catch(() => undefined);
-    await getCurrentWebviewWindow().hide();
+    try {
+      await closeCheckInPopup(false, minutes);
+    } catch (error) {
+      resolvedRef.current = false;
+      throw error;
+    }
   }, []);
 
   // Escape dismisses a due check-in onto the five-minute fallback cadence.
@@ -101,11 +89,10 @@ function CheckInPopup() {
     const popup = getCurrentWebviewWindow();
     popup
       .onFocusChanged(({ payload: focused }) => {
-        if (focused) {
-          resetSummon();
-        } else if (
+        if (
+          !focused &&
           Date.now() - lastSummonedAtRef.current >
-          BLUR_DISMISS_GRACE_MS
+            BLUR_DISMISS_GRACE_MS
         ) {
           void dismiss();
         }
@@ -125,9 +112,7 @@ function CheckInPopup() {
       <div ref={bodyRef} className="checkin__body" key={summonKey}>
         <CheckInForm
           initialStep={initialStep}
-          timerTriggered={timerTriggered}
           onDismiss={dismiss}
-          onTimerStarted={timerStarted}
           onComplete={complete}
         />
       </div>

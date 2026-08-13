@@ -176,6 +176,13 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
   return invoke("schedule_next_check_in", { minutes });
 }
 
+export function closeCheckInPopup(
+  dismissed: boolean,
+  minutes: number | null = null,
+): Promise<void> {
+  return invoke("close_check_in_popup", { dismissed, minutes });
+}
+
 export function submitPrimaryCheckIn(
   brainDumpText: string | null,
   phaseId: number | null,
