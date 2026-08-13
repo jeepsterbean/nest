@@ -283,7 +283,7 @@
 }
 
 .now-group--up-next .now-task {
-  opacity: 0.42;
+  opacity: 0.62;
   transition: opacity 0.16s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -325,14 +325,20 @@
   background: color-mix(in srgb, var(--surface) 56%, transparent);
 }
 
+.now-task__title,
+.now-task--composer input {
+  font-family: inherit;
+  font-size: 1rem;
+  font-kerning: normal;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
 .now-task__title {
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -393,7 +399,7 @@
   padding: 0 8px;
   color: var(--accent);
   font-size: 11.5px;
-  font-weight: 750;
+  font-weight: 650;
   opacity: 0.8;
 }
 
@@ -412,10 +418,6 @@
   outline: 0;
   background: transparent;
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.25;
 }
 
 .now-task--composer input::placeholder {
