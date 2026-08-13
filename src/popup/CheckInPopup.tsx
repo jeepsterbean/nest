@@ -5,14 +5,10 @@ import CheckInForm from "./CheckInForm";
 import "./CheckInPopup.css";
 
 const BLUR_DISMISS_GRACE_MS = 2_000;
-const isMetricsSummon = () => window.location.hash.includes("step=metrics");
 
 function CheckInPopup() {
-  // Bumped on every summon so the form starts at the right step and reloads latest data.
+  // Bumped on every summon so the form starts on Phase with fresh data.
   const [summonKey, setSummonKey] = useState(0);
-  const [initialStep, setInitialStep] = useState<"inputs" | "metrics">(() =>
-    isMetricsSummon() ? "metrics" : "inputs",
-  );
   const lastSummonedAtRef = useRef(Date.now());
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const resolvedRef = useRef(false);
@@ -28,7 +24,6 @@ function CheckInPopup() {
 
   const resetSummon = () => {
     resolvedRef.current = false;
-    setInitialStep(isMetricsSummon() ? "metrics" : "inputs");
     lastSummonedAtRef.current = Date.now();
     setSummonKey((key) => key + 1);
     focusBodyStart();
@@ -110,11 +105,7 @@ function CheckInPopup() {
   return (
     <div className="checkin">
       <div ref={bodyRef} className="checkin__body" key={summonKey}>
-        <CheckInForm
-          initialStep={initialStep}
-          onDismiss={dismiss}
-          onComplete={complete}
-        />
+        <CheckInForm onDismiss={dismiss} onComplete={complete} />
       </div>
     </div>
   );

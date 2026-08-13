@@ -12,8 +12,8 @@ export type TimelineEvent =
 
 export type DayGroup = { key: number; label: string; events: TimelineEvent[] };
 
-// A popup submit writes phase, then metrics, then the brain dump within the
-// same second — rank them so the feed still reads newest-first.
+// Independent popup submissions can land in the same second; rank them so the
+// feed remains deterministic and easy to scan.
 const KIND_RANK: Record<TimelineEvent["kind"], number> = {
   dump: 0,
   metrics: 1,

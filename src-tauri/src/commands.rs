@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -58,67 +58,6 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
-fn write_primary_check_in(
-    conn: &mut Connection,
-    timer: &mut CheckInTimer,
-    brain_dump_text: Option<String>,
-    phase_id: Option<i64>,
-    minutes: Option<i64>,
-    now: i64,
-) -> Result<CheckInSchedule> {
-    let minutes = minutes.or_else(|| timer.waiting_for_response.then_some(timer.interval_minutes));
-    let text = brain_dump_text
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    let tx = conn.transaction()?;
-
-    if let Some(text) = text {
-        tx.execute(
-            "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, NULL, ?2)",
-            params![now, text],
-        )?;
-    }
-    if let Some(phase_id) = phase_id {
-        let inactive_since: Option<i64> = tx
-            .query_row(
-                "SELECT inactive_since FROM phases WHERE id = ?1",
-                params![phase_id],
-                |row| row.get(0),
-            )
-            .map_err(|error| match error {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    AppError::NotFound(format!("phase {phase_id}"))
-                }
-                error => error.into(),
-            })?;
-        if inactive_since.is_some() {
-            return Err(AppError::InvalidInput("phase is paused".into()));
-        }
-        tx.execute(
-            "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
-            params![now, phase_id],
-        )?;
-    }
-    if let Some(minutes) = minutes {
-        tx.execute(
-            "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
-            params![minutes, now + minutes * 60],
-        )?;
-    }
-    tx.commit()?;
-
-    if let Some(minutes) = minutes {
-        timer.interval_minutes = minutes;
-        timer.next_due_at = now + minutes * 60;
-        timer.waiting_for_response = false;
-    }
-    Ok(CheckInSchedule {
-        interval_minutes: timer.interval_minutes,
-        next_due_at: timer.next_due_at,
-        waiting_for_response: timer.waiting_for_response,
-    })
-}
-
 pub(crate) fn resolve_due_check_in(
     conn: &Connection,
     timer: &mut CheckInTimer,
@@ -147,6 +86,65 @@ pub(crate) fn resolve_due_check_in(
     timer.next_due_at = next_due_at;
     timer.waiting_for_response = false;
     Ok(true)
+}
+
+pub(crate) fn record_phase_if_changed(
+    conn: &Connection,
+    phase_id: Option<i64>,
+    now: i64,
+) -> Result<Option<PhaseCheckIn>> {
+    if let Some(phase_id) = phase_id {
+        let phase = fetch_phase(conn, phase_id)
+            .map_err(|_| AppError::NotFound(format!("phase {phase_id}")))?;
+        if phase.inactive_since.is_some() {
+            return Err(AppError::InvalidInput("phase is paused".into()));
+        }
+    }
+
+    let latest: Option<Option<i64>> = conn
+        .query_row(
+            "SELECT phase_id FROM phase_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if latest == Some(phase_id) {
+        return Ok(None);
+    }
+
+    conn.execute(
+        "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
+        params![now, phase_id],
+    )?;
+    Ok(Some(PhaseCheckIn {
+        id: conn.last_insert_rowid(),
+        created_at: now,
+        phase_id,
+        phase_label: None,
+    }))
+}
+
+fn fetch_latest_phase_check_in(
+    conn: &Connection,
+    include_idle: bool,
+) -> Result<Option<PhaseCheckIn>> {
+    let query = if include_idle {
+        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
+         ORDER BY created_at DESC, id DESC LIMIT 1"
+    } else {
+        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
+         WHERE phase_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1"
+    };
+    conn.query_row(query, [], |row| {
+        Ok(PhaseCheckIn {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            phase_id: row.get(2)?,
+            phase_label: row.get(3)?,
+        })
+    })
+    .optional()
+    .map_err(Into::into)
 }
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
@@ -764,47 +762,19 @@ pub fn delete_metric_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> R
 #[tauri::command]
 pub fn submit_phase_check_in(
     state: State<'_, Mutex<Connection>>,
-    phase_id: i64,
-) -> Result<PhaseCheckIn> {
+    phase_id: Option<i64>,
+) -> Result<Option<PhaseCheckIn>> {
     let conn = state.lock().unwrap();
-    let phase = fetch_phase(&conn, phase_id)
-        .map_err(|_| AppError::NotFound(format!("phase {phase_id}")))?;
-    if phase.inactive_since.is_some() {
-        return Err(AppError::InvalidInput("phase is paused".into()));
-    }
-
-    let now = now_unix_secs();
-    conn.execute(
-        "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
-        params![now, phase_id],
-    )?;
-    Ok(PhaseCheckIn {
-        id: conn.last_insert_rowid(),
-        created_at: now,
-        phase_id,
-        phase_label: None,
-    })
+    record_phase_if_changed(&conn, phase_id, now_unix_secs())
 }
 
 #[tauri::command]
-pub fn latest_phase_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<PhaseCheckIn>> {
+pub fn latest_phase_check_in(
+    state: State<'_, Mutex<Connection>>,
+    include_idle: bool,
+) -> Result<Option<PhaseCheckIn>> {
     let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at, phase_id, phase_label \
-         FROM phase_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
-    )?;
-    match stmt.query_row([], |row| {
-        Ok(PhaseCheckIn {
-            id: row.get(0)?,
-            created_at: row.get(1)?,
-            phase_id: row.get(2)?,
-            phase_label: row.get(3)?,
-        })
-    }) {
-        Ok(check_in) => Ok(Some(check_in)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
+    fetch_latest_phase_check_in(&conn, include_idle)
 }
 
 #[tauri::command]
@@ -870,27 +840,6 @@ pub fn schedule_next_check_in(
         next_due_at,
         waiting_for_response: false,
     })
-}
-
-#[tauri::command]
-pub fn submit_primary_check_in(
-    state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<CheckInTimer>>,
-    brain_dump_text: Option<String>,
-    phase_id: Option<i64>,
-    minutes: Option<i64>,
-) -> Result<CheckInSchedule> {
-    let minutes = minutes.map(validate_check_in_interval).transpose()?;
-    let mut conn = state.lock().unwrap();
-    let mut timer = timer.lock().unwrap();
-    write_primary_check_in(
-        &mut conn,
-        &mut timer,
-        brain_dump_text,
-        phase_id,
-        minutes,
-        now_unix_secs(),
-    )
 }
 
 #[tauri::command]
@@ -975,8 +924,9 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        change_task_status, change_task_working, normalize_optional_title, normalize_task_scope,
-        resolve_due_check_in, validate_task_status, write_primary_check_in,
+        change_task_status, change_task_working, fetch_latest_phase_check_in,
+        normalize_optional_title, normalize_task_scope, record_phase_if_changed,
+        resolve_due_check_in, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -1028,104 +978,40 @@ mod tests {
     }
 
     #[test]
-    fn primary_check_in_rolls_back_when_a_later_write_fails() {
+    fn phase_checkpoints_include_idle_and_skip_consecutive_duplicates() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
-        let mut timer = CheckInTimer {
-            interval_minutes: 15,
-            next_due_at: 900,
-            waiting_for_response: true,
-        };
+        assert!(record_phase_if_changed(&conn, Some(3), 100)
+            .unwrap()
+            .is_some());
+        assert!(record_phase_if_changed(&conn, Some(3), 110)
+            .unwrap()
+            .is_none());
+        assert!(record_phase_if_changed(&conn, None, 120).unwrap().is_some());
+        assert!(record_phase_if_changed(&conn, None, 130).unwrap().is_none());
 
-        let result = write_primary_check_in(
-            &mut conn,
-            &mut timer,
-            Some("Keep this only on success".into()),
-            Some(999),
-            Some(20),
-            1_000,
+        let rows: Vec<Option<i64>> = conn
+            .prepare("SELECT phase_id FROM phase_check_ins ORDER BY id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(rows, vec![Some(3), None]);
+        assert_eq!(
+            fetch_latest_phase_check_in(&conn, true)
+                .unwrap()
+                .unwrap()
+                .phase_id,
+            None
         );
-
-        assert!(result.is_err());
-        let dumps: i64 = conn
-            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
-            .unwrap();
-        let schedule: (i64, i64) = conn
-            .query_row(
-                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(dumps, 0);
-        assert_eq!(schedule.0, 15);
-        assert_eq!(timer.interval_minutes, 15);
-        assert!(timer.waiting_for_response);
-    }
-
-    #[test]
-    fn primary_check_in_preserves_a_running_timer_without_an_interval() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        conn.execute(
-            "UPDATE check_in_schedule SET interval_minutes = 20, next_due_at = 4_200 WHERE id = 1",
-            [],
-        )
-        .unwrap();
-        let mut timer = CheckInTimer {
-            interval_minutes: 20,
-            next_due_at: 4_200,
-            waiting_for_response: false,
-        };
-
-        let schedule = write_primary_check_in(
-            &mut conn,
-            &mut timer,
-            Some("Keep the current timer".into()),
-            None,
-            None,
-            1_000,
-        )
-        .unwrap();
-
-        let persisted: (i64, i64) = conn
-            .query_row(
-                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(persisted, (20, 4_200));
-        assert_eq!(timer.interval_minutes, 20);
-        assert_eq!(timer.next_due_at, 4_200);
-        assert!(!timer.waiting_for_response);
-        assert_eq!(schedule.interval_minutes, 20);
-        assert_eq!(schedule.next_due_at, 4_200);
-    }
-
-    #[test]
-    fn due_primary_check_in_uses_the_current_interval_when_none_is_sent() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        let mut timer = CheckInTimer {
-            interval_minutes: 20,
-            next_due_at: 900,
-            waiting_for_response: true,
-        };
-
-        let schedule = write_primary_check_in(
-            &mut conn,
-            &mut timer,
-            Some("Resolve even from a stale client".into()),
-            None,
-            None,
-            1_000,
-        )
-        .unwrap();
-
-        assert_eq!(schedule.next_due_at, 2_200);
-        assert!(!schedule.waiting_for_response);
-        assert!(!timer.waiting_for_response);
+        assert_eq!(
+            fetch_latest_phase_check_in(&conn, false)
+                .unwrap()
+                .unwrap()
+                .phase_id,
+            Some(3)
+        );
     }
 
     #[test]

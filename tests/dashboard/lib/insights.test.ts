@@ -102,4 +102,13 @@ describe("phaseDurations", () => {
       { phaseId: 1, seconds: 20 },
     ]);
   });
+
+  it("stops carrying a phase when an idle checkpoint is recorded", () => {
+    expect(
+      phaseDurations(
+        [phase(1, 1, 10), { ...phase(2, 1, 60), phaseId: null }],
+        { from: 40, to: 100 },
+      ),
+    ).toEqual([{ phaseId: 1, seconds: 20 }]);
+  });
 });

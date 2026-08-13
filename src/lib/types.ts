@@ -37,7 +37,7 @@ export type Phase = {
 export type PhaseCheckIn = {
   id: number;
   createdAt: number;
-  phaseId: number;
+  phaseId: number | null;
   phaseLabel: string | null;
 };
 

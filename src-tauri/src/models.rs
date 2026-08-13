@@ -53,7 +53,7 @@ pub struct Phase {
 pub struct PhaseCheckIn {
     pub id: i64,
     pub created_at: i64,
-    pub phase_id: i64,
+    pub phase_id: Option<i64>,
     pub phase_label: Option<String>,
 }
 

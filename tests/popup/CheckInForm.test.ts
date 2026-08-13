@@ -9,12 +9,8 @@ const props: ComponentProps<typeof PopupTopPanel> = {
   timerPickerOpen: true,
   schedulingTimer: false,
   selectedInterval: 15,
-  phases: [],
-  selectedPhaseId: null,
   onTimerPickerOpenChange: vi.fn(),
   onSelectInterval: vi.fn(),
-  onShiftPhase: vi.fn(),
-  onSelectPhase: vi.fn(),
   onOpenDashboard: vi.fn(),
 };
 

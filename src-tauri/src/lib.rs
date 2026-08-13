@@ -101,12 +101,8 @@ fn log_client_event(message: String) {
 }
 
 #[tauri::command]
-fn summon_check_in(app: tauri::AppHandle, step: Option<String>) {
-    let route = match step.as_deref() {
-        Some("metrics") => "#/popup?step=metrics",
-        _ => "#/popup",
-    };
-    summon_popup_with_route(&app, "popup", route);
+fn summon_check_in(app: tauri::AppHandle) {
+    summon_popup_with_route(&app, "popup", "#/popup");
 }
 
 #[tauri::command]
@@ -370,15 +366,20 @@ fn resolve_and_hide_popup(
     minutes: Option<i64>,
     reason: &str,
 ) -> error::Result<()> {
-    let resolved = {
+    let changed = {
         let state = app.state::<Mutex<rusqlite::Connection>>();
         let timer_state = app.state::<Mutex<CheckInTimer>>();
         let conn = state.lock().unwrap();
         let mut timer = timer_state.lock().unwrap();
-        commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
+        let now = now_unix_secs();
+        let phase_changed =
+            dismissed && commands::record_phase_if_changed(&conn, None, now)?.is_some();
+        let timer_changed =
+            commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now)?;
+        phase_changed || timer_changed
     };
 
-    if resolved {
+    if changed {
         let _ = app.emit("check-in-submitted", ());
     }
     hide_check_in_popup(app, reason);
@@ -640,7 +641,6 @@ pub fn run() {
             commands::list_phase_check_ins,
             commands::get_check_in_schedule,
             commands::schedule_next_check_in,
-            commands::submit_primary_check_in,
             commands::submit_brain_dump,
             commands::update_brain_dump_title,
             commands::list_brain_dumps,

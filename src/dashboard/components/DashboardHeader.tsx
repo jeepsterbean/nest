@@ -77,9 +77,11 @@ export function DashboardHeader({
   );
 
   const currentPhaseName = latestPhase
-    ? (phases.find((phase) => phase.id === latestPhase.phaseId)?.name ??
-      latestPhase.phaseLabel ??
-      `Phase ${latestPhase.phaseId}`)
+    ? latestPhase.phaseId === null
+      ? "Idle"
+      : (phases.find((phase) => phase.id === latestPhase.phaseId)?.name ??
+        latestPhase.phaseLabel ??
+        `Phase ${latestPhase.phaseId}`)
     : null;
   const currentPhaseDuration = latestPhase
     ? formatElapsedMinutes(latestPhase.createdAt, nowMs)
@@ -145,7 +147,7 @@ export function DashboardHeader({
     if (pulseOpening) return;
     setPulseOpening(true);
     try {
-      await summonCheckIn("metrics");
+      await summonCheckIn();
     } catch (e) {
       setError(String(e));
     } finally {

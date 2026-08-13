@@ -487,6 +487,26 @@ WHERE NOT EXISTS (
 );
 "#,
         ),
+        // An unanswered phase prompt is an explicit idle checkpoint. NULL is
+        // distinct from no row: it ends the previously active phase.
+        M::up(
+            r#"
+CREATE TABLE phase_check_ins_with_idle (
+  id          INTEGER PRIMARY KEY,
+  created_at  INTEGER NOT NULL,
+  phase_id    INTEGER REFERENCES phases(id),
+  phase_label TEXT
+);
+
+INSERT INTO phase_check_ins_with_idle (id, created_at, phase_id, phase_label)
+SELECT id, created_at, phase_id, phase_label FROM phase_check_ins;
+
+DROP TABLE phase_check_ins;
+ALTER TABLE phase_check_ins_with_idle RENAME TO phase_check_ins;
+CREATE INDEX idx_phase_check_ins_created_at ON phase_check_ins(created_at);
+CREATE INDEX idx_phase_check_ins_phase_id ON phase_check_ins(phase_id);
+"#,
+        ),
     ])
 }
 
@@ -507,6 +527,20 @@ CREATE TABLE task_check_ins (
   created_at            INTEGER NOT NULL,
   task                  TEXT NOT NULL,
   next_check_in_minutes INTEGER NOT NULL
+);
+
+CREATE TABLE phases (
+  id             INTEGER PRIMARY KEY,
+  name           TEXT NOT NULL UNIQUE,
+  created_at     INTEGER NOT NULL,
+  inactive_since INTEGER
+);
+
+CREATE TABLE phase_check_ins (
+  id          INTEGER PRIMARY KEY,
+  created_at  INTEGER NOT NULL,
+  phase_id    INTEGER NOT NULL REFERENCES phases(id),
+  phase_label TEXT
 );
 "#,
         )

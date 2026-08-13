@@ -152,13 +152,15 @@ export function deleteMetricCheckIn(id: number): Promise<void> {
 }
 
 export function submitPhaseCheckIn(
-  phaseId: number,
-): Promise<PhaseCheckIn> {
+  phaseId: number | null,
+): Promise<PhaseCheckIn | null> {
   return invoke("submit_phase_check_in", { phaseId });
 }
 
-export function latestPhaseCheckIn(): Promise<PhaseCheckIn | null> {
-  return invoke("latest_phase_check_in");
+export function latestPhaseCheckIn(
+  includeIdle = true,
+): Promise<PhaseCheckIn | null> {
+  return invoke("latest_phase_check_in", { includeIdle });
 }
 
 export function listPhaseCheckIns(
@@ -183,20 +185,8 @@ export function closeCheckInPopup(
   return invoke("close_check_in_popup", { dismissed, minutes });
 }
 
-export function submitPrimaryCheckIn(
-  brainDumpText: string | null,
-  phaseId: number | null,
-  minutes: number | null,
-): Promise<CheckInSchedule> {
-  return invoke("submit_primary_check_in", {
-    brainDumpText,
-    phaseId,
-    minutes,
-  });
-}
-
-export function summonCheckIn(step?: "metrics"): Promise<void> {
-  return invoke("summon_check_in", { step: step ?? null });
+export function summonCheckIn(): Promise<void> {
+  return invoke("summon_check_in");
 }
 
 export function submitBrainDump(

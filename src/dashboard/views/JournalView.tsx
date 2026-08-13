@@ -65,9 +65,11 @@ export function JournalView() {
         );
       case "phase": {
         const name =
-          phaseById(ev.checkIn.phaseId)?.name ??
-          ev.checkIn.phaseLabel ??
-          `Phase ${ev.checkIn.phaseId}`;
+          ev.checkIn.phaseId === null
+            ? "Idle"
+            : (phaseById(ev.checkIn.phaseId)?.name ??
+              ev.checkIn.phaseLabel ??
+              `Phase ${ev.checkIn.phaseId}`);
         return (
           <li key={`phase-${ev.checkIn.id}`} className="event event--phase">
             <div className="event__meta">
