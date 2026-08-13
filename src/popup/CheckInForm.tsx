@@ -25,6 +25,7 @@ import type {
   Task,
 } from "../lib/types";
 import { formatCheckInCountdown } from "../dashboard/lib/time";
+import { groupTasksByStatus } from "../dashboard/lib/tasks";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
 
@@ -264,6 +265,7 @@ function CheckInForm({
   const [ratings, setRatings] = useState<Record<number, RatingValue | null>>({});
   const [brainDumpText, setBrainDumpText] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -389,7 +391,7 @@ function CheckInForm({
 
   const updateTaskStatus = async (
     task: Task,
-    status: "paused" | "completed",
+    status: "active" | "paused" | "completed",
   ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
@@ -439,8 +441,8 @@ function CheckInForm({
         current ? { ...current, tasks: [...current.tasks, task] } : current,
       );
       setTaskTitle("");
+      setAddingTask(false);
       await emit("check-in-submitted");
-      requestAnimationFrame(() => taskInputRef.current?.focus());
     } catch (e) {
       setError(String(e));
     } finally {
@@ -529,85 +531,137 @@ function CheckInForm({
     );
   }
 
-  const activeTasks = loaded.tasks
-    .filter((task) => task.status === "active")
-    .sort(
-      (a, b) =>
-        Number(b.workingNow) - Number(a.workingNow) ||
-        b.updatedAt - a.updatedAt ||
-        b.id - a.id,
-    );
-  const activeTaskView = (
-    <section className="now-card" aria-label="Active tasks">
-      {activeTasks.length === 0 ? (
-        <p className="now-card__empty">Nothing active right now.</p>
-      ) : (
-        <ul className="now-list">
-          {activeTasks.map((task) => (
-            <li
-              className={`now-task${
-                task.workingNow ? " now-task--working is-working-now" : ""
-              }`}
-              key={task.id}
+  const tasksByStatus = groupTasksByStatus(loaded.tasks);
+  const activeTasks = tasksByStatus.active;
+  const upNextTasks = tasksByStatus.up_next;
+  const taskView = (
+    <section className="now-card" aria-label="Tasks">
+      <div className="now-card__tasks">
+        <section className="now-group" aria-labelledby="popup-active-tasks">
+          <header className="now-group__head">
+            <h2 id="popup-active-tasks">Active</h2>
+            <span>{activeTasks.length}</span>
+            <button
+              type="button"
+              className="now-group__add"
+              aria-label="Add active task"
+              aria-expanded={addingTask}
+              title="Add active task"
+              onClick={() => {
+                setAddingTask((open) => !open);
+                if (!addingTask) {
+                  requestAnimationFrame(() => taskInputRef.current?.focus());
+                }
+              }}
             >
-              <span className="now-task__title">
-                {task.title}
-              </span>
-              <div className="now-task__actions">
-                <WorkingToggle
-                  task={task}
-                  compact
-                  disabled={submitting}
-                  onToggle={(working) => updateTaskWorking(task, working)}
-                />
-                <button
-                  type="button"
-                  aria-label={`Pause ${task.title}`}
-                  title="Pause"
-                  onClick={() => updateTaskStatus(task, "paused")}
-                  disabled={submitting}
+              +
+            </button>
+          </header>
+          {addingTask && (
+            <div className="now-task now-task--composer">
+              <input
+                ref={taskInputRef}
+                aria-label="New active task"
+                autoComplete="off"
+                disabled={submitting}
+                placeholder="Add an active task…"
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void addTask();
+                  } else if (event.key === "Escape") {
+                    setAddingTask(false);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                aria-label="Create task"
+                title="Create task"
+                disabled={submitting || !taskTitle.trim()}
+                onClick={() => void addTask()}
+              >
+                +
+              </button>
+            </div>
+          )}
+          {activeTasks.length === 0 ? (
+            <p className="now-card__empty">Nothing active right now.</p>
+          ) : (
+            <ul className="now-list">
+              {activeTasks.map((task) => (
+                <li
+                  className={`now-task${
+                    task.workingNow
+                      ? " now-task--working is-working-now"
+                      : ""
+                  }`}
+                  key={task.id}
                 >
-                  <StopIcon />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Complete ${task.title}`}
-                  title="Complete"
-                  onClick={() => updateTaskStatus(task, "completed")}
-                  disabled={submitting}
-                >
-                  <CheckIcon />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="now-card__composer">
-        <input
-          ref={taskInputRef}
-          aria-label="New active task"
-          autoComplete="off"
-          disabled={submitting}
-          placeholder="Add an active task…"
-          value={taskTitle}
-          onChange={(event) => setTaskTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              void addTask();
-            }
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Add task"
-          title="Add task"
-          disabled={submitting || !taskTitle.trim()}
-          onClick={() => void addTask()}
-        >
-          +
-        </button>
+                  <span className="now-task__title">{task.title}</span>
+                  <div className="now-task__actions">
+                    <WorkingToggle
+                      task={task}
+                      compact
+                      disabled={submitting}
+                      onToggle={(working) => updateTaskWorking(task, working)}
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Pause ${task.title}`}
+                      title="Pause"
+                      onClick={() => updateTaskStatus(task, "paused")}
+                      disabled={submitting}
+                    >
+                      <StopIcon />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Complete ${task.title}`}
+                      title="Complete"
+                      onClick={() => updateTaskStatus(task, "completed")}
+                      disabled={submitting}
+                    >
+                      <CheckIcon />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        {upNextTasks.length > 0 && (
+          <section
+            className="now-group now-group--up-next"
+            aria-labelledby="popup-up-next-tasks"
+          >
+            <header className="now-group__head">
+              <h2 id="popup-up-next-tasks">Up next</h2>
+              <span>{upNextTasks.length}</span>
+            </header>
+            <ul className="now-list">
+              {upNextTasks.map((task) => (
+                <li className="now-task now-task--up-next" key={task.id}>
+                  <span className="now-task__title">{task.title}</span>
+                  <div className="now-task__actions">
+                    <button
+                      type="button"
+                      className="now-task__activate"
+                      aria-label={`Activate ${task.title}`}
+                      title="Move to Active"
+                      onClick={() => updateTaskStatus(task, "active")}
+                      disabled={submitting}
+                    >
+                      Activate
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </section>
   );
@@ -651,7 +705,7 @@ function CheckInForm({
       >
         {step === "inputs" ? (
           <>
-            {activeTaskView}
+            {taskView}
 
             <section className="combined-section combined-section--brain-dump">
               <textarea
