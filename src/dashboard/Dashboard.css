@@ -747,6 +747,20 @@
   overflow: hidden;
 }
 
+@media (min-width: 861px) {
+  .dashboard__inner--overview {
+    height: 100vh;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .overview-panels {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
 .overview-dump-toolbar {
   display: flex;
   flex: none;

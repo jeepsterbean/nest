@@ -49,7 +49,7 @@ function DashboardInner() {
 
   return (
     <main className="dashboard">
-      <div className="dashboard__inner">
+      <div className={`dashboard__inner dashboard__inner--${view}`}>
         <DashboardHeader
           view={view}
           onSelectView={setView}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
+  createTask,
   getCheckInSchedule,
   latestPhaseCheckIn,
   listMetrics,
@@ -27,10 +28,6 @@ import { formatCheckInCountdown } from "../dashboard/lib/time";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
 
-const DEFAULT_INTERVAL_MINUTES = 15;
-const MIN_INTERVAL_MINUTES = 5;
-const MAX_INTERVAL_MINUTES = 30;
-const INTERVAL_STEP_MINUTES = 5;
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
 type Step = "inputs" | "metrics";
@@ -41,15 +38,6 @@ type LoadState = {
   tasks: Task[];
   schedule: CheckInSchedule;
 };
-
-const normalizeInterval = (minutes: number) => {
-  const stepped =
-    Math.round(minutes / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES;
-  return Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, stepped));
-};
-
-const shiftInterval = (minutes: number, direction: -1 | 1) =>
-  normalizeInterval(minutes + direction * INTERVAL_STEP_MINUTES);
 
 function StopIcon() {
   return (
@@ -104,18 +92,16 @@ function ExpandIcon() {
   );
 }
 
-function PopupTopPanel({
+export function PopupTopPanel({
   timerDue,
   countdown,
   timerPickerOpen,
   schedulingTimer,
   selectedInterval,
-  nextCheckInMinutes,
   phases,
   selectedPhaseId,
   onTimerPickerOpenChange,
-  onStartTimer,
-  onShiftInterval,
+  onSelectInterval,
   onShiftPhase,
   onSelectPhase,
   onOpenDashboard,
@@ -125,12 +111,10 @@ function PopupTopPanel({
   timerPickerOpen: boolean;
   schedulingTimer: boolean;
   selectedInterval: number;
-  nextCheckInMinutes: number;
   phases: Phase[];
   selectedPhaseId: number | null;
   onTimerPickerOpenChange: (open: boolean) => void;
-  onStartTimer: (minutes: number) => void;
-  onShiftInterval: (direction: -1 | 1) => void;
+  onSelectInterval: (minutes: number) => void;
   onShiftPhase: (direction: -1 | 1) => void;
   onSelectPhase: (phaseId: number) => void;
   onOpenDashboard: () => void;
@@ -147,35 +131,29 @@ function PopupTopPanel({
           }
         }}
       >
-        {timerDue ? (
-          <strong
-            className="combined-timer__value"
-            role="timer"
-            aria-label="Check-in due"
-          >
+        <button
+          type="button"
+          className="combined-timer__trigger"
+          aria-haspopup="listbox"
+          aria-expanded={timerPickerOpen}
+          aria-label={
+            timerDue
+              ? "Check-in due. Change next check-in interval"
+              : `Timer ${countdown}. Start a new timer`
+          }
+          disabled={schedulingTimer}
+          onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
+        >
+          <strong className="combined-timer__value" role="timer">
             {countdown}
           </strong>
-        ) : (
-          <button
-            type="button"
-            className="combined-timer__trigger"
-            aria-haspopup="listbox"
-            aria-expanded={timerPickerOpen}
-            aria-label={`Timer ${countdown}. Start a new timer`}
-            disabled={schedulingTimer}
-            onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
-          >
-            <strong className="combined-timer__value" role="timer">
-              {countdown}
-            </strong>
-            <span aria-hidden="true">▾</span>
-          </button>
-        )}
-        {timerPickerOpen && !timerDue && (
+          <span aria-hidden="true">▾</span>
+        </button>
+        {timerPickerOpen && (
           <div
             className="combined-timer__picker"
             role="listbox"
-            aria-label="Start timer"
+            aria-label={timerDue ? "Next check-in interval" : "Start timer"}
           >
             {CHECK_IN_INTERVALS.map((minutes) => (
               <button
@@ -185,41 +163,13 @@ function PopupTopPanel({
                 aria-selected={selectedInterval === minutes}
                 disabled={schedulingTimer}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onStartTimer(minutes)}
+                onClick={() => onSelectInterval(minutes)}
               >
                 {minutes} min
               </button>
             ))}
           </div>
         )}
-        <div className="combined-timer__interval-slot">
-          {timerDue && (
-            <div
-              className="combined-interval"
-              aria-label="Next check-in interval"
-            >
-              <button
-                type="button"
-                className="combined-interval__btn"
-                onClick={() => onShiftInterval(-1)}
-                disabled={nextCheckInMinutes <= MIN_INTERVAL_MINUTES}
-                aria-label="Decrease interval"
-              >
-                −
-              </button>
-              <strong>{nextCheckInMinutes}m</strong>
-              <button
-                type="button"
-                className="combined-interval__btn"
-                onClick={() => onShiftInterval(1)}
-                disabled={nextCheckInMinutes >= MAX_INTERVAL_MINUTES}
-                aria-label="Increase interval"
-              >
-                +
-              </button>
-            </div>
-          )}
-        </div>
       </div>
       <section className="combined-phase">
         {phases.length === 0 ? (
@@ -307,12 +257,13 @@ function CheckInForm({
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [step, setStep] = useState<Step>(initialStep);
-  const [nextCheckInMinutes, setNextCheckInMinutes] = useState(
-    DEFAULT_INTERVAL_MINUTES,
+  const [nextCheckInMinutes, setNextCheckInMinutes] = useState<number | null>(
+    null,
   );
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [ratings, setRatings] = useState<Record<number, RatingValue | null>>({});
   const [brainDumpText, setBrainDumpText] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -321,6 +272,7 @@ function CheckInForm({
   const savedPhaseIdRef = useRef<number | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const taskInputRef = useRef<HTMLInputElement | null>(null);
   const submitRef = useRef<HTMLButtonElement | null>(null);
   const isLoaded = loaded !== null;
 
@@ -342,7 +294,7 @@ function CheckInForm({
       .then(([latestPhase, phases, metrics, tasks, schedule]) => {
         if (cancelled) return;
         setLoaded({ latestPhase, phases, metrics, tasks, schedule });
-        setNextCheckInMinutes(normalizeInterval(schedule.intervalMinutes));
+        setNextCheckInMinutes(schedule.intervalMinutes);
         setSelectedPhaseId(latestPhase?.phaseId ?? null);
         savedPhaseIdRef.current = latestPhase?.phaseId ?? null;
         setRatings(
@@ -426,6 +378,15 @@ function CheckInForm({
     }
   };
 
+  const selectTimerInterval = (minutes: number) => {
+    if (loaded?.schedule.waitingForResponse) {
+      setNextCheckInMinutes(minutes);
+      setTimerPickerOpen(false);
+    } else {
+      void startTimer(minutes);
+    }
+  };
+
   const updateTaskStatus = async (
     task: Task,
     status: "paused" | "completed",
@@ -467,6 +428,26 @@ function CheckInForm({
     }
   };
 
+  const addTask = async () => {
+    const title = taskTitle.trim();
+    if (!loaded || submitting || !title) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const task = await createTask(title, "", "active");
+      setLoaded((current) =>
+        current ? { ...current, tasks: [...current.tasks, task] } : current,
+      );
+      setTaskTitle("");
+      await emit("check-in-submitted");
+      requestAnimationFrame(() => taskInputRef.current?.focus());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitPrimary = async () => {
     if (!loaded || submitting || step !== "inputs") return;
     setSubmitting(true);
@@ -475,7 +456,9 @@ function CheckInForm({
       const schedule = await submitPrimaryCheckIn(
         brainDumpText.trim() || null,
         selectedPhaseId !== loaded.latestPhase?.phaseId ? selectedPhaseId : null,
-        timerDue ? nextCheckInMinutes : null,
+        timerDue
+          ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
+          : null,
       );
       setLoaded((current) => (current ? { ...current, schedule } : current));
       savedPhaseIdRef.current = selectedPhaseId;
@@ -512,7 +495,11 @@ function CheckInForm({
         await submitMetricCheckIn(ratingsInput);
         await emit("check-in-submitted");
       }
-      await onComplete(timerDue ? nextCheckInMinutes : null);
+      await onComplete(
+        timerDue
+          ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
+          : null,
+      );
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
@@ -553,9 +540,7 @@ function CheckInForm({
   const activeTaskView = (
     <section className="now-card" aria-label="Active tasks">
       {activeTasks.length === 0 ? (
-        <p className="now-card__empty">
-          Nothing active right now. Open the dashboard to pick something up.
-        </p>
+        <p className="now-card__empty">Nothing active right now.</p>
       ) : (
         <ul className="now-list">
           {activeTasks.map((task) => (
@@ -598,6 +583,32 @@ function CheckInForm({
           ))}
         </ul>
       )}
+      <div className="now-card__composer">
+        <input
+          ref={taskInputRef}
+          aria-label="New active task"
+          autoComplete="off"
+          disabled={submitting}
+          placeholder="Add an active task…"
+          value={taskTitle}
+          onChange={(event) => setTaskTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void addTask();
+            }
+          }}
+        />
+        <button
+          type="button"
+          aria-label="Add task"
+          title="Add task"
+          disabled={submitting || !taskTitle.trim()}
+          onClick={() => void addTask()}
+        >
+          +
+        </button>
+      </div>
     </section>
   );
 
@@ -622,15 +633,13 @@ function CheckInForm({
         countdown={countdown}
         timerPickerOpen={timerPickerOpen}
         schedulingTimer={schedulingTimer}
-        selectedInterval={loaded.schedule.intervalMinutes}
-        nextCheckInMinutes={nextCheckInMinutes}
+        selectedInterval={
+          nextCheckInMinutes ?? loaded.schedule.intervalMinutes
+        }
         phases={loaded.phases}
         selectedPhaseId={selectedPhaseId}
         onTimerPickerOpenChange={setTimerPickerOpen}
-        onStartTimer={(minutes) => void startTimer(minutes)}
-        onShiftInterval={(direction) =>
-          setNextCheckInMinutes((minutes) => shiftInterval(minutes, direction))
-        }
+        onSelectInterval={selectTimerInterval}
         onShiftPhase={shiftPhase}
         onSelectPhase={setSelectedPhaseId}
         onOpenDashboard={() => void openDashboard()}

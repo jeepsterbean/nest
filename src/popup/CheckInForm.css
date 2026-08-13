@@ -59,9 +59,6 @@
 
 .combined-timer__main {
   position: relative;
-  display: grid;
-  grid-template-rows: 61px 30px;
-  gap: 4px;
   min-width: 0;
 }
 
@@ -147,12 +144,6 @@
   color: var(--accent);
 }
 
-.combined-timer__interval-slot {
-  display: flex;
-  height: 30px;
-  align-items: flex-end;
-}
-
 .combined-dashboard-link {
   display: inline-grid;
   grid-column: 2;
@@ -214,7 +205,9 @@
 }
 
 .now-card__empty {
+  flex: 1;
   margin: 0;
+  padding: 6px;
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.45;
@@ -314,6 +307,67 @@
   opacity: 1;
 }
 
+.now-card__composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin: 1px 6px 0;
+  padding: 3px 3px 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.now-card__composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.now-card__composer input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.now-card__composer input::placeholder {
+  color: var(--muted);
+}
+
+.now-card__composer button {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.now-card__composer button:hover:not(:disabled),
+.now-card__composer button:focus-visible {
+  outline: none;
+  background: var(--accent-soft);
+}
+
+.now-card__composer button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: 0.35;
+}
+
 /* ---------- Brain dump ---------- */
 
 .combined-input {
@@ -345,57 +399,6 @@
 .combined-section--brain-dump {
   flex: none;
   margin-top: auto;
-}
-
-.combined-interval {
-  display: grid;
-  grid-template-columns: 28px minmax(46px, 1fr) 28px;
-  align-items: center;
-  width: 112px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface-2);
-  font-size: 13px;
-  outline: none;
-  overflow: hidden;
-}
-
-.combined-interval strong {
-  padding: 0 4px;
-  text-align: center;
-  color: var(--ink);
-  font-size: 13.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-.combined-interval__btn {
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 700;
-  transition:
-    background 0.14s,
-    color 0.14s;
-}
-
-.combined-interval__btn:not(:disabled):hover {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.combined-interval__btn:focus-visible {
-  outline: none;
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.combined-interval__btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.3;
 }
 
 /* ---------- Phase mode switcher ---------- */

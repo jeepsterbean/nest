@@ -521,7 +521,7 @@ pub fn run() {
                                 dismiss_popup_after_focus_grace(&app_handle, "resign_key");
                             });
                             panel.set_event_handler(Some(handler.as_ref()));
-                            panel.set_level(PanelLevel::Floating.value());
+                            panel.set_level(PanelLevel::ScreenSaver.value());
                             panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
                             panel.set_collection_behavior(
                                 CollectionBehavior::new()
