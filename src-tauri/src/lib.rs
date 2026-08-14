@@ -524,15 +524,20 @@ pub fn run() {
                             panel.set_event_handler(Some(handler.as_ref()));
                             panel.set_level(PanelLevel::ScreenSaver.value());
                             panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
-                            panel.set_collection_behavior(
-                                CollectionBehavior::new()
-                                    .full_screen_auxiliary()
-                                    .can_join_all_spaces()
-                                    .stationary()
-                                    .ignores_cycle()
-                                    .into(),
-                            );
+                            let behavior = CollectionBehavior::new()
+                                .full_screen_auxiliary()
+                                .can_join_all_spaces()
+                                .stationary()
+                                .ignores_cycle()
+                                .value()
+                                // The plugin wrapper does not yet expose this macOS 13 flag.
+                                | tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior::CanJoinAllApplications;
+                            panel.set_collection_behavior(behavior);
                             panel.set_hides_on_deactivate(false);
+                            append_diagnostic_log(format!(
+                                "popup_panel_config collection_behavior={:#x}",
+                                behavior.bits()
+                            ));
                         }
                         Err(e) => eprintln!("nest: failed to convert '{label}' to NSPanel: {e:?}"),
                     }

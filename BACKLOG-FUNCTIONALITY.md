@@ -9,3 +9,4 @@ APIs, schema, or code structure.
 ## Open
 
 - [ ] **Task stopwatch** — When a task is started, show a stopwatch for that task.
+- [ ] **Phase view context** — Fill the empty space in phase view with how much time time the person has spent on active tasks

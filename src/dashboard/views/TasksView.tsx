@@ -957,7 +957,11 @@ export function TasksView() {
                             <div className="task-table__status">
                               <StatusTrigger task={task} />
                               {task.status === "active" && (
-                                <TaskWorkingControl task={task} compact />
+                                <TaskWorkingControl
+                                  task={task}
+                                  compact
+                                  showTime={false}
+                                />
                               )}
                             </div>
                           </td>

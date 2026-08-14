@@ -82,6 +82,27 @@ export const formatElapsedMinutes = (
   nowMs: number = Date.now(),
 ) => `${elapsedMinutes(startedAt, nowMs)} min`;
 
+export const taskWorkSessionSeconds = (
+  startedAt: number | null,
+  nowMs: number = Date.now(),
+) =>
+  startedAt === null
+    ? 0
+    : Math.max(0, Math.floor(nowMs / 1000) - startedAt);
+
+export const taskTotalWorkedSeconds = (
+  bankedSeconds: number,
+  startedAt: number | null,
+  nowMs: number = Date.now(),
+) => bankedSeconds + taskWorkSessionSeconds(startedAt, nowMs);
+
+export const formatWorkedTime = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+};
+
 export const checkInRemainingSeconds = (
   nextDueAt: number,
   nowMs: number = Date.now(),

@@ -631,6 +631,51 @@ CREATE INDEX idx_task_dependencies_blocked
 ON task_dependencies(blocked_task_id, blocker_task_id);
 "#,
         ),
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN worked_seconds INTEGER NOT NULL DEFAULT 0
+CHECK (worked_seconds >= 0);
+ALTER TABLE tasks ADD COLUMN work_started_at INTEGER;
+
+UPDATE tasks
+SET work_started_at = CAST(strftime('%s', 'now') AS INTEGER)
+WHERE working_now = 1;
+"#,
+        ),
+        // Repair databases that briefly recorded version 26 while the task
+        // table rebuild still occupied that slot during development.
+        M::up_with_hook("", |tx| {
+            let has_worked_seconds: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'worked_seconds')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_worked_seconds {
+                tx.execute(
+                    "ALTER TABLE tasks ADD COLUMN worked_seconds INTEGER NOT NULL DEFAULT 0 \
+                     CHECK (worked_seconds >= 0)",
+                    [],
+                )?;
+            }
+
+            let has_work_started_at: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'work_started_at')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_work_started_at {
+                tx.execute("ALTER TABLE tasks ADD COLUMN work_started_at INTEGER", [])?;
+            }
+
+            tx.execute(
+                "UPDATE tasks SET work_started_at = CAST(strftime('%s', 'now') AS INTEGER) \
+                 WHERE working_now = 1 AND work_started_at IS NULL",
+                [],
+            )?;
+            Ok(())
+        }),
     ])
 }
 
@@ -989,5 +1034,54 @@ CREATE TABLE phase_check_ins (
 
         conn.execute("UPDATE tasks SET status = 'paused' WHERE id = 2", [])
             .unwrap_err();
+    }
+
+    #[test]
+    fn starts_timing_tasks_that_were_already_working() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 25).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, working_now, created_at, updated_at) \
+             VALUES (1, 'Already working', 'active', 1, 100, 100)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let timer: (i64, Option<i64>) = conn
+            .query_row(
+                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(timer.0, 0);
+        assert!(timer.1.is_some_and(|started_at| started_at > 0));
+    }
+
+    #[test]
+    fn repairs_version_26_database_missing_work_timer_columns() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 25).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, working_now, created_at, updated_at) \
+             VALUES (1, 'Already working', 'active', 1, 100, 100)",
+            [],
+        )
+        .unwrap();
+        conn.pragma_update(None, "user_version", 26).unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let timer: (i64, Option<i64>) = conn
+            .query_row(
+                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(timer.0, 0);
+        assert!(timer.1.is_some_and(|started_at| started_at > 0));
     }
 }

@@ -13,6 +13,8 @@ const task = (id: number, scope: string | null): Task => ({
   description: "",
   status: "active",
   workingNow: false,
+  workedSeconds: 0,
+  workStartedAt: null,
   scope,
   value: null,
   effort: null,

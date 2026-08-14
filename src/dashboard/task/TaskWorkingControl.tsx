@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { setTaskWorking } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { formatWorkedTime, taskWorkSessionSeconds } from "../lib/time";
 
 function PlayPauseIcon({ pause }: { pause: boolean }) {
   return (
@@ -81,22 +82,64 @@ export function WorkingToggle({
   );
 }
 
+export function WorkedTime({
+  task,
+  nowMs,
+}: {
+  task: Task;
+  nowMs?: number;
+}) {
+  const [localNowMs, setLocalNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (
+      nowMs !== undefined ||
+      !task.workingNow ||
+      task.workStartedAt === null
+    ) {
+      return;
+    }
+    setLocalNowMs(Date.now());
+    const interval = window.setInterval(() => setLocalNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [nowMs, task.workingNow, task.workStartedAt]);
+
+  if (!task.workingNow || task.workStartedAt === null) return null;
+  const seconds = taskWorkSessionSeconds(task.workStartedAt, nowMs ?? localNowMs);
+
+  return (
+    <time
+      className="worked-time"
+      dateTime={`PT${seconds}S`}
+      title="Current work session"
+      aria-label={`${formatWorkedTime(seconds)} current work session`}
+    >
+      {formatWorkedTime(seconds)}
+    </time>
+  );
+}
+
 export function TaskWorkingControl({
   task,
   compact = false,
   playPause = false,
+  showTime = true,
 }: {
   task: Task;
   compact?: boolean;
   playPause?: boolean;
+  showTime?: boolean;
 }) {
   const { mutate } = useDashboardData();
   return (
-    <WorkingToggle
-      task={task}
-      compact={compact}
-      playPause={playPause}
-      onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
-    />
+    <span className="working-control">
+      <WorkingToggle
+        task={task}
+        compact={compact}
+        playPause={playPause}
+        onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
+      />
+      {showTime && <WorkedTime task={task} />}
+    </span>
   );
 }

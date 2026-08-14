@@ -28,7 +28,10 @@ import {
   formatCheckInCountdown,
 } from "../dashboard/lib/time";
 import { groupTasksByStatus } from "../dashboard/lib/tasks";
-import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
+import {
+  WorkedTime,
+  WorkingToggle,
+} from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
 
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
@@ -592,6 +595,7 @@ function CheckInForm({
                 >
                   <span className="now-task__title">{task.title}</span>
                   <div className="now-task__actions">
+                    <WorkedTime task={task} nowMs={nowMs} />
                     <WorkingToggle
                       task={task}
                       compact

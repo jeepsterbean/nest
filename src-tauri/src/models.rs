@@ -65,6 +65,8 @@ pub struct Task {
     pub description: String,
     pub status: String,
     pub working_now: bool,
+    pub worked_seconds: i64,
+    pub work_started_at: Option<i64>,
     pub scope: Option<String>,
     pub value: Option<i64>,
     pub effort: Option<i64>,

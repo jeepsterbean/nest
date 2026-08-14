@@ -8,9 +8,12 @@ import {
   formatDateTime,
   formatElapsedMinutes,
   formatTime,
+  formatWorkedTime,
   greetingForHour,
   previousDayMs,
   startOfDayMs,
+  taskTotalWorkedSeconds,
+  taskWorkSessionSeconds,
 } from "../../../src/dashboard/lib/time";
 
 // All day-boundary math is in local time (setHours), so expectations are built
@@ -132,5 +135,24 @@ describe("minute helpers", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
     ).toBe("0:00");
+  });
+});
+
+describe("worked time", () => {
+  it("starts each visible session at zero without going backwards", () => {
+    expect(taskWorkSessionSeconds(100, 130_000)).toBe(30);
+    expect(taskWorkSessionSeconds(130, 130_000)).toBe(0);
+    expect(taskWorkSessionSeconds(140, 130_000)).toBe(0);
+    expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
+  });
+
+  it("keeps the running session available for lifetime totals", () => {
+    expect(taskTotalWorkedSeconds(90, 100, 130_000)).toBe(120);
+    expect(taskTotalWorkedSeconds(90, null, 130_000)).toBe(90);
+  });
+
+  it("formats stopwatch time", () => {
+    expect(formatWorkedTime(0)).toBe("0:00:00");
+    expect(formatWorkedTime(3_661)).toBe("1:01:01");
   });
 });

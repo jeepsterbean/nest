@@ -164,7 +164,7 @@ fn fetch_latest_phase_check_in(
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks WHERE id = ?1",
         params![id],
         |row| {
@@ -174,12 +174,14 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 description: row.get(2)?,
                 status: row.get(3)?,
                 working_now: row.get(4)?,
-                scope: row.get(5)?,
-                value: row.get(6)?,
-                effort: row.get(7)?,
-                parent_task_id: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                worked_seconds: row.get(5)?,
+                work_started_at: row.get(6)?,
+                scope: row.get(7)?,
+                value: row.get(8)?,
+                effort: row.get(9)?,
+                parent_task_id: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         },
     )
@@ -222,7 +224,7 @@ fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -233,12 +235,14 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 description: row.get(2)?,
                 status: row.get(3)?,
                 working_now: row.get(4)?,
-                scope: row.get(5)?,
-                value: row.get(6)?,
-                effort: row.get(7)?,
-                parent_task_id: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                worked_seconds: row.get(5)?,
+                work_started_at: row.get(6)?,
+                scope: row.get(7)?,
+                value: row.get(8)?,
+                effort: row.get(9)?,
+                parent_task_id: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -439,6 +443,9 @@ fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Ta
         Err(e) => return Err(e.into()),
     };
     if current_status != status {
+        if current_status == "active" && status != "active" {
+            bank_task_work(&tx, id, now)?;
+        }
         tx.execute(
             "UPDATE tasks SET status = ?1, \
              working_now = CASE WHEN ?1 = 'active' THEN working_now ELSE 0 END, \
@@ -483,12 +490,32 @@ fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task
         ));
     }
     if current != working {
-        conn.execute(
-            "UPDATE tasks SET working_now = ?1, updated_at = ?2 WHERE id = ?3",
-            params![working, now_unix_secs(), id],
-        )?;
+        let now = now_unix_secs();
+        if working {
+            conn.execute(
+                "UPDATE tasks SET working_now = 1, work_started_at = ?1, updated_at = ?1 \
+                 WHERE id = ?2",
+                params![now, id],
+            )?;
+        } else {
+            bank_task_work(conn, id, now)?;
+        }
     }
     fetch_task(conn, id)
+}
+
+fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tasks SET \
+         worked_seconds = worked_seconds + CASE \
+           WHEN work_started_at IS NULL THEN 0 \
+           ELSE MAX(0, ?1 - work_started_at) \
+         END, \
+         working_now = 0, work_started_at = NULL, updated_at = ?1 \
+         WHERE id = ?2",
+        params![now, id],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -939,8 +966,8 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        change_task_status, change_task_working, fetch_latest_phase_check_in,
-        normalize_optional_title, normalize_task_scope, record_phase_if_changed,
+        bank_task_work, change_task_status, change_task_working, fetch_latest_phase_check_in,
+        fetch_task, normalize_optional_title, normalize_task_scope, record_phase_if_changed,
         resolve_due_check_in, validate_task_status,
     };
     use crate::migrations::migrations;
@@ -984,13 +1011,46 @@ mod tests {
         .unwrap();
 
         assert!(change_task_working(&conn, 1, true).unwrap().working_now);
-        assert!(change_task_working(&conn, 2, true).is_err());
-        assert!(validate_task_status("paused").is_err());
-        assert!(
-            !change_task_status(&mut conn, 1, "up_next")
-                .unwrap()
-                .working_now
+        let started_at = change_task_working(&conn, 1, true).unwrap().work_started_at;
+        assert_eq!(
+            change_task_working(&conn, 1, true).unwrap().work_started_at,
+            started_at
         );
+        assert!(change_task_working(&conn, 2, true).is_err());
+
+        conn.execute(
+            "UPDATE tasks SET worked_seconds = 20, work_started_at = 100 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        bank_task_work(&conn, 1, 150).unwrap();
+        let stopped = fetch_task(&conn, 1).unwrap();
+        assert_eq!(stopped.worked_seconds, 70);
+        assert_eq!(stopped.work_started_at, None);
+        assert!(!stopped.working_now);
+
+        assert!(change_task_working(&conn, 1, true).unwrap().working_now);
+        conn.execute("UPDATE tasks SET work_started_at = 200 WHERE id = 1", [])
+            .unwrap();
+        bank_task_work(&conn, 1, 150).unwrap();
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 70);
+
+        let resumed = change_task_working(&conn, 1, true).unwrap();
+        assert!(resumed.working_now);
+        assert_eq!(resumed.worked_seconds, 70);
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (3, 'Also active', 'active', 1, 1)",
+            [],
+        )
+        .unwrap();
+        assert!(change_task_working(&conn, 3, true).unwrap().working_now);
+        assert!(fetch_task(&conn, 1).unwrap().working_now);
+
+        assert!(validate_task_status("paused").is_err());
+        let moved = change_task_status(&mut conn, 1, "up_next").unwrap();
+        assert!(!moved.working_now);
+        assert_eq!(moved.work_started_at, None);
     }
 
     #[test]

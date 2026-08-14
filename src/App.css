@@ -94,6 +94,20 @@ button {
   background: var(--accent);
 }
 
+.working-control {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.worked-time {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .working-toggle,
 .working-badge {
   display: inline-flex;

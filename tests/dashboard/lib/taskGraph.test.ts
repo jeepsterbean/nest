@@ -18,6 +18,8 @@ const task = (
   description: "",
   status,
   workingNow: false,
+  workedSeconds: 0,
+  workStartedAt: null,
   scope: null,
   value: null,
   effort: null,
