@@ -23,7 +23,10 @@ import type {
   RatingValue,
   Task,
 } from "../lib/types";
-import { formatCheckInCountdown } from "../dashboard/lib/time";
+import {
+  checkInRemainingSeconds,
+  formatCheckInCountdown,
+} from "../dashboard/lib/time";
 import { groupTasksByStatus } from "../dashboard/lib/tasks";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
@@ -37,14 +40,6 @@ type LoadState = {
   tasks: Task[];
   schedule: CheckInSchedule;
 };
-
-function StopIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="10" height="10" rx="2" />
-    </svg>
-  );
-}
 
 function PlayIcon() {
   return (
@@ -102,6 +97,7 @@ function ExpandIcon() {
 export function PopupTopPanel({
   timerDue,
   countdown,
+  remainingRatio,
   timerPickerOpen,
   schedulingTimer,
   selectedInterval,
@@ -111,6 +107,8 @@ export function PopupTopPanel({
 }: {
   timerDue: boolean;
   countdown: string;
+  /** Remaining share of the current interval, 0–1. Hidden at 0. */
+  remainingRatio: number;
   timerPickerOpen: boolean;
   schedulingTimer: boolean;
   selectedInterval: number;
@@ -141,10 +139,29 @@ export function PopupTopPanel({
           disabled={schedulingTimer}
           onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
         >
+          <svg
+            className="combined-timer__face"
+            viewBox="0 0 100 100"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle className="combined-timer__bezel" cx="50" cy="50" r="46" />
+            {remainingRatio > 0 && (
+              <circle
+                className="combined-timer__sweep"
+                cx="50"
+                cy="50"
+                r="46"
+                pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1 - remainingRatio}
+                transform="rotate(-90 50 50)"
+              />
+            )}
+          </svg>
           <strong className="combined-timer__value" role="timer">
             {countdown}
           </strong>
-          <span aria-hidden="true">▾</span>
         </button>
         {timerPickerOpen && (
           <div
@@ -340,7 +357,7 @@ function CheckInForm({
 
   const updateTaskStatus = async (
     task: Task,
-    status: "active" | "paused" | "completed",
+    status: "active" | "completed",
   ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
@@ -583,15 +600,6 @@ function CheckInForm({
                     />
                     <button
                       type="button"
-                      aria-label={`Pause ${task.title}`}
-                      title="Pause"
-                      onClick={() => updateTaskStatus(task, "paused")}
-                      disabled={submitting}
-                    >
-                      <StopIcon />
-                    </button>
-                    <button
-                      type="button"
                       aria-label={`Complete ${task.title}`}
                       title="Complete"
                       onClick={() => updateTaskStatus(task, "completed")}
@@ -643,6 +651,13 @@ function CheckInForm({
   const countdown = timerDue
     ? "0:00"
     : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
+  const remainingRatio = timerDue
+    ? 0
+    : Math.min(
+        1,
+        checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) /
+          (loaded.schedule.intervalMinutes * 60),
+      );
   const activePhases = loaded.phases.filter(
     (phase) => phase.inactiveSince === null,
   );
@@ -668,6 +683,7 @@ function CheckInForm({
         <PopupTopPanel
           timerDue={timerDue}
           countdown={countdown}
+          remainingRatio={remainingRatio}
           timerPickerOpen={timerPickerOpen}
           schedulingTimer={schedulingTimer}
           selectedInterval={

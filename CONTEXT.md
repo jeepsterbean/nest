@@ -39,8 +39,9 @@ _Avoid_: Parent, project
 
 **Working now**:
 An independently toggled marker on an Active Task that shows it is currently
-being worked on. Multiple Tasks may be Working now; leaving Active clears it.
-_Avoid_: Status, Ready
+being worked on. Multiple Tasks may be Working now. Leaving Active clears it;
+clearing it does not change status.
+_Avoid_: Status, Ready, in progress, paused
 
 ## Relationships
 
@@ -58,7 +59,8 @@ _Avoid_: Status, Ready
 ## Flagged ambiguities
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
-- "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; `paused` remains a user-selected status.
+- "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; they are not stored status values.
+- "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 
 ## Check-in cadence
 
@@ -67,5 +69,8 @@ _Avoid_: Status, Ready
   check-in popup. It stays at `0:00` until the popup is resolved.
 - Completing an automatic popup starts the selected interval. Dismissing it
   starts a five-minute interval.
-- Manually summoned popups show the live countdown and do not reset it when
-  completed or dismissed. Clicking the countdown can start a new timer.
+- The check-in popup shows remaining time centered on a clock face. Clicking
+  the clock opens the interval picker. The task list below is sized for three
+  rows; additional tasks scroll.
+- Manually summoned popups keep the live countdown and do not reset it when
+  completed or dismissed.

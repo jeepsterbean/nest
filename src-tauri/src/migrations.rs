@@ -507,6 +507,130 @@ CREATE INDEX idx_phase_check_ins_created_at ON phase_check_ins(created_at);
 CREATE INDEX idx_phase_check_ins_phase_id ON phase_check_ins(phase_id);
 "#,
         ),
+        // Paused is no longer a live status. Leftover paused tasks become
+        // cancelled; status history keeps the old value. Child tables are
+        // copied first because this runs inside a transaction, where
+        // PRAGMA foreign_keys has no effect and DROP TABLE would cascade.
+        M::up(
+            r#"
+INSERT INTO task_status_events (task_id, from_status, to_status, created_at)
+SELECT id, 'paused', 'cancelled', updated_at
+FROM tasks
+WHERE status = 'paused';
+
+UPDATE tasks
+SET status = 'cancelled', working_now = 0
+WHERE status = 'paused';
+
+CREATE TABLE task_status_events_copy (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+INSERT INTO task_status_events_copy (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events;
+
+CREATE TABLE task_dependencies_copy (
+  blocker_task_id INTEGER NOT NULL,
+  blocked_task_id INTEGER NOT NULL,
+  created_at      INTEGER NOT NULL,
+  CHECK (blocker_task_id <> blocked_task_id),
+  PRIMARY KEY (blocker_task_id, blocked_task_id)
+);
+INSERT INTO task_dependencies_copy (blocker_task_id, blocked_task_id, created_at)
+SELECT blocker_task_id, blocked_task_id, created_at FROM task_dependencies;
+
+CREATE TABLE tasks_copy (
+  id             INTEGER PRIMARY KEY,
+  title          TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('backlog', 'up_next', 'active', 'completed', 'cancelled')),
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL,
+  description    TEXT NOT NULL DEFAULT '',
+  value          INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5),
+  effort         INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5),
+  scope          TEXT,
+  parent_task_id INTEGER,
+  working_now    INTEGER NOT NULL DEFAULT 0 CHECK (working_now IN (0, 1))
+);
+INSERT INTO tasks_copy (
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+)
+SELECT
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+FROM tasks;
+
+DROP INDEX IF EXISTS idx_task_status_events_task_id_created_at;
+DROP INDEX IF EXISTS idx_task_dependencies_blocked;
+DROP INDEX IF EXISTS idx_tasks_status_updated_at;
+DROP INDEX IF EXISTS idx_tasks_parent_task_id;
+
+DROP TABLE task_status_events;
+DROP TABLE task_dependencies;
+DROP TABLE tasks;
+
+CREATE TABLE tasks (
+  id             INTEGER PRIMARY KEY,
+  title          TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('backlog', 'up_next', 'active', 'completed', 'cancelled')),
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL,
+  description    TEXT NOT NULL DEFAULT '',
+  value          INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5),
+  effort         INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5),
+  scope          TEXT,
+  parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  working_now    INTEGER NOT NULL DEFAULT 0 CHECK (working_now IN (0, 1))
+);
+INSERT INTO tasks (
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+)
+SELECT
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  NULL, working_now
+FROM tasks_copy;
+UPDATE tasks
+SET parent_task_id = (
+  SELECT parent_task_id FROM tasks_copy WHERE tasks_copy.id = tasks.id
+);
+
+CREATE TABLE task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+INSERT INTO task_status_events (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events_copy;
+
+CREATE TABLE task_dependencies (
+  blocker_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  blocked_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_at      INTEGER NOT NULL,
+  CHECK (blocker_task_id <> blocked_task_id),
+  PRIMARY KEY (blocker_task_id, blocked_task_id)
+);
+INSERT INTO task_dependencies (blocker_task_id, blocked_task_id, created_at)
+SELECT blocker_task_id, blocked_task_id, created_at FROM task_dependencies_copy;
+
+DROP TABLE task_status_events_copy;
+DROP TABLE task_dependencies_copy;
+DROP TABLE tasks_copy;
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
+CREATE INDEX idx_task_status_events_task_id_created_at
+ON task_status_events(task_id, created_at DESC, id DESC);
+CREATE INDEX idx_task_dependencies_blocked
+ON task_dependencies(blocked_task_id, blocker_task_id);
+"#,
+        ),
     ])
 }
 
@@ -810,5 +934,60 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(event, (None, "active".into(), 100));
+    }
+
+    #[test]
+    fn drops_paused_as_a_live_status_and_cancels_leftovers() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 24).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at, working_now) \
+             VALUES (1, 'Parked', 'paused', 100, 200, 1), \
+                    (2, 'Still active', 'active', 100, 200, 0)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events \
+             (task_id, from_status, to_status, created_at) \
+             VALUES (2, 'active', 'paused', 150), (2, 'paused', 'active', 180)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let parked: (String, bool) = conn
+            .query_row(
+                "SELECT status, working_now FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(parked, ("cancelled".into(), false));
+
+        let cancel_event: (Option<String>, String) = conn
+            .query_row(
+                "SELECT from_status, to_status FROM task_status_events \
+                 WHERE task_id = 1 ORDER BY id DESC LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(cancel_event, (Some("paused".into()), "cancelled".into()));
+
+        let historical: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_status_events \
+                 WHERE task_id = 2 AND 'paused' IN (from_status, to_status)",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(historical, 2);
+
+        conn.execute("UPDATE tasks SET status = 'paused' WHERE id = 2", [])
+            .unwrap_err();
     }
 }

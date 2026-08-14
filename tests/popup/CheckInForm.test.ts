@@ -6,6 +6,7 @@ import { PopupTopPanel } from "../../src/popup/CheckInForm";
 const props: ComponentProps<typeof PopupTopPanel> = {
   timerDue: true,
   countdown: "0:00",
+  remainingRatio: 0,
   timerPickerOpen: true,
   schedulingTimer: false,
   selectedInterval: 15,
@@ -21,5 +22,21 @@ describe("PopupTopPanel", () => {
     expect(html).toContain("Change next check-in interval");
     expect(html).toContain('aria-label="Next check-in interval"');
     expect(html).toContain("15 min");
+    expect(html).not.toContain("combined-timer__sweep");
+  });
+
+  it("draws the remaining sweep while the timer is running", () => {
+    const html = renderToStaticMarkup(
+      createElement(PopupTopPanel, {
+        ...props,
+        timerDue: false,
+        countdown: "7:30",
+        remainingRatio: 0.5,
+        timerPickerOpen: false,
+      }),
+    );
+
+    expect(html).toContain("combined-timer__sweep");
+    expect(html).toContain("7:30");
   });
 });

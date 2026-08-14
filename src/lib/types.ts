@@ -45,9 +45,11 @@ export type TaskStatus =
   | "backlog"
   | "up_next"
   | "active"
-  | "paused"
   | "completed"
   | "cancelled";
+
+/** Status values that may appear in history, including retired ones. */
+export type RecordedTaskStatus = TaskStatus | "paused";
 
 export type Task = {
   id: number;
@@ -72,8 +74,8 @@ export type TaskDependency = {
 export type TaskStatusEvent = {
   id: number;
   taskId: number;
-  fromStatus: TaskStatus | null;
-  toStatus: TaskStatus;
+  fromStatus: RecordedTaskStatus | null;
+  toStatus: RecordedTaskStatus;
   createdAt: number;
 };
 

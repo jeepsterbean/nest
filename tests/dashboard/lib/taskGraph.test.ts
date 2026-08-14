@@ -45,7 +45,7 @@ describe("task graph projection", () => {
 
   it("derives blocked state only from incomplete blockers", () => {
     const blocked = buildTaskGraph(
-      [task(1, "active"), task(2, "paused")],
+      [task(1, "active"), task(2, "active")],
       [dependency(2, 1)],
     );
     expect(isTaskBlocked(blocked, 1)).toBe(true);

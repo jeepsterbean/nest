@@ -1,4 +1,4 @@
-// Pure time/date helpers shared across the dashboard views.
+// Pure time/date helpers shared across the dashboard and check-in popup.
 // `dayLabel` and `computeStreak` accept an injectable `nowMs` so they can be
 // tested deterministically; callers default it to the current clock.
 
@@ -82,11 +82,16 @@ export const formatElapsedMinutes = (
   nowMs: number = Date.now(),
 ) => `${elapsedMinutes(startedAt, nowMs)} min`;
 
+export const checkInRemainingSeconds = (
+  nextDueAt: number,
+  nowMs: number = Date.now(),
+) => Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
+
 export const formatCheckInCountdown = (
   nextDueAt: number,
   nowMs: number = Date.now(),
 ) => {
-  const secondsRemaining = Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
+  const secondsRemaining = checkInRemainingSeconds(nextDueAt, nowMs);
   const minutes = Math.floor(secondsRemaining / 60);
   const seconds = secondsRemaining % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;

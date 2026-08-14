@@ -42,9 +42,9 @@ preserves calm, private, flow-friendly behavior.
   defined there. Do not invent synonyms (todo, subitem, dependency-as-jargon
   for either side of a Blocker edge) in user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
-  `paused`, `completed`, `cancelled`) from derived readiness (`Ready` /
+  `completed`, `cancelled`) from derived readiness (`Ready` /
   `Blocked`). Ready/Blocked come from unresolved Blockers; they are not
-  stored status values.
+  stored status values. `paused` is not a live status.
 - Do not introduce `any` when an existing or inferred type can express the
   value. Keep TypeScript `strict` clean.
 - Validate untrusted or user-provided input at application seams: trim and

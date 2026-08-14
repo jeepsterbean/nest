@@ -47,7 +47,7 @@ fn normalize_optional_title(title: Option<String>) -> Option<String> {
 
 fn validate_task_status(status: &str) -> Result<&str> {
     match status {
-        "backlog" | "up_next" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
+        "backlog" | "up_next" | "active" | "completed" | "cancelled" => Ok(status),
         _ => Err(AppError::InvalidInput(format!(
             "invalid task status {status}"
         ))),
@@ -985,8 +985,9 @@ mod tests {
 
         assert!(change_task_working(&conn, 1, true).unwrap().working_now);
         assert!(change_task_working(&conn, 2, true).is_err());
+        assert!(validate_task_status("paused").is_err());
         assert!(
-            !change_task_status(&mut conn, 1, "paused")
+            !change_task_status(&mut conn, 1, "up_next")
                 .unwrap()
                 .working_now
         );

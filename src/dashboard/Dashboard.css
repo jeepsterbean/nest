@@ -3841,10 +3841,6 @@
   background: var(--rating-5);
 }
 
-.status-dot--paused {
-  background: var(--dump);
-}
-
 .status-dot--backlog {
   background: var(--border-strong);
 }
