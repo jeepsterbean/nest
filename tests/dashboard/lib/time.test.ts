@@ -152,7 +152,10 @@ describe("worked time", () => {
   });
 
   it("formats stopwatch time", () => {
-    expect(formatWorkedTime(0)).toBe("0:00:00");
+    expect(formatWorkedTime(0)).toBe("0");
+    expect(formatWorkedTime(45)).toBe("45");
+    expect(formatWorkedTime(60)).toBe("1:00");
+    expect(formatWorkedTime(330)).toBe("5:30");
     expect(formatWorkedTime(3_661)).toBe("1:01:01");
   });
 });

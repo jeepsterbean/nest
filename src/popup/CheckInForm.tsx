@@ -136,7 +136,7 @@ export function PopupTopPanel({
           aria-expanded={timerPickerOpen}
           aria-label={
             timerDue
-              ? "Check-in due. Change next check-in interval"
+              ? "Check-in due. Start a new timer"
               : `Timer ${countdown}. Start a new timer`
           }
           disabled={schedulingTimer}
@@ -170,7 +170,7 @@ export function PopupTopPanel({
           <div
             className="combined-timer__picker"
             role="listbox"
-            aria-label={timerDue ? "Next check-in interval" : "Start timer"}
+            aria-label="Start timer"
           >
             {CHECK_IN_INTERVALS.map((minutes) => (
               <button
@@ -346,15 +346,6 @@ function CheckInForm({
       setError(String(e));
     } finally {
       setSchedulingTimer(false);
-    }
-  };
-
-  const selectTimerInterval = (minutes: number) => {
-    if (loaded?.schedule.waitingForResponse) {
-      setNextCheckInMinutes(minutes);
-      setTimerPickerOpen(false);
-    } else {
-      void startTimer(minutes);
     }
   };
 
@@ -674,6 +665,15 @@ function CheckInForm({
     <form
       className="combined-checkin"
       onSubmit={onSubmit}
+      onWheelCapture={(event) => {
+        const current = Number(
+          event.currentTarget.style.getPropertyValue("--timer-collapse"),
+        );
+        event.currentTarget.style.setProperty(
+          "--timer-collapse",
+          String(Math.min(1, Math.max(0, current + event.deltaY / 300))),
+        );
+      }}
       onKeyDownCapture={(e) => {
         if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
         if (e.shiftKey && e.target instanceof HTMLTextAreaElement) return;
@@ -694,7 +694,7 @@ function CheckInForm({
             nextCheckInMinutes ?? loaded.schedule.intervalMinutes
           }
           onTimerPickerOpenChange={setTimerPickerOpen}
-          onSelectInterval={selectTimerInterval}
+          onSelectInterval={(minutes) => void startTimer(minutes)}
           onOpenDashboard={() => void openDashboard()}
         />
         {taskView}

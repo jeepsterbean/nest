@@ -1,4 +1,6 @@
 .combined-checkin {
+  --timer-collapse: 0;
+
   display: grid;
   width: 100%;
   min-width: 0;
@@ -35,7 +37,7 @@
 }
 
 .combined-sidebar .now-card {
-  flex: 0 0 187px; /* Active header + 3 task rows; extras scroll */
+  flex: var(--timer-collapse) 1 187px;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -52,7 +54,7 @@
 .combined-timer {
   position: relative;
   display: grid;
-  flex: 1;
+  flex: calc(1 - var(--timer-collapse)) 1 72px;
   min-width: 0;
   min-height: 0;
   place-items: center;
@@ -89,6 +91,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  opacity: calc(1 - var(--timer-collapse));
 }
 
 .combined-timer__bezel {
@@ -107,15 +110,18 @@
 }
 
 .combined-timer__value {
-  position: relative;
+  position: absolute;
   z-index: 1;
+  top: 50%;
+  left: 50%;
   color: var(--accent);
   font-family: var(--serif);
-  font-size: clamp(28px, 22cqi, 72px);
+  font-size: clamp(56px, 8.5vw, 72px);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 0.9;
+  transform: translate(-50%, -50%);
 }
 
 .combined-timer__trigger:hover .combined-timer__bezel,

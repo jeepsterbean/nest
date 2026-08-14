@@ -16,11 +16,11 @@ const props: ComponentProps<typeof PopupTopPanel> = {
 };
 
 describe("PopupTopPanel", () => {
-  it("keeps interval selection on the timer when a check-in is due", () => {
+  it("starts a new timer from the clock when a check-in is due", () => {
     const html = renderToStaticMarkup(createElement(PopupTopPanel, props));
 
-    expect(html).toContain("Change next check-in interval");
-    expect(html).toContain('aria-label="Next check-in interval"');
+    expect(html).toContain("Check-in due. Start a new timer");
+    expect(html).toContain('aria-label="Start timer"');
     expect(html).toContain("15 min");
     expect(html).not.toContain("combined-timer__sweep");
   });

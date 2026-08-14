@@ -76,9 +76,13 @@ _Avoid_: Session, stopwatch, in progress
 
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
 - At zero, the timer pauses, plays the system alert sound, and opens the
-  check-in popup. It stays at `0:00` until the popup is resolved.
-- Completing an automatic popup starts the selected interval. Dismissing it
-  starts a five-minute interval.
+  check-in popup. It stays at `0:00` until a new interval is picked or the
+  popup is resolved.
+- Picking an interval on the clock starts that cycle immediately, including
+  when a check-in is due.
+- Completing an automatic popup starts the current interval if the timer is
+  still paused. Dismissing it starts a five-minute interval if the timer is
+  still paused.
 - The check-in popup shows remaining time centered on a clock face. Clicking
   the clock opens the interval picker. The task list below is sized for three
   rows; additional tasks scroll.
