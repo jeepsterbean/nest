@@ -5,6 +5,7 @@ import { DashboardDataProvider } from "./context/DashboardDataContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import {
   DashboardHeader,
+  DashboardSidebar,
   type DashboardView,
 } from "./components/DashboardHeader";
 import { BrainDumpModal } from "./components/BrainDumpModal";
@@ -49,13 +50,14 @@ function DashboardInner() {
 
   return (
     <main className="dashboard">
+      <DashboardSidebar
+        view={view}
+        onSelectView={setView}
+        brainDumpOpen={brainDumpOpen}
+        onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
+      />
       <div className={`dashboard__inner dashboard__inner--${view}`}>
-        <DashboardHeader
-          view={view}
-          onSelectView={setView}
-          brainDumpOpen={brainDumpOpen}
-          onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
-        />
+        <DashboardHeader />
 
         <BrainDumpModal
           open={brainDumpOpen}

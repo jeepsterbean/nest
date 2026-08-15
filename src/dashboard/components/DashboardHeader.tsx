@@ -18,7 +18,16 @@ import {
   formatElapsedMinutes,
   greetingForHour,
 } from "../lib/time";
-import { chevronDownIcon, pencilIcon } from "./icons";
+import {
+  chevronDownIcon,
+  insightsIcon,
+  journalIcon,
+  metricsIcon,
+  overviewIcon,
+  pencilIcon,
+  phasesIcon,
+  tasksIcon,
+} from "./icons";
 
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
@@ -30,16 +39,16 @@ export type DashboardView =
   | "metrics"
   | "phases";
 
-const VIEWS: { key: DashboardView; label: string }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "insights", label: "Insights" },
-  { key: "journal", label: "Journal" },
-  { key: "tasks", label: "Tasks" },
-  { key: "metrics", label: "Metrics" },
-  { key: "phases", label: "Phases" },
-];
+const VIEWS = [
+  { key: "overview", label: "Overview", icon: overviewIcon },
+  { key: "insights", label: "Insights", icon: insightsIcon },
+  { key: "journal", label: "Journal", icon: journalIcon },
+  { key: "tasks", label: "Tasks", icon: tasksIcon },
+  { key: "metrics", label: "Metrics", icon: metricsIcon },
+  { key: "phases", label: "Phases", icon: phasesIcon },
+] as const;
 
-export function DashboardHeader({
+export function DashboardSidebar({
   view,
   onSelectView,
   brainDumpOpen,
@@ -50,6 +59,43 @@ export function DashboardHeader({
   brainDumpOpen: boolean;
   onToggleBrainDump: () => void;
 }) {
+  return (
+    <aside className="dash-sidebar">
+      <nav className="dash-nav" aria-label="Dashboard sections">
+        {VIEWS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={
+              view === item.key
+                ? "dash-nav__btn dash-nav__btn--active"
+                : "dash-nav__btn"
+            }
+            aria-label={item.label}
+            aria-current={view === item.key ? "page" : undefined}
+            onClick={() => onSelectView(item.key)}
+          >
+            <span className="dash-nav__icon">{item.icon}</span>
+            <span className="dash-nav__label">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+      <button
+        type="button"
+        className="brain-dump-trigger"
+        aria-label={brainDumpOpen ? "Close brain dump" : "Open brain dump"}
+        aria-expanded={brainDumpOpen}
+        aria-controls="brain-dump-composer"
+        onClick={onToggleBrainDump}
+      >
+        <span className="brain-dump-trigger__icon">{pencilIcon}</span>
+        <span className="dash-nav__label">Brain dump</span>
+      </button>
+    </aside>
+  );
+}
+
+export function DashboardHeader() {
   const {
     checkInSchedule,
     phases,
@@ -375,36 +421,6 @@ export function DashboardHeader({
             })}
           </div>
         )}
-      </div>
-      <div className="dash-header__nav-row">
-        <nav className="dash-nav" aria-label="Views">
-          {VIEWS.map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              className={
-                view === v.key
-                  ? "dash-nav__btn dash-nav__btn--active"
-                  : "dash-nav__btn"
-              }
-              aria-current={view === v.key ? "page" : undefined}
-              onClick={() => onSelectView(v.key)}
-            >
-              {v.label}
-            </button>
-          ))}
-        </nav>
-        <button
-          type="button"
-          className="brain-dump-trigger"
-          aria-label={brainDumpOpen ? "Close brain dump" : "Open brain dump"}
-          aria-expanded={brainDumpOpen}
-          aria-controls="brain-dump-composer"
-          title={brainDumpOpen ? "Close brain dump" : "Open brain dump"}
-          onClick={onToggleBrainDump}
-        >
-          <span className="brain-dump-trigger__icon">{pencilIcon}</span>
-        </button>
       </div>
     </header>
   );

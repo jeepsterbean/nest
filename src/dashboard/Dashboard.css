@@ -31,6 +31,8 @@
   --serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
 
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
   color: var(--ink);
   background:
     radial-gradient(640px 320px at 12% -5%, var(--bg-glow-1), transparent 70%),
@@ -72,6 +74,7 @@
 
 .dashboard__inner {
   display: flex;
+  width: 100%;
   min-height: 100vh;
   flex-direction: column;
   gap: 28px;
@@ -106,10 +109,7 @@
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template:
-    "intro timer" auto
-    "nav timer" auto /
-    minmax(0, 1fr) auto;
+  grid-template: "intro timer" auto / minmax(0, 1fr) auto;
   align-items: start;
   gap: 16px 32px;
 }
@@ -345,52 +345,107 @@
   left: auto;
 }
 
-.dash-header__nav-row {
-  grid-area: nav;
+.dash-sidebar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
   display: flex;
+  height: 100vh;
+  padding: 24px 11px;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
 .dash-nav {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .dash-nav__btn {
-  padding: 7px 15px;
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 13.5px;
-  font-weight: 700;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 
-.dash-nav__btn:not(.dash-nav__btn--active):hover {
+.dash-nav__btn:not(.dash-nav__btn--active):hover,
+.dash-nav__btn:not(.dash-nav__btn--active):focus-visible {
   color: var(--ink);
+}
+
+.dash-nav__btn:hover {
+  transform: translateX(2px);
+}
+
+.dash-nav__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .dash-nav__btn--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dash-nav__icon,
+.dash-nav__icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.dash-nav__icon {
+  display: inline-flex;
+}
+
+.dash-nav__label {
+  position: absolute;
+  z-index: 40;
+  top: 50%;
+  left: calc(100% + 12px);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(5px, -50%);
+  transition: opacity 0.12s, transform 0.12s;
+  white-space: nowrap;
+}
+
+.dash-nav__btn:hover .dash-nav__label,
+.dash-nav__btn:focus-visible .dash-nav__label,
+.brain-dump-trigger:hover .dash-nav__label,
+.brain-dump-trigger:focus-visible .dash-nav__label {
+  opacity: 1;
+  transform: translate(0, -50%);
 }
 
 .brain-dump-trigger {
+  position: relative;
   display: inline-flex;
-  width: 38px;
+  width: 42px;
   flex: none;
+  margin-top: auto;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 42px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--dump) 42%, var(--border));
   border-radius: 11px;
@@ -5118,7 +5173,21 @@
 @media (max-width: 680px) {
   .dashboard__inner {
     gap: 20px;
-    padding: 24px 18px 48px;
+    padding: 24px 14px 48px;
+  }
+
+  .dashboard {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .dash-sidebar {
+    padding: 18px 5px;
+  }
+
+  .dash-nav__btn,
+  .brain-dump-trigger {
+    width: 40px;
+    min-height: 40px;
   }
 
   .dash-header__greeting {
@@ -5145,21 +5214,6 @@
 
   .dash-header__timer strong {
     font-size: 48px;
-  }
-
-  .dash-header__nav-row {
-    width: 100%;
-    gap: 10px;
-  }
-
-  .dash-nav {
-    flex: 1;
-    min-width: 0;
-    overflow-x: auto;
-  }
-
-  .dash-nav__btn {
-    flex: 1 0 auto;
   }
 
   .insights__filters {
