@@ -377,6 +377,10 @@ export function OverviewView() {
               </div>
               <textarea
                 ref={brainDumpTextRef}
+                autoCapitalize="off"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={brainDumpText}
                 onChange={(e) =>
                   setBrainDumpDraft((draft) => ({
@@ -507,6 +511,10 @@ export function OverviewView() {
               >
                 <textarea
                   ref={compactBrainDumpRef}
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={brainDumpText}
                   onChange={(e) =>
                     setBrainDumpDraft((draft) => ({

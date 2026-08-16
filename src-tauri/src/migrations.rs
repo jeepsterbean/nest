@@ -695,6 +695,58 @@ UPDATE phases SET inactive_since = COALESCE(inactive_since, CAST(strftime('%s', 
 WHERE name NOT IN ('Scoping', 'Doing', 'Resting');
 "#,
         ),
+        // A pulse is now the only grouping/lifecycle for metrics. Preserve the
+        // old active set as one pulse, leave old inactive metrics unassigned,
+        // and snapshot the pulse name on check-ins so deleting a pulse keeps
+        // its journal history legible.
+        M::up(
+            r#"
+CREATE TABLE pulses (
+  id         INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE pulse_metrics (
+  pulse_id  INTEGER NOT NULL REFERENCES pulses(id) ON DELETE CASCADE,
+  metric_id INTEGER NOT NULL REFERENCES metrics(id),
+  PRIMARY KEY (pulse_id, metric_id)
+);
+
+INSERT INTO pulses (name, created_at)
+SELECT 'Daily pulse', 0
+WHERE EXISTS (SELECT 1 FROM metrics)
+   OR EXISTS (SELECT 1 FROM metric_check_ins);
+
+INSERT INTO pulse_metrics (pulse_id, metric_id)
+SELECT (SELECT id FROM pulses WHERE name = 'Daily pulse'), id
+FROM metrics
+WHERE inactive_since IS NULL;
+
+ALTER TABLE metric_check_ins ADD COLUMN pulse_id INTEGER
+REFERENCES pulses(id) ON DELETE SET NULL;
+ALTER TABLE metric_check_ins ADD COLUMN pulse_name TEXT;
+
+UPDATE metric_check_ins
+SET pulse_id = (SELECT id FROM pulses WHERE name = 'Daily pulse'),
+    pulse_name = 'Daily pulse';
+
+ALTER TABLE metrics DROP COLUMN inactive_since;
+"#,
+        ),
+        M::up("ALTER TABLE pulses ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';"),
+        M::up("ALTER TABLE metrics ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';"),
+        // Dashboard order is the popup order: pulses and the metrics inside
+        // each pulse keep an explicit sort_order instead of created_at/rowid.
+        M::up(
+            r#"
+ALTER TABLE pulses ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE pulses SET sort_order = id;
+
+ALTER TABLE pulse_metrics ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE pulse_metrics SET sort_order = rowid;
+"#,
+        ),
     ])
 }
 
@@ -715,6 +767,25 @@ CREATE TABLE task_check_ins (
   created_at            INTEGER NOT NULL,
   task                  TEXT NOT NULL,
   next_check_in_minutes INTEGER NOT NULL
+);
+
+CREATE TABLE metrics (
+  id             INTEGER PRIMARY KEY,
+  name           TEXT NOT NULL UNIQUE,
+  created_at     INTEGER NOT NULL,
+  inactive_since INTEGER
+);
+
+CREATE TABLE metric_check_ins (
+  id         INTEGER PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE metric_ratings (
+  check_in_id INTEGER NOT NULL REFERENCES metric_check_ins(id) ON DELETE CASCADE,
+  metric_id   INTEGER NOT NULL REFERENCES metrics(id),
+  value       INTEGER NOT NULL CHECK (value BETWEEN 1 AND 5),
+  PRIMARY KEY (check_in_id, metric_id)
 );
 
 CREATE TABLE phases (
@@ -1149,5 +1220,87 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(historical, 1);
+    }
+
+    #[test]
+    fn migrates_metric_activity_into_one_pulse_and_preserves_check_in_identity() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 28).unwrap();
+        conn.execute(
+            "INSERT INTO metrics (id, name, created_at, inactive_since) VALUES \
+             (1, 'Energy', 10, NULL), (2, 'Retired', 20, 30)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metric_check_ins (id, created_at) VALUES (1, 40)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metric_ratings (check_in_id, metric_id, value) VALUES (1, 1, 4)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let inactive_column: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('metrics') WHERE name = 'inactive_since'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(inactive_column, 0);
+
+        let metric_icon: String = conn
+            .query_row("SELECT icon FROM metrics WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(metric_icon, "activity");
+
+        let memberships: Vec<i64> = conn
+            .prepare("SELECT metric_id FROM pulse_metrics ORDER BY metric_id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(memberships, vec![1]);
+
+        let pulse_id: i64 = conn
+            .query_row(
+                "SELECT id FROM pulses WHERE name = 'Daily pulse'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let icon: String = conn
+            .query_row("SELECT icon FROM pulses WHERE id = ?1", [pulse_id], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(icon, "activity");
+        let sort_order: i64 = conn
+            .query_row(
+                "SELECT sort_order FROM pulses WHERE id = ?1",
+                [pulse_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(sort_order, pulse_id);
+        conn.execute("DELETE FROM pulses WHERE id = ?1", [pulse_id])
+            .unwrap();
+        let historical: (Option<i64>, Option<String>) = conn
+            .query_row(
+                "SELECT pulse_id, pulse_name FROM metric_check_ins WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(historical, (None, Some("Daily pulse".into())));
     }
 }

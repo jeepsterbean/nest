@@ -15,7 +15,7 @@ private, journal-like. Preserve light and dark system themes.
 - Don't caption self-explanatory controls (a labeled field, a dropdown with
   clear options) with extra headings or helper text.
 - Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,
-  Ready, Scope). Avoid todo/subitem jargon.
+  Ready, Scope, Working now, Pulse, Brain dump). Avoid todo/subitem jargon.
 
 ## Components: no speculative flexibility
 
@@ -23,8 +23,8 @@ private, journal-like. Preserve light and dark system themes.
 - Delete props nothing sets.
 - Don't scaffold UI libraries/primitives before they're wired into a real
   dashboard view or the check-in popup.
-- Reuse existing controls (`MenuSelect`, `Switch`, task menus, shared icons)
-  before adding new ones.
+- Reuse existing controls (`MenuSelect`, `NestIcon` / `IconPicker`, task
+  menus, shared icons in `icons.tsx`) before adding new ones.
 
 ## Duplication: share the identical part, not the whole shape
 

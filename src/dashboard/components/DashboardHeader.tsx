@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  listReminders,
-  scheduleNextCheckIn,
-  summonCheckIn,
-} from "../../lib/commands";
+import { listReminders, scheduleNextCheckIn } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { latestPulseState } from "../lib/pulse";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import { formatCheckInCountdown, greetingForHour } from "../lib/time";
+import { formatCheckInCountdown, greetingForHour, checkInRemainingSeconds } from "../lib/time";
 import {
   chevronDownIcon,
   clockIcon,
@@ -92,15 +87,12 @@ export function DashboardHeader() {
     checkInSchedule,
     phases,
     latestPhase,
-    checkIns,
-    metrics,
     mutate,
     setError,
   } = useDashboardData();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
-  const [pulseOpening, setPulseOpening] = useState(false);
   const [reminders, setReminders] = useState<string[]>([]);
   const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
   const [reducedMotion, setReducedMotion] = useState(() =>
@@ -120,7 +112,11 @@ export function DashboardHeader() {
   const countdown = checkInSchedule
     ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
     : "—:—";
-  const pulse = latestPulseState(checkIns, metrics, nowMs);
+  const checkInDue =
+    checkInSchedule !== null &&
+    (checkInSchedule.waitingForResponse ||
+      checkInRemainingSeconds(checkInSchedule.nextDueAt, nowMs) === 0);
+  const timerLabel = checkInDue ? "time to check in!" : countdown;
 
   const currentPhaseName = latestPhase
     ? latestPhase.phaseId === null
@@ -217,18 +213,6 @@ export function DashboardHeader() {
     setScheduling(false);
   };
 
-  const openPulseCheckIn = async () => {
-    if (pulseOpening) return;
-    setPulseOpening(true);
-    try {
-      await summonCheckIn();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setPulseOpening(false);
-    }
-  };
-
   const phaseLabel = currentPhaseName ?? "No phase yet";
 
   return (
@@ -247,17 +231,6 @@ export function DashboardHeader() {
           <p className="dash-header__phase" aria-label={`Current phase: ${phaseLabel}`}>
             <span className="dash-header__phase-name">{phaseLabel}</span>
           </p>
-          <button
-            type="button"
-            className={`dash-header__pulse${
-              pulse.overdue ? " dash-header__pulse--overdue" : ""
-            }`}
-            aria-label={`${pulse.message}. Open pulse check-in`}
-            disabled={pulseOpening}
-            onClick={openPulseCheckIn}
-          >
-            {pulseOpening ? "Opening…" : pulse.message}
-          </button>
           <div
             ref={timerWrapRef}
             className="dash-header__timer-wrap"
@@ -269,10 +242,18 @@ export function DashboardHeader() {
           >
             <button
               type="button"
-              className="dash-header__timer"
+              className={
+                checkInDue
+                  ? "dash-header__timer dash-header__timer--due"
+                  : "dash-header__timer"
+              }
               aria-haspopup="listbox"
               aria-expanded={pickerOpen}
-              aria-label={`Next check-in: ${countdown}. Change interval`}
+              aria-label={
+                checkInDue
+                  ? "Time to check in. Change interval"
+                  : `Next check-in: ${countdown}. Change interval`
+              }
               disabled={!checkInSchedule || scheduling}
               onClick={() => {
                 setPickerOpen((open) => !open);
@@ -281,7 +262,13 @@ export function DashboardHeader() {
               <span className="dash-header__timer-icon" aria-hidden="true">
                 {clockIcon}
               </span>
-              <strong>{countdown}</strong>
+              <strong
+                className={
+                  checkInDue ? "dash-header__timer-label--due" : undefined
+                }
+              >
+                {timerLabel}
+              </strong>
               <span className="dash-header__timer-chevron" aria-hidden="true">
                 {chevronDownIcon}
               </span>

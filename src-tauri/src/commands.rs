@@ -5,7 +5,7 @@ use tauri::{AppHandle, State};
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Task, TaskDependency, TaskStatusEvent,
+    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Task, TaskDependency, TaskStatusEvent,
 };
 use crate::phase;
 use crate::task_graph::TaskGraph;
@@ -165,18 +165,51 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
     conn.query_row(
-        "SELECT id, name, created_at, inactive_since FROM metrics WHERE id = ?1",
+        "SELECT id, name, icon, created_at FROM metrics WHERE id = ?1",
         params![id],
         |row| {
             Ok(Metric {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
+                icon: row.get(2)?,
+                created_at: row.get(3)?,
             })
         },
     )
     .map_err(Into::into)
+}
+
+fn valid_icon(icon: &str) -> bool {
+    !icon.is_empty()
+        && icon.len() <= 32
+        && icon
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte == b'-')
+}
+
+fn fetch_pulse(conn: &Connection, id: i64) -> Result<Pulse> {
+    let (name, icon, created_at) = conn
+        .query_row(
+            "SELECT name, icon, created_at FROM pulses WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("pulse {id}")))?;
+    let mut stmt = conn.prepare(
+        "SELECT metric_id FROM pulse_metrics WHERE pulse_id = ?1 \
+             ORDER BY sort_order ASC, rowid ASC",
+    )?;
+    let metric_ids = stmt
+        .query_map(params![id], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(Pulse {
+        id,
+        name,
+        icon,
+        created_at,
+        metric_ids,
+    })
 }
 
 #[tauri::command]
@@ -524,25 +557,17 @@ pub fn set_task_score(
 }
 
 #[tauri::command]
-pub fn list_metrics(
-    state: State<'_, Mutex<Connection>>,
-    include_inactive: bool,
-) -> Result<Vec<Metric>> {
+pub fn list_metrics(state: State<'_, Mutex<Connection>>) -> Result<Vec<Metric>> {
     let conn = state.lock().unwrap();
-    let sql = if include_inactive {
-        "SELECT id, name, created_at, inactive_since FROM metrics ORDER BY created_at ASC"
-    } else {
-        "SELECT id, name, created_at, inactive_since FROM metrics \
-         WHERE inactive_since IS NULL ORDER BY created_at ASC"
-    };
-    let mut stmt = conn.prepare(sql)?;
+    let mut stmt =
+        conn.prepare("SELECT id, name, icon, created_at FROM metrics ORDER BY created_at ASC")?;
     let rows = stmt
         .query_map([], |row| {
             Ok(Metric {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
+                icon: row.get(2)?,
+                created_at: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -565,8 +590,8 @@ pub fn create_metric(state: State<'_, Mutex<Connection>>, name: String) -> Resul
     Ok(Metric {
         id,
         name: trimmed,
+        icon: "activity".into(),
         created_at: now,
-        inactive_since: None,
     })
 }
 
@@ -588,21 +613,200 @@ pub fn rename_metric(state: State<'_, Mutex<Connection>>, id: i64, name: String)
 }
 
 #[tauri::command]
-pub fn set_metric_active(
+pub fn set_metric_icon(
     state: State<'_, Mutex<Connection>>,
     id: i64,
-    active: bool,
+    icon: String,
 ) -> Result<Metric> {
+    if !valid_icon(&icon) {
+        return Err(AppError::InvalidInput("invalid metric icon".into()));
+    }
     let conn = state.lock().unwrap();
-    let inactive_since: Option<i64> = if active { None } else { Some(now_unix_secs()) };
-    let updated = conn.execute(
-        "UPDATE metrics SET inactive_since = ?1 WHERE id = ?2",
-        params![inactive_since, id],
-    )?;
-    if updated == 0 {
+    if conn.execute(
+        "UPDATE metrics SET icon = ?1 WHERE id = ?2",
+        params![icon, id],
+    )? == 0
+    {
         return Err(AppError::NotFound(format!("metric {id}")));
     }
     fetch_metric(&conn, id)
+}
+
+#[tauri::command]
+pub fn list_pulses(state: State<'_, Mutex<Connection>>) -> Result<Vec<Pulse>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")?;
+    let ids = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    // ponytail: one tiny membership query per pulse; use one join if pulse counts ever grow.
+    ids.into_iter().map(|id| fetch_pulse(&conn, id)).collect()
+}
+
+#[tauri::command]
+pub fn create_pulse(state: State<'_, Mutex<Connection>>, name: String) -> Result<Pulse> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "INSERT INTO pulses (name, created_at, sort_order) VALUES ( \
+           ?1, \
+           ?2, \
+           COALESCE((SELECT MAX(sort_order) FROM pulses), -1) + 1 \
+         )",
+        params![name, now_unix_secs()],
+    )?;
+    fetch_pulse(&conn, conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn rename_pulse(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Pulse> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE pulses SET name = ?1 WHERE id = ?2",
+        params![name, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    fetch_pulse(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_pulse_icon(state: State<'_, Mutex<Connection>>, id: i64, icon: String) -> Result<Pulse> {
+    if !valid_icon(&icon) {
+        return Err(AppError::InvalidInput("invalid pulse icon".into()));
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE pulses SET icon = ?1 WHERE id = ?2",
+        params![icon, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    fetch_pulse(&conn, id)
+}
+
+#[tauri::command]
+pub fn delete_pulse(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let conn = state.lock().unwrap();
+    if conn.execute("DELETE FROM pulses WHERE id = ?1", params![id])? == 0 {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_metric_to_pulse(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_id: i64,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "INSERT OR IGNORE INTO pulse_metrics (pulse_id, metric_id, sort_order) \
+         VALUES ( \
+           ?1, \
+           ?2, \
+           COALESCE((SELECT MAX(sort_order) FROM pulse_metrics WHERE pulse_id = ?1), -1) + 1 \
+         )",
+        params![pulse_id, metric_id],
+    )?;
+    Ok(())
+}
+
+fn is_id_permutation(existing: &[i64], proposed: &[i64]) -> bool {
+    if existing.len() != proposed.len() {
+        return false;
+    }
+    let unique: std::collections::HashSet<_> = proposed.iter().copied().collect();
+    unique.len() == proposed.len() && existing.iter().all(|id| unique.contains(id))
+}
+
+fn set_pulse_order(conn: &Connection, ids: &[i64]) -> Result<()> {
+    let mut stmt = conn.prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")?;
+    let existing = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    if !is_id_permutation(&existing, ids) {
+        return Err(AppError::InvalidInput(
+            "pulse order must include each pulse once".into(),
+        ));
+    }
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE pulses SET sort_order = ?1 WHERE id = ?2",
+            params![index as i64, id],
+        )?;
+    }
+    Ok(())
+}
+
+fn set_pulse_metric_order(conn: &Connection, pulse_id: i64, metric_ids: &[i64]) -> Result<()> {
+    let pulse_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pulses WHERE id = ?1)",
+        params![pulse_id],
+        |row| row.get(0),
+    )?;
+    if !pulse_exists {
+        return Err(AppError::NotFound(format!("pulse {pulse_id}")));
+    }
+    let mut stmt = conn.prepare(
+        "SELECT metric_id FROM pulse_metrics WHERE pulse_id = ?1 \
+         ORDER BY sort_order ASC, rowid ASC",
+    )?;
+    let existing = stmt
+        .query_map(params![pulse_id], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    if !is_id_permutation(&existing, metric_ids) {
+        return Err(AppError::InvalidInput(
+            "metric order must include each metric in the pulse once".into(),
+        ));
+    }
+    for (index, metric_id) in metric_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE pulse_metrics SET sort_order = ?1 WHERE pulse_id = ?2 AND metric_id = ?3",
+            params![index as i64, pulse_id, metric_id],
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_pulses(state: State<'_, Mutex<Connection>>, ids: Vec<i64>) -> Result<()> {
+    let conn = state.lock().unwrap();
+    set_pulse_order(&conn, &ids)
+}
+
+#[tauri::command]
+pub fn reorder_pulse_metrics(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_ids: Vec<i64>,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    set_pulse_metric_order(&conn, pulse_id, &metric_ids)
+}
+
+#[tauri::command]
+pub fn remove_metric_from_pulse(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_id: i64,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "DELETE FROM pulse_metrics WHERE pulse_id = ?1 AND metric_id = ?2",
+        params![pulse_id, metric_id],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -634,6 +838,7 @@ pub fn list_phases(
 #[tauri::command]
 pub fn submit_metric_check_in(
     state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
     ratings: Vec<MetricRatingInput>,
 ) -> Result<MetricCheckIn> {
     if ratings.is_empty() {
@@ -653,10 +858,32 @@ pub fn submit_metric_check_in(
     let mut conn = state.lock().unwrap();
     let tx = conn.transaction()?;
     let now = now_unix_secs();
+    let pulse_name: String = tx
+        .query_row(
+            "SELECT name FROM pulses WHERE id = ?1",
+            params![pulse_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("pulse {pulse_id}")))?;
+
+    for rating in &ratings {
+        let belongs: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pulse_metrics WHERE pulse_id = ?1 AND metric_id = ?2)",
+            params![pulse_id, rating.metric_id],
+            |row| row.get(0),
+        )?;
+        if !belongs {
+            return Err(AppError::InvalidInput(format!(
+                "metric {} is not part of pulse {pulse_id}",
+                rating.metric_id
+            )));
+        }
+    }
 
     tx.execute(
-        "INSERT INTO metric_check_ins (created_at) VALUES (?1)",
-        params![now],
+        "INSERT INTO metric_check_ins (created_at, pulse_id, pulse_name) VALUES (?1, ?2, ?3)",
+        params![now, pulse_id, pulse_name],
     )?;
     let check_in_id = tx.last_insert_rowid();
 
@@ -674,6 +901,8 @@ pub fn submit_metric_check_in(
     Ok(MetricCheckIn {
         id: check_in_id,
         created_at: now,
+        pulse_id: Some(pulse_id),
+        pulse_name: Some(pulse_name),
     })
 }
 
@@ -686,7 +915,7 @@ pub fn list_metric_check_ins(
     let conn = state.lock().unwrap();
 
     let mut ci_stmt = conn.prepare(
-        "SELECT id, created_at FROM metric_check_ins \
+        "SELECT id, created_at, pulse_id, pulse_name FROM metric_check_ins \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
     let check_ins: Vec<MetricCheckIn> = ci_stmt
@@ -694,6 +923,8 @@ pub fn list_metric_check_ins(
             Ok(MetricCheckIn {
                 id: row.get(0)?,
                 created_at: row.get(1)?,
+                pulse_id: row.get(2)?,
+                pulse_name: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -887,7 +1118,8 @@ pub fn list_brain_dumps(
 mod tests {
     use super::{
         bank_task_work, change_task_status, change_task_working, fetch_task,
-        normalize_optional_title, normalize_task_scope, resolve_due_check_in, validate_task_status,
+        normalize_optional_title, normalize_task_scope, resolve_due_check_in, valid_icon,
+        validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -916,6 +1148,13 @@ mod tests {
     #[test]
     fn accepts_up_next_task_status() {
         assert_eq!(validate_task_status("up_next").unwrap(), "up_next");
+    }
+
+    #[test]
+    fn accepts_safe_icon_keys() {
+        assert!(valid_icon("book-heart"));
+        assert!(!valid_icon(""));
+        assert!(!valid_icon("<svg>"));
     }
 
     #[test]
@@ -1003,5 +1242,38 @@ mod tests {
         assert_eq!(timer.interval_minutes, 20);
         assert_eq!(timer.next_due_at, 5_200);
         assert!(!timer.waiting_for_response);
+    }
+
+    #[test]
+    fn reorders_pulses_and_the_metrics_inside_a_pulse() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO pulses (id, name, created_at, sort_order) \
+             VALUES (1, 'First', 1, 0), (2, 'Second', 2, 1);
+             INSERT INTO metrics (id, name, created_at) \
+             VALUES (10, 'Energy', 1), (11, 'Mood', 2);
+             INSERT INTO pulse_metrics (pulse_id, metric_id, sort_order) \
+             VALUES (1, 10, 0), (1, 11, 1);",
+        )
+        .unwrap();
+
+        super::set_pulse_order(&conn, &[2, 1]).unwrap();
+        let pulse_ids: Vec<i64> = conn
+            .prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(pulse_ids, vec![2, 1]);
+
+        super::set_pulse_metric_order(&conn, 1, &[11, 10]).unwrap();
+        assert_eq!(
+            super::fetch_pulse(&conn, 1).unwrap().metric_ids,
+            vec![11, 10]
+        );
+        assert!(super::set_pulse_order(&conn, &[1]).is_err());
+        assert!(super::set_pulse_metric_order(&conn, 1, &[10]).is_err());
     }
 }

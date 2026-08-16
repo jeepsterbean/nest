@@ -15,6 +15,12 @@ use std::{
     ptr,
     sync::{Mutex, OnceLock},
 };
+
+#[cfg(target_os = "macos")]
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -190,21 +196,105 @@ fn start_check_in_timer(app: tauri::AppHandle) {
     });
 }
 
+/// Invalidates a pending “left dashboard” settle so a later sample cannot
+/// overwrite a newer attention state.
+#[cfg(target_os = "macos")]
+struct PhaseLeaveEpoch(AtomicU64);
+
+/// Wait for NSWorkspace to publish the newly frontmost app before recording
+/// Resting. Switching dashboard → Notion otherwise inserts a Resting blip.
+#[cfg(target_os = "macos")]
+const PHASE_LEAVE_SETTLE: Duration = Duration::from_millis(100);
+
+#[cfg(target_os = "macos")]
+fn bump_leave_epoch(app: &tauri::AppHandle) -> u64 {
+    app.state::<PhaseLeaveEpoch>()
+        .0
+        .fetch_add(1, Ordering::SeqCst)
+        + 1
+}
+
+#[cfg(target_os = "macos")]
+fn enter_dashboard_attention(app: &tauri::AppHandle) {
+    bump_leave_epoch(app);
+    if phase::with_current_signals(app, |signals| signals.dashboard_focused) {
+        return;
+    }
+    phase::update_signals_and_sync(app, |signals| {
+        signals.dashboard_focused = true;
+        signals.notion_frontmost = false;
+    });
+}
+
+/// Record that attention left the dashboard. Deferred so Notion activation
+/// can land in the same checkpoint; cancelled if the dashboard is focused
+/// again before the settle elapses.
+#[cfg(target_os = "macos")]
+fn schedule_leave_dashboard_attention(app: &tauri::AppHandle) {
+    if !phase::with_current_signals(app, |signals| signals.dashboard_focused) {
+        return;
+    }
+    let epoch = bump_leave_epoch(app);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(PHASE_LEAVE_SETTLE);
+        let app_for_sync = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if app_for_sync
+                .state::<PhaseLeaveEpoch>()
+                .0
+                .load(Ordering::SeqCst)
+                != epoch
+            {
+                return;
+            }
+            let notion_frontmost = phase::notion_is_frontmost();
+            phase::update_signals_and_sync(&app_for_sync, |signals| {
+                phase::apply_left_dashboard(signals, notion_frontmost);
+            });
+        });
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn sync_phase_from_workspace(app: &tauri::AppHandle) {
+    bump_leave_epoch(app);
+    if phase::nest_is_frontmost() {
+        let dashboard_focused = app
+            .get_webview_window("dashboard")
+            .and_then(|window| window.is_focused().ok())
+            .unwrap_or(false);
+        phase::update_signals_and_sync(app, |signals| {
+            signals.dashboard_focused = dashboard_focused;
+            signals.notion_frontmost = false;
+        });
+        return;
+    }
+    let notion_frontmost = phase::notion_is_frontmost();
+    phase::update_signals_and_sync(app, |signals| {
+        phase::apply_left_dashboard(signals, notion_frontmost);
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn dashboard_window_number(app: &tauri::AppHandle) -> Option<isize> {
+    use tauri_nspanel::objc2_app_kit::NSWindow;
+
+    let window = app.get_webview_window("dashboard")?;
+    let ptr = window.ns_window().ok()? as *const NSWindow;
+    if ptr.is_null() {
+        return None;
+    }
+    Some(unsafe { (*ptr).windowNumber() as isize })
+}
+
 #[cfg(target_os = "macos")]
 fn install_phase_application_observer(app: tauri::AppHandle) {
     use objc2_app_kit::{NSWorkspace, NSWorkspaceDidActivateApplicationNotification};
     use objc2_foundation::NSNotification;
 
     let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
-        let dashboard_focused = app
-            .get_webview_window("dashboard")
-            .and_then(|window| window.is_focused().ok())
-            .unwrap_or(false);
-        let notion_frontmost = phase::notion_is_frontmost();
-        phase::update_signals_and_sync(&app, |signals| {
-            signals.dashboard_focused = dashboard_focused;
-            signals.notion_frontmost = notion_frontmost;
-        });
+        sync_phase_from_workspace(&app);
     });
     let center = NSWorkspace::sharedWorkspace().notificationCenter();
     let observer = unsafe {
@@ -259,12 +349,6 @@ fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
     summon_popup(app, label);
 }
 
-/// Center `window` on the monitor under the mouse cursor, so a summoned popup
-/// follows the user's attention across displays instead of always landing on
-/// the primary (laptop) screen. "Active screen" is taken to mean the screen
-/// the cursor is on — in normal use that's the display you're working on.
-/// All math is in physical pixels to stay scale-factor-correct on mixed-DPI
-/// setups. Best-effort: on any failure the popup just keeps its prior spot.
 /// Center the popup on the screen the mouse pointer is on. Uses macOS's own
 /// screen coordinates so the pointer and the screens are measured with the
 /// same "ruler" — Tauri's cross-platform cursor/monitor values disagree on
@@ -452,6 +536,12 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
             {
                 request_popup_dismiss(&app_for_local, "outside_mouse_local");
             }
+            if mouse_down
+                && dashboard_window_number(&app_for_local)
+                    .is_some_and(|number| event_ref.windowNumber() as isize == number)
+            {
+                enter_dashboard_attention(&app_for_local);
+            }
 
             event.as_ptr()
         },
@@ -479,6 +569,10 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
             if visible {
                 request_popup_dismiss(&app, "outside_mouse_global");
             }
+            // Accessory Nest often stays key after a click on another display,
+            // and that click does not activate a new app. The click itself is
+            // the attention change.
+            schedule_leave_dashboard_attention(&app);
         },
     );
     let global_block = Box::leak(Box::new(global_block));
@@ -533,6 +627,8 @@ pub fn run() {
                 notion_frontmost: phase::notion_is_frontmost(),
                 ..phase::PhaseSignals::default()
             }));
+            #[cfg(target_os = "macos")]
+            app.manage(PhaseLeaveEpoch(AtomicU64::new(0)));
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(check_in_timer));
             start_check_in_timer(app.handle().clone());
@@ -592,16 +688,17 @@ pub fn run() {
                     #[cfg(target_os = "macos")]
                     match event {
                         tauri::WindowEvent::Focused(true) => {
-                            phase::update_signals_and_sync(&handle, |signals| {
-                                signals.dashboard_focused = true;
-                                signals.notion_frontmost = false;
-                            });
+                            enter_dashboard_attention(&handle);
+                        }
+                        tauri::WindowEvent::Focused(false) => {
+                            schedule_leave_dashboard_attention(&handle);
                         }
                         tauri::WindowEvent::CloseRequested { .. }
                         | tauri::WindowEvent::Destroyed => {
+                            bump_leave_epoch(&handle);
+                            let notion_frontmost = phase::notion_is_frontmost();
                             phase::update_signals_and_sync(&handle, |signals| {
-                                signals.dashboard_focused = false;
-                                signals.notion_frontmost = false;
+                                phase::apply_left_dashboard(signals, notion_frontmost);
                             });
                         }
                         _ => {}
@@ -718,7 +815,16 @@ pub fn run() {
             commands::set_task_score,
             commands::create_metric,
             commands::rename_metric,
-            commands::set_metric_active,
+            commands::set_metric_icon,
+            commands::list_pulses,
+            commands::create_pulse,
+            commands::rename_pulse,
+            commands::set_pulse_icon,
+            commands::delete_pulse,
+            commands::add_metric_to_pulse,
+            commands::remove_metric_from_pulse,
+            commands::reorder_pulses,
+            commands::reorder_pulse_metrics,
             commands::list_phases,
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,

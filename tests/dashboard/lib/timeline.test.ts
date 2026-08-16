@@ -17,6 +17,8 @@ const metricCheckIn = (
 ): MetricCheckInWithRatings => ({
   id,
   createdAt,
+  pulseId: 1,
+  pulseName: "Daily pulse",
   ratings: ratings.map((r) => ({ checkInId: id, ...r })),
 });
 

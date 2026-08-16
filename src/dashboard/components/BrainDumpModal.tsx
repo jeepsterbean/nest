@@ -91,6 +91,10 @@ export function BrainDumpModal({
         />
         <textarea
           ref={inputRef}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={text}
           onChange={(e) =>
             setDraft((draft) => ({ ...draft, text: e.target.value }))

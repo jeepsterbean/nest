@@ -19,7 +19,7 @@ export async function resolvePopupOnce(
 }
 
 function CheckInPopup() {
-  // Bumped on every summon so the form starts on Phase with fresh data.
+  // Bumped on every summon so the form starts on the first pulse with fresh data.
   const [summonKey, setSummonKey] = useState(0);
   const resolvedRef = useRef(false);
 

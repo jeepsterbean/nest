@@ -1,7 +1,20 @@
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { PopupTopPanel } from "../../src/popup/CheckInForm";
+import {
+  firstScorablePulse,
+  nextMetricIndex,
+  PopupTopPanel,
+} from "../../src/popup/CheckInForm";
+import type { Pulse } from "../../src/lib/types";
+
+const pulse = (id: number, metricIds: number[]): Pulse => ({
+  id,
+  name: `Pulse ${id}`,
+  icon: "activity",
+  createdAt: id,
+  metricIds,
+});
 
 const props: ComponentProps<typeof PopupTopPanel> = {
   timerDue: true,
@@ -38,5 +51,19 @@ describe("PopupTopPanel", () => {
 
     expect(html).toContain("combined-timer__sweep");
     expect(html).toContain("7:30");
+  });
+});
+
+describe("nextMetricIndex", () => {
+  it("advances until the final metric", () => {
+    expect(nextMetricIndex(0, 5)).toBe(1);
+    expect(nextMetricIndex(4, 5)).toBeNull();
+  });
+});
+
+describe("firstScorablePulse", () => {
+  it("picks the first pulse that has metrics", () => {
+    expect(firstScorablePulse([pulse(1, []), pulse(2, [9]), pulse(3, [8])])?.id).toBe(2);
+    expect(firstScorablePulse([pulse(1, [])])).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ pub const PHASE_DOING: &str = "Doing";
 pub const PHASE_SCOPING: &str = "Scoping";
 pub const PHASE_RESTING: &str = "Resting";
 const NOTION_BUNDLE_ID: &str = "notion.id";
+const NEST_BUNDLE_ID: &str = "com.huwenjie.nest";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PhaseSignals {
@@ -27,6 +28,14 @@ pub fn derived_phase(working: bool, signals: PhaseSignals) -> &'static str {
     } else {
         PHASE_RESTING
     }
+}
+
+/// Attention left the dashboard. Accessory Nest can keep a key window on
+/// one display after the user clicks another, so this clears focus rather
+/// than trusting `is_focused()`.
+pub fn apply_left_dashboard(signals: &mut PhaseSignals, notion_frontmost: bool) {
+    signals.dashboard_focused = false;
+    signals.notion_frontmost = notion_frontmost;
 }
 
 pub fn with_current_signals<T>(app: &AppHandle, f: impl FnOnce(PhaseSignals) -> T) -> T {
@@ -76,24 +85,28 @@ pub fn sync_derived_phase(
 }
 
 pub fn notion_is_frontmost() -> bool {
+    macos_frontmost_bundle_is(NOTION_BUNDLE_ID)
+}
+
+pub fn nest_is_frontmost() -> bool {
+    macos_frontmost_bundle_is(NEST_BUNDLE_ID)
+}
+
+fn macos_frontmost_bundle_is(bundle_id: &str) -> bool {
     #[cfg(target_os = "macos")]
     {
-        macos_notion_is_frontmost()
+        use objc2_app_kit::NSWorkspace;
+
+        NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .and_then(|app| app.bundleIdentifier())
+            .is_some_and(|bundle| bundle.to_string() == bundle_id)
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = bundle_id;
         false
     }
-}
-
-#[cfg(target_os = "macos")]
-fn macos_notion_is_frontmost() -> bool {
-    use objc2_app_kit::NSWorkspace;
-
-    NSWorkspace::sharedWorkspace()
-        .frontmostApplication()
-        .and_then(|app| app.bundleIdentifier())
-        .is_some_and(|bundle| bundle.to_string() == NOTION_BUNDLE_ID)
 }
 
 fn fetch_active_phase_id(conn: &Connection, name: &str) -> Result<i64> {
@@ -124,7 +137,7 @@ pub(crate) fn record_phase_if_changed(
             Err(error) => return Err(error.into()),
         };
         if inactive.is_some() {
-            return Err(AppError::InvalidInput("phase is paused".into()));
+            return Err(AppError::InvalidInput("phase is inactive".into()));
         }
     }
 
@@ -287,6 +300,21 @@ mod tests {
             derived_phase(false, signals(false, true, false)),
             PHASE_SCOPING
         );
+    }
+
+    #[test]
+    fn leaving_dashboard_clears_stale_key_window_focus() {
+        let mut left = signals(true, false, false);
+        apply_left_dashboard(&mut left, false);
+        assert_eq!(derived_phase(false, left), PHASE_RESTING);
+
+        let mut to_notion = signals(true, false, false);
+        apply_left_dashboard(&mut to_notion, true);
+        assert_eq!(derived_phase(false, to_notion), PHASE_SCOPING);
+
+        let mut popup_up = signals(true, true, false);
+        apply_left_dashboard(&mut popup_up, false);
+        assert_eq!(derived_phase(false, popup_up), PHASE_SCOPING);
     }
 
     #[test]

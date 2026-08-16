@@ -7,6 +7,7 @@ and capturing thoughts without interrupting flow.
 
 **Task**:
 A discrete piece of personal work that can be organized, scored, and moved through a status.
+The persisted statuses are backlog, up next, active, completed, and cancelled.
 _Avoid_: Todo, item
 
 **Parent**:
@@ -45,16 +46,31 @@ _Avoid_: Status, Ready, in progress, paused
 
 **Worked time**:
 The total time a Task has been Working now, kept even after work stops.
-It keeps counting if Working now is left on.
+It keeps counting if Working now is left on. The Working now control shows
+the current stretch; the total is the piggy bank.
 _Avoid_: Session, stopwatch, in progress
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.
 The three values are **Doing**, **Scoping**, and **Resting**.
 Doing if any Task is Working now; else Scoping if Nest is engaged
-(dashboard focused or check-in popup up) or Notion desktop is frontmost;
-else Resting.
+(dashboard has attention or check-in popup up) or Notion desktop is frontmost;
+else Resting. Clicking another display leaves dashboard attention even if
+the Nest window is still key.
 _Avoid_: Status, Working now, Scope
+
+**Pulse**:
+A named group of Metrics scored together during a check-in. The order of
+Pulses, and of Metrics inside a Pulse, is the order they appear in the popup.
+A Pulse can be hidden from the popup without deleting it.
+_Avoid_: set, category, collection
+
+**Metric**:
+A 1–5 rating scored as part of a Pulse check-in.
+
+**Brain dump**:
+An unstructured captured thought, with an optional title, stored on its own.
+_Avoid_: note, journal entry
 
 ## Relationships
 
@@ -64,6 +80,9 @@ _Avoid_: Status, Working now, Scope
 - A **Scope** categorizes zero or more **Tasks** but does not contain them
 - Parent and Child relationships form a forest; Blocker and Dependent relationships form a DAG
 - A **Task** has **Worked time** that grows while it is **Working now**
+- A **Pulse** contains zero or more **Metrics** in a user-defined order
+- A **Task** may have optional 1–5 value and effort scores
+- A **Brain dump** is independent of Tasks and Pulses
 - **Phase** is derived from Working now and whether Nest or Notion desktop currently has attention
 
 ## Example dialogue
@@ -81,6 +100,7 @@ _Avoid_: Status, Working now, Scope
 - "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
+- "Idle" can look like a fourth Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, and Resting.
 
 ## Check-in cadence
 
@@ -93,8 +113,13 @@ _Avoid_: Status, Working now, Scope
 - Completing an automatic popup starts the current interval if the timer is
   still paused. Dismissing it starts a five-minute interval if the timer is
   still paused.
-- The check-in popup shows remaining time centered on a clock face. Clicking
-  the clock opens the interval picker. The task list below is sized for three
-  rows; additional tasks scroll.
+- The check-in popup is two columns. Left: remaining time on a clock face
+  (click to pick an interval) and the Active / Up next task list, sized for
+  three rows with extra tasks scrolling. Right: brain dump above Pulse scoring.
+- The Pulse panel opens on the first Metric of the first visible Pulse.
+  Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
+  shown there; finishing the last Metric of a Pulse saves that Pulse and
+  closes the popup.
+- Opening the dashboard from the popup dismisses it.
 - Manually summoned popups keep the live countdown and do not reset it when
   completed or dismissed.

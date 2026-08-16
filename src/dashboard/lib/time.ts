@@ -74,14 +74,6 @@ export const formatDateTime = (ts: number) =>
     minute: "2-digit",
   });
 
-export const elapsedMinutes = (startedAt: number, nowMs: number = Date.now()) =>
-  Math.max(0, Math.floor((nowMs / 1000 - startedAt) / 60));
-
-export const formatElapsedMinutes = (
-  startedAt: number,
-  nowMs: number = Date.now(),
-) => `${elapsedMinutes(startedAt, nowMs)} min`;
-
 export const taskWorkSessionSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),

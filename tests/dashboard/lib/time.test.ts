@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   computeStreak,
   dayLabel,
-  elapsedMinutes,
   formatCheckInCountdown,
   formatDate,
   formatDateTime,
-  formatElapsedMinutes,
   formatTime,
   formatPlayButtonTime,
   formatWorkedTime,
@@ -118,14 +116,6 @@ describe("format helpers", () => {
 describe("minute helpers", () => {
   const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
 
-  it("formats elapsed whole minutes without going negative", () => {
-    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(5);
-    expect(formatElapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(
-      "5 min",
-    );
-    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 31)), now)).toBe(0);
-  });
-
   it("shows second-precision countdowns and marks due schedules", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
@@ -152,7 +142,7 @@ describe("worked time", () => {
     expect(taskTotalWorkedSeconds(90, null, 130_000)).toBe(90);
   });
 
-  it("formats stopwatch time", () => {
+  it("formats worked time", () => {
     expect(formatWorkedTime(0)).toBe("0");
     expect(formatWorkedTime(45)).toBe("45");
     expect(formatWorkedTime(60)).toBe("1:00");

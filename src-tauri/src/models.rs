@@ -5,8 +5,18 @@ use serde::{Deserialize, Serialize};
 pub struct Metric {
     pub id: i64,
     pub name: String,
+    pub icon: String,
     pub created_at: i64,
-    pub inactive_since: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pulse {
+    pub id: i64,
+    pub name: String,
+    pub icon: String,
+    pub created_at: i64,
+    pub metric_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +24,8 @@ pub struct Metric {
 pub struct MetricCheckIn {
     pub id: i64,
     pub created_at: i64,
+    pub pulse_id: Option<i64>,
+    pub pulse_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

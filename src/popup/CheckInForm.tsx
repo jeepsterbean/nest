@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   createTask,
   getCheckInSchedule,
   listMetrics,
+  listPulses,
   listTasks,
   scheduleNextCheckIn,
   setTaskStatus,
@@ -16,6 +17,7 @@ import type {
   CheckInSchedule,
   Metric,
   MetricRatingInput,
+  Pulse,
   RatingValue,
   Task,
 } from "../lib/types";
@@ -29,14 +31,16 @@ import {
   trimBrainDumpDraft,
   useBrainDumpDraft,
 } from "../lib/brainDumpDraft";
+import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
+import { NestIcon } from "../dashboard/components/PulseIcon";
 import "./CheckInForm.css";
 
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
-type View = "phase" | "metrics";
 type LoadState = {
   metrics: Metric[];
+  pulses: Pulse[];
   tasks: Task[];
   schedule: CheckInSchedule;
 };
@@ -59,21 +63,6 @@ function CheckIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2.2"
-      />
-    </svg>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <path
-        d="M12.5 4.5 7 10l5.5 5.5"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
       />
     </svg>
   );
@@ -198,6 +187,14 @@ export function PopupTopPanel({
   );
 }
 
+export function nextMetricIndex(index: number, metricCount: number) {
+  return index + 1 < metricCount ? index + 1 : null;
+}
+
+export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
+  return pulses.find((pulse) => pulse.metricIds.length > 0) ?? null;
+}
+
 function CheckInForm({
   onDismiss,
   onComplete,
@@ -206,11 +203,12 @@ function CheckInForm({
   onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
-  const [view, setView] = useState<View>("phase");
   const [nextCheckInMinutes, setNextCheckInMinutes] = useState<number | null>(
     null,
   );
-  const [ratings, setRatings] = useState<Record<number, RatingValue | null>>({});
+  const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
+  const [metricIndex, setMetricIndex] = useState(0);
+  const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText } = brainDumpDraft;
   const [taskTitle, setTaskTitle] = useState("");
@@ -220,27 +218,32 @@ function CheckInForm({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const isLoaded = loaded !== null;
-
-  const focusMetricRow = (idx: number) => {
-    rowRefs.current[idx]
-      ?.querySelector<HTMLButtonElement>('[role="radio"][tabindex="0"]')
-      ?.focus();
-  };
+  const hiddenPulseIds = readHiddenPulseIds();
+  const visiblePulses = loaded?.pulses.filter(
+    (pulse) => !hiddenPulseIds.has(pulse.id),
+  ) ?? [];
+  const selectedPulse = visiblePulses.find((pulse) => pulse.id === selectedPulseId) ?? null;
+  const pulseMetrics = selectedPulse
+    ? selectedPulse.metricIds.flatMap((id) => {
+        const metric = loaded?.metrics.find((candidate) => candidate.id === id);
+        return metric ? [metric] : [];
+      })
+    : [];
+  const activeMetric = pulseMetrics[metricIndex] ?? null;
+  const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listMetrics(false), listTasks(), getCheckInSchedule()])
-      .then(([metrics, tasks, schedule]) => {
+    Promise.all([listMetrics(), listPulses(), listTasks(), getCheckInSchedule()])
+      .then(([metrics, pulses, tasks, schedule]) => {
         if (cancelled) return;
-        setLoaded({ metrics, tasks, schedule });
+        const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
+        setLoaded({ metrics, pulses, tasks, schedule });
+        setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
         setNextCheckInMinutes(schedule.intervalMinutes);
-        setRatings(
-          Object.fromEntries(metrics.map((metric) => [metric.id, null])),
-        );
         setError(null);
       })
       .catch((e) => {
@@ -274,22 +277,16 @@ function CheckInForm({
   }, []);
 
   useEffect(() => {
-    if (view === "phase") {
-      requestAnimationFrame(() => brainDumpRef.current?.focus());
-    } else {
-      requestAnimationFrame(() => focusMetricRow(0));
-    }
-  }, [view, isLoaded]);
-
-  const focusAfterRow = (idx: number) => {
-    if (idx + 1 < (loaded?.metrics.length ?? 0)) {
-      focusMetricRow(idx + 1);
-    }
-  };
-
-  const setRating = (metricId: number, value: RatingValue) => {
-    setRatings((prev) => ({ ...prev, [metricId]: value }));
-  };
+    if (!isLoaded) return;
+    requestAnimationFrame(() => {
+      const brainDump = brainDumpRef.current;
+      if (brainDump) {
+        brainDump.focus();
+        const end = brainDump.value.length;
+        brainDump.setSelectionRange(end, end);
+      }
+    });
+  }, [isLoaded]);
 
   const openDashboard = async () => {
     await onDismiss();
@@ -379,18 +376,23 @@ function CheckInForm({
     }
   };
 
-  const saveMetrics = async () => {
-    const ratingsInput: MetricRatingInput[] = Object.entries(ratings)
-      .filter(([, value]) => value !== null)
-      .map(([metricId, value]) => ({
-        metricId: Number(metricId),
-        value: value as RatingValue,
-      }));
+  const ratingsForPulse = (
+    pulse: Pulse,
+    checkInRatings: Record<string, RatingValue | null>,
+  ): MetricRatingInput[] =>
+    pulse.metricIds.flatMap((id) => {
+      const value = checkInRatings[`${pulse.id}:${id}`];
+      return value == null ? [] : [{ metricId: id, value }];
+    });
+
+  const saveMetrics = async (
+    pulse: Pulse,
+    checkInRatings: Record<string, RatingValue | null>,
+  ) => {
+    const ratingsInput = ratingsForPulse(pulse, checkInRatings);
     if (ratingsInput.length === 0) return;
-    await submitMetricCheckIn(ratingsInput);
-    setRatings(
-      Object.fromEntries(loaded?.metrics.map((metric) => [metric.id, null]) ?? []),
-    );
+    await submitMetricCheckIn(pulse.id, ratingsInput);
+    setRatings({});
     await emit("check-in-submitted");
   };
 
@@ -415,13 +417,17 @@ function CheckInForm({
     }
   };
 
-  const completePopup = async () => {
+  const completePopup = async (
+    pulse: Pulse,
+    checkInRatings: Record<string, RatingValue | null>,
+  ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       await onComplete(async () => {
-        if (view === "metrics") await saveMetrics();
+        await saveBrainDump();
+        await saveMetrics(pulse, checkInRatings);
         return timerDue
           ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
           : null;
@@ -432,19 +438,19 @@ function CheckInForm({
     }
   };
 
-  const selectView = (next: View) => {
-    if (!loaded || submitting || next === view) return;
-    setView(next);
-  };
-
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!loaded || submitting) return;
-    if (view === "metrics") {
-      await completePopup();
+  const answerMetric = async (value: RatingValue) => {
+    if (!activeMetric || !selectedPulse || submitting) return;
+    const nextRatings = {
+      ...ratings,
+      [ratingKey(activeMetric.id)]: value,
+    };
+    setRatings(nextRatings);
+    const nextIndex = nextMetricIndex(metricIndex, pulseMetrics.length);
+    if (nextIndex !== null) {
+      setMetricIndex(nextIndex);
       return;
     }
-    setView("metrics");
+    await completePopup(selectedPulse, nextRatings);
   };
 
   if (!loaded) {
@@ -599,14 +605,9 @@ function CheckInForm({
         checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) /
           (loaded.schedule.intervalMinutes * 60),
       );
-  const phaseName = loaded.tasks.some((task) => task.workingNow)
-    ? "Doing"
-    : "Scoping";
-
   return (
-    <form
+    <div
       className="combined-checkin"
-      onSubmit={onSubmit}
       onPointerDownCapture={(event) => {
         const target = event.target as Element;
         if (timerPickerOpen && !target.closest(".combined-timer__main")) {
@@ -621,28 +622,6 @@ function CheckInForm({
           "--timer-collapse",
           String(Math.min(1, Math.max(0, current + event.deltaY / 300))),
         );
-      }}
-      onKeyDownCapture={(event) => {
-        if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-        if (event.target === brainDumpRef.current) {
-          if (
-            isBrainDumpSubmitShortcut({
-              key: event.key,
-              metaKey: event.metaKey,
-              ctrlKey: event.ctrlKey,
-              isComposing: event.nativeEvent.isComposing,
-            })
-          ) {
-            event.preventDefault();
-            void submitBrainDumpDraft();
-            return;
-          }
-          if (event.shiftKey) return;
-        }
-        if (event.target === taskInputRef.current && !event.altKey) return;
-        event.preventDefault();
-        if (event.altKey) void completePopup();
-        else event.currentTarget.requestSubmit();
       }}
     >
       <aside className="combined-sidebar">
@@ -663,141 +642,117 @@ function CheckInForm({
       </aside>
 
       <main className="combined-workspace">
-        <nav className="combined-tabs" role="tablist" aria-label="Check-in view">
-          {(["phase", "metrics"] as View[]).map((candidate) => (
-            <button
-              key={candidate}
-              type="button"
-              role="tab"
-              aria-selected={view === candidate}
-              disabled={submitting}
-              onClick={() => void selectView(candidate)}
-            >
-              {candidate === "phase" ? "Phase" : "Metrics"}
-            </button>
-          ))}
-        </nav>
+        <section className="combined-brain-dump" aria-label="Brain dump">
+          <textarea
+            ref={brainDumpRef}
+            id="popup-brain-dump"
+            className="combined-input"
+            aria-label="Brain dump"
+            autoCapitalize="off"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={brainDumpText}
+            onChange={(event) =>
+              setBrainDumpDraft((draft) => ({
+                ...draft,
+                text: event.target.value,
+              }))
+            }
+            onKeyDown={(event) => {
+              if (
+                isBrainDumpSubmitShortcut({
+                  key: event.key,
+                  metaKey: event.metaKey,
+                  ctrlKey: event.ctrlKey,
+                  isComposing: event.nativeEvent.isComposing,
+                })
+              ) {
+                event.preventDefault();
+                void submitBrainDumpDraft();
+              }
+            }}
+          />
+        </section>
 
-        <section className="combined-workspace__view" role="tabpanel">
-          {view === "phase" ? (
-            <div className="phase-view">
-              <div className="phase-prompt">
-                <p className="phase-prompt__ask">Now in</p>
-                <p
-                  className="phase-prompt__current"
-                  aria-live="polite"
-                  aria-label={`Now in ${phaseName}`}
-                >
-                  <span className="phase-prompt__dot" aria-hidden="true" />
-                  <span className="phase-prompt__name">{phaseName}</span>
-                </p>
-              </div>
-              <section className="combined-brain-dump">
-                <textarea
-                  ref={brainDumpRef}
-                  id="popup-brain-dump"
-                  className="combined-input"
-                  aria-label="Brain dump"
-                  placeholder="What’s on your mind?"
-                  value={brainDumpText}
-                  onChange={(event) =>
-                    setBrainDumpDraft((draft) => ({
-                      ...draft,
-                      text: event.target.value,
-                    }))
-                  }
-                />
+        <section
+          className="pulse-panel"
+          aria-label="Pulse check-in"
+          onKeyDown={(event) => {
+            if (event.key >= "1" && event.key <= "5") {
+              event.preventDefault();
+              void answerMetric(Number(event.key) as RatingValue);
+            }
+          }}
+        >
+          {visiblePulses.length > 0 && (
+            <div className="popup-pulse-toggle" role="group" aria-label="Pulses">
+              {visiblePulses.map((pulse) => (
                 <button
-                  type="submit"
-                  className="combined-submit"
-                  aria-label={submitting ? "Saving" : "Next"}
-                  aria-busy={submitting}
-                  disabled={submitting}
+                  key={pulse.id}
+                  type="button"
+                  aria-label={pulse.name}
+                  title={pulse.name}
+                  aria-pressed={pulse.id === selectedPulseId}
+                  disabled={submitting || pulse.metricIds.length === 0}
+                  onFocus={() => {
+                    if (pulse.id === selectedPulseId) return;
+                    setSelectedPulseId(pulse.id);
+                    setMetricIndex(0);
+                  }}
+                  onClick={() => {
+                    setSelectedPulseId(pulse.id);
+                    setMetricIndex(0);
+                  }}
                 >
-                  <ChevronIcon />
+                  <NestIcon name={pulse.icon} />
                 </button>
-              </section>
+              ))}
+            </div>
+          )}
+          {activeMetric ? (
+            <div
+              className="metric-step"
+              key={`${selectedPulseId}:${activeMetric.id}`}
+              aria-live="polite"
+            >
+              <div className="metric-step__title">
+                <NestIcon name={activeMetric.icon} />
+                <h2>{activeMetric.name}</h2>
+              </div>
+              <div
+                className="metric-row__buttons"
+                role="group"
+                aria-label={activeMetric.name}
+              >
+                {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => {
+                  const selected = ratings[ratingKey(activeMetric.id)] === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      tabIndex={-1}
+                      aria-label={`${value} out of 5`}
+                      aria-pressed={selected}
+                      disabled={submitting}
+                      className={`metric-rating metric-rating--v${value}${
+                        selected ? " metric-rating--active" : ""
+                      }`}
+                      onClick={() => void answerMetric(value)}
+                    >
+                      {value}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
-            <div className="combined-metrics">
-              {loaded.metrics.length === 0 ? (
-                <div className="combined-empty">No active metrics.</div>
-              ) : (
-                loaded.metrics.map((metric, idx) => {
-                  const rating = ratings[metric.id] ?? null;
-                  return (
-                    <div className="metric-row" key={metric.id}>
-                      <span className="metric-row__name">{metric.name}</span>
-                      <div
-                        ref={(element) => {
-                          rowRefs.current[idx] = element;
-                        }}
-                        className="metric-row__buttons"
-                        role="radiogroup"
-                        aria-label={metric.name}
-                        onKeyDown={(event) => {
-                          const key = event.key.toLowerCase();
-                          if (key >= "1" && key <= "5") {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setRating(metric.id, Number(key) as RatingValue);
-                            focusAfterRow(idx);
-                          } else if (
-                            [
-                              "ArrowRight",
-                              "ArrowDown",
-                              "ArrowLeft",
-                              "ArrowUp",
-                            ].includes(event.key)
-                          ) {
-                            event.preventDefault();
-                            const direction = [
-                              "ArrowRight",
-                              "ArrowDown",
-                            ].includes(event.key)
-                              ? 1
-                              : -1;
-                            const next = Math.min(
-                              5,
-                              Math.max(1, (rating ?? 1) + direction),
-                            ) as RatingValue;
-                            setRating(metric.id, next);
-                            requestAnimationFrame(() =>
-                              rowRefs.current[idx]
-                                ?.querySelector<HTMLButtonElement>(
-                                  `[data-value="${next}"]`,
-                                )
-                                ?.focus(),
-                            );
-                          }
-                        }}
-                      >
-                        {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            role="radio"
-                            aria-checked={rating === value}
-                            data-value={value}
-                            className={`metric-rating metric-rating--v${value}${
-                              rating === value ? " metric-rating--active" : ""
-                            }`}
-                            onClick={() => setRating(metric.id, value)}
-                            tabIndex={
-                              rating === value ||
-                              (rating === null && value === 1)
-                                ? 0
-                                : -1
-                            }
-                          >
-                            {value}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            <div className="combined-empty">
+              {visiblePulses.length
+                ? "This pulse has no metrics yet."
+                : loaded.pulses.length
+                  ? "No pulses are shown in the popup. Turn one on in Metrics."
+                  : "Create a pulse in the Metrics dashboard."}
             </div>
           )}
         </section>
@@ -808,7 +763,7 @@ function CheckInForm({
           </div>
         )}
       </main>
-    </form>
+    </div>
   );
 }
 
