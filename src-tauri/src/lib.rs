@@ -1,5 +1,3 @@
-#![allow(clippy::unused_unit)] // Required by tauri-nspanel's panel_event! syntax.
-
 mod check_in;
 mod commands;
 mod db;
@@ -14,7 +12,6 @@ use std::{
     io::Write,
     path::PathBuf,
     ptr,
-    sync::atomic::{AtomicI64, Ordering},
     sync::{Mutex, OnceLock},
 };
 use tauri::{
@@ -25,8 +22,6 @@ use tauri::{
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-#[cfg(target_os = "macos")]
-use crate::time::now_unix_millis;
 use crate::time::now_unix_secs;
 
 #[cfg(target_os = "macos")]
@@ -34,7 +29,7 @@ use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
 };
 
-// The check-in popups are subclassed into this non-activating NSPanel at
+// The check-in popup is subclassed into this non-activating NSPanel at
 // startup. A non-activating panel can become the key window (so the form
 // accepts typing) without activating Nest — which is what lets it float over
 // another app's native full-screen Space instead of being hidden or yanking
@@ -46,10 +41,6 @@ tauri_panel! {
             can_become_key_window: true,
             can_become_main_window: false
         }
-    })
-
-    panel_event!(NestPanelEventHandler {
-        window_did_resign_key(notification: &tauri_nspanel::NSNotification) -> ()
     })
 }
 
@@ -65,11 +56,7 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const POPUP_DISMISS_GRACE_MS: i64 = 2_000;
-
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
-#[cfg(target_os = "macos")]
-static POPUP_LAST_SUMMONED_AT_MS: AtomicI64 = AtomicI64::new(0);
 
 fn append_diagnostic_log(message: impl AsRef<str>) {
     let message = message.as_ref();
@@ -192,7 +179,7 @@ fn start_check_in_timer(app: tauri::AppHandle) {
             if let Err(e) = app.run_on_main_thread(move || {
                 #[cfg(target_os = "macos")]
                 tauri_nspanel::objc2_app_kit::NSBeep();
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup?source=timer");
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
                 append_diagnostic_log(format!(
                     "check_in_timer_main_thread_dispatch_failed error={e}"
@@ -314,7 +301,6 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
 #[cfg(target_os = "macos")]
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_macos label={label}"));
-    POPUP_LAST_SUMMONED_AT_MS.store(now_unix_millis(), Ordering::Relaxed);
     let panel = match app.get_webview_panel(label) {
         Ok(panel) => panel,
         Err(e) => {
@@ -386,37 +372,34 @@ fn resolve_and_hide_popup(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
-    let elapsed_ms = now_unix_millis() - POPUP_LAST_SUMMONED_AT_MS.load(Ordering::Relaxed);
-    if elapsed_ms <= POPUP_DISMISS_GRACE_MS {
+fn request_popup_dismiss(app: &tauri::AppHandle, source: &str) {
+    append_diagnostic_log(format!("popup_dismiss_requested source={source}"));
+    if let Err(error) = app.emit_to("popup", "popup-dismiss-requested", ()) {
         append_diagnostic_log(format!(
-            "popup_hide_ignored reason={reason} elapsed_ms={elapsed_ms}"
-        ));
-        return;
-    }
-
-    if let Err(error) = resolve_and_hide_popup(app, true, None, reason) {
-        append_diagnostic_log(format!(
-            "popup_dismiss_failed reason={reason} error={error}"
+            "popup_dismiss_request_failed source={source} error={error}"
         ));
     }
 }
 
 #[cfg(target_os = "macos")]
-fn install_popup_escape_monitor(app: tauri::AppHandle) {
-    let block = block2::RcBlock::new(
+fn install_popup_event_monitors(app: tauri::AppHandle) {
+    use tauri_nspanel::objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
+
+    let app_for_local = app.clone();
+    let local_block = block2::RcBlock::new(
         move |event: std::ptr::NonNull<tauri_nspanel::objc2_app_kit::NSEvent>| {
             let event_ref = unsafe { event.as_ref() };
-            if event_ref.keyCode() == 53 {
-                let visible = app
-                    .get_webview_panel("popup")
-                    .map(|panel| panel.is_visible())
-                    .unwrap_or(false);
-                if visible {
-                    let dispatched = app.get_webview_window("popup").is_some_and(|window| {
+            let event_type = event_ref.r#type();
+            let panel = app_for_local.get_webview_panel("popup").ok();
+            let visible = panel.as_ref().is_some_and(|panel| panel.is_visible());
+
+            if event_type == NSEventType::KeyDown && event_ref.keyCode() == 53 && visible {
+                let dispatched = app_for_local
+                    .get_webview_window("popup")
+                    .is_some_and(|window| {
                         match window.eval(
-                            "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))",
+                            "(document.activeElement ?? window).dispatchEvent(\
+                             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))",
                         ) {
                             Ok(()) => true,
                             Err(error) => {
@@ -427,35 +410,56 @@ fn install_popup_escape_monitor(app: tauri::AppHandle) {
                             }
                         }
                     });
-                    if !dispatched {
-                        if let Err(error) =
-                            resolve_and_hide_popup(&app, true, None, "escape_dispatch_failed")
-                        {
-                            append_diagnostic_log(format!(
-                                "popup_dismiss_failed reason=escape_dispatch_failed error={error}"
-                            ));
-                        }
-                    }
+                if dispatched {
                     return ptr::null_mut();
                 }
+            }
+
+            let mouse_down = event_type == NSEventType::LeftMouseDown
+                || event_type == NSEventType::RightMouseDown
+                || event_type == NSEventType::OtherMouseDown;
+            if mouse_down
+                && visible
+                && panel.is_some_and(|panel| {
+                    event_ref.windowNumber() != panel.as_panel().windowNumber()
+                })
+            {
+                request_popup_dismiss(&app_for_local, "outside_mouse_local");
             }
 
             event.as_ptr()
         },
     );
 
-    let block = Box::leak(Box::new(block));
-    let monitor = unsafe {
-        tauri_nspanel::objc2_app_kit::NSEvent::addLocalMonitorForEventsMatchingMask_handler(
-            tauri_nspanel::objc2_app_kit::NSEventMask::from_type(
-                tauri_nspanel::objc2_app_kit::NSEventType::KeyDown,
-            ),
-            block,
+    let local_block = Box::leak(Box::new(local_block));
+    let mouse_mask =
+        NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown | NSEventMask::OtherMouseDown;
+    let local_monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(
+            NSEventMask::KeyDown | mouse_mask,
+            local_block,
         )
     };
+    if local_monitor.is_none() {
+        append_diagnostic_log("popup_local_event_monitor_install_failed");
+    }
 
-    if monitor.is_none() {
-        append_diagnostic_log("popup_escape_monitor_install_failed");
+    let global_block = block2::RcBlock::new(
+        move |_event: std::ptr::NonNull<tauri_nspanel::objc2_app_kit::NSEvent>| {
+            let visible = app
+                .get_webview_panel("popup")
+                .map(|panel| panel.is_visible())
+                .unwrap_or(false);
+            if visible {
+                request_popup_dismiss(&app, "outside_mouse_global");
+            }
+        },
+    );
+    let global_block = Box::leak(Box::new(global_block));
+    let global_monitor =
+        NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mouse_mask, global_block);
+    if global_monitor.is_none() {
+        append_diagnostic_log("popup_global_mouse_monitor_install_failed");
     }
 }
 
@@ -503,25 +507,16 @@ pub fn run() {
             start_check_in_timer(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
-            // the check-in popups into non-activating NSPanels so they overlay
-            // other apps' full-screen Spaces and accept typing without pulling
+            // the check-in popup into a non-activating NSPanel so it overlays
+            // other apps' full-screen Spaces and accepts typing without pulling
             // the user out of full-screen.
             #[cfg(target_os = "macos")]
             {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-                for label in ["popup"] {
-                    let Some(window) = app.get_webview_window(label) else {
-                        continue;
-                    };
+                if let Some(window) = app.get_webview_window("popup") {
                     match window.to_panel::<NestPanel>() {
                         Ok(panel) => {
-                            let handler = NestPanelEventHandler::new();
-                            let app_handle = app.handle().clone();
-                            handler.window_did_resign_key(move |_| {
-                                dismiss_popup_after_focus_grace(&app_handle, "resign_key");
-                            });
-                            panel.set_event_handler(Some(handler.as_ref()));
                             panel.set_level(PanelLevel::ScreenSaver.value());
                             panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
                             let behavior = CollectionBehavior::new()
@@ -539,11 +534,24 @@ pub fn run() {
                                 behavior.bits()
                             ));
                         }
-                        Err(e) => eprintln!("nest: failed to convert '{label}' to NSPanel: {e:?}"),
+                        Err(e) => eprintln!("nest: failed to convert 'popup' to NSPanel: {e:?}"),
                     }
                 }
 
-                install_popup_escape_monitor(app.handle().clone());
+                install_popup_event_monitors(app.handle().clone());
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app.get_webview_window("popup") {
+                let app_handle = app.handle().clone();
+                let popup = window.clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::Focused(false))
+                        && popup.is_visible().unwrap_or(false)
+                    {
+                        request_popup_dismiss(&app_handle, "focus_lost");
+                    }
+                });
             }
 
             // Global hotkeys — non-fatal: if a combo is already owned by another app,

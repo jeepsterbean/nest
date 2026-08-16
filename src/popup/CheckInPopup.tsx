@@ -1,57 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { listen } from "@tauri-apps/api/event";
 import { closeCheckInPopup, logClientEvent } from "../lib/commands";
 import CheckInForm from "./CheckInForm";
 import "./CheckInPopup.css";
 
-const BLUR_DISMISS_GRACE_MS = 2_000;
+export async function resolvePopupOnce(
+  resolved: { current: boolean },
+  action: () => Promise<void>,
+) {
+  if (resolved.current) return;
+  resolved.current = true;
+  try {
+    await action();
+  } catch (error) {
+    resolved.current = false;
+    throw error;
+  }
+}
 
 function CheckInPopup() {
   // Bumped on every summon so the form starts on Phase with fresh data.
   const [summonKey, setSummonKey] = useState(0);
-  const lastSummonedAtRef = useRef(Date.now());
-  const bodyRef = useRef<HTMLDivElement | null>(null);
   const resolvedRef = useRef(false);
-
-  const focusBodyStart = () => {
-    requestAnimationFrame(() => {
-      const first = bodyRef.current?.querySelector<HTMLElement>(
-        '[tabindex="0"], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea:not([disabled])',
-      );
-      first?.focus();
-    });
-  };
 
   const resetSummon = () => {
     resolvedRef.current = false;
-    lastSummonedAtRef.current = Date.now();
     setSummonKey((key) => key + 1);
-    focusBodyStart();
   };
 
   const dismiss = useCallback(async () => {
-    if (resolvedRef.current) return;
-    resolvedRef.current = true;
     try {
-      await closeCheckInPopup(true);
+      await resolvePopupOnce(resolvedRef, () => closeCheckInPopup(true));
     } catch (error) {
-      resolvedRef.current = false;
       await logClientEvent(
         `check_in_dismiss_failed error=${String(error)}`,
       ).catch(() => undefined);
     }
   }, []);
 
-  const complete = useCallback(async (minutes: number | null) => {
-    if (resolvedRef.current) return;
-    resolvedRef.current = true;
-    try {
-      await closeCheckInPopup(false, minutes);
-    } catch (error) {
-      resolvedRef.current = false;
-      throw error;
-    }
-  }, []);
+  const complete = useCallback(
+    async (save: () => Promise<number | null>) => {
+      await resolvePopupOnce(resolvedRef, async () => {
+        await closeCheckInPopup(false, await save());
+      });
+    },
+    [],
+  );
 
   // Escape dismisses a due check-in onto the five-minute fallback cadence.
   useEffect(() => {
@@ -73,25 +67,10 @@ function CheckInPopup() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  // Blur dismisses the popup. Each fresh summon remounts the active body (via
-  // summonKey) so its form starts clean. In macOS fullscreen Spaces, a
-  // non-activating NSPanel can briefly report focus loss immediately after it is
-  // ordered front; ignore that bounce so the popup does not hide itself before
-  // the user can see it.
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    const popup = getCurrentWebviewWindow();
-    popup
-      .onFocusChanged(({ payload: focused }) => {
-        if (
-          !focused &&
-          Date.now() - lastSummonedAtRef.current >
-            BLUR_DISMISS_GRACE_MS
-        ) {
-          void dismiss();
-        }
-      })
+    listen("popup-dismiss-requested", () => void dismiss())
       .then((u) => {
         if (cancelled) u();
         else unlisten = u;
@@ -104,7 +83,7 @@ function CheckInPopup() {
 
   return (
     <div className="checkin">
-      <div ref={bodyRef} className="checkin__body" key={summonKey}>
+      <div className="checkin__body" key={summonKey}>
         <CheckInForm onDismiss={dismiss} onComplete={complete} />
       </div>
     </div>

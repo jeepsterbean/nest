@@ -206,7 +206,7 @@ function CheckInForm({
   onComplete,
 }: {
   onDismiss: () => Promise<void>;
-  onComplete: (minutes: number | null) => Promise<void>;
+  onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [view, setView] = useState<View>("phase");
@@ -450,14 +450,14 @@ function CheckInForm({
     setSubmitting(true);
     setError(null);
     try {
-      if (view === "phase") await savePhase(false);
-      else await saveMetrics();
-      await saveBrainDump();
-      await onComplete(
-        timerDue
+      await onComplete(async () => {
+        if (view === "phase") await savePhase(false);
+        else await saveMetrics();
+        await saveBrainDump();
+        return timerDue
           ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
-          : null,
-      );
+          : null;
+      });
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
@@ -556,6 +556,8 @@ function CheckInForm({
                     event.preventDefault();
                     void addTask();
                   } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
                     setAddingTask(false);
                   }
                 }}
