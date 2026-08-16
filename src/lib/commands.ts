@@ -8,6 +8,7 @@ import type {
   MetricRatingInput,
   Phase,
   PhaseCheckIn,
+  Pulse,
   RatingValue,
   Task,
   TaskDependency,
@@ -15,8 +16,12 @@ import type {
   TaskStatus,
 } from "./types";
 
-export function listMetrics(includeInactive: boolean): Promise<Metric[]> {
-  return invoke("list_metrics", { includeInactive });
+export function listReminders(): Promise<string[]> {
+  return invoke("list_reminders");
+}
+
+export function listMetrics(): Promise<Metric[]> {
+  return invoke("list_metrics");
 }
 
 export function createMetric(name: string): Promise<Metric> {
@@ -27,24 +32,57 @@ export function renameMetric(id: number, name: string): Promise<Metric> {
   return invoke("rename_metric", { id, name });
 }
 
-export function setMetricActive(id: number, active: boolean): Promise<Metric> {
-  return invoke("set_metric_active", { id, active });
+export function setMetricIcon(id: number, icon: string): Promise<Metric> {
+  return invoke("set_metric_icon", { id, icon });
+}
+
+export function listPulses(): Promise<Pulse[]> {
+  return invoke("list_pulses");
+}
+
+export function createPulse(name: string): Promise<Pulse> {
+  return invoke("create_pulse", { name });
+}
+
+export function renamePulse(id: number, name: string): Promise<Pulse> {
+  return invoke("rename_pulse", { id, name });
+}
+
+export function setPulseIcon(id: number, icon: string): Promise<Pulse> {
+  return invoke("set_pulse_icon", { id, icon });
+}
+
+export function deletePulse(id: number): Promise<void> {
+  return invoke("delete_pulse", { id });
+}
+
+export function addMetricToPulse(
+  pulseId: number,
+  metricId: number,
+): Promise<void> {
+  return invoke("add_metric_to_pulse", { pulseId, metricId });
+}
+
+export function removeMetricFromPulse(
+  pulseId: number,
+  metricId: number,
+): Promise<void> {
+  return invoke("remove_metric_from_pulse", { pulseId, metricId });
+}
+
+export function reorderPulses(ids: number[]): Promise<void> {
+  return invoke("reorder_pulses", { ids });
+}
+
+export function reorderPulseMetrics(
+  pulseId: number,
+  metricIds: number[],
+): Promise<void> {
+  return invoke("reorder_pulse_metrics", { pulseId, metricIds });
 }
 
 export function listPhases(includeInactive: boolean): Promise<Phase[]> {
   return invoke("list_phases", { includeInactive });
-}
-
-export function createPhase(name: string): Promise<Phase> {
-  return invoke("create_phase", { name });
-}
-
-export function renamePhase(id: number, name: string): Promise<Phase> {
-  return invoke("rename_phase", { id, name });
-}
-
-export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
-  return invoke("set_phase_active", { id, active });
 }
 
 export function listTasks(): Promise<Task[]> {
@@ -135,9 +173,10 @@ export function setTaskScore(
 }
 
 export function submitMetricCheckIn(
+  pulseId: number,
   ratings: MetricRatingInput[],
 ): Promise<MetricCheckIn> {
-  return invoke("submit_metric_check_in", { ratings });
+  return invoke("submit_metric_check_in", { pulseId, ratings });
 }
 
 export function listMetricCheckIns(
@@ -151,14 +190,10 @@ export function deleteMetricCheckIn(id: number): Promise<void> {
   return invoke("delete_metric_check_in", { id });
 }
 
-export function submitPhaseCheckIn(
-  phaseId: number,
-): Promise<PhaseCheckIn> {
-  return invoke("submit_phase_check_in", { phaseId });
-}
-
-export function latestPhaseCheckIn(): Promise<PhaseCheckIn | null> {
-  return invoke("latest_phase_check_in");
+export function latestPhaseCheckIn(
+  includeIdle = true,
+): Promise<PhaseCheckIn | null> {
+  return invoke("latest_phase_check_in", { includeIdle });
 }
 
 export function listPhaseCheckIns(
@@ -176,20 +211,15 @@ export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
   return invoke("schedule_next_check_in", { minutes });
 }
 
-export function submitPrimaryCheckIn(
-  brainDumpText: string | null,
-  phaseId: number | null,
-  minutes: number,
-): Promise<CheckInSchedule> {
-  return invoke("submit_primary_check_in", {
-    brainDumpText,
-    phaseId,
-    minutes,
-  });
+export function closeCheckInPopup(
+  dismissed: boolean,
+  minutes: number | null = null,
+): Promise<void> {
+  return invoke("close_check_in_popup", { dismissed, minutes });
 }
 
-export function summonCheckIn(step?: "metrics"): Promise<void> {
-  return invoke("summon_check_in", { step: step ?? null });
+export function summonCheckIn(): Promise<void> {
+  return invoke("summon_check_in");
 }
 
 export function submitBrainDump(

@@ -1,11 +1,10 @@
-#![allow(clippy::unused_unit)] // Required by tauri-nspanel's panel_event! syntax.
-
 mod check_in;
 mod commands;
 mod db;
 mod error;
 mod migrations;
 mod models;
+mod phase;
 mod task_graph;
 mod time;
 
@@ -14,19 +13,22 @@ use std::{
     io::Write,
     path::PathBuf,
     ptr,
-    sync::atomic::{AtomicI64, Ordering},
     sync::{Mutex, OnceLock},
+};
+
+#[cfg(target_os = "macos")]
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Emitter, Manager,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-#[cfg(target_os = "macos")]
-use crate::time::now_unix_millis;
 use crate::time::now_unix_secs;
 
 #[cfg(target_os = "macos")]
@@ -34,7 +36,7 @@ use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
 };
 
-// The check-in popups are subclassed into this non-activating NSPanel at
+// The check-in popup is subclassed into this non-activating NSPanel at
 // startup. A non-activating panel can become the key window (so the form
 // accepts typing) without activating Nest — which is what lets it float over
 // another app's native full-screen Space instead of being hidden or yanking
@@ -46,10 +48,6 @@ tauri_panel! {
             can_become_key_window: true,
             can_become_main_window: false
         }
-    })
-
-    panel_event!(NestPanelEventHandler {
-        window_did_resign_key(notification: &tauri_nspanel::NSNotification) -> ()
     })
 }
 
@@ -65,11 +63,7 @@ const HOTKEY_LABEL: &str = "⌘⇧E";
 #[cfg(not(target_os = "macos"))]
 const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
-const POPUP_DISMISS_GRACE_MS: i64 = 750;
-
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
-#[cfg(target_os = "macos")]
-static POPUP_LAST_SUMMONED_AT_MS: AtomicI64 = AtomicI64::new(0);
 
 fn append_diagnostic_log(message: impl AsRef<str>) {
     let message = message.as_ref();
@@ -101,12 +95,22 @@ fn log_client_event(message: String) {
 }
 
 #[tauri::command]
-fn summon_check_in(app: tauri::AppHandle, step: Option<String>) {
-    let route = match step.as_deref() {
-        Some("metrics") => "#/popup?step=metrics",
-        _ => "#/popup",
-    };
-    summon_popup_with_route(&app, "popup", route);
+fn summon_check_in(app: tauri::AppHandle) {
+    summon_popup_with_route(&app, "popup", "#/popup");
+}
+
+#[tauri::command]
+fn close_check_in_popup(
+    app: tauri::AppHandle,
+    dismissed: bool,
+    minutes: Option<i64>,
+) -> error::Result<()> {
+    resolve_and_hide_popup(
+        &app,
+        dismissed,
+        minutes,
+        if dismissed { "dismissed" } else { "completed" },
+    )
 }
 
 // Cadence of the recurring check-in popup. At zero it pauses until the popup
@@ -182,7 +186,7 @@ fn start_check_in_timer(app: tauri::AppHandle) {
             if let Err(e) = app.run_on_main_thread(move || {
                 #[cfg(target_os = "macos")]
                 tauri_nspanel::objc2_app_kit::NSBeep();
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup?source=timer");
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
                 append_diagnostic_log(format!(
                     "check_in_timer_main_thread_dispatch_failed error={e}"
@@ -190,6 +194,118 @@ fn start_check_in_timer(app: tauri::AppHandle) {
             }
         }
     });
+}
+
+/// Invalidates a pending “left dashboard” settle so a later sample cannot
+/// overwrite a newer attention state.
+#[cfg(target_os = "macos")]
+struct PhaseLeaveEpoch(AtomicU64);
+
+/// Wait for NSWorkspace to publish the newly frontmost app before recording
+/// Resting. Switching dashboard → Notion otherwise inserts a Resting blip.
+#[cfg(target_os = "macos")]
+const PHASE_LEAVE_SETTLE: Duration = Duration::from_millis(100);
+
+#[cfg(target_os = "macos")]
+fn bump_leave_epoch(app: &tauri::AppHandle) -> u64 {
+    app.state::<PhaseLeaveEpoch>()
+        .0
+        .fetch_add(1, Ordering::SeqCst)
+        + 1
+}
+
+#[cfg(target_os = "macos")]
+fn enter_dashboard_attention(app: &tauri::AppHandle) {
+    bump_leave_epoch(app);
+    if phase::with_current_signals(app, |signals| signals.dashboard_focused) {
+        return;
+    }
+    phase::update_signals_and_sync(app, |signals| {
+        signals.dashboard_focused = true;
+        signals.notion_frontmost = false;
+    });
+}
+
+/// Record that attention left the dashboard. Deferred so Notion activation
+/// can land in the same checkpoint; cancelled if the dashboard is focused
+/// again before the settle elapses.
+#[cfg(target_os = "macos")]
+fn schedule_leave_dashboard_attention(app: &tauri::AppHandle) {
+    if !phase::with_current_signals(app, |signals| signals.dashboard_focused) {
+        return;
+    }
+    let epoch = bump_leave_epoch(app);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(PHASE_LEAVE_SETTLE);
+        let app_for_sync = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if app_for_sync
+                .state::<PhaseLeaveEpoch>()
+                .0
+                .load(Ordering::SeqCst)
+                != epoch
+            {
+                return;
+            }
+            let notion_frontmost = phase::notion_is_frontmost();
+            phase::update_signals_and_sync(&app_for_sync, |signals| {
+                phase::apply_left_dashboard(signals, notion_frontmost);
+            });
+        });
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn sync_phase_from_workspace(app: &tauri::AppHandle) {
+    bump_leave_epoch(app);
+    if phase::nest_is_frontmost() {
+        let dashboard_focused = app
+            .get_webview_window("dashboard")
+            .and_then(|window| window.is_focused().ok())
+            .unwrap_or(false);
+        phase::update_signals_and_sync(app, |signals| {
+            signals.dashboard_focused = dashboard_focused;
+            signals.notion_frontmost = false;
+        });
+        return;
+    }
+    let notion_frontmost = phase::notion_is_frontmost();
+    phase::update_signals_and_sync(app, |signals| {
+        phase::apply_left_dashboard(signals, notion_frontmost);
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn dashboard_window_number(app: &tauri::AppHandle) -> Option<isize> {
+    use tauri_nspanel::objc2_app_kit::NSWindow;
+
+    let window = app.get_webview_window("dashboard")?;
+    let ptr = window.ns_window().ok()? as *const NSWindow;
+    if ptr.is_null() {
+        return None;
+    }
+    Some(unsafe { (*ptr).windowNumber() as isize })
+}
+
+#[cfg(target_os = "macos")]
+fn install_phase_application_observer(app: tauri::AppHandle) {
+    use objc2_app_kit::{NSWorkspace, NSWorkspaceDidActivateApplicationNotification};
+    use objc2_foundation::NSNotification;
+
+    let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+        sync_phase_from_workspace(&app);
+    });
+    let center = NSWorkspace::sharedWorkspace().notificationCenter();
+    let observer = unsafe {
+        center.addObserverForName_object_queue_usingBlock(
+            Some(NSWorkspaceDidActivateApplicationNotification),
+            None,
+            None,
+            &block,
+        )
+    };
+    std::mem::forget(observer);
 }
 
 fn show_window(app: &tauri::AppHandle, label: &str) {
@@ -233,12 +349,6 @@ fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
     summon_popup(app, label);
 }
 
-/// Center `window` on the monitor under the mouse cursor, so a summoned popup
-/// follows the user's attention across displays instead of always landing on
-/// the primary (laptop) screen. "Active screen" is taken to mean the screen
-/// the cursor is on — in normal use that's the display you're working on.
-/// All math is in physical pixels to stay scale-factor-correct on mixed-DPI
-/// setups. Best-effort: on any failure the popup just keeps its prior spot.
 /// Center the popup on the screen the mouse pointer is on. Uses macOS's own
 /// screen coordinates so the pointer and the screens are measured with the
 /// same "ruler" — Tauri's cross-platform cursor/monitor values disagree on
@@ -304,7 +414,6 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
 #[cfg(target_os = "macos")]
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_macos label={label}"));
-    POPUP_LAST_SUMMONED_AT_MS.store(now_unix_millis(), Ordering::Relaxed);
     let panel = match app.get_webview_panel(label) {
         Ok(panel) => panel,
         Err(e) => {
@@ -326,6 +435,7 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     }
     panel.show_and_make_key();
     append_diagnostic_log(format!("popup_summon_macos_shown label={label}"));
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
 #[cfg(target_os = "macos")]
@@ -340,33 +450,66 @@ fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn dismiss_popup_after_focus_grace(app: &tauri::AppHandle, reason: &str) {
-    let elapsed_ms = now_unix_millis() - POPUP_LAST_SUMMONED_AT_MS.load(Ordering::Relaxed);
-    if elapsed_ms <= POPUP_DISMISS_GRACE_MS {
-        append_diagnostic_log(format!(
-            "popup_hide_ignored reason={reason} elapsed_ms={elapsed_ms}"
-        ));
-        return;
-    }
-
+fn hide_check_in_popup(app: &tauri::AppHandle, reason: &str) {
+    #[cfg(target_os = "macos")]
     hide_popup_panel(app, reason);
+
+    #[cfg(not(target_os = "macos"))]
+    if let Some(window) = app.get_webview_window("popup") {
+        let _ = window.hide();
+    }
+}
+
+fn resolve_and_hide_popup(
+    app: &tauri::AppHandle,
+    dismissed: bool,
+    minutes: Option<i64>,
+    reason: &str,
+) -> error::Result<()> {
+    let timer_changed = {
+        let state = app.state::<Mutex<rusqlite::Connection>>();
+        let timer_state = app.state::<Mutex<CheckInTimer>>();
+        let conn = state.lock().unwrap();
+        let mut timer = timer_state.lock().unwrap();
+        commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
+    };
+
+    hide_check_in_popup(app, reason);
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = false);
+    if timer_changed {
+        let _ = app.emit("check-in-submitted", ());
+    }
+    Ok(())
+}
+
+fn request_popup_dismiss(app: &tauri::AppHandle, source: &str) {
+    append_diagnostic_log(format!("popup_dismiss_requested source={source}"));
+    if let Err(error) = app.emit_to("popup", "popup-dismiss-requested", ()) {
+        append_diagnostic_log(format!(
+            "popup_dismiss_request_failed source={source} error={error}"
+        ));
+    }
 }
 
 #[cfg(target_os = "macos")]
-fn install_popup_escape_monitor(app: tauri::AppHandle) {
-    let block = block2::RcBlock::new(
+fn install_popup_event_monitors(app: tauri::AppHandle) {
+    use tauri_nspanel::objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
+
+    let app_for_local = app.clone();
+    let local_block = block2::RcBlock::new(
         move |event: std::ptr::NonNull<tauri_nspanel::objc2_app_kit::NSEvent>| {
             let event_ref = unsafe { event.as_ref() };
-            if event_ref.keyCode() == 53 {
-                let visible = app
-                    .get_webview_panel("popup")
-                    .map(|panel| panel.is_visible())
-                    .unwrap_or(false);
-                if visible {
-                    let dispatched = app.get_webview_window("popup").is_some_and(|window| {
+            let event_type = event_ref.r#type();
+            let panel = app_for_local.get_webview_panel("popup").ok();
+            let visible = panel.as_ref().is_some_and(|panel| panel.is_visible());
+
+            if event_type == NSEventType::KeyDown && event_ref.keyCode() == 53 && visible {
+                let dispatched = app_for_local
+                    .get_webview_window("popup")
+                    .is_some_and(|window| {
                         match window.eval(
-                            "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))",
+                            "(document.activeElement ?? window).dispatchEvent(\
+                             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))",
                         ) {
                             Ok(()) => true,
                             Err(error) => {
@@ -377,29 +520,66 @@ fn install_popup_escape_monitor(app: tauri::AppHandle) {
                             }
                         }
                     });
-                    if !dispatched {
-                        hide_popup_panel(&app, "escape_dispatch_failed");
-                    }
+                if dispatched {
                     return ptr::null_mut();
                 }
+            }
+
+            let mouse_down = event_type == NSEventType::LeftMouseDown
+                || event_type == NSEventType::RightMouseDown
+                || event_type == NSEventType::OtherMouseDown;
+            if mouse_down
+                && visible
+                && panel.is_some_and(|panel| {
+                    event_ref.windowNumber() != panel.as_panel().windowNumber()
+                })
+            {
+                request_popup_dismiss(&app_for_local, "outside_mouse_local");
+            }
+            if mouse_down
+                && dashboard_window_number(&app_for_local)
+                    .is_some_and(|number| event_ref.windowNumber() as isize == number)
+            {
+                enter_dashboard_attention(&app_for_local);
             }
 
             event.as_ptr()
         },
     );
 
-    let block = Box::leak(Box::new(block));
-    let monitor = unsafe {
-        tauri_nspanel::objc2_app_kit::NSEvent::addLocalMonitorForEventsMatchingMask_handler(
-            tauri_nspanel::objc2_app_kit::NSEventMask::from_type(
-                tauri_nspanel::objc2_app_kit::NSEventType::KeyDown,
-            ),
-            block,
+    let local_block = Box::leak(Box::new(local_block));
+    let mouse_mask =
+        NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown | NSEventMask::OtherMouseDown;
+    let local_monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(
+            NSEventMask::KeyDown | mouse_mask,
+            local_block,
         )
     };
+    if local_monitor.is_none() {
+        append_diagnostic_log("popup_local_event_monitor_install_failed");
+    }
 
-    if monitor.is_none() {
-        append_diagnostic_log("popup_escape_monitor_install_failed");
+    let global_block = block2::RcBlock::new(
+        move |_event: std::ptr::NonNull<tauri_nspanel::objc2_app_kit::NSEvent>| {
+            let visible = app
+                .get_webview_panel("popup")
+                .map(|panel| panel.is_visible())
+                .unwrap_or(false);
+            if visible {
+                request_popup_dismiss(&app, "outside_mouse_global");
+            }
+            // Accessory Nest often stays key after a click on another display,
+            // and that click does not activate a new app. The click itself is
+            // the attention change.
+            schedule_leave_dashboard_attention(&app);
+        },
+    );
+    let global_block = Box::leak(Box::new(global_block));
+    let global_monitor =
+        NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mouse_mask, global_block);
+    if global_monitor.is_none() {
+        append_diagnostic_log("popup_global_mouse_monitor_install_failed");
     }
 }
 
@@ -407,6 +587,7 @@ fn install_popup_escape_monitor(app: tauri::AppHandle) {
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_window label={label}"));
     show_window(app, label);
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -442,48 +623,109 @@ pub fn run() {
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
             let check_in_timer = load_check_in_timer(&conn);
+            app.manage(Mutex::new(phase::PhaseSignals {
+                notion_frontmost: phase::notion_is_frontmost(),
+                ..phase::PhaseSignals::default()
+            }));
+            #[cfg(target_os = "macos")]
+            app.manage(PhaseLeaveEpoch(AtomicU64::new(0)));
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(check_in_timer));
             start_check_in_timer(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
-            // the check-in popups into non-activating NSPanels so they overlay
-            // other apps' full-screen Spaces and accept typing without pulling
+            // the check-in popup into a non-activating NSPanel so it overlays
+            // other apps' full-screen Spaces and accepts typing without pulling
             // the user out of full-screen.
             #[cfg(target_os = "macos")]
             {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-                for label in ["popup"] {
-                    let Some(window) = app.get_webview_window(label) else {
-                        continue;
-                    };
+                if let Some(window) = app.get_webview_window("popup") {
                     match window.to_panel::<NestPanel>() {
                         Ok(panel) => {
-                            let handler = NestPanelEventHandler::new();
-                            let app_handle = app.handle().clone();
-                            handler.window_did_resign_key(move |_| {
-                                dismiss_popup_after_focus_grace(&app_handle, "resign_key");
-                            });
-                            panel.set_event_handler(Some(handler.as_ref()));
-                            panel.set_level(PanelLevel::Floating.value());
+                            panel.set_level(PanelLevel::ScreenSaver.value());
                             panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
-                            panel.set_collection_behavior(
-                                CollectionBehavior::new()
-                                    .full_screen_auxiliary()
-                                    .can_join_all_spaces()
-                                    .stationary()
-                                    .ignores_cycle()
-                                    .into(),
-                            );
+                            let behavior = CollectionBehavior::new()
+                                .full_screen_auxiliary()
+                                .can_join_all_spaces()
+                                .stationary()
+                                .ignores_cycle()
+                                .value()
+                                // The plugin wrapper does not yet expose this macOS 13 flag.
+                                | tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior::CanJoinAllApplications;
+                            panel.set_collection_behavior(behavior);
                             panel.set_hides_on_deactivate(false);
+                            append_diagnostic_log(format!(
+                                "popup_panel_config collection_behavior={:#x}",
+                                behavior.bits()
+                            ));
                         }
-                        Err(e) => eprintln!("nest: failed to convert '{label}' to NSPanel: {e:?}"),
+                        Err(e) => eprintln!("nest: failed to convert 'popup' to NSPanel: {e:?}"),
                     }
                 }
 
-                install_popup_escape_monitor(app.handle().clone());
+                install_popup_event_monitors(app.handle().clone());
+                install_phase_application_observer(app.handle().clone());
             }
+
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app.get_webview_window("popup") {
+                let app_handle = app.handle().clone();
+                let popup = window.clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::Focused(false))
+                        && popup.is_visible().unwrap_or(false)
+                    {
+                        request_popup_dismiss(&app_handle, "focus_lost");
+                    }
+                });
+            }
+
+            if let Some(window) = app.get_webview_window("dashboard") {
+                let handle = app.handle().clone();
+                window.on_window_event(move |event| {
+                    #[cfg(target_os = "macos")]
+                    match event {
+                        tauri::WindowEvent::Focused(true) => {
+                            enter_dashboard_attention(&handle);
+                        }
+                        tauri::WindowEvent::Focused(false) => {
+                            schedule_leave_dashboard_attention(&handle);
+                        }
+                        tauri::WindowEvent::CloseRequested { .. }
+                        | tauri::WindowEvent::Destroyed => {
+                            bump_leave_epoch(&handle);
+                            let notion_frontmost = phase::notion_is_frontmost();
+                            phase::update_signals_and_sync(&handle, |signals| {
+                                phase::apply_left_dashboard(signals, notion_frontmost);
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    #[cfg(not(target_os = "macos"))]
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        phase::update_signals_and_sync(&handle, |signals| {
+                            signals.dashboard_focused = *focused;
+                        });
+                    }
+                });
+            }
+
+            let popup_visible = app
+                .get_webview_window("popup")
+                .and_then(|window| window.is_visible().ok())
+                .unwrap_or(false);
+            let dashboard_focused = app
+                .get_webview_window("dashboard")
+                .and_then(|window| window.is_focused().ok())
+                .unwrap_or(false);
+            phase::update_signals_and_sync(app.handle(), |signals| {
+                signals.popup_visible = popup_visible;
+                signals.dashboard_focused = dashboard_focused;
+                signals.notion_frontmost = phase::notion_is_frontmost();
+            });
 
             // Global hotkeys — non-fatal: if a combo is already owned by another app,
             // keep launching and surface the problem via the tray menu + tooltip.
@@ -555,6 +797,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::list_reminders,
             commands::list_metrics,
             commands::list_tasks,
             commands::list_task_dependencies,
@@ -572,28 +815,44 @@ pub fn run() {
             commands::set_task_score,
             commands::create_metric,
             commands::rename_metric,
-            commands::set_metric_active,
+            commands::set_metric_icon,
+            commands::list_pulses,
+            commands::create_pulse,
+            commands::rename_pulse,
+            commands::set_pulse_icon,
+            commands::delete_pulse,
+            commands::add_metric_to_pulse,
+            commands::remove_metric_from_pulse,
+            commands::reorder_pulses,
+            commands::reorder_pulse_metrics,
             commands::list_phases,
-            commands::create_phase,
-            commands::rename_phase,
-            commands::set_phase_active,
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,
-            commands::submit_phase_check_in,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
             commands::get_check_in_schedule,
             commands::schedule_next_check_in,
-            commands::submit_primary_check_in,
             commands::submit_brain_dump,
             commands::update_brain_dump_title,
             commands::list_brain_dumps,
             summon_check_in,
+            close_check_in_popup,
             log_client_event,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                finalize_phase_on_exit(app);
+            }
+        });
+}
+
+fn finalize_phase_on_exit(app: &tauri::AppHandle) {
+    phase::update_signals_and_sync(app, |signals| {
+        *signals = phase::PhaseSignals::default();
+    });
 }
 
 #[cfg(test)]

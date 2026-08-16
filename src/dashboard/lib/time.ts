@@ -1,4 +1,4 @@
-// Pure time/date helpers shared across the dashboard views.
+// Pure time/date helpers shared across the dashboard and check-in popup.
 // `dayLabel` and `computeStreak` accept an injectable `nowMs` so they can be
 // tested deterministically; callers default it to the current clock.
 
@@ -74,19 +74,47 @@ export const formatDateTime = (ts: number) =>
     minute: "2-digit",
   });
 
-export const elapsedMinutes = (startedAt: number, nowMs: number = Date.now()) =>
-  Math.max(0, Math.floor((nowMs / 1000 - startedAt) / 60));
-
-export const formatElapsedMinutes = (
-  startedAt: number,
+export const taskWorkSessionSeconds = (
+  startedAt: number | null,
   nowMs: number = Date.now(),
-) => `${elapsedMinutes(startedAt, nowMs)} min`;
+) =>
+  startedAt === null
+    ? 0
+    : Math.max(0, Math.floor(nowMs / 1000) - startedAt);
+
+export const taskTotalWorkedSeconds = (
+  bankedSeconds: number,
+  startedAt: number | null,
+  nowMs: number = Date.now(),
+) => bankedSeconds + taskWorkSessionSeconds(startedAt, nowMs);
+
+export const formatWorkedTime = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+  }
+  if (minutes > 0) {
+    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+  }
+  return String(remainder);
+};
+
+/** Compact play-button label: raw seconds below 1 minute, whole minutes after. */
+export const formatPlayButtonTime = (seconds: number) =>
+  seconds < 60 ? String(seconds) : String(Math.floor(seconds / 60));
+
+export const checkInRemainingSeconds = (
+  nextDueAt: number,
+  nowMs: number = Date.now(),
+) => Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
 
 export const formatCheckInCountdown = (
   nextDueAt: number,
   nowMs: number = Date.now(),
 ) => {
-  const secondsRemaining = Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
+  const secondsRemaining = checkInRemainingSeconds(nextDueAt, nowMs);
   const minutes = Math.floor(secondsRemaining / 60);
   const seconds = secondsRemaining % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;

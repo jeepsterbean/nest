@@ -17,5 +17,6 @@ npm run test:typecheck
 cd src-tauri && cargo test --locked && cargo clippy --locked --all-targets -- -D warnings
 ```
 
-See [CONTEXT.md](./CONTEXT.md) for domain language and [BACKLOG.md](./BACKLOG.md)
-for outstanding work.
+See [CONTEXT.md](./CONTEXT.md) for domain language,
+[BACKLOG-FUNCTIONALITY.md](./BACKLOG-FUNCTIONALITY.md) for product work, and
+[BACKLOG-BACKEND.md](./BACKLOG-BACKEND.md) for engineering backlog.

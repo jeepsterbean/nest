@@ -1,13 +1,23 @@
 export type Metric = {
   id: number;
   name: string;
+  icon: string;
   createdAt: number;
-  inactiveSince: number | null;
+};
+
+export type Pulse = {
+  id: number;
+  name: string;
+  icon: string;
+  createdAt: number;
+  metricIds: number[];
 };
 
 export type MetricCheckIn = {
   id: number;
   createdAt: number;
+  pulseId: number | null;
+  pulseName: string | null;
 };
 
 export type MetricRating = {
@@ -37,7 +47,7 @@ export type Phase = {
 export type PhaseCheckIn = {
   id: number;
   createdAt: number;
-  phaseId: number;
+  phaseId: number | null;
   phaseLabel: string | null;
 };
 
@@ -45,9 +55,11 @@ export type TaskStatus =
   | "backlog"
   | "up_next"
   | "active"
-  | "paused"
   | "completed"
   | "cancelled";
+
+/** Status values that may appear in history, including retired ones. */
+export type RecordedTaskStatus = TaskStatus | "paused";
 
 export type Task = {
   id: number;
@@ -55,6 +67,8 @@ export type Task = {
   description: string;
   status: TaskStatus;
   workingNow: boolean;
+  workedSeconds: number;
+  workStartedAt: number | null;
   scope: string | null;
   value: RatingValue | null;
   effort: RatingValue | null;
@@ -72,14 +86,15 @@ export type TaskDependency = {
 export type TaskStatusEvent = {
   id: number;
   taskId: number;
-  fromStatus: TaskStatus | null;
-  toStatus: TaskStatus;
+  fromStatus: RecordedTaskStatus | null;
+  toStatus: RecordedTaskStatus;
   createdAt: number;
 };
 
 export type CheckInSchedule = {
   intervalMinutes: number;
   nextDueAt: number;
+  waitingForResponse: boolean;
 };
 
 export type BrainDump = {

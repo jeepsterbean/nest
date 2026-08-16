@@ -509,9 +509,7 @@ export function TasksView() {
                         key={task.id}
                         type="button"
                         className={`task-matrix__chip${
-                          task.workingNow
-                            ? " task-matrix__chip--working is-working-now"
-                            : ""
+                          task.workingNow ? " task-matrix__chip--working" : ""
                         }`}
                         style={{
                           left: `${x}%`,
@@ -937,11 +935,7 @@ export function TasksView() {
                             selectTask(task.id, e.currentTarget);
                           }}
                         >
-                          <td
-                            className={`task-table__title${
-                              task.workingNow ? " is-working-now" : ""
-                            }`}
-                          >
+                          <td className="task-table__title">
                             <span>{task.title}</span>
                             {task.workingNow && <WorkingBadge compact />}
                           </td>
@@ -957,7 +951,11 @@ export function TasksView() {
                             <div className="task-table__status">
                               <StatusTrigger task={task} />
                               {task.status === "active" && (
-                                <TaskWorkingControl task={task} compact />
+                                <TaskWorkingControl
+                                  task={task}
+                                  compact
+                                  showTime={false}
+                                />
                               )}
                             </div>
                           </td>

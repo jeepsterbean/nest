@@ -177,25 +177,6 @@ export function InsightsView() {
   const longActive = activeTasks
     .filter((task) => task.createdAt < sevenDaysAgo)
     .sort((a, b) => a.createdAt - b.createdAt);
-  const pauseCounts = new Map<number, number>();
-  for (const event of events) {
-    if (
-      event.toStatus === "paused" &&
-      event.createdAt >= current.from &&
-      event.createdAt < current.to
-    ) {
-      pauseCounts.set(event.taskId, (pauseCounts.get(event.taskId) ?? 0) + 1);
-    }
-  }
-  const repeatedlyPaused = tasks
-    .filter(
-      (task) =>
-        scopeMatches(task.scope, selectedScope) &&
-        (pauseCounts.get(task.id) ?? 0) >= 2,
-    )
-    .sort(
-      (a, b) => (pauseCounts.get(b.id) ?? 0) - (pauseCounts.get(a.id) ?? 0),
-    );
   const ready = loaded && insightsLoaded;
 
   return (
@@ -464,17 +445,12 @@ export function InsightsView() {
             )}
           </section>
 
-          {(longActive.length > 0 || repeatedlyPaused.length > 0) && (
+          {longActive.length > 0 && (
             <section className="insights-friction">
               <div>
                 <span>Still carrying</span>
                 <strong>{longActive.length}</strong>
                 <p>Active tasks created more than seven days ago.</p>
-              </div>
-              <div>
-                <span>Interrupted</span>
-                <strong>{repeatedlyPaused.length}</strong>
-                <p>Tasks paused at least twice during this period.</p>
               </div>
             </section>
           )}

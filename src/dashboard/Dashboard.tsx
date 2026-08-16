@@ -5,6 +5,7 @@ import { DashboardDataProvider } from "./context/DashboardDataContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import {
   DashboardHeader,
+  DashboardSidebar,
   type DashboardView,
 } from "./components/DashboardHeader";
 import { BrainDumpModal } from "./components/BrainDumpModal";
@@ -16,7 +17,6 @@ import { InsightsView } from "./views/InsightsView";
 import { JournalView } from "./views/JournalView";
 import { TasksView } from "./views/TasksView";
 import { MetricsView } from "./views/MetricsView";
-import { PhasesView } from "./views/PhasesView";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
@@ -49,13 +49,14 @@ function DashboardInner() {
 
   return (
     <main className="dashboard">
-      <div className="dashboard__inner">
-        <DashboardHeader
-          view={view}
-          onSelectView={setView}
-          brainDumpOpen={brainDumpOpen}
-          onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
-        />
+      <DashboardSidebar
+        view={view}
+        onSelectView={setView}
+        brainDumpOpen={brainDumpOpen}
+        onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
+      />
+      <div className={`dashboard__inner dashboard__inner--${view}`}>
+        <DashboardHeader />
 
         <BrainDumpModal
           open={brainDumpOpen}
@@ -69,7 +70,6 @@ function DashboardInner() {
         {view === "journal" && <JournalView />}
         {view === "tasks" && <TasksView />}
         {view === "metrics" && <MetricsView />}
-        {view === "phases" && <PhasesView />}
       </div>
       <ScopeMenu />
       <StatusMenu />

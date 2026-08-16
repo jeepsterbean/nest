@@ -12,9 +12,10 @@ preserves calm, private, flow-friendly behavior.
   same change and commit.
 - Update the closest authoritative documentation:
   - `CONTEXT.md` for product language and lifecycle invariants;
-  - `BACKLOG.md` when closing, parking, or adding durable open work;
+  - `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` when closing, parking, or adding durable open work;
   - `.impeccable.md` for design context that assistants should follow;
-  - `.agents/standards/ui-standards.md` for frontend and UI conventions;
+  - `.agents/standards/ui-standards.md` for frontend and UI conventions
+    (keep `.claude/standards/` and `.codex/standards/` copies identical);
   - `README.md` for product status, setup, or repository-wide guidance;
   - code comments for non-obvious implementation constraints that cannot be
     expressed more clearly through code.
@@ -38,13 +39,15 @@ preserves calm, private, flow-friendly behavior.
 ## Coding standards
 
 - Prefer clear, typed interfaces and domain vocabulary from `CONTEXT.md`.
-  Use Task, Parent, Child, Blocker, Dependent, Ready, Blocked, and Scope as
-  defined there. Do not invent synonyms (todo, subitem, dependency-as-jargon
-  for either side of a Blocker edge) in user-facing copy or new domain types.
+  Use Task, Parent, Child, Blocker, Dependent, Ready, Blocked, Scope,
+  Working now, Worked time, Phase, Pulse, Metric, and Brain dump as defined
+  there. Do not invent synonyms (todo, subitem, dependency-as-jargon for
+  either side of a Blocker edge, stopwatch for Worked time) in user-facing
+  copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
-  `paused`, `completed`, `cancelled`) from derived readiness (`Ready` /
+  `completed`, `cancelled`) from derived readiness (`Ready` /
   `Blocked`). Ready/Blocked come from unresolved Blockers; they are not
-  stored status values.
+  stored status values. `paused` is not a live status.
 - Do not introduce `any` when an existing or inferred type can express the
   value. Keep TypeScript `strict` clean.
 - Validate untrusted or user-provided input at application seams: trim and
@@ -90,12 +93,15 @@ preserves calm, private, flow-friendly behavior.
 
 - Entry: `src/main.tsx` / `src/App.tsx`. Two windows share the SPA:
   dashboard (default) and check-in popup (`#/popup`).
-- Dashboard code lives under `src/dashboard/` (views, task cluster, context,
-  lib, components). Popup code lives under `src/popup/`.
+- Shared IPC and window-agnostic helpers live under `src/lib/`
+  (`commands.ts`, `types.ts`, drafts, Pulse visibility, reorder).
+- Dashboard code lives under `src/dashboard/` (views, `task/`, context,
+  lib, components, hooks). Popup code lives under `src/popup/`.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
-- Styles for the dashboard currently live in `src/dashboard/Dashboard.css`.
-  Prefer extending existing class patterns over inventing parallel systems.
+- Styles: dashboard in `src/dashboard/Dashboard.css`, popup in
+  `src/popup/CheckInForm.css` and `src/popup/CheckInPopup.css`. Prefer
+  extending existing class patterns over inventing parallel systems.
   Do not add a CSS framework unless explicitly requested.
 
 ## Verification
@@ -107,6 +113,8 @@ preserves calm, private, flow-friendly behavior.
   - `npm run build` when the change can affect bundling or `tsc` project refs
 - For Rust / SQLite / Tauri command changes, also run from `src-tauri/`:
   - `cargo test`
+  - `cargo clippy --locked --all-targets -- -D warnings` when the change
+    can affect warnings
   - `cargo check` when a full test run is disproportionate
 - There is no separate JS lint script today; rely on TypeScript strictness and
   tests. Do not add ESLint/Prettier unless requested.

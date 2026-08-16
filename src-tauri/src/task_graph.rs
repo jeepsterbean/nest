@@ -140,9 +140,8 @@ impl TaskGraph {
         Ok(())
     }
 
-    pub fn delete_task(conn: &mut Connection, id: i64) -> Result<()> {
-        let tx = conn.transaction()?;
-        Self::require_task(&tx, id)?;
+    pub(crate) fn delete_task_in(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
+        Self::require_task(tx, id)?;
         // Deleting relies on the schema's FK actions: children are promoted to
         // root (parent_task_id SET NULL) and dependency edges plus status
         // events cascade away. Bump the affected neighbors first so list
@@ -157,6 +156,13 @@ impl TaskGraph {
             params![now_unix_secs(), id],
         )?;
         tx.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn delete_task(conn: &mut Connection, id: i64) -> Result<()> {
+        let tx = conn.transaction()?;
+        Self::delete_task_in(&tx, id)?;
         tx.commit()?;
         Ok(())
     }

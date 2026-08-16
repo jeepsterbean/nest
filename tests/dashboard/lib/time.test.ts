@@ -2,15 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   computeStreak,
   dayLabel,
-  elapsedMinutes,
   formatCheckInCountdown,
   formatDate,
   formatDateTime,
-  formatElapsedMinutes,
   formatTime,
+  formatPlayButtonTime,
+  formatWorkedTime,
   greetingForHour,
   previousDayMs,
   startOfDayMs,
+  taskTotalWorkedSeconds,
+  taskWorkSessionSeconds,
 } from "../../../src/dashboard/lib/time";
 
 // All day-boundary math is in local time (setHours), so expectations are built
@@ -114,14 +116,6 @@ describe("format helpers", () => {
 describe("minute helpers", () => {
   const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
 
-  it("formats elapsed whole minutes without going negative", () => {
-    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(5);
-    expect(formatElapsedMinutes(sec(new Date(2026, 5, 17, 14, 25)), now)).toBe(
-      "5 min",
-    );
-    expect(elapsedMinutes(sec(new Date(2026, 5, 17, 14, 31)), now)).toBe(0);
-  });
-
   it("shows second-precision countdowns and marks due schedules", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
@@ -132,5 +126,36 @@ describe("minute helpers", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
     ).toBe("0:00");
+  });
+});
+
+describe("worked time", () => {
+  it("starts each visible session at zero without going backwards", () => {
+    expect(taskWorkSessionSeconds(100, 130_000)).toBe(30);
+    expect(taskWorkSessionSeconds(130, 130_000)).toBe(0);
+    expect(taskWorkSessionSeconds(140, 130_000)).toBe(0);
+    expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
+  });
+
+  it("keeps the running session available for lifetime totals", () => {
+    expect(taskTotalWorkedSeconds(90, 100, 130_000)).toBe(120);
+    expect(taskTotalWorkedSeconds(90, null, 130_000)).toBe(90);
+  });
+
+  it("formats worked time", () => {
+    expect(formatWorkedTime(0)).toBe("0");
+    expect(formatWorkedTime(45)).toBe("45");
+    expect(formatWorkedTime(60)).toBe("1:00");
+    expect(formatWorkedTime(330)).toBe("5:30");
+    expect(formatWorkedTime(3_661)).toBe("1:01:01");
+  });
+
+  it("labels the play button with seconds, then whole minutes", () => {
+    expect(formatPlayButtonTime(0)).toBe("0");
+    expect(formatPlayButtonTime(59)).toBe("59");
+    expect(formatPlayButtonTime(60)).toBe("1");
+    expect(formatPlayButtonTime(119)).toBe("1");
+    expect(formatPlayButtonTime(120)).toBe("2");
+    expect(formatPlayButtonTime(3_661)).toBe("61");
   });
 });

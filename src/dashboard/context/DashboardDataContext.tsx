@@ -15,6 +15,7 @@ import {
   listBrainDumps,
   listMetricCheckIns,
   listMetrics,
+  listPulses,
   listPhaseCheckIns,
   listPhases,
   listTasks,
@@ -27,6 +28,7 @@ import type {
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
+  Pulse,
   Task,
   TaskDependency,
 } from "../../lib/types";
@@ -40,6 +42,7 @@ type DashboardData = {
   taskDependencies: TaskDependency[];
   taskGraph: TaskGraphProjection;
   metrics: Metric[];
+  pulses: Pulse[];
   phases: Phase[];
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
@@ -64,6 +67,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [pulses, setPulses] = useState<Pulse[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
@@ -82,10 +86,11 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = now - THIRTY_DAYS_SECONDS;
       const to = now + 1;
-      const [t, td, m, p, ci, pci, allBd, lp, schedule] = await Promise.all([
+      const [t, td, m, pulses, p, ci, pci, allBd, lp, schedule] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
-        listMetrics(true),
+        listMetrics(),
+        listPulses(),
         listPhases(true),
         listMetricCheckIns(from, to),
         listPhaseCheckIns(from, to),
@@ -97,6 +102,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setTasks(t);
       setTaskDependencies(td);
       setMetrics(m);
+      setPulses(pulses);
       setPhases(p);
       setCheckIns(ci);
       setPhaseCheckIns(pci);
@@ -129,16 +135,19 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
-  // Refresh when a check-in is submitted from the popup.
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    void listen("check-in-submitted", () => {
-      reload();
-    }).then((u) => {
-      if (cancelled) u();
-      else unlisten = u;
-    });
+    const bind = (event: string) =>
+      listen(event, () => {
+        reload();
+      });
+    void Promise.all([bind("check-in-submitted"), bind("phase-changed")]).then(
+      (listeners) => {
+        if (cancelled) listeners.forEach((u) => u());
+        else unlisten = () => listeners.forEach((u) => u());
+      },
+    );
     return () => {
       cancelled = true;
       unlisten?.();
@@ -157,6 +166,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       taskDependencies,
       taskGraph,
       metrics,
+      pulses,
       phases,
       checkIns,
       phaseCheckIns,
@@ -176,6 +186,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       taskDependencies,
       taskGraph,
       metrics,
+      pulses,
       phases,
       checkIns,
       phaseCheckIns,

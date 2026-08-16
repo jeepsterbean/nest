@@ -5,7 +5,6 @@ export const TASK_STATUSES: TaskStatus[] = [
   "up_next",
   "active",
   "completed",
-  "paused",
   "cancelled",
 ];
 
@@ -15,7 +14,6 @@ export const WORKING_STATUSES: TaskStatus[] = [
   "backlog",
   "up_next",
   "active",
-  "paused",
 ];
 
 export const CLOSED_STATUSES: TaskStatus[] = ["completed", "cancelled"];
@@ -24,7 +22,6 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
   up_next: "Up next",
   active: "Active",
-  paused: "Paused",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -51,7 +48,6 @@ export const groupTasksByStatus = (taskList: Task[]) => {
     backlog: [],
     up_next: [],
     active: [],
-    paused: [],
     completed: [],
     cancelled: [],
   };

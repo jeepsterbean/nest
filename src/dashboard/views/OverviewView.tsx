@@ -10,6 +10,11 @@ import {
   submitBrainDump,
 } from "../../lib/commands";
 import {
+  isBrainDumpSubmitShortcut,
+  trimBrainDumpDraft,
+  useBrainDumpDraft,
+} from "../../lib/brainDumpDraft";
+import {
   clockIcon,
   eyeOffIcon,
   pencilIcon,
@@ -37,14 +42,13 @@ export function OverviewView() {
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [brainDumpExpanded, setBrainDumpExpanded] = useState(true);
   const [brainDumpLogsHidden, setBrainDumpLogsHidden] = useState(false);
-  const [quickBrainDumpTitle, setQuickBrainDumpTitle] = useState("");
-  const [quickBrainDumpText, setQuickBrainDumpText] = useState("");
-  const [compactBrainDumpText, setCompactBrainDumpText] = useState("");
+  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
+  const { title: brainDumpTitle, text: brainDumpText } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState<
     "expanded" | "compact" | null
   >(null);
   const brainDumpTextRef = useRef<HTMLTextAreaElement | null>(null);
-  const compactBrainDumpRef = useRef<HTMLInputElement | null>(null);
+  const compactBrainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const brainDumpHistoryRef = useRef<HTMLDivElement | null>(null);
   const loadingOlderDumpsRef = useRef(false);
   const suppressHistoryAutoScrollRef = useRef(false);
@@ -104,26 +108,24 @@ export function OverviewView() {
 
   const onSubmitQuickBrainDump = async (e: FormEvent) => {
     e.preventDefault();
-    const title = quickBrainDumpTitle.trim();
-    const text = quickBrainDumpText.trim();
+    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
     if (!text || brainDumpSubmitting !== null) return;
     setBrainDumpSubmitting("expanded");
-    const ok = await mutate(() => submitBrainDump(text, title || null));
+    const ok = await mutate(() => submitBrainDump(text, title));
     if (ok) {
-      setQuickBrainDumpTitle("");
-      setQuickBrainDumpText("");
+      setBrainDumpDraft({ title: "", text: "" });
     }
     setBrainDumpSubmitting(null);
   };
 
   const onSubmitCompactBrainDump = async (e: FormEvent) => {
     e.preventDefault();
-    const text = compactBrainDumpText.trim();
+    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
     if (!text || brainDumpSubmitting !== null) return;
     setBrainDumpSubmitting("compact");
-    const ok = await mutate(() => submitBrainDump(text, null));
+    const ok = await mutate(() => submitBrainDump(text, title));
     if (ok) {
-      setCompactBrainDumpText("");
+      setBrainDumpDraft({ title: "", text: "" });
       requestAnimationFrame(() => compactBrainDumpRef.current?.focus());
     }
     setBrainDumpSubmitting(null);
@@ -346,8 +348,13 @@ export function OverviewView() {
               <div className="overview-dump-composer__title-row">
                 <input
                   type="text"
-                  value={quickBrainDumpTitle}
-                  onChange={(e) => setQuickBrainDumpTitle(e.target.value)}
+                  value={brainDumpTitle}
+                  onChange={(e) =>
+                    setBrainDumpDraft((draft) => ({
+                      ...draft,
+                      title: e.target.value,
+                    }))
+                  }
                   placeholder="Optional title"
                   aria-label="New brain dump title"
                 />
@@ -370,10 +377,24 @@ export function OverviewView() {
               </div>
               <textarea
                 ref={brainDumpTextRef}
-                value={quickBrainDumpText}
-                onChange={(e) => setQuickBrainDumpText(e.target.value)}
+                autoCapitalize="off"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={brainDumpText}
+                onChange={(e) =>
+                  setBrainDumpDraft((draft) => ({
+                    ...draft,
+                    text: e.target.value,
+                  }))
+                }
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (
+                    isBrainDumpSubmitShortcut({
+                      ...e,
+                      isComposing: e.nativeEvent.isComposing,
+                    })
+                  ) {
                     e.preventDefault();
                     e.currentTarget.form?.requestSubmit();
                   }
@@ -385,7 +406,7 @@ export function OverviewView() {
                 type="submit"
                 className="overview-dump-submit"
                 disabled={
-                  !quickBrainDumpText.trim() || brainDumpSubmitting !== null
+                  !brainDumpText.trim() || brainDumpSubmitting !== null
                 }
                 aria-label={
                   brainDumpSubmitting === "expanded"
@@ -488,17 +509,37 @@ export function OverviewView() {
                 className="overview-dump-compact"
                 onSubmit={onSubmitCompactBrainDump}
               >
-                <input
+                <textarea
                   ref={compactBrainDumpRef}
-                  type="text"
-                  value={compactBrainDumpText}
-                  onChange={(e) => setCompactBrainDumpText(e.target.value)}
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={brainDumpText}
+                  onChange={(e) =>
+                    setBrainDumpDraft((draft) => ({
+                      ...draft,
+                      text: e.target.value,
+                    }))
+                  }
+                  onKeyDown={(e) => {
+                    if (
+                      isBrainDumpSubmitShortcut({
+                        ...e,
+                        isComposing: e.nativeEvent.isComposing,
+                      })
+                    ) {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   aria-label="Quick brain dump"
+                  rows={2}
                 />
                 <button
                   type="submit"
                   disabled={
-                    !compactBrainDumpText.trim() || brainDumpSubmitting !== null
+                    !brainDumpText.trim() || brainDumpSubmitting !== null
                   }
                   aria-label={
                     brainDumpSubmitting === "compact"

@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { submitBrainDump } from "../../lib/commands";
+import {
+  isBrainDumpSubmitShortcut,
+  trimBrainDumpDraft,
+  useBrainDumpDraft,
+} from "../../lib/brainDumpDraft";
 import { useDashboardData } from "../context/DashboardDataContext";
 
 export function BrainDumpModal({
@@ -10,8 +15,8 @@ export function BrainDumpModal({
   onClose: () => void;
 }) {
   const { mutate } = useDashboardData();
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
+  const [draft, setDraft] = useBrainDumpDraft();
+  const { title, text } = draft;
   const [submitting, setSubmitting] = useState(false);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -29,16 +34,14 @@ export function BrainDumpModal({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const trimmedTitle = title.trim();
-    const trimmedText = text.trim();
-    if (!trimmedText || submitting) return;
+    const trimmed = trimBrainDumpDraft(draft);
+    if (!trimmed.text || submitting) return;
     setSubmitting(true);
     const ok = await mutate(() =>
-      submitBrainDump(trimmedText, trimmedTitle || null),
+      submitBrainDump(trimmed.text, trimmed.title),
     );
     if (ok) {
-      setTitle("");
-      setText("");
+      setDraft({ title: "", text: "" });
       onClose();
     }
     setSubmitting(false);
@@ -77,7 +80,9 @@ export function BrainDumpModal({
           type="text"
           className="brain-dump-composer__title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) =>
+            setDraft((draft) => ({ ...draft, title: e.target.value }))
+          }
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
           }}
@@ -86,11 +91,22 @@ export function BrainDumpModal({
         />
         <textarea
           ref={inputRef}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) =>
+            setDraft((draft) => ({ ...draft, text: e.target.value }))
+          }
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            if (
+              isBrainDumpSubmitShortcut({
+                ...e,
+                isComposing: e.nativeEvent.isComposing,
+              })
+            ) {
               e.preventDefault();
               e.currentTarget.form?.requestSubmit();
             }

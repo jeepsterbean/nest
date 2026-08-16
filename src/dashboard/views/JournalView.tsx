@@ -37,7 +37,9 @@ export function JournalView() {
         return (
           <li key={`metrics-${ev.checkIn.id}`} className="event event--metrics">
             <div className="event__meta">
-              <span className="event__type">Check-in</span>
+              <span className="event__type">
+                {ev.checkIn.pulseName ?? "Pulse check-in"}
+              </span>
               <time className="event__time">{formatTime(ev.at)}</time>
               <button
                 type="button"
@@ -65,9 +67,11 @@ export function JournalView() {
         );
       case "phase": {
         const name =
-          phaseById(ev.checkIn.phaseId)?.name ??
-          ev.checkIn.phaseLabel ??
-          `Phase ${ev.checkIn.phaseId}`;
+          ev.checkIn.phaseId === null
+            ? "Idle"
+            : (phaseById(ev.checkIn.phaseId)?.name ??
+              ev.checkIn.phaseLabel ??
+              `Phase ${ev.checkIn.phaseId}`);
         return (
           <li key={`phase-${ev.checkIn.id}`} className="event event--phase">
             <div className="event__meta">

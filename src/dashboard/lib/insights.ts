@@ -177,8 +177,6 @@ export function metricInsights(
     .filter((insight) => insight.entries > 0 || insight.previousEntries > 0)
     .sort(
       (a, b) =>
-        Number(a.metric.inactiveSince !== null) -
-          Number(b.metric.inactiveSince !== null) ||
         a.metric.createdAt - b.metric.createdAt ||
         a.metric.id - b.metric.id,
     );

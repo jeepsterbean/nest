@@ -487,6 +487,266 @@ WHERE NOT EXISTS (
 );
 "#,
         ),
+        // An unanswered phase prompt is an explicit idle checkpoint. NULL is
+        // distinct from no row: it ends the previously active phase.
+        M::up(
+            r#"
+CREATE TABLE phase_check_ins_with_idle (
+  id          INTEGER PRIMARY KEY,
+  created_at  INTEGER NOT NULL,
+  phase_id    INTEGER REFERENCES phases(id),
+  phase_label TEXT
+);
+
+INSERT INTO phase_check_ins_with_idle (id, created_at, phase_id, phase_label)
+SELECT id, created_at, phase_id, phase_label FROM phase_check_ins;
+
+DROP TABLE phase_check_ins;
+ALTER TABLE phase_check_ins_with_idle RENAME TO phase_check_ins;
+CREATE INDEX idx_phase_check_ins_created_at ON phase_check_ins(created_at);
+CREATE INDEX idx_phase_check_ins_phase_id ON phase_check_ins(phase_id);
+"#,
+        ),
+        // Paused is no longer a live status. Leftover paused tasks become
+        // cancelled; status history keeps the old value. Child tables are
+        // copied first because this runs inside a transaction, where
+        // PRAGMA foreign_keys has no effect and DROP TABLE would cascade.
+        M::up(
+            r#"
+INSERT INTO task_status_events (task_id, from_status, to_status, created_at)
+SELECT id, 'paused', 'cancelled', updated_at
+FROM tasks
+WHERE status = 'paused';
+
+UPDATE tasks
+SET status = 'cancelled', working_now = 0
+WHERE status = 'paused';
+
+CREATE TABLE task_status_events_copy (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+INSERT INTO task_status_events_copy (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events;
+
+CREATE TABLE task_dependencies_copy (
+  blocker_task_id INTEGER NOT NULL,
+  blocked_task_id INTEGER NOT NULL,
+  created_at      INTEGER NOT NULL,
+  CHECK (blocker_task_id <> blocked_task_id),
+  PRIMARY KEY (blocker_task_id, blocked_task_id)
+);
+INSERT INTO task_dependencies_copy (blocker_task_id, blocked_task_id, created_at)
+SELECT blocker_task_id, blocked_task_id, created_at FROM task_dependencies;
+
+CREATE TABLE tasks_copy (
+  id             INTEGER PRIMARY KEY,
+  title          TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('backlog', 'up_next', 'active', 'completed', 'cancelled')),
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL,
+  description    TEXT NOT NULL DEFAULT '',
+  value          INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5),
+  effort         INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5),
+  scope          TEXT,
+  parent_task_id INTEGER,
+  working_now    INTEGER NOT NULL DEFAULT 0 CHECK (working_now IN (0, 1))
+);
+INSERT INTO tasks_copy (
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+)
+SELECT
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+FROM tasks;
+
+DROP INDEX IF EXISTS idx_task_status_events_task_id_created_at;
+DROP INDEX IF EXISTS idx_task_dependencies_blocked;
+DROP INDEX IF EXISTS idx_tasks_status_updated_at;
+DROP INDEX IF EXISTS idx_tasks_parent_task_id;
+
+DROP TABLE task_status_events;
+DROP TABLE task_dependencies;
+DROP TABLE tasks;
+
+CREATE TABLE tasks (
+  id             INTEGER PRIMARY KEY,
+  title          TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('backlog', 'up_next', 'active', 'completed', 'cancelled')),
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL,
+  description    TEXT NOT NULL DEFAULT '',
+  value          INTEGER CHECK (value IS NULL OR value BETWEEN 1 AND 5),
+  effort         INTEGER CHECK (effort IS NULL OR effort BETWEEN 1 AND 5),
+  scope          TEXT,
+  parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  working_now    INTEGER NOT NULL DEFAULT 0 CHECK (working_now IN (0, 1))
+);
+INSERT INTO tasks (
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  parent_task_id, working_now
+)
+SELECT
+  id, title, status, created_at, updated_at, description, value, effort, scope,
+  NULL, working_now
+FROM tasks_copy;
+UPDATE tasks
+SET parent_task_id = (
+  SELECT parent_task_id FROM tasks_copy WHERE tasks_copy.id = tasks.id
+);
+
+CREATE TABLE task_status_events (
+  id          INTEGER PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status TEXT CHECK (from_status IS NULL OR from_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  to_status   TEXT NOT NULL CHECK (to_status IN ('backlog', 'up_next', 'active', 'paused', 'completed', 'cancelled')),
+  created_at  INTEGER NOT NULL
+);
+INSERT INTO task_status_events (id, task_id, from_status, to_status, created_at)
+SELECT id, task_id, from_status, to_status, created_at FROM task_status_events_copy;
+
+CREATE TABLE task_dependencies (
+  blocker_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  blocked_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_at      INTEGER NOT NULL,
+  CHECK (blocker_task_id <> blocked_task_id),
+  PRIMARY KEY (blocker_task_id, blocked_task_id)
+);
+INSERT INTO task_dependencies (blocker_task_id, blocked_task_id, created_at)
+SELECT blocker_task_id, blocked_task_id, created_at FROM task_dependencies_copy;
+
+DROP TABLE task_status_events_copy;
+DROP TABLE task_dependencies_copy;
+DROP TABLE tasks_copy;
+
+CREATE INDEX idx_tasks_status_updated_at ON tasks(status, updated_at DESC);
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
+CREATE INDEX idx_task_status_events_task_id_created_at
+ON task_status_events(task_id, created_at DESC, id DESC);
+CREATE INDEX idx_task_dependencies_blocked
+ON task_dependencies(blocked_task_id, blocker_task_id);
+"#,
+        ),
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN worked_seconds INTEGER NOT NULL DEFAULT 0
+CHECK (worked_seconds >= 0);
+ALTER TABLE tasks ADD COLUMN work_started_at INTEGER;
+
+UPDATE tasks
+SET work_started_at = CAST(strftime('%s', 'now') AS INTEGER)
+WHERE working_now = 1;
+"#,
+        ),
+        // Repair databases that briefly recorded version 26 while the task
+        // table rebuild still occupied that slot during development.
+        M::up_with_hook("", |tx| {
+            let has_worked_seconds: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'worked_seconds')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_worked_seconds {
+                tx.execute(
+                    "ALTER TABLE tasks ADD COLUMN worked_seconds INTEGER NOT NULL DEFAULT 0 \
+                     CHECK (worked_seconds >= 0)",
+                    [],
+                )?;
+            }
+
+            let has_work_started_at: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'work_started_at')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_work_started_at {
+                tx.execute("ALTER TABLE tasks ADD COLUMN work_started_at INTEGER", [])?;
+            }
+
+            tx.execute(
+                "UPDATE tasks SET work_started_at = CAST(strftime('%s', 'now') AS INTEGER) \
+                 WHERE working_now = 1 AND work_started_at IS NULL",
+                [],
+            )?;
+            Ok(())
+        }),
+        // Freeze phases to the three derived attention states. Historical
+        // check-ins keep their foreign keys; extra names are only inactivated.
+        M::up(
+            r#"
+INSERT INTO phases (name, created_at)
+SELECT name, 0 FROM (
+  SELECT 'Scoping' AS name
+  UNION ALL SELECT 'Doing'
+  UNION ALL SELECT 'Resting'
+)
+WHERE name NOT IN (SELECT name FROM phases);
+
+UPDATE phases SET inactive_since = NULL
+WHERE name IN ('Scoping', 'Doing', 'Resting');
+
+UPDATE phases SET inactive_since = COALESCE(inactive_since, CAST(strftime('%s', 'now') AS INTEGER))
+WHERE name NOT IN ('Scoping', 'Doing', 'Resting');
+"#,
+        ),
+        // A pulse is now the only grouping/lifecycle for metrics. Preserve the
+        // old active set as one pulse, leave old inactive metrics unassigned,
+        // and snapshot the pulse name on check-ins so deleting a pulse keeps
+        // its journal history legible.
+        M::up(
+            r#"
+CREATE TABLE pulses (
+  id         INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE pulse_metrics (
+  pulse_id  INTEGER NOT NULL REFERENCES pulses(id) ON DELETE CASCADE,
+  metric_id INTEGER NOT NULL REFERENCES metrics(id),
+  PRIMARY KEY (pulse_id, metric_id)
+);
+
+INSERT INTO pulses (name, created_at)
+SELECT 'Daily pulse', 0
+WHERE EXISTS (SELECT 1 FROM metrics)
+   OR EXISTS (SELECT 1 FROM metric_check_ins);
+
+INSERT INTO pulse_metrics (pulse_id, metric_id)
+SELECT (SELECT id FROM pulses WHERE name = 'Daily pulse'), id
+FROM metrics
+WHERE inactive_since IS NULL;
+
+ALTER TABLE metric_check_ins ADD COLUMN pulse_id INTEGER
+REFERENCES pulses(id) ON DELETE SET NULL;
+ALTER TABLE metric_check_ins ADD COLUMN pulse_name TEXT;
+
+UPDATE metric_check_ins
+SET pulse_id = (SELECT id FROM pulses WHERE name = 'Daily pulse'),
+    pulse_name = 'Daily pulse';
+
+ALTER TABLE metrics DROP COLUMN inactive_since;
+"#,
+        ),
+        M::up("ALTER TABLE pulses ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';"),
+        M::up("ALTER TABLE metrics ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';"),
+        // Dashboard order is the popup order: pulses and the metrics inside
+        // each pulse keep an explicit sort_order instead of created_at/rowid.
+        M::up(
+            r#"
+ALTER TABLE pulses ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE pulses SET sort_order = id;
+
+ALTER TABLE pulse_metrics ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE pulse_metrics SET sort_order = rowid;
+"#,
+        ),
     ])
 }
 
@@ -507,6 +767,39 @@ CREATE TABLE task_check_ins (
   created_at            INTEGER NOT NULL,
   task                  TEXT NOT NULL,
   next_check_in_minutes INTEGER NOT NULL
+);
+
+CREATE TABLE metrics (
+  id             INTEGER PRIMARY KEY,
+  name           TEXT NOT NULL UNIQUE,
+  created_at     INTEGER NOT NULL,
+  inactive_since INTEGER
+);
+
+CREATE TABLE metric_check_ins (
+  id         INTEGER PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE metric_ratings (
+  check_in_id INTEGER NOT NULL REFERENCES metric_check_ins(id) ON DELETE CASCADE,
+  metric_id   INTEGER NOT NULL REFERENCES metrics(id),
+  value       INTEGER NOT NULL CHECK (value BETWEEN 1 AND 5),
+  PRIMARY KEY (check_in_id, metric_id)
+);
+
+CREATE TABLE phases (
+  id             INTEGER PRIMARY KEY,
+  name           TEXT NOT NULL UNIQUE,
+  created_at     INTEGER NOT NULL,
+  inactive_since INTEGER
+);
+
+CREATE TABLE phase_check_ins (
+  id          INTEGER PRIMARY KEY,
+  created_at  INTEGER NOT NULL,
+  phase_id    INTEGER NOT NULL REFERENCES phases(id),
+  phase_label TEXT
 );
 "#,
         )
@@ -776,5 +1069,238 @@ CREATE TABLE task_check_ins (
             )
             .unwrap();
         assert_eq!(event, (None, "active".into(), 100));
+    }
+
+    #[test]
+    fn drops_paused_as_a_live_status_and_cancels_leftovers() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 24).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at, working_now) \
+             VALUES (1, 'Parked', 'paused', 100, 200, 1), \
+                    (2, 'Still active', 'active', 100, 200, 0)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events \
+             (task_id, from_status, to_status, created_at) \
+             VALUES (2, 'active', 'paused', 150), (2, 'paused', 'active', 180)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let parked: (String, bool) = conn
+            .query_row(
+                "SELECT status, working_now FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(parked, ("cancelled".into(), false));
+
+        let cancel_event: (Option<String>, String) = conn
+            .query_row(
+                "SELECT from_status, to_status FROM task_status_events \
+                 WHERE task_id = 1 ORDER BY id DESC LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(cancel_event, (Some("paused".into()), "cancelled".into()));
+
+        let historical: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_status_events \
+                 WHERE task_id = 2 AND 'paused' IN (from_status, to_status)",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(historical, 2);
+
+        conn.execute("UPDATE tasks SET status = 'paused' WHERE id = 2", [])
+            .unwrap_err();
+    }
+
+    #[test]
+    fn starts_timing_tasks_that_were_already_working() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 25).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, working_now, created_at, updated_at) \
+             VALUES (1, 'Already working', 'active', 1, 100, 100)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let timer: (i64, Option<i64>) = conn
+            .query_row(
+                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(timer.0, 0);
+        assert!(timer.1.is_some_and(|started_at| started_at > 0));
+    }
+
+    #[test]
+    fn repairs_version_26_database_missing_work_timer_columns() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 25).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, working_now, created_at, updated_at) \
+             VALUES (1, 'Already working', 'active', 1, 100, 100)",
+            [],
+        )
+        .unwrap();
+        conn.pragma_update(None, "user_version", 26).unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let timer: (i64, Option<i64>) = conn
+            .query_row(
+                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(timer.0, 0);
+        assert!(timer.1.is_some_and(|started_at| started_at > 0));
+    }
+
+    #[test]
+    fn freezes_canonical_phases_and_preserves_old_foreign_keys() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 27).unwrap();
+        conn.execute(
+            "UPDATE phases SET inactive_since = 50 WHERE name = 'Doing'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO phase_check_ins (id, created_at, phase_id) VALUES (1, 10, 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let doing_active: Option<i64> = conn
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE name = 'Doing'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(doing_active, None);
+
+        let extras: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM phases \
+                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting') \
+                   AND inactive_since IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(extras, 0);
+
+        let historical: i64 = conn
+            .query_row(
+                "SELECT phase_id FROM phase_check_ins WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(historical, 1);
+    }
+
+    #[test]
+    fn migrates_metric_activity_into_one_pulse_and_preserves_check_in_identity() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 28).unwrap();
+        conn.execute(
+            "INSERT INTO metrics (id, name, created_at, inactive_since) VALUES \
+             (1, 'Energy', 10, NULL), (2, 'Retired', 20, 30)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metric_check_ins (id, created_at) VALUES (1, 40)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metric_ratings (check_in_id, metric_id, value) VALUES (1, 1, 4)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let inactive_column: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('metrics') WHERE name = 'inactive_since'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(inactive_column, 0);
+
+        let metric_icon: String = conn
+            .query_row("SELECT icon FROM metrics WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(metric_icon, "activity");
+
+        let memberships: Vec<i64> = conn
+            .prepare("SELECT metric_id FROM pulse_metrics ORDER BY metric_id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(memberships, vec![1]);
+
+        let pulse_id: i64 = conn
+            .query_row(
+                "SELECT id FROM pulses WHERE name = 'Daily pulse'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let icon: String = conn
+            .query_row("SELECT icon FROM pulses WHERE id = ?1", [pulse_id], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(icon, "activity");
+        let sort_order: i64 = conn
+            .query_row(
+                "SELECT sort_order FROM pulses WHERE id = ?1",
+                [pulse_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(sort_order, pulse_id);
+        conn.execute("DELETE FROM pulses WHERE id = ?1", [pulse_id])
+            .unwrap();
+        let historical: (Option<i64>, Option<String>) = conn
+            .query_row(
+                "SELECT pulse_id, pulse_name FROM metric_check_ins WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(historical, (None, Some("Daily pulse".into())));
     }
 }

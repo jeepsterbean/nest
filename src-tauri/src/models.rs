@@ -5,8 +5,18 @@ use serde::{Deserialize, Serialize};
 pub struct Metric {
     pub id: i64,
     pub name: String,
+    pub icon: String,
     pub created_at: i64,
-    pub inactive_since: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pulse {
+    pub id: i64,
+    pub name: String,
+    pub icon: String,
+    pub created_at: i64,
+    pub metric_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +24,8 @@ pub struct Metric {
 pub struct MetricCheckIn {
     pub id: i64,
     pub created_at: i64,
+    pub pulse_id: Option<i64>,
+    pub pulse_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +65,7 @@ pub struct Phase {
 pub struct PhaseCheckIn {
     pub id: i64,
     pub created_at: i64,
-    pub phase_id: i64,
+    pub phase_id: Option<i64>,
     pub phase_label: Option<String>,
 }
 
@@ -65,6 +77,8 @@ pub struct Task {
     pub description: String,
     pub status: String,
     pub working_now: bool,
+    pub worked_seconds: i64,
+    pub work_started_at: Option<i64>,
     pub scope: Option<String>,
     pub value: Option<i64>,
     pub effort: Option<i64>,
@@ -96,6 +110,7 @@ pub struct TaskStatusEvent {
 pub struct CheckInSchedule {
     pub interval_minutes: i64,
     pub next_due_at: i64,
+    pub waiting_for_response: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

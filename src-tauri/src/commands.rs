@@ -1,15 +1,41 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Task, TaskDependency, TaskStatusEvent,
+    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Task, TaskDependency, TaskStatusEvent,
 };
+use crate::phase;
 use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
+
+// One greeting line at the 600px dashboard minimum (~420px at 31px serif).
+const MAX_REMINDER_CHARS: usize = 27;
+const REMINDERS: &[&str] = &[
+    "Put on some good music",
+    "Do a brain dump",
+    "Choose one small thing",
+    "Write down the next action",
+    "Clear the space around you",
+    "Close what you're not using",
+    "Start for just two minutes",
+];
+
+const _: () = {
+    let mut i = 0;
+    while i < REMINDERS.len() {
+        assert!(REMINDERS[i].len() <= MAX_REMINDER_CHARS);
+        i += 1;
+    }
+};
+
+#[tauri::command]
+pub fn list_reminders() -> Vec<&'static str> {
+    REMINDERS.to_vec()
+}
 
 fn normalize_task_scope(scope: Option<String>) -> Option<String> {
     scope
@@ -32,7 +58,7 @@ fn normalize_optional_title(title: Option<String>) -> Option<String> {
 
 fn validate_task_status(status: &str) -> Result<&str> {
     match status {
-        "backlog" | "up_next" | "active" | "paused" | "completed" | "cancelled" => Ok(status),
+        "backlog" | "up_next" | "active" | "completed" | "cancelled" => Ok(status),
         _ => Err(AppError::InvalidInput(format!(
             "invalid task status {status}"
         ))),
@@ -58,65 +84,62 @@ fn validate_check_in_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
-fn write_primary_check_in(
-    conn: &mut Connection,
+pub(crate) fn resolve_due_check_in(
+    conn: &Connection,
     timer: &mut CheckInTimer,
-    brain_dump_text: Option<String>,
-    phase_id: Option<i64>,
-    minutes: i64,
+    dismissed: bool,
+    minutes: Option<i64>,
     now: i64,
-) -> Result<CheckInSchedule> {
-    let next_due_at = now + minutes * 60;
-    let text = brain_dump_text
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    let tx = conn.transaction()?;
+) -> Result<bool> {
+    let minutes = if dismissed {
+        crate::check_in::MIN_MINUTES
+    } else {
+        minutes
+            .map(validate_check_in_interval)
+            .transpose()?
+            .unwrap_or(timer.interval_minutes)
+    };
+    if !timer.waiting_for_response {
+        return Ok(false);
+    }
 
-    if let Some(text) = text {
-        tx.execute(
-            "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, NULL, ?2)",
-            params![now, text],
-        )?;
-    }
-    if let Some(phase_id) = phase_id {
-        let inactive_since: Option<i64> = tx
-            .query_row(
-                "SELECT inactive_since FROM phases WHERE id = ?1",
-                params![phase_id],
-                |row| row.get(0),
-            )
-            .map_err(|error| match error {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    AppError::NotFound(format!("phase {phase_id}"))
-                }
-                error => error.into(),
-            })?;
-        if inactive_since.is_some() {
-            return Err(AppError::InvalidInput("phase is paused".into()));
-        }
-        tx.execute(
-            "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
-            params![now, phase_id],
-        )?;
-    }
-    tx.execute(
+    let next_due_at = now + minutes * 60;
+    conn.execute(
         "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
         params![minutes, next_due_at],
     )?;
-    tx.commit()?;
-
     timer.interval_minutes = minutes;
     timer.next_due_at = next_due_at;
     timer.waiting_for_response = false;
-    Ok(CheckInSchedule {
-        interval_minutes: minutes,
-        next_due_at,
+    Ok(true)
+}
+
+fn fetch_latest_phase_check_in(
+    conn: &Connection,
+    include_idle: bool,
+) -> Result<Option<PhaseCheckIn>> {
+    let query = if include_idle {
+        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
+         ORDER BY created_at DESC, id DESC LIMIT 1"
+    } else {
+        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
+         WHERE phase_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1"
+    };
+    conn.query_row(query, [], |row| {
+        Ok(PhaseCheckIn {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            phase_id: row.get(2)?,
+            phase_label: row.get(3)?,
+        })
     })
+    .optional()
+    .map_err(Into::into)
 }
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks WHERE id = ?1",
         params![id],
         |row| {
@@ -126,12 +149,14 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
                 description: row.get(2)?,
                 status: row.get(3)?,
                 working_now: row.get(4)?,
-                scope: row.get(5)?,
-                value: row.get(6)?,
-                effort: row.get(7)?,
-                parent_task_id: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                worked_seconds: row.get(5)?,
+                work_started_at: row.get(6)?,
+                scope: row.get(7)?,
+                value: row.get(8)?,
+                effort: row.get(9)?,
+                parent_task_id: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         },
     )
@@ -140,41 +165,58 @@ fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
     conn.query_row(
-        "SELECT id, name, created_at, inactive_since FROM metrics WHERE id = ?1",
+        "SELECT id, name, icon, created_at FROM metrics WHERE id = ?1",
         params![id],
         |row| {
             Ok(Metric {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
+                icon: row.get(2)?,
+                created_at: row.get(3)?,
             })
         },
     )
     .map_err(Into::into)
 }
 
-fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
-    conn.query_row(
-        "SELECT id, name, created_at, inactive_since FROM phases WHERE id = ?1",
-        params![id],
-        |row| {
-            Ok(Phase {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
-            })
-        },
-    )
-    .map_err(Into::into)
+fn valid_icon(icon: &str) -> bool {
+    !icon.is_empty()
+        && icon.len() <= 32
+        && icon
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte == b'-')
+}
+
+fn fetch_pulse(conn: &Connection, id: i64) -> Result<Pulse> {
+    let (name, icon, created_at) = conn
+        .query_row(
+            "SELECT name, icon, created_at FROM pulses WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("pulse {id}")))?;
+    let mut stmt = conn.prepare(
+        "SELECT metric_id FROM pulse_metrics WHERE pulse_id = ?1 \
+             ORDER BY sort_order ASC, rowid ASC",
+    )?;
+    let metric_ids = stmt
+        .query_map(params![id], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(Pulse {
+        id,
+        name,
+        icon,
+        created_at,
+        metric_ids,
+    })
 }
 
 #[tauri::command]
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, working_now, scope, value, effort, parent_task_id, created_at, updated_at \
+        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
          FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
     )?;
     let rows = stmt
@@ -185,12 +227,14 @@ pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
                 description: row.get(2)?,
                 status: row.get(3)?,
                 working_now: row.get(4)?,
-                scope: row.get(5)?,
-                value: row.get(6)?,
-                effort: row.get(7)?,
-                parent_task_id: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                worked_seconds: row.get(5)?,
+                work_started_at: row.get(6)?,
+                scope: row.get(7)?,
+                value: row.get(8)?,
+                effort: row.get(9)?,
+                parent_task_id: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -360,26 +404,43 @@ pub fn remove_task_dependency(
 }
 
 #[tauri::command]
-pub fn delete_task(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
-    let mut conn = state.lock().unwrap();
-    TaskGraph::delete_task(&mut conn, id)
+pub fn delete_task(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let changed = phase::with_current_signals(&app, |signals| -> Result<Option<String>> {
+        let mut conn = state.lock().unwrap();
+        let tx = conn.transaction()?;
+        TaskGraph::delete_task_in(&tx, id)?;
+        let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+        tx.commit()?;
+        Ok(changed)
+    })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn set_task_status(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     status: String,
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
-    let mut conn = state.lock().unwrap();
-    change_task_status(&mut conn, id, status)
+    let (task, changed) =
+        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            change_task_status(&tx, id, status)?;
+            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            tx.commit()?;
+            Ok((fetch_task(&conn, id)?, changed))
+        })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(task)
 }
 
-fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Task> {
+fn change_task_status(conn: &Connection, id: i64, status: &str) -> Result<()> {
     let now = now_unix_secs();
-    let tx = conn.transaction()?;
-    let current_status: String = match tx.query_row(
+    let current_status: String = match conn.query_row(
         "SELECT status FROM tasks WHERE id = ?1",
         params![id],
         |row| row.get(0),
@@ -391,30 +452,42 @@ fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Ta
         Err(e) => return Err(e.into()),
     };
     if current_status != status {
-        tx.execute(
+        if current_status == "active" && status != "active" {
+            bank_task_work(conn, id, now)?;
+        }
+        conn.execute(
             "UPDATE tasks SET status = ?1, \
              working_now = CASE WHEN ?1 = 'active' THEN working_now ELSE 0 END, \
              updated_at = ?2 WHERE id = ?3",
             params![status, now, id],
         )?;
-        tx.execute(
+        conn.execute(
             "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
              VALUES (?1, ?2, ?3, ?4)",
             params![id, current_status, status, now],
         )?;
     }
-    tx.commit()?;
-    fetch_task(conn, id)
+    Ok(())
 }
 
 #[tauri::command]
 pub fn set_task_working(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     working: bool,
 ) -> Result<Task> {
-    let conn = state.lock().unwrap();
-    change_task_working(&conn, id, working)
+    let (task, changed) =
+        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            change_task_working(&tx, id, working)?;
+            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            tx.commit()?;
+            Ok((fetch_task(&conn, id)?, changed))
+        })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(task)
 }
 
 fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
@@ -435,12 +508,32 @@ fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task
         ));
     }
     if current != working {
-        conn.execute(
-            "UPDATE tasks SET working_now = ?1, updated_at = ?2 WHERE id = ?3",
-            params![working, now_unix_secs(), id],
-        )?;
+        let now = now_unix_secs();
+        if working {
+            conn.execute(
+                "UPDATE tasks SET working_now = 1, work_started_at = ?1, updated_at = ?1 \
+                 WHERE id = ?2",
+                params![now, id],
+            )?;
+        } else {
+            bank_task_work(conn, id, now)?;
+        }
     }
     fetch_task(conn, id)
+}
+
+fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tasks SET \
+         worked_seconds = worked_seconds + CASE \
+           WHEN work_started_at IS NULL THEN 0 \
+           ELSE MAX(0, ?1 - work_started_at) \
+         END, \
+         working_now = 0, work_started_at = NULL, updated_at = ?1 \
+         WHERE id = ?2",
+        params![now, id],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -464,25 +557,17 @@ pub fn set_task_score(
 }
 
 #[tauri::command]
-pub fn list_metrics(
-    state: State<'_, Mutex<Connection>>,
-    include_inactive: bool,
-) -> Result<Vec<Metric>> {
+pub fn list_metrics(state: State<'_, Mutex<Connection>>) -> Result<Vec<Metric>> {
     let conn = state.lock().unwrap();
-    let sql = if include_inactive {
-        "SELECT id, name, created_at, inactive_since FROM metrics ORDER BY created_at ASC"
-    } else {
-        "SELECT id, name, created_at, inactive_since FROM metrics \
-         WHERE inactive_since IS NULL ORDER BY created_at ASC"
-    };
-    let mut stmt = conn.prepare(sql)?;
+    let mut stmt =
+        conn.prepare("SELECT id, name, icon, created_at FROM metrics ORDER BY created_at ASC")?;
     let rows = stmt
         .query_map([], |row| {
             Ok(Metric {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
+                icon: row.get(2)?,
+                created_at: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -505,8 +590,8 @@ pub fn create_metric(state: State<'_, Mutex<Connection>>, name: String) -> Resul
     Ok(Metric {
         id,
         name: trimmed,
+        icon: "activity".into(),
         created_at: now,
-        inactive_since: None,
     })
 }
 
@@ -528,21 +613,200 @@ pub fn rename_metric(state: State<'_, Mutex<Connection>>, id: i64, name: String)
 }
 
 #[tauri::command]
-pub fn set_metric_active(
+pub fn set_metric_icon(
     state: State<'_, Mutex<Connection>>,
     id: i64,
-    active: bool,
+    icon: String,
 ) -> Result<Metric> {
+    if !valid_icon(&icon) {
+        return Err(AppError::InvalidInput("invalid metric icon".into()));
+    }
     let conn = state.lock().unwrap();
-    let inactive_since: Option<i64> = if active { None } else { Some(now_unix_secs()) };
-    let updated = conn.execute(
-        "UPDATE metrics SET inactive_since = ?1 WHERE id = ?2",
-        params![inactive_since, id],
-    )?;
-    if updated == 0 {
+    if conn.execute(
+        "UPDATE metrics SET icon = ?1 WHERE id = ?2",
+        params![icon, id],
+    )? == 0
+    {
         return Err(AppError::NotFound(format!("metric {id}")));
     }
     fetch_metric(&conn, id)
+}
+
+#[tauri::command]
+pub fn list_pulses(state: State<'_, Mutex<Connection>>) -> Result<Vec<Pulse>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")?;
+    let ids = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    // ponytail: one tiny membership query per pulse; use one join if pulse counts ever grow.
+    ids.into_iter().map(|id| fetch_pulse(&conn, id)).collect()
+}
+
+#[tauri::command]
+pub fn create_pulse(state: State<'_, Mutex<Connection>>, name: String) -> Result<Pulse> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "INSERT INTO pulses (name, created_at, sort_order) VALUES ( \
+           ?1, \
+           ?2, \
+           COALESCE((SELECT MAX(sort_order) FROM pulses), -1) + 1 \
+         )",
+        params![name, now_unix_secs()],
+    )?;
+    fetch_pulse(&conn, conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn rename_pulse(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Pulse> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE pulses SET name = ?1 WHERE id = ?2",
+        params![name, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    fetch_pulse(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_pulse_icon(state: State<'_, Mutex<Connection>>, id: i64, icon: String) -> Result<Pulse> {
+    if !valid_icon(&icon) {
+        return Err(AppError::InvalidInput("invalid pulse icon".into()));
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE pulses SET icon = ?1 WHERE id = ?2",
+        params![icon, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    fetch_pulse(&conn, id)
+}
+
+#[tauri::command]
+pub fn delete_pulse(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let conn = state.lock().unwrap();
+    if conn.execute("DELETE FROM pulses WHERE id = ?1", params![id])? == 0 {
+        return Err(AppError::NotFound(format!("pulse {id}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_metric_to_pulse(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_id: i64,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "INSERT OR IGNORE INTO pulse_metrics (pulse_id, metric_id, sort_order) \
+         VALUES ( \
+           ?1, \
+           ?2, \
+           COALESCE((SELECT MAX(sort_order) FROM pulse_metrics WHERE pulse_id = ?1), -1) + 1 \
+         )",
+        params![pulse_id, metric_id],
+    )?;
+    Ok(())
+}
+
+fn is_id_permutation(existing: &[i64], proposed: &[i64]) -> bool {
+    if existing.len() != proposed.len() {
+        return false;
+    }
+    let unique: std::collections::HashSet<_> = proposed.iter().copied().collect();
+    unique.len() == proposed.len() && existing.iter().all(|id| unique.contains(id))
+}
+
+fn set_pulse_order(conn: &Connection, ids: &[i64]) -> Result<()> {
+    let mut stmt = conn.prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")?;
+    let existing = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    if !is_id_permutation(&existing, ids) {
+        return Err(AppError::InvalidInput(
+            "pulse order must include each pulse once".into(),
+        ));
+    }
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE pulses SET sort_order = ?1 WHERE id = ?2",
+            params![index as i64, id],
+        )?;
+    }
+    Ok(())
+}
+
+fn set_pulse_metric_order(conn: &Connection, pulse_id: i64, metric_ids: &[i64]) -> Result<()> {
+    let pulse_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pulses WHERE id = ?1)",
+        params![pulse_id],
+        |row| row.get(0),
+    )?;
+    if !pulse_exists {
+        return Err(AppError::NotFound(format!("pulse {pulse_id}")));
+    }
+    let mut stmt = conn.prepare(
+        "SELECT metric_id FROM pulse_metrics WHERE pulse_id = ?1 \
+         ORDER BY sort_order ASC, rowid ASC",
+    )?;
+    let existing = stmt
+        .query_map(params![pulse_id], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    if !is_id_permutation(&existing, metric_ids) {
+        return Err(AppError::InvalidInput(
+            "metric order must include each metric in the pulse once".into(),
+        ));
+    }
+    for (index, metric_id) in metric_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE pulse_metrics SET sort_order = ?1 WHERE pulse_id = ?2 AND metric_id = ?3",
+            params![index as i64, pulse_id, metric_id],
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_pulses(state: State<'_, Mutex<Connection>>, ids: Vec<i64>) -> Result<()> {
+    let conn = state.lock().unwrap();
+    set_pulse_order(&conn, &ids)
+}
+
+#[tauri::command]
+pub fn reorder_pulse_metrics(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_ids: Vec<i64>,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    set_pulse_metric_order(&conn, pulse_id, &metric_ids)
+}
+
+#[tauri::command]
+pub fn remove_metric_from_pulse(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    metric_id: i64,
+) -> Result<()> {
+    let conn = state.lock().unwrap();
+    conn.execute(
+        "DELETE FROM pulse_metrics WHERE pulse_id = ?1 AND metric_id = ?2",
+        params![pulse_id, metric_id],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -572,64 +836,9 @@ pub fn list_phases(
 }
 
 #[tauri::command]
-pub fn create_phase(state: State<'_, Mutex<Connection>>, name: String) -> Result<Phase> {
-    let trimmed = name.trim().to_string();
-    if trimmed.is_empty() {
-        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
-    }
-    let conn = state.lock().unwrap();
-    let now = now_unix_secs();
-    conn.execute(
-        "INSERT INTO phases (name, created_at) VALUES (?1, ?2)",
-        params![trimmed, now],
-    )?;
-    let id = conn.last_insert_rowid();
-    Ok(Phase {
-        id,
-        name: trimmed,
-        created_at: now,
-        inactive_since: None,
-    })
-}
-
-#[tauri::command]
-pub fn rename_phase(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Phase> {
-    let trimmed = name.trim().to_string();
-    if trimmed.is_empty() {
-        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
-    }
-    let conn = state.lock().unwrap();
-    let updated = conn.execute(
-        "UPDATE phases SET name = ?1 WHERE id = ?2",
-        params![trimmed, id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("phase {id}")));
-    }
-    fetch_phase(&conn, id)
-}
-
-#[tauri::command]
-pub fn set_phase_active(
-    state: State<'_, Mutex<Connection>>,
-    id: i64,
-    active: bool,
-) -> Result<Phase> {
-    let conn = state.lock().unwrap();
-    let inactive_since: Option<i64> = if active { None } else { Some(now_unix_secs()) };
-    let updated = conn.execute(
-        "UPDATE phases SET inactive_since = ?1 WHERE id = ?2",
-        params![inactive_since, id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("phase {id}")));
-    }
-    fetch_phase(&conn, id)
-}
-
-#[tauri::command]
 pub fn submit_metric_check_in(
     state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
     ratings: Vec<MetricRatingInput>,
 ) -> Result<MetricCheckIn> {
     if ratings.is_empty() {
@@ -649,10 +858,32 @@ pub fn submit_metric_check_in(
     let mut conn = state.lock().unwrap();
     let tx = conn.transaction()?;
     let now = now_unix_secs();
+    let pulse_name: String = tx
+        .query_row(
+            "SELECT name FROM pulses WHERE id = ?1",
+            params![pulse_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("pulse {pulse_id}")))?;
+
+    for rating in &ratings {
+        let belongs: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pulse_metrics WHERE pulse_id = ?1 AND metric_id = ?2)",
+            params![pulse_id, rating.metric_id],
+            |row| row.get(0),
+        )?;
+        if !belongs {
+            return Err(AppError::InvalidInput(format!(
+                "metric {} is not part of pulse {pulse_id}",
+                rating.metric_id
+            )));
+        }
+    }
 
     tx.execute(
-        "INSERT INTO metric_check_ins (created_at) VALUES (?1)",
-        params![now],
+        "INSERT INTO metric_check_ins (created_at, pulse_id, pulse_name) VALUES (?1, ?2, ?3)",
+        params![now, pulse_id, pulse_name],
     )?;
     let check_in_id = tx.last_insert_rowid();
 
@@ -670,6 +901,8 @@ pub fn submit_metric_check_in(
     Ok(MetricCheckIn {
         id: check_in_id,
         created_at: now,
+        pulse_id: Some(pulse_id),
+        pulse_name: Some(pulse_name),
     })
 }
 
@@ -682,7 +915,7 @@ pub fn list_metric_check_ins(
     let conn = state.lock().unwrap();
 
     let mut ci_stmt = conn.prepare(
-        "SELECT id, created_at FROM metric_check_ins \
+        "SELECT id, created_at, pulse_id, pulse_name FROM metric_check_ins \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
     let check_ins: Vec<MetricCheckIn> = ci_stmt
@@ -690,6 +923,8 @@ pub fn list_metric_check_ins(
             Ok(MetricCheckIn {
                 id: row.get(0)?,
                 created_at: row.get(1)?,
+                pulse_id: row.get(2)?,
+                pulse_name: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -727,49 +962,12 @@ pub fn delete_metric_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> R
 }
 
 #[tauri::command]
-pub fn submit_phase_check_in(
+pub fn latest_phase_check_in(
     state: State<'_, Mutex<Connection>>,
-    phase_id: i64,
-) -> Result<PhaseCheckIn> {
+    include_idle: bool,
+) -> Result<Option<PhaseCheckIn>> {
     let conn = state.lock().unwrap();
-    let phase = fetch_phase(&conn, phase_id)
-        .map_err(|_| AppError::NotFound(format!("phase {phase_id}")))?;
-    if phase.inactive_since.is_some() {
-        return Err(AppError::InvalidInput("phase is paused".into()));
-    }
-
-    let now = now_unix_secs();
-    conn.execute(
-        "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
-        params![now, phase_id],
-    )?;
-    Ok(PhaseCheckIn {
-        id: conn.last_insert_rowid(),
-        created_at: now,
-        phase_id,
-        phase_label: None,
-    })
-}
-
-#[tauri::command]
-pub fn latest_phase_check_in(state: State<'_, Mutex<Connection>>) -> Result<Option<PhaseCheckIn>> {
-    let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at, phase_id, phase_label \
-         FROM phase_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
-    )?;
-    match stmt.query_row([], |row| {
-        Ok(PhaseCheckIn {
-            id: row.get(0)?,
-            created_at: row.get(1)?,
-            phase_id: row.get(2)?,
-            phase_label: row.get(3)?,
-        })
-    }) {
-        Ok(check_in) => Ok(Some(check_in)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
+    fetch_latest_phase_check_in(&conn, include_idle)
 }
 
 #[tauri::command]
@@ -802,6 +1000,7 @@ pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<Ch
     Ok(CheckInSchedule {
         interval_minutes: timer.interval_minutes,
         next_due_at: timer.next_due_at,
+        waiting_for_response: timer.waiting_for_response,
     })
 }
 
@@ -832,28 +1031,8 @@ pub fn schedule_next_check_in(
     Ok(CheckInSchedule {
         interval_minutes: minutes,
         next_due_at,
+        waiting_for_response: false,
     })
-}
-
-#[tauri::command]
-pub fn submit_primary_check_in(
-    state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<CheckInTimer>>,
-    brain_dump_text: Option<String>,
-    phase_id: Option<i64>,
-    minutes: i64,
-) -> Result<CheckInSchedule> {
-    let minutes = validate_check_in_interval(minutes)?;
-    let mut conn = state.lock().unwrap();
-    let mut timer = timer.lock().unwrap();
-    write_primary_check_in(
-        &mut conn,
-        &mut timer,
-        brain_dump_text,
-        phase_id,
-        minutes,
-        now_unix_secs(),
-    )
 }
 
 #[tauri::command]
@@ -938,8 +1117,9 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        change_task_status, change_task_working, normalize_optional_title, normalize_task_scope,
-        validate_task_status, write_primary_check_in,
+        bank_task_work, change_task_status, change_task_working, fetch_task,
+        normalize_optional_title, normalize_task_scope, resolve_due_check_in, valid_icon,
+        validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -971,6 +1151,13 @@ mod tests {
     }
 
     #[test]
+    fn accepts_safe_icon_keys() {
+        assert!(valid_icon("book-heart"));
+        assert!(!valid_icon(""));
+        assert!(!valid_icon("<svg>"));
+    }
+
+    #[test]
     fn working_now_is_limited_to_active_tasks_and_cleared_on_status_change() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
@@ -982,47 +1169,111 @@ mod tests {
         .unwrap();
 
         assert!(change_task_working(&conn, 1, true).unwrap().working_now);
-        assert!(change_task_working(&conn, 2, true).is_err());
-        assert!(
-            !change_task_status(&mut conn, 1, "paused")
-                .unwrap()
-                .working_now
+        let started_at = change_task_working(&conn, 1, true).unwrap().work_started_at;
+        assert_eq!(
+            change_task_working(&conn, 1, true).unwrap().work_started_at,
+            started_at
         );
+        assert!(change_task_working(&conn, 2, true).is_err());
+
+        conn.execute(
+            "UPDATE tasks SET worked_seconds = 20, work_started_at = 100 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        bank_task_work(&conn, 1, 150).unwrap();
+        let stopped = fetch_task(&conn, 1).unwrap();
+        assert_eq!(stopped.worked_seconds, 70);
+        assert_eq!(stopped.work_started_at, None);
+        assert!(!stopped.working_now);
+
+        assert!(change_task_working(&conn, 1, true).unwrap().working_now);
+        conn.execute("UPDATE tasks SET work_started_at = 200 WHERE id = 1", [])
+            .unwrap();
+        bank_task_work(&conn, 1, 150).unwrap();
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 70);
+
+        let resumed = change_task_working(&conn, 1, true).unwrap();
+        assert!(resumed.working_now);
+        assert_eq!(resumed.worked_seconds, 70);
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (3, 'Also active', 'active', 1, 1)",
+            [],
+        )
+        .unwrap();
+        assert!(change_task_working(&conn, 3, true).unwrap().working_now);
+        assert!(fetch_task(&conn, 1).unwrap().working_now);
+
+        assert!(validate_task_status("paused").is_err());
+        change_task_status(&conn, 1, "up_next").unwrap();
+        let moved = fetch_task(&conn, 1).unwrap();
+        assert!(!moved.working_now);
+        assert_eq!(moved.work_started_at, None);
     }
 
     #[test]
-    fn primary_check_in_rolls_back_when_a_later_write_fails() {
+    fn closing_a_due_popup_resolves_once_by_outcome() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
         let mut timer = CheckInTimer {
-            interval_minutes: 15,
+            interval_minutes: 20,
             next_due_at: 900,
             waiting_for_response: true,
         };
 
-        let result = write_primary_check_in(
-            &mut conn,
-            &mut timer,
-            Some("Keep this only on success".into()),
-            Some(999),
-            20,
-            1_000,
-        );
+        assert!(resolve_due_check_in(&conn, &mut timer, true, None, 1_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 5);
+        assert_eq!(timer.next_due_at, 1_300);
+        assert!(!timer.waiting_for_response);
 
-        assert!(result.is_err());
-        let dumps: i64 = conn
-            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+        assert!(!resolve_due_check_in(&conn, &mut timer, false, Some(30), 1_001,).unwrap());
+        assert_eq!(timer.next_due_at, 1_300);
+
+        timer.interval_minutes = 20;
+        timer.waiting_for_response = true;
+        assert!(resolve_due_check_in(&conn, &mut timer, false, Some(30), 2_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 30);
+        assert_eq!(timer.next_due_at, 3_800);
+
+        timer.interval_minutes = 20;
+        timer.waiting_for_response = true;
+        assert!(resolve_due_check_in(&conn, &mut timer, false, None, 4_000,).unwrap());
+        assert_eq!(timer.interval_minutes, 20);
+        assert_eq!(timer.next_due_at, 5_200);
+        assert!(!timer.waiting_for_response);
+    }
+
+    #[test]
+    fn reorders_pulses_and_the_metrics_inside_a_pulse() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO pulses (id, name, created_at, sort_order) \
+             VALUES (1, 'First', 1, 0), (2, 'Second', 2, 1);
+             INSERT INTO metrics (id, name, created_at) \
+             VALUES (10, 'Energy', 1), (11, 'Mood', 2);
+             INSERT INTO pulse_metrics (pulse_id, metric_id, sort_order) \
+             VALUES (1, 10, 0), (1, 11, 1);",
+        )
+        .unwrap();
+
+        super::set_pulse_order(&conn, &[2, 1]).unwrap();
+        let pulse_ids: Vec<i64> = conn
+            .prepare("SELECT id FROM pulses ORDER BY sort_order ASC, id ASC")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
             .unwrap();
-        let schedule: (i64, i64) = conn
-            .query_row(
-                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(dumps, 0);
-        assert_eq!(schedule.0, 15);
-        assert_eq!(timer.interval_minutes, 15);
-        assert!(timer.waiting_for_response);
+        assert_eq!(pulse_ids, vec![2, 1]);
+
+        super::set_pulse_metric_order(&conn, 1, &[11, 10]).unwrap();
+        assert_eq!(
+            super::fetch_pulse(&conn, 1).unwrap().metric_ids,
+            vec![11, 10]
+        );
+        assert!(super::set_pulse_order(&conn, &[1]).is_err());
+        assert!(super::set_pulse_metric_order(&conn, 1, &[10]).is_err());
     }
 }
