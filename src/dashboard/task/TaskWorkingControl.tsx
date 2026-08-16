@@ -2,21 +2,39 @@ import { useEffect, useState } from "react";
 import { setTaskWorking } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { formatWorkedTime, taskWorkSessionSeconds } from "../lib/time";
+import {
+  formatPlayButtonTime,
+  formatWorkedTime,
+  taskWorkSessionSeconds,
+} from "../lib/time";
 
-function PlayPauseIcon({ pause }: { pause: boolean }) {
+function PlayIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      {pause ? (
-        <>
-          <path d="M6.5 5.5v9" />
-          <path d="M13.5 5.5v9" />
-        </>
-      ) : (
-        <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
-      )}
+      <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
     </svg>
   );
+}
+
+function useWorkSessionSeconds(task: Task, nowMs?: number) {
+  // Tick locally unless a parent already supplies a shared clock.
+  const [localNowMs, setLocalNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (
+      nowMs !== undefined ||
+      !task.workingNow ||
+      task.workStartedAt === null
+    ) {
+      return;
+    }
+    setLocalNowMs(Date.now());
+    const interval = window.setInterval(() => setLocalNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [nowMs, task.workingNow, task.workStartedAt]);
+
+  if (!task.workingNow || task.workStartedAt === null) return null;
+  return taskWorkSessionSeconds(task.workStartedAt, nowMs ?? localNowMs);
 }
 
 export function WorkingBadge({ compact = false }: { compact?: boolean }) {
@@ -38,15 +56,26 @@ export function WorkingToggle({
   compact = false,
   playPause = false,
   disabled = false,
+  nowMs,
 }: {
   task: Task;
   onToggle: (working: boolean) => Promise<unknown> | void;
   compact?: boolean;
   playPause?: boolean;
   disabled?: boolean;
+  nowMs?: number;
 }) {
   const [pending, setPending] = useState(false);
+  const seconds = useWorkSessionSeconds(task, nowMs);
   const label = task.workingNow ? "Stop working" : "Start working";
+  const timeLabel =
+    playPause && seconds !== null ? formatPlayButtonTime(seconds) : null;
+  const sessionHint =
+    seconds === null
+      ? ""
+      : seconds < 60
+        ? `, ${seconds}s`
+        : `, ${Math.floor(seconds / 60)}m`;
 
   return (
     <button
@@ -54,9 +83,9 @@ export function WorkingToggle({
       className={`working-toggle${
         compact ? " working-toggle--compact" : ""
       }${playPause ? " working-toggle--play-pause" : ""}`}
-      aria-label={`${label} on ${task.title}`}
+      aria-label={`${label} on ${task.title}${sessionHint}`}
       aria-pressed={task.workingNow}
-      title={`${label} on this task`}
+      title={`${label} on this task${sessionHint}`}
       disabled={disabled || pending}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={async (event) => {
@@ -71,7 +100,11 @@ export function WorkingToggle({
       }}
     >
       {playPause ? (
-        <PlayPauseIcon pause={task.workingNow} />
+        timeLabel === null ? (
+          <PlayIcon />
+        ) : (
+          <span aria-hidden="true">{timeLabel}</span>
+        )
       ) : (
         <>
           <span className="working-beacon" aria-hidden="true" />
@@ -89,23 +122,8 @@ export function WorkedTime({
   task: Task;
   nowMs?: number;
 }) {
-  const [localNowMs, setLocalNowMs] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (
-      nowMs !== undefined ||
-      !task.workingNow ||
-      task.workStartedAt === null
-    ) {
-      return;
-    }
-    setLocalNowMs(Date.now());
-    const interval = window.setInterval(() => setLocalNowMs(Date.now()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [nowMs, task.workingNow, task.workStartedAt]);
-
-  if (!task.workingNow || task.workStartedAt === null) return null;
-  const seconds = taskWorkSessionSeconds(task.workStartedAt, nowMs ?? localNowMs);
+  const seconds = useWorkSessionSeconds(task, nowMs);
+  if (seconds === null) return null;
 
   return (
     <time
@@ -139,7 +157,7 @@ export function TaskWorkingControl({
         playPause={playPause}
         onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
       />
-      {showTime && <WorkedTime task={task} />}
+      {showTime && !playPause && <WorkedTime task={task} />}
     </span>
   );
 }

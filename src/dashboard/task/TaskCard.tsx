@@ -40,7 +40,6 @@ export function TaskCard({
       className={`task-card task-card--${task.status}${
         selected ? " task-card--selected" : ""
       }${focusLayout ? " task-card--focus" : ""}${
-        task.workingNow ? " task-card--working is-working-now" : ""}${
         draggable ? " task-card--draggable" : ""
       }${
         dragging ? " task-card--dragging" : ""

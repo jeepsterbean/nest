@@ -29,9 +29,11 @@ import {
 } from "../dashboard/lib/time";
 import { groupTasksByStatus } from "../dashboard/lib/tasks";
 import {
-  WorkedTime,
-  WorkingToggle,
-} from "../dashboard/task/TaskWorkingControl";
+  isBrainDumpSubmitShortcut,
+  trimBrainDumpDraft,
+  useBrainDumpDraft,
+} from "../lib/brainDumpDraft";
+import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import "./CheckInForm.css";
 
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
@@ -217,19 +219,21 @@ function CheckInForm({
   );
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [ratings, setRatings] = useState<Record<number, RatingValue | null>>({});
-  const [brainDumpText, setBrainDumpText] = useState("");
+  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
+  const { text: brainDumpText } = brainDumpDraft;
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
+  const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const savedPhaseIdRef = useRef<number | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const phaseStepperRef = useRef<HTMLDivElement | null>(null);
+  const phaseTriggerRef = useRef<HTMLButtonElement | null>(null);
   const taskInputRef = useRef<HTMLInputElement | null>(null);
-  const submitRef = useRef<HTMLButtonElement | null>(null);
+  const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const isLoaded = loaded !== null;
 
   const focusMetricRow = (idx: number) => {
@@ -281,7 +285,7 @@ function CheckInForm({
 
   useEffect(() => {
     if (view === "phase") {
-      requestAnimationFrame(() => phaseStepperRef.current?.focus());
+      requestAnimationFrame(() => phaseTriggerRef.current?.focus());
     } else {
       requestAnimationFrame(() => focusMetricRow(0));
     }
@@ -290,8 +294,6 @@ function CheckInForm({
   const focusAfterRow = (idx: number) => {
     if (idx + 1 < (loaded?.metrics.length ?? 0)) {
       focusMetricRow(idx + 1);
-    } else {
-      submitRef.current?.focus();
     }
   };
 
@@ -438,11 +440,24 @@ function CheckInForm({
   };
 
   const saveBrainDump = async () => {
-    const text = brainDumpText.trim();
+    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
     if (!text) return;
-    await submitBrainDump(text);
-    setBrainDumpText("");
+    await submitBrainDump(text, title);
+    setBrainDumpDraft({ title: "", text: "" });
     await emit("check-in-submitted");
+  };
+
+  const submitBrainDumpDraft = async () => {
+    if (submitting || !brainDumpText.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await saveBrainDump();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const completePopup = async () => {
@@ -453,7 +468,6 @@ function CheckInForm({
       await onComplete(async () => {
         if (view === "phase") await savePhase(false);
         else await saveMetrics();
-        await saveBrainDump();
         return timerDue
           ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
           : null;
@@ -466,6 +480,7 @@ function CheckInForm({
 
   const selectView = async (next: View) => {
     if (!loaded || submitting || next === view) return;
+    setPhasePickerOpen(false);
     if (view === "phase" && next === "metrics") {
       setSubmitting(true);
       setError(null);
@@ -580,18 +595,16 @@ function CheckInForm({
               {activeTasks.map((task) => (
                 <li
                   className={`now-task${
-                    task.workingNow
-                      ? " now-task--working is-working-now"
-                      : ""
+                    task.workingNow ? " now-task--working" : ""
                   }`}
                   key={task.id}
                 >
                   <span className="now-task__title">{task.title}</span>
                   <div className="now-task__actions">
-                    <WorkedTime task={task} nowMs={nowMs} />
                     <WorkingToggle
                       task={task}
-                      compact
+                      playPause
+                      nowMs={nowMs}
                       disabled={submitting}
                       onToggle={(working) => updateTaskWorking(task, working)}
                     />
@@ -662,11 +675,21 @@ function CheckInForm({
     (phase) => phase.id === selectedPhaseId,
   );
   const phaseName = selectedPhase?.name;
+  const phaseAsk = phaseTouched ? "Now in" : "Still in";
 
   return (
     <form
       className="combined-checkin"
       onSubmit={onSubmit}
+      onPointerDownCapture={(event) => {
+        const target = event.target as Element;
+        if (timerPickerOpen && !target.closest(".combined-timer__main")) {
+          setTimerPickerOpen(false);
+        }
+        if (phasePickerOpen && !target.closest(".phase-prompt__pick")) {
+          setPhasePickerOpen(false);
+        }
+      }}
       onWheelCapture={(event) => {
         const current = Number(
           event.currentTarget.style.getPropertyValue("--timer-collapse"),
@@ -676,13 +699,27 @@ function CheckInForm({
           String(Math.min(1, Math.max(0, current + event.deltaY / 300))),
         );
       }}
-      onKeyDownCapture={(e) => {
-        if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-        if (e.shiftKey && e.target instanceof HTMLTextAreaElement) return;
-        if (e.target === taskInputRef.current && !e.altKey) return;
-        e.preventDefault();
-        if (e.altKey) void completePopup();
-        else e.currentTarget.requestSubmit();
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+        if (event.target === brainDumpRef.current) {
+          if (
+            isBrainDumpSubmitShortcut({
+              key: event.key,
+              metaKey: event.metaKey,
+              ctrlKey: event.ctrlKey,
+              isComposing: event.nativeEvent.isComposing,
+            })
+          ) {
+            event.preventDefault();
+            void submitBrainDumpDraft();
+            return;
+          }
+          if (event.shiftKey) return;
+        }
+        if (event.target === taskInputRef.current && !event.altKey) return;
+        event.preventDefault();
+        if (event.altKey) void completePopup();
+        else event.currentTarget.requestSubmit();
       }}
     >
       <aside className="combined-sidebar">
@@ -724,160 +761,202 @@ function CheckInForm({
               {activePhases.length === 0 ? (
                 <div className="combined-empty">No active phases</div>
               ) : (
-                <div
-                  ref={phaseStepperRef}
-                  className="phase-stepper"
-                  role="group"
-                  aria-label="Current phase"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    switch (event.key) {
-                      case "ArrowLeft":
-                      case "ArrowUp":
-                        event.preventDefault();
-                        shiftPhase(-1);
-                        break;
-                      case "ArrowRight":
-                      case "ArrowDown":
-                        event.preventDefault();
-                        shiftPhase(1);
-                        break;
-                      case "Home":
-                        event.preventDefault();
-                        selectPhase(activePhases[0].id);
-                        break;
-                      case "End":
-                        event.preventDefault();
-                        selectPhase(activePhases[activePhases.length - 1].id);
-                        break;
-                    }
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="phase-stepper__chevron"
-                    aria-label="Previous phase"
-                    tabIndex={-1}
-                    onClick={() => shiftPhase(-1)}
+                <div className="phase-prompt">
+                  <p className="phase-prompt__ask">{phaseAsk}?</p>
+                  <div
+                    className="phase-prompt__pick"
+                    onBlur={(event) => {
+                      if (
+                        !event.currentTarget.contains(event.relatedTarget)
+                      ) {
+                        setPhasePickerOpen(false);
+                      }
+                    }}
                   >
-                    <ChevronIcon />
-                  </button>
-                  <div className="phase-stepper__display">
-                    <span className="phase-stepper__name" aria-live="polite">
-                      {phaseName}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="phase-stepper__chevron phase-stepper__chevron--next"
-                    aria-label="Next phase"
-                    tabIndex={-1}
-                    onClick={() => shiftPhase(1)}
-                  >
-                    <ChevronIcon />
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : loaded.metrics.length === 0 ? (
-            <div className="combined-empty">No active metrics.</div>
-          ) : (
-            <div className="combined-metrics">
-              {loaded.metrics.map((metric, idx) => {
-                const rating = ratings[metric.id] ?? null;
-                return (
-                  <div className="metric-row" key={metric.id}>
-                    <span className="metric-row__name">{metric.name}</span>
-                    <div
-                      ref={(element) => {
-                        rowRefs.current[idx] = element;
-                      }}
-                      className="metric-row__buttons"
-                      role="radiogroup"
-                      aria-label={metric.name}
+                    <button
+                      ref={phaseTriggerRef}
+                      type="button"
+                      className="phase-prompt__current"
+                      aria-haspopup="listbox"
+                      aria-expanded={phasePickerOpen}
+                      aria-label={
+                        phaseName
+                          ? `${phaseAsk} ${phaseName}? Change phase`
+                          : "Choose a phase"
+                      }
+                      disabled={submitting}
+                      onClick={() => setPhasePickerOpen((open) => !open)}
                       onKeyDown={(event) => {
-                        const key = event.key.toLowerCase();
-                        if (key >= "1" && key <= "5") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setRating(metric.id, Number(key) as RatingValue);
-                          focusAfterRow(idx);
-                        } else if (
-                          ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(
-                            event.key,
-                          )
-                        ) {
-                          event.preventDefault();
-                          const direction = ["ArrowRight", "ArrowDown"].includes(
-                            event.key,
-                          )
-                            ? 1
-                            : -1;
-                          const next = Math.min(
-                            5,
-                            Math.max(1, (rating ?? 1) + direction),
-                          ) as RatingValue;
-                          setRating(metric.id, next);
-                          requestAnimationFrame(() =>
-                            rowRefs.current[idx]
-                              ?.querySelector<HTMLButtonElement>(
-                                `[data-value="${next}"]`,
-                              )
-                              ?.focus(),
-                          );
+                        switch (event.key) {
+                          case "ArrowLeft":
+                          case "ArrowUp":
+                            event.preventDefault();
+                            shiftPhase(-1);
+                            break;
+                          case "ArrowRight":
+                          case "ArrowDown":
+                            event.preventDefault();
+                            shiftPhase(1);
+                            break;
+                          case "Home":
+                            event.preventDefault();
+                            selectPhase(activePhases[0].id);
+                            break;
+                          case "End":
+                            event.preventDefault();
+                            selectPhase(
+                              activePhases[activePhases.length - 1].id,
+                            );
+                            break;
                         }
                       }}
                     >
-                      {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          role="radio"
-                          aria-checked={rating === value}
-                          data-value={value}
-                          className={`metric-rating metric-rating--v${value}${
-                            rating === value ? " metric-rating--active" : ""
-                          }`}
-                          onClick={() => setRating(metric.id, value)}
-                          tabIndex={
-                            rating === value || (rating === null && value === 1)
-                              ? 0
-                              : -1
-                          }
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
+                      <span className="phase-prompt__dot" aria-hidden="true" />
+                      <span className="phase-prompt__name" aria-live="polite">
+                        {phaseName ?? "Choose a phase"}
+                      </span>
+                      <span
+                        className="phase-prompt__chevron"
+                        aria-hidden="true"
+                      >
+                        <ChevronIcon />
+                      </span>
+                    </button>
+                    {phasePickerOpen && (
+                      <div
+                        className="phase-prompt__list"
+                        role="listbox"
+                        aria-label="Phase"
+                      >
+                        {activePhases.map((phase) => (
+                          <button
+                            key={phase.id}
+                            type="button"
+                            role="option"
+                            aria-selected={phase.id === selectedPhaseId}
+                            disabled={submitting}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              selectPhase(phase.id);
+                              setPhasePickerOpen(false);
+                            }}
+                          >
+                            {phase.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              )}
+              <section className="combined-brain-dump">
+                <textarea
+                  ref={brainDumpRef}
+                  id="popup-brain-dump"
+                  className="combined-input"
+                  aria-label="Brain dump"
+                  placeholder="What’s on your mind?"
+                  value={brainDumpText}
+                  onChange={(event) =>
+                    setBrainDumpDraft((draft) => ({
+                      ...draft,
+                      text: event.target.value,
+                    }))
+                  }
+                />
+                <button
+                  type="submit"
+                  className="combined-submit"
+                  aria-label={submitting ? "Saving" : "Next"}
+                  aria-busy={submitting}
+                  disabled={submitting}
+                >
+                  <ChevronIcon />
+                </button>
+              </section>
+            </div>
+          ) : (
+            <div className="combined-metrics">
+              {loaded.metrics.length === 0 ? (
+                <div className="combined-empty">No active metrics.</div>
+              ) : (
+                loaded.metrics.map((metric, idx) => {
+                  const rating = ratings[metric.id] ?? null;
+                  return (
+                    <div className="metric-row" key={metric.id}>
+                      <span className="metric-row__name">{metric.name}</span>
+                      <div
+                        ref={(element) => {
+                          rowRefs.current[idx] = element;
+                        }}
+                        className="metric-row__buttons"
+                        role="radiogroup"
+                        aria-label={metric.name}
+                        onKeyDown={(event) => {
+                          const key = event.key.toLowerCase();
+                          if (key >= "1" && key <= "5") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setRating(metric.id, Number(key) as RatingValue);
+                            focusAfterRow(idx);
+                          } else if (
+                            [
+                              "ArrowRight",
+                              "ArrowDown",
+                              "ArrowLeft",
+                              "ArrowUp",
+                            ].includes(event.key)
+                          ) {
+                            event.preventDefault();
+                            const direction = [
+                              "ArrowRight",
+                              "ArrowDown",
+                            ].includes(event.key)
+                              ? 1
+                              : -1;
+                            const next = Math.min(
+                              5,
+                              Math.max(1, (rating ?? 1) + direction),
+                            ) as RatingValue;
+                            setRating(metric.id, next);
+                            requestAnimationFrame(() =>
+                              rowRefs.current[idx]
+                                ?.querySelector<HTMLButtonElement>(
+                                  `[data-value="${next}"]`,
+                                )
+                                ?.focus(),
+                            );
+                          }
+                        }}
+                      >
+                        {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={rating === value}
+                            data-value={value}
+                            className={`metric-rating metric-rating--v${value}${
+                              rating === value ? " metric-rating--active" : ""
+                            }`}
+                            onClick={() => setRating(metric.id, value)}
+                            tabIndex={
+                              rating === value ||
+                              (rating === null && value === 1)
+                                ? 0
+                                : -1
+                            }
+                          >
+                            {value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
-        </section>
-
-        <section className="combined-brain-dump">
-          <textarea
-            id="popup-brain-dump"
-            className="combined-input"
-            aria-label="Brain dump"
-            placeholder="What’s on your mind?"
-            value={brainDumpText}
-            onChange={(event) => setBrainDumpText(event.target.value)}
-            rows={3}
-          />
-          <button
-            ref={submitRef}
-            type="submit"
-            className={`combined-submit${view === "phase" ? " combined-submit--next" : ""}`}
-            aria-label={
-              submitting ? "Saving" : view === "phase" ? "Next" : "Finish"
-            }
-            aria-busy={submitting}
-            disabled={submitting}
-          >
-            {view === "phase" ? <ChevronIcon /> : <CheckIcon />}
-          </button>
         </section>
 
         {error && (

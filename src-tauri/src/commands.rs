@@ -11,15 +11,25 @@ use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
 
+// One greeting line at the 600px dashboard minimum (~420px at 31px serif).
+const MAX_REMINDER_CHARS: usize = 27;
 const REMINDERS: &[&str] = &[
     "Put on some good music",
     "Do a brain dump",
     "Choose one small thing",
     "Write down the next action",
-    "Clear the space in front of you",
+    "Clear the space around you",
     "Close what you're not using",
     "Start for just two minutes",
 ];
+
+const _: () = {
+    let mut i = 0;
+    while i < REMINDERS.len() {
+        assert!(REMINDERS[i].len() <= MAX_REMINDER_CHARS);
+        i += 1;
+    }
+};
 
 #[tauri::command]
 pub fn list_reminders() -> Vec<&'static str> {
@@ -101,6 +111,19 @@ pub(crate) fn resolve_due_check_in(
     timer.next_due_at = next_due_at;
     timer.waiting_for_response = false;
     Ok(true)
+}
+
+/// Escape records idle only when the timer is at zero. Peeking at a running
+/// timer must not end the current phase.
+pub(crate) fn record_idle_on_dismiss(
+    conn: &Connection,
+    waiting_for_response: bool,
+    now: i64,
+) -> Result<bool> {
+    if !waiting_for_response {
+        return Ok(false);
+    }
+    Ok(record_phase_if_changed(conn, None, now)?.is_some())
 }
 
 pub(crate) fn record_phase_if_changed(
@@ -967,8 +990,8 @@ pub fn list_brain_dumps(
 mod tests {
     use super::{
         bank_task_work, change_task_status, change_task_working, fetch_latest_phase_check_in,
-        fetch_task, normalize_optional_title, normalize_task_scope, record_phase_if_changed,
-        resolve_due_check_in, validate_task_status,
+        fetch_task, normalize_optional_title, normalize_task_scope, record_idle_on_dismiss,
+        record_phase_if_changed, resolve_due_check_in, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -1088,6 +1111,34 @@ mod tests {
                 .phase_id,
             Some(3)
         );
+    }
+
+    #[test]
+    fn dismiss_records_idle_only_when_the_timer_is_due() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        assert!(record_phase_if_changed(&conn, Some(3), 100)
+            .unwrap()
+            .is_some());
+
+        assert!(!record_idle_on_dismiss(&conn, false, 110).unwrap());
+        assert_eq!(
+            fetch_latest_phase_check_in(&conn, true)
+                .unwrap()
+                .unwrap()
+                .phase_id,
+            Some(3)
+        );
+
+        assert!(record_idle_on_dismiss(&conn, true, 120).unwrap());
+        assert_eq!(
+            fetch_latest_phase_check_in(&conn, true)
+                .unwrap()
+                .unwrap()
+                .phase_id,
+            None
+        );
+        assert!(!record_idle_on_dismiss(&conn, true, 130).unwrap());
     }
 
     #[test]

@@ -109,6 +109,10 @@ export const formatWorkedTime = (seconds: number) => {
   return String(remainder);
 };
 
+/** Compact play-button label: raw seconds below 1 minute, whole minutes after. */
+export const formatPlayButtonTime = (seconds: number) =>
+  seconds < 60 ? String(seconds) : String(Math.floor(seconds / 60));
+
 export const checkInRemainingSeconds = (
   nextDueAt: number,
   nowMs: number = Date.now(),

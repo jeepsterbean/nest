@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatElapsedMinutes,
   formatTime,
+  formatPlayButtonTime,
   formatWorkedTime,
   greetingForHour,
   previousDayMs,
@@ -157,5 +158,14 @@ describe("worked time", () => {
     expect(formatWorkedTime(60)).toBe("1:00");
     expect(formatWorkedTime(330)).toBe("5:30");
     expect(formatWorkedTime(3_661)).toBe("1:01:01");
+  });
+
+  it("labels the play button with seconds, then whole minutes", () => {
+    expect(formatPlayButtonTime(0)).toBe("0");
+    expect(formatPlayButtonTime(59)).toBe("59");
+    expect(formatPlayButtonTime(60)).toBe("1");
+    expect(formatPlayButtonTime(119)).toBe("1");
+    expect(formatPlayButtonTime(120)).toBe("2");
+    expect(formatPlayButtonTime(3_661)).toBe("61");
   });
 });

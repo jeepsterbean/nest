@@ -358,8 +358,8 @@ fn resolve_and_hide_popup(
         let conn = state.lock().unwrap();
         let mut timer = timer_state.lock().unwrap();
         let now = now_unix_secs();
-        let phase_changed =
-            dismissed && commands::record_phase_if_changed(&conn, None, now)?.is_some();
+        let phase_changed = dismissed
+            && commands::record_idle_on_dismiss(&conn, timer.waiting_for_response, now)?;
         let timer_changed =
             commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now)?;
         phase_changed || timer_changed

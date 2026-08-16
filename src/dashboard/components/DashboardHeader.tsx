@@ -20,6 +20,7 @@ import {
 } from "../lib/time";
 import {
   chevronDownIcon,
+  clockIcon,
   insightsIcon,
   journalIcon,
   metricsIcon,
@@ -366,61 +367,64 @@ export function DashboardHeader() {
           >
             {pulseOpening ? "Opening…" : pulse.message}
           </button>
-        </div>
-      </div>
-      <div
-        ref={timerWrapRef}
-        className="dash-header__timer-wrap"
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setPickerOpen(false);
-          }
-        }}
-      >
-        <button
-          type="button"
-          className="dash-header__timer"
-          aria-haspopup="listbox"
-          aria-expanded={pickerOpen}
-          aria-label={`Next check-in: ${countdown}. Change interval`}
-          disabled={!checkInSchedule || scheduling}
-          onClick={() => {
-            setPhasePickerOpen(false);
-            setPickerOpen((open) => !open);
-          }}
-        >
-          <strong>{countdown}</strong>
-          <span className="dash-header__timer-chevron" aria-hidden="true">
-            {chevronDownIcon}
-          </span>
-        </button>
-        {pickerOpen && (
           <div
-            className="checkin-picker"
-            role="listbox"
-            aria-label="Next check-in in"
+            ref={timerWrapRef}
+            className="dash-header__timer-wrap"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setPickerOpen(false);
+              }
+            }}
           >
-            {CHECK_IN_INTERVALS.map((minutes) => {
-              const selected = checkInSchedule?.intervalMinutes === minutes;
-              return (
-                <button
-                  key={minutes}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className="checkin-picker__option"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => selectInterval(minutes)}
-                >
-                  <span>{minutes} min</span>
-                  {selected && (
-                    <span className="checkin-picker__mark">Current</span>
-                  )}
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              className="dash-header__timer"
+              aria-haspopup="listbox"
+              aria-expanded={pickerOpen}
+              aria-label={`Next check-in: ${countdown}. Change interval`}
+              disabled={!checkInSchedule || scheduling}
+              onClick={() => {
+                setPhasePickerOpen(false);
+                setPickerOpen((open) => !open);
+              }}
+            >
+              <span className="dash-header__timer-icon" aria-hidden="true">
+                {clockIcon}
+              </span>
+              <strong>{countdown}</strong>
+              <span className="dash-header__timer-chevron" aria-hidden="true">
+                {chevronDownIcon}
+              </span>
+            </button>
+            {pickerOpen && (
+              <div
+                className="checkin-picker"
+                role="listbox"
+                aria-label="Next check-in in"
+              >
+                {CHECK_IN_INTERVALS.map((minutes) => {
+                  const selected = checkInSchedule?.intervalMinutes === minutes;
+                  return (
+                    <button
+                      key={minutes}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className="checkin-picker__option"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectInterval(minutes)}
+                    >
+                      <span>{minutes} min</span>
+                      {selected && (
+                        <span className="checkin-picker__mark">Current</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </header>
   );

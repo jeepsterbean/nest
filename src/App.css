@@ -36,54 +36,34 @@ button {
   cursor: pointer;
 }
 
-/* Travelling border highlight for tasks marked working-now. Animates the
-   conic-gradient angle so the glow orbits non-square cards without spinning
-   the rounded box itself. */
+/* Working-now clock: a quiet lub-dub plus a spark that travels the rim. */
 @property --working-glow-angle {
   syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
 }
 
+@keyframes working-heartbeat {
+  0%,
+  46%,
+  100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.08);
+  }
+  24% {
+    transform: scale(1);
+  }
+  34% {
+    transform: scale(1.05);
+  }
+}
+
 @keyframes working-orbit-glow {
   to {
     --working-glow-angle: 360deg;
   }
-}
-
-.is-working-now {
-  position: relative;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
-    0 0 10px color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.is-working-now::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  z-index: 1;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: conic-gradient(
-    from var(--working-glow-angle),
-    transparent 0%,
-    transparent 62%,
-    color-mix(in srgb, var(--accent) 14%, transparent) 72%,
-    color-mix(in srgb, var(--accent) 72%, white) 86%,
-    var(--accent) 93%,
-    transparent 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  animation: working-orbit-glow 2.4s linear infinite;
-  filter: drop-shadow(
-    0 0 6px color-mix(in srgb, var(--accent) 58%, transparent)
-  );
 }
 
 .working-beacon {
@@ -163,10 +143,58 @@ button {
 }
 
 .working-toggle--play-pause {
+  position: relative;
   width: 30px;
+  min-width: 30px;
   min-height: 30px;
   justify-content: center;
   padding: 0;
+  overflow: visible;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.working-toggle--play-pause[aria-pressed="true"] {
+  width: auto;
+  padding: 0 6px;
+  animation: working-heartbeat 1.5s ease-in-out infinite;
+  transition:
+    background 0.14s cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 0.14s cubic-bezier(0.25, 1, 0.5, 1),
+    color 0.14s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.working-toggle--play-pause[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--working-glow-angle),
+    transparent 0%,
+    transparent 58%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 70%,
+    color-mix(in srgb, var(--accent) 78%, white) 86%,
+    var(--accent) 94%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: working-orbit-glow 2.4s linear infinite;
+  filter: drop-shadow(
+    0 0 5px color-mix(in srgb, var(--accent) 62%, transparent)
+  );
+}
+
+.working-toggle--play-pause[aria-pressed="true"]:active:not(:disabled) {
+  animation: none;
+  transform: scale(0.96);
 }
 
 .working-toggle--play-pause svg {
@@ -190,7 +218,11 @@ button {
     transition: none;
   }
 
-  .is-working-now::before {
+  .working-toggle--play-pause[aria-pressed="true"] {
+    animation: none;
+  }
+
+  .working-toggle--play-pause[aria-pressed="true"]::before {
     animation: none;
     background: color-mix(in srgb, var(--accent) 55%, transparent);
     filter: none;
