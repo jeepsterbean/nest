@@ -129,16 +129,19 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
-  // Refresh when a check-in is submitted from the popup.
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    void listen("check-in-submitted", () => {
-      reload();
-    }).then((u) => {
-      if (cancelled) u();
-      else unlisten = u;
-    });
+    const bind = (event: string) =>
+      listen(event, () => {
+        reload();
+      });
+    void Promise.all([bind("check-in-submitted"), bind("phase-changed")]).then(
+      (listeners) => {
+        if (cancelled) listeners.forEach((u) => u());
+        else unlisten = () => listeners.forEach((u) => u());
+      },
+    );
     return () => {
       cancelled = true;
       unlisten?.();

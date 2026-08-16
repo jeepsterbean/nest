@@ -585,37 +585,14 @@
   animation: popup-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.phase-prompt__pick {
-  position: relative;
-  min-width: 0;
-  max-width: 100%;
-}
-
 .phase-prompt__current {
   display: inline-flex;
   max-width: 100%;
   align-items: center;
   gap: 8px;
   margin: 0;
-  padding: 3px 6px 4px 2px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
   color: var(--phase);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
   animation: popup-rise 0.48s 0.07s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.phase-prompt__current:hover,
-.phase-prompt__current:focus-visible {
-  background: var(--phase-soft);
-}
-
-.phase-prompt__current:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--phase-soft);
 }
 
 .phase-prompt__dot {
@@ -624,7 +601,6 @@
   height: 8px;
   border-radius: 50%;
   background: var(--phase);
-  animation: phase-attention 1.6s ease-in-out 2;
 }
 
 .phase-prompt__name {
@@ -637,72 +613,6 @@
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.phase-prompt__chevron {
-  display: inline-flex;
-  flex: none;
-  color: color-mix(in srgb, var(--phase) 55%, var(--muted));
-}
-
-.phase-prompt__chevron svg {
-  width: 12px;
-  height: 12px;
-  transform: rotate(90deg);
-  transition: transform 0.18s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.phase-prompt__current[aria-expanded="true"] .phase-prompt__chevron svg {
-  transform: rotate(-90deg);
-}
-
-.phase-prompt__list {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 6px);
-  left: 0;
-  display: grid;
-  width: max-content;
-  min-width: 100%;
-  max-width: min(260px, 70vw);
-  max-height: 220px;
-  overflow: auto;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
-  box-shadow: var(--shadow);
-}
-
-.phase-prompt__list button {
-  padding: 8px 10px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-}
-
-.phase-prompt__list button:hover,
-.phase-prompt__list button:focus-visible {
-  background: var(--phase-soft);
-  color: var(--phase);
-  outline: none;
-}
-
-.phase-prompt__list button[aria-selected="true"] {
-  background: color-mix(in srgb, var(--phase-soft) 58%, var(--surface));
-  color: var(--phase);
-}
-
-@keyframes phase-attention {
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--phase) 22%, transparent);
-  }
 }
 
 /* ---------- Metrics ---------- */
@@ -881,8 +791,7 @@
 @media (prefers-reduced-motion: reduce) {
   .now-card,
   .phase-prompt__ask,
-  .phase-prompt__current,
-  .phase-prompt__dot {
+  .phase-prompt__current {
     animation: none;
   }
 

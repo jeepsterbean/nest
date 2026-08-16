@@ -48,6 +48,14 @@ The total time a Task has been Working now, kept even after work stops.
 It keeps counting if Working now is left on.
 _Avoid_: Session, stopwatch, in progress
 
+**Phase**:
+A derived attention state, written as a checkpoint when it changes.
+The three values are **Doing**, **Scoping**, and **Resting**.
+Doing if any Task is Working now; else Scoping if Nest is engaged
+(dashboard focused or check-in popup up) or Notion desktop is frontmost;
+else Resting.
+_Avoid_: Status, Working now, Scope
+
 ## Relationships
 
 - A **Task** has zero or one **Parent** and zero or more **Children**
@@ -56,6 +64,7 @@ _Avoid_: Session, stopwatch, in progress
 - A **Scope** categorizes zero or more **Tasks** but does not contain them
 - Parent and Child relationships form a forest; Blocker and Dependent relationships form a DAG
 - A **Task** has **Worked time** that grows while it is **Working now**
+- **Phase** is derived from Working now and whether Nest or Notion desktop currently has attention
 
 ## Example dialogue
 
@@ -71,6 +80,7 @@ _Avoid_: Session, stopwatch, in progress
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; they are not stored status values.
 - "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
+- "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
 
 ## Check-in cadence
 

@@ -4,6 +4,7 @@ mod db;
 mod error;
 mod migrations;
 mod models;
+mod phase;
 mod task_graph;
 mod time;
 
@@ -189,6 +190,34 @@ fn start_check_in_timer(app: tauri::AppHandle) {
     });
 }
 
+#[cfg(target_os = "macos")]
+fn install_phase_application_observer(app: tauri::AppHandle) {
+    use objc2_app_kit::{NSWorkspace, NSWorkspaceDidActivateApplicationNotification};
+    use objc2_foundation::NSNotification;
+
+    let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+        let dashboard_focused = app
+            .get_webview_window("dashboard")
+            .and_then(|window| window.is_focused().ok())
+            .unwrap_or(false);
+        let notion_frontmost = phase::notion_is_frontmost();
+        phase::update_signals_and_sync(&app, |signals| {
+            signals.dashboard_focused = dashboard_focused;
+            signals.notion_frontmost = notion_frontmost;
+        });
+    });
+    let center = NSWorkspace::sharedWorkspace().notificationCenter();
+    let observer = unsafe {
+        center.addObserverForName_object_queue_usingBlock(
+            Some(NSWorkspaceDidActivateApplicationNotification),
+            None,
+            None,
+            &block,
+        )
+    };
+    std::mem::forget(observer);
+}
+
 fn show_window(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
@@ -322,6 +351,7 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     }
     panel.show_and_make_key();
     append_diagnostic_log(format!("popup_summon_macos_shown label={label}"));
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
 #[cfg(target_os = "macos")]
@@ -352,23 +382,19 @@ fn resolve_and_hide_popup(
     minutes: Option<i64>,
     reason: &str,
 ) -> error::Result<()> {
-    let changed = {
+    let timer_changed = {
         let state = app.state::<Mutex<rusqlite::Connection>>();
         let timer_state = app.state::<Mutex<CheckInTimer>>();
         let conn = state.lock().unwrap();
         let mut timer = timer_state.lock().unwrap();
-        let now = now_unix_secs();
-        let phase_changed = dismissed
-            && commands::record_idle_on_dismiss(&conn, timer.waiting_for_response, now)?;
-        let timer_changed =
-            commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now)?;
-        phase_changed || timer_changed
+        commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
     };
 
-    if changed {
+    hide_check_in_popup(app, reason);
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = false);
+    if timer_changed {
         let _ = app.emit("check-in-submitted", ());
     }
-    hide_check_in_popup(app, reason);
     Ok(())
 }
 
@@ -467,6 +493,7 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_window label={label}"));
     show_window(app, label);
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -502,6 +529,10 @@ pub fn run() {
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
             let check_in_timer = load_check_in_timer(&conn);
+            app.manage(Mutex::new(phase::PhaseSignals {
+                notion_frontmost: phase::notion_is_frontmost(),
+                ..phase::PhaseSignals::default()
+            }));
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(check_in_timer));
             start_check_in_timer(app.handle().clone());
@@ -539,6 +570,7 @@ pub fn run() {
                 }
 
                 install_popup_event_monitors(app.handle().clone());
+                install_phase_application_observer(app.handle().clone());
             }
 
             #[cfg(not(target_os = "macos"))]
@@ -553,6 +585,50 @@ pub fn run() {
                     }
                 });
             }
+
+            if let Some(window) = app.get_webview_window("dashboard") {
+                let handle = app.handle().clone();
+                window.on_window_event(move |event| {
+                    #[cfg(target_os = "macos")]
+                    match event {
+                        tauri::WindowEvent::Focused(true) => {
+                            phase::update_signals_and_sync(&handle, |signals| {
+                                signals.dashboard_focused = true;
+                                signals.notion_frontmost = false;
+                            });
+                        }
+                        tauri::WindowEvent::CloseRequested { .. }
+                        | tauri::WindowEvent::Destroyed => {
+                            phase::update_signals_and_sync(&handle, |signals| {
+                                signals.dashboard_focused = false;
+                                signals.notion_frontmost = false;
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    #[cfg(not(target_os = "macos"))]
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        phase::update_signals_and_sync(&handle, |signals| {
+                            signals.dashboard_focused = *focused;
+                        });
+                    }
+                });
+            }
+
+            let popup_visible = app
+                .get_webview_window("popup")
+                .and_then(|window| window.is_visible().ok())
+                .unwrap_or(false);
+            let dashboard_focused = app
+                .get_webview_window("dashboard")
+                .and_then(|window| window.is_focused().ok())
+                .unwrap_or(false);
+            phase::update_signals_and_sync(app.handle(), |signals| {
+                signals.popup_visible = popup_visible;
+                signals.dashboard_focused = dashboard_focused;
+                signals.notion_frontmost = phase::notion_is_frontmost();
+            });
 
             // Global hotkeys — non-fatal: if a combo is already owned by another app,
             // keep launching and surface the problem via the tray menu + tooltip.
@@ -644,13 +720,9 @@ pub fn run() {
             commands::rename_metric,
             commands::set_metric_active,
             commands::list_phases,
-            commands::create_phase,
-            commands::rename_phase,
-            commands::set_phase_active,
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,
-            commands::submit_phase_check_in,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
             commands::get_check_in_schedule,
@@ -662,8 +734,19 @@ pub fn run() {
             close_check_in_popup,
             log_client_event,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                finalize_phase_on_exit(app);
+            }
+        });
+}
+
+fn finalize_phase_on_exit(app: &tauri::AppHandle) {
+    phase::update_signals_and_sync(app, |signals| {
+        *signals = phase::PhaseSignals::default();
+    });
 }
 
 #[cfg(test)]

@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   createTask,
   getCheckInSchedule,
-  latestPhaseCheckIn,
   listMetrics,
-  listPhases,
   listTasks,
   scheduleNextCheckIn,
   setTaskStatus,
   setTaskWorking,
   submitBrainDump,
   submitMetricCheckIn,
-  submitPhaseCheckIn,
 } from "../lib/commands";
 import type {
   CheckInSchedule,
   Metric,
   MetricRatingInput,
-  Phase,
   RatingValue,
   Task,
 } from "../lib/types";
@@ -40,7 +36,6 @@ const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
 type View = "phase" | "metrics";
 type LoadState = {
-  phases: Phase[];
   metrics: Metric[];
   tasks: Task[];
   schedule: CheckInSchedule;
@@ -212,12 +207,9 @@ function CheckInForm({
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const [view, setView] = useState<View>("phase");
-  const [phaseConfirmed, setPhaseConfirmed] = useState(false);
-  const [phaseTouched, setPhaseTouched] = useState(false);
   const [nextCheckInMinutes, setNextCheckInMinutes] = useState<number | null>(
     null,
   );
-  const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [ratings, setRatings] = useState<Record<number, RatingValue | null>>({});
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText } = brainDumpDraft;
@@ -227,11 +219,8 @@ function CheckInForm({
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
-  const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const savedPhaseIdRef = useRef<number | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const phaseTriggerRef = useRef<HTMLButtonElement | null>(null);
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const isLoaded = loaded !== null;
@@ -244,27 +233,11 @@ function CheckInForm({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      latestPhaseCheckIn(),
-      latestPhaseCheckIn(false),
-      listPhases(true),
-      listMetrics(false),
-      listTasks(),
-      getCheckInSchedule(),
-    ])
-      .then(([latestPhase, previousPhase, phases, metrics, tasks, schedule]) => {
+    Promise.all([listMetrics(false), listTasks(), getCheckInSchedule()])
+      .then(([metrics, tasks, schedule]) => {
         if (cancelled) return;
-        setLoaded({ phases, metrics, tasks, schedule });
+        setLoaded({ metrics, tasks, schedule });
         setNextCheckInMinutes(schedule.intervalMinutes);
-        const defaultPhaseId =
-          phases.some(
-            (phase) =>
-              phase.id === previousPhase?.phaseId && phase.inactiveSince === null,
-          )
-            ? previousPhase?.phaseId ?? null
-            : phases.find((phase) => phase.inactiveSince === null)?.id ?? null;
-        setSelectedPhaseId(defaultPhaseId);
-        savedPhaseIdRef.current = latestPhase?.phaseId ?? null;
         setRatings(
           Object.fromEntries(metrics.map((metric) => [metric.id, null])),
         );
@@ -279,13 +252,30 @@ function CheckInForm({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen("phase-changed", () => {
+      void listTasks().then((tasks) => {
+        setLoaded((current) => (current ? { ...current, tasks } : current));
+      });
+    }).then((u) => {
+      if (cancelled) u();
+      else unlisten = u;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (view === "phase") {
-      requestAnimationFrame(() => phaseTriggerRef.current?.focus());
+      requestAnimationFrame(() => brainDumpRef.current?.focus());
     } else {
       requestAnimationFrame(() => focusMetricRow(0));
     }
@@ -299,29 +289,6 @@ function CheckInForm({
 
   const setRating = (metricId: number, value: RatingValue) => {
     setRatings((prev) => ({ ...prev, [metricId]: value }));
-  };
-
-  // Move the phase selection one step in either direction, wrapping around the
-  // ends. When nothing is selected yet (no latest phase), a step forward lands
-  // on the first phase and a step back lands on the last.
-  const shiftPhase = (direction: -1 | 1) => {
-    const phases =
-      loaded?.phases.filter((phase) => phase.inactiveSince === null) ?? [];
-    if (phases.length === 0) return;
-    const currentIndex = phases.findIndex((p) => p.id === selectedPhaseId);
-    const nextIndex =
-      currentIndex === -1
-        ? direction === 1
-          ? 0
-          : phases.length - 1
-        : (currentIndex + direction + phases.length) % phases.length;
-    selectPhase(phases[nextIndex].id);
-  };
-
-  const selectPhase = (phaseId: number) => {
-    setSelectedPhaseId(phaseId);
-    setPhaseConfirmed(false);
-    setPhaseTouched(true);
   };
 
   const openDashboard = async () => {
@@ -412,18 +379,6 @@ function CheckInForm({
     }
   };
 
-  const savePhase = async (skipped: boolean) => {
-    if (phaseConfirmed) return;
-    const phaseId = skipped && !phaseTouched ? null : selectedPhaseId;
-    if (phaseId !== savedPhaseIdRef.current) {
-      await submitPhaseCheckIn(phaseId);
-      savedPhaseIdRef.current = phaseId;
-      await emit("check-in-submitted");
-    }
-    setPhaseConfirmed(true);
-    setPhaseTouched(false);
-  };
-
   const saveMetrics = async () => {
     const ratingsInput: MetricRatingInput[] = Object.entries(ratings)
       .filter(([, value]) => value !== null)
@@ -466,8 +421,7 @@ function CheckInForm({
     setError(null);
     try {
       await onComplete(async () => {
-        if (view === "phase") await savePhase(false);
-        else await saveMetrics();
+        if (view === "metrics") await saveMetrics();
         return timerDue
           ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
           : null;
@@ -478,22 +432,8 @@ function CheckInForm({
     }
   };
 
-  const selectView = async (next: View) => {
+  const selectView = (next: View) => {
     if (!loaded || submitting || next === view) return;
-    setPhasePickerOpen(false);
-    if (view === "phase" && next === "metrics") {
-      setSubmitting(true);
-      setError(null);
-      try {
-        await savePhase(true);
-        setView(next);
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
     setView(next);
   };
 
@@ -504,16 +444,7 @@ function CheckInForm({
       await completePopup();
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await savePhase(false);
-      setView("metrics");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
+    setView("metrics");
   };
 
   if (!loaded) {
@@ -668,14 +599,9 @@ function CheckInForm({
         checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) /
           (loaded.schedule.intervalMinutes * 60),
       );
-  const activePhases = loaded.phases.filter(
-    (phase) => phase.inactiveSince === null,
-  );
-  const selectedPhase = loaded.phases.find(
-    (phase) => phase.id === selectedPhaseId,
-  );
-  const phaseName = selectedPhase?.name;
-  const phaseAsk = phaseTouched ? "Now in" : "Still in";
+  const phaseName = loaded.tasks.some((task) => task.workingNow)
+    ? "Doing"
+    : "Scoping";
 
   return (
     <form
@@ -685,9 +611,6 @@ function CheckInForm({
         const target = event.target as Element;
         if (timerPickerOpen && !target.closest(".combined-timer__main")) {
           setTimerPickerOpen(false);
-        }
-        if (phasePickerOpen && !target.closest(".phase-prompt__pick")) {
-          setPhasePickerOpen(false);
         }
       }}
       onWheelCapture={(event) => {
@@ -758,97 +681,17 @@ function CheckInForm({
         <section className="combined-workspace__view" role="tabpanel">
           {view === "phase" ? (
             <div className="phase-view">
-              {activePhases.length === 0 ? (
-                <div className="combined-empty">No active phases</div>
-              ) : (
-                <div className="phase-prompt">
-                  <p className="phase-prompt__ask">{phaseAsk}?</p>
-                  <div
-                    className="phase-prompt__pick"
-                    onBlur={(event) => {
-                      if (
-                        !event.currentTarget.contains(event.relatedTarget)
-                      ) {
-                        setPhasePickerOpen(false);
-                      }
-                    }}
-                  >
-                    <button
-                      ref={phaseTriggerRef}
-                      type="button"
-                      className="phase-prompt__current"
-                      aria-haspopup="listbox"
-                      aria-expanded={phasePickerOpen}
-                      aria-label={
-                        phaseName
-                          ? `${phaseAsk} ${phaseName}? Change phase`
-                          : "Choose a phase"
-                      }
-                      disabled={submitting}
-                      onClick={() => setPhasePickerOpen((open) => !open)}
-                      onKeyDown={(event) => {
-                        switch (event.key) {
-                          case "ArrowLeft":
-                          case "ArrowUp":
-                            event.preventDefault();
-                            shiftPhase(-1);
-                            break;
-                          case "ArrowRight":
-                          case "ArrowDown":
-                            event.preventDefault();
-                            shiftPhase(1);
-                            break;
-                          case "Home":
-                            event.preventDefault();
-                            selectPhase(activePhases[0].id);
-                            break;
-                          case "End":
-                            event.preventDefault();
-                            selectPhase(
-                              activePhases[activePhases.length - 1].id,
-                            );
-                            break;
-                        }
-                      }}
-                    >
-                      <span className="phase-prompt__dot" aria-hidden="true" />
-                      <span className="phase-prompt__name" aria-live="polite">
-                        {phaseName ?? "Choose a phase"}
-                      </span>
-                      <span
-                        className="phase-prompt__chevron"
-                        aria-hidden="true"
-                      >
-                        <ChevronIcon />
-                      </span>
-                    </button>
-                    {phasePickerOpen && (
-                      <div
-                        className="phase-prompt__list"
-                        role="listbox"
-                        aria-label="Phase"
-                      >
-                        {activePhases.map((phase) => (
-                          <button
-                            key={phase.id}
-                            type="button"
-                            role="option"
-                            aria-selected={phase.id === selectedPhaseId}
-                            disabled={submitting}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              selectPhase(phase.id);
-                              setPhasePickerOpen(false);
-                            }}
-                          >
-                            {phase.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="phase-prompt">
+                <p className="phase-prompt__ask">Now in</p>
+                <p
+                  className="phase-prompt__current"
+                  aria-live="polite"
+                  aria-label={`Now in ${phaseName}`}
+                >
+                  <span className="phase-prompt__dot" aria-hidden="true" />
+                  <span className="phase-prompt__name">{phaseName}</span>
+                </p>
+              </div>
               <section className="combined-brain-dump">
                 <textarea
                   ref={brainDumpRef}

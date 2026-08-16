@@ -114,11 +114,3 @@ export const metricsIcon = (
     <path d="M22 20V7" />
   </svg>
 );
-
-export const phasesIcon = (
-  <svg {...iconProps}>
-    <path d="m12 3 9 5-9 5-9-5z" />
-    <path d="m3 12 9 5 9-5" />
-    <path d="m3 16 9 5 9-5" />
-  </svg>
-);

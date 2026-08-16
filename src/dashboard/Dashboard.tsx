@@ -17,7 +17,6 @@ import { InsightsView } from "./views/InsightsView";
 import { JournalView } from "./views/JournalView";
 import { TasksView } from "./views/TasksView";
 import { MetricsView } from "./views/MetricsView";
-import { PhasesView } from "./views/PhasesView";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
@@ -71,7 +70,6 @@ function DashboardInner() {
         {view === "journal" && <JournalView />}
         {view === "tasks" && <TasksView />}
         {view === "metrics" && <MetricsView />}
-        {view === "phases" && <PhasesView />}
       </div>
       <ScopeMenu />
       <StatusMenu />

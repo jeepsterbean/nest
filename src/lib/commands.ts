@@ -39,18 +39,6 @@ export function listPhases(includeInactive: boolean): Promise<Phase[]> {
   return invoke("list_phases", { includeInactive });
 }
 
-export function createPhase(name: string): Promise<Phase> {
-  return invoke("create_phase", { name });
-}
-
-export function renamePhase(id: number, name: string): Promise<Phase> {
-  return invoke("rename_phase", { id, name });
-}
-
-export function setPhaseActive(id: number, active: boolean): Promise<Phase> {
-  return invoke("set_phase_active", { id, active });
-}
-
 export function listTasks(): Promise<Task[]> {
   return invoke("list_tasks");
 }
@@ -153,12 +141,6 @@ export function listMetricCheckIns(
 
 export function deleteMetricCheckIn(id: number): Promise<void> {
   return invoke("delete_metric_check_in", { id });
-}
-
-export function submitPhaseCheckIn(
-  phaseId: number | null,
-): Promise<PhaseCheckIn | null> {
-  return invoke("submit_phase_check_in", { phaseId });
 }
 
 export function latestPhaseCheckIn(

@@ -2,10 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   listReminders,
   scheduleNextCheckIn,
-  submitPhaseCheckIn,
   summonCheckIn,
 } from "../../lib/commands";
-import type { Phase } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { latestPulseState } from "../lib/pulse";
 import {
@@ -13,11 +11,7 @@ import {
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import {
-  formatCheckInCountdown,
-  formatElapsedMinutes,
-  greetingForHour,
-} from "../lib/time";
+import { formatCheckInCountdown, greetingForHour } from "../lib/time";
 import {
   chevronDownIcon,
   clockIcon,
@@ -26,7 +20,6 @@ import {
   metricsIcon,
   overviewIcon,
   pencilIcon,
-  phasesIcon,
   tasksIcon,
 } from "./icons";
 
@@ -37,8 +30,7 @@ export type DashboardView =
   | "insights"
   | "journal"
   | "tasks"
-  | "metrics"
-  | "phases";
+  | "metrics";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
@@ -46,7 +38,6 @@ const VIEWS = [
   { key: "journal", label: "Journal", icon: journalIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
-  { key: "phases", label: "Phases", icon: phasesIcon },
 ] as const;
 
 export function DashboardSidebar({
@@ -108,16 +99,13 @@ export function DashboardHeader() {
   } = useDashboardData();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [phasePickerOpen, setPhasePickerOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
-  const [phaseChangingId, setPhaseChangingId] = useState<number | null>(null);
   const [pulseOpening, setPulseOpening] = useState(false);
   const [reminders, setReminders] = useState<string[]>([]);
   const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
-  const phaseWrapRef = useRef<HTMLDivElement | null>(null);
   const timerWrapRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
@@ -134,14 +122,6 @@ export function DashboardHeader() {
     : "—:—";
   const pulse = latestPulseState(checkIns, metrics, nowMs);
 
-  const activePhases = useMemo(
-    () =>
-      [...phases]
-        .filter((phase) => phase.inactiveSince === null)
-        .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id),
-    [phases],
-  );
-
   const currentPhaseName = latestPhase
     ? latestPhase.phaseId === null
       ? "Idle"
@@ -149,10 +129,6 @@ export function DashboardHeader() {
         latestPhase.phaseLabel ??
         `Phase ${latestPhase.phaseId}`)
     : null;
-  const currentPhaseDuration = latestPhase
-    ? formatElapsedMinutes(latestPhase.createdAt, nowMs)
-    : null;
-
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -208,20 +184,11 @@ export function DashboardHeader() {
     return () => window.clearTimeout(timeout);
   }, [message.length, messages.length, reducedMotion, typewriter]);
 
-  // Blur alone misses clicks on non-focusable dashboard chrome; close on
-  // outside pointerdown so either picker dismisses when you click elsewhere.
   useEffect(() => {
-    if (!pickerOpen && !phasePickerOpen) return;
+    if (!pickerOpen) return;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (
-        phasePickerOpen &&
-        phaseWrapRef.current &&
-        !phaseWrapRef.current.contains(target)
-      ) {
-        setPhasePickerOpen(false);
-      }
       if (
         pickerOpen &&
         timerWrapRef.current &&
@@ -232,7 +199,6 @@ export function DashboardHeader() {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setPhasePickerOpen(false);
       setPickerOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
@@ -241,7 +207,7 @@ export function DashboardHeader() {
       document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [pickerOpen, phasePickerOpen]);
+  }, [pickerOpen]);
 
   const selectInterval = async (minutes: number) => {
     setPickerOpen(false);
@@ -249,14 +215,6 @@ export function DashboardHeader() {
     setScheduling(true);
     await mutate(() => scheduleNextCheckIn(minutes));
     setScheduling(false);
-  };
-
-  const selectPhase = async (phase: Phase) => {
-    setPhasePickerOpen(false);
-    if (latestPhase?.phaseId === phase.id || phaseChangingId !== null) return;
-    setPhaseChangingId(phase.id);
-    await mutate(() => submitPhaseCheckIn(phase.id));
-    setPhaseChangingId(null);
   };
 
   const openPulseCheckIn = async () => {
@@ -271,10 +229,7 @@ export function DashboardHeader() {
     }
   };
 
-  const phaseLabel =
-    phaseChangingId !== null
-      ? "Changing…"
-      : (currentPhaseName ?? "No phase yet");
+  const phaseLabel = currentPhaseName ?? "No phase yet";
 
   return (
     <header className="dash-header">
@@ -289,73 +244,9 @@ export function DashboardHeader() {
           )}
         </h1>
         <div className="dash-header__meta">
-          <div
-            ref={phaseWrapRef}
-            className="dash-header__phase-wrap"
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                setPhasePickerOpen(false);
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="dash-header__phase"
-              aria-haspopup="listbox"
-              aria-expanded={phasePickerOpen}
-              aria-label={`Current phase: ${phaseLabel}${
-                currentPhaseDuration ? `, ${currentPhaseDuration}` : ""
-              }. Change phase`}
-              disabled={activePhases.length === 0 || phaseChangingId !== null}
-              onClick={() => {
-                setPickerOpen(false);
-                setPhasePickerOpen((open) => !open);
-              }}
-            >
-              <span className="dash-header__phase-name">{phaseLabel}</span>
-              {currentPhaseDuration && phaseChangingId === null && (
-                <>
-                  <span className="dash-header__phase-sep" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="dash-header__phase-meta">
-                    {currentPhaseDuration}
-                  </span>
-                </>
-              )}
-              <span className="dash-header__phase-chevron" aria-hidden="true">
-                {chevronDownIcon}
-              </span>
-            </button>
-            {phasePickerOpen && (
-              <div className="phase-picker" role="listbox" aria-label="Phase">
-                {activePhases.length === 0 ? (
-                  <div className="phase-picker__empty">No active phases</div>
-                ) : (
-                  activePhases.map((phase) => {
-                    const selected = latestPhase?.phaseId === phase.id;
-                    return (
-                      <button
-                        key={phase.id}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        className="phase-picker__option"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => selectPhase(phase)}
-                      >
-                        <span className="phase-picker__dot" />
-                        <span>{phase.name}</span>
-                        {selected && (
-                          <span className="phase-picker__mark">Current</span>
-                        )}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
+          <p className="dash-header__phase" aria-label={`Current phase: ${phaseLabel}`}>
+            <span className="dash-header__phase-name">{phaseLabel}</span>
+          </p>
           <button
             type="button"
             className={`dash-header__pulse${
@@ -384,7 +275,6 @@ export function DashboardHeader() {
               aria-label={`Next check-in: ${countdown}. Change interval`}
               disabled={!checkInSchedule || scheduling}
               onClick={() => {
-                setPhasePickerOpen(false);
                 setPickerOpen((open) => !open);
               }}
             >

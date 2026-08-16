@@ -146,12 +146,6 @@
   }
 }
 
-.dash-header__phase-wrap {
-  position: relative;
-  flex: none;
-  max-width: min(100%, 280px);
-}
-
 .dash-header__meta {
   display: flex;
   align-items: center;
@@ -166,67 +160,17 @@
   max-width: 100%;
   margin: 0;
   padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
   color: var(--muted);
   font: inherit;
   text-align: left;
-  cursor: pointer;
-}
-
-.dash-header__phase:hover,
-.dash-header__phase:focus-visible {
-  color: var(--phase);
-  outline: none;
-}
-
-.dash-header__phase:focus-visible {
-  box-shadow: 0 0 0 3px var(--phase-soft);
-}
-
-.dash-header__phase:disabled {
-  cursor: default;
-  opacity: 0.72;
 }
 
 .dash-header__phase-name {
   overflow: hidden;
-  color: var(--ink);
+  color: var(--phase);
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.dash-header__phase:hover .dash-header__phase-name,
-.dash-header__phase:focus-visible .dash-header__phase-name {
-  color: var(--phase);
-}
-
-.dash-header__phase-sep {
-  flex: none;
-  color: var(--muted);
-}
-
-.dash-header__phase-meta {
-  flex: none;
-  color: var(--phase);
-  font-variant-numeric: tabular-nums;
-}
-
-.dash-header__phase-chevron {
-  display: inline-flex;
-  flex: none;
-  color: var(--muted);
-  transition: transform 0.14s ease;
-}
-
-.dash-header__phase-chevron svg {
-  width: 13px;
-  height: 13px;
-}
-
-.dash-header__phase[aria-expanded="true"] .dash-header__phase-chevron {
-  transform: rotate(180deg);
 }
 
 .dash-header__pulse {
@@ -675,80 +619,6 @@
     opacity: 1;
     transform: none;
   }
-}
-
-.phase-picker {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 6px);
-  left: 0;
-  width: min(260px, calc(100vw - 48px));
-  max-height: 260px;
-  overflow: auto;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
-  box-shadow:
-    0 18px 42px -30px rgba(60, 48, 30, 0.46),
-    0 1px 4px rgba(60, 48, 30, 0.07);
-}
-
-.phase-picker__option {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 35px;
-  padding: 7px 9px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.phase-picker__option:hover,
-.phase-picker__option:focus-visible {
-  background: var(--surface-2);
-  outline: none;
-}
-
-.phase-picker__option[aria-selected="true"] {
-  background: color-mix(in srgb, var(--phase-soft) 58%, var(--surface));
-  color: var(--phase);
-}
-
-.phase-picker__option > span:nth-child(2) {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 650;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.phase-picker__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--phase);
-}
-
-.phase-picker__mark {
-  color: var(--phase);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.phase-picker__empty {
-  padding: 10px;
-  color: var(--muted);
-  font-size: 12.5px;
 }
 
 .checkin-picker {
@@ -4859,91 +4729,6 @@
   font-size: 12.5px;
 }
 
-/* ---------- Phases ---------- */
-
-.phase-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.phase-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 13px 9px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.phase-card:hover {
-  border-color: var(--border-strong);
-}
-
-.phase-card--current {
-  border-color: color-mix(in srgb, var(--phase) 45%, transparent);
-  background: var(--phase-soft);
-}
-
-.phase-card--inactive {
-  opacity: 0.55;
-}
-
-.phase-card__dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--border-strong);
-}
-
-.phase-card--current .phase-card__dot {
-  background: var(--phase);
-  animation: phase-pulse 3s ease-in-out infinite;
-}
-
-@keyframes phase-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--phase) 22%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--phase) 10%, transparent);
-  }
-}
-
-.phase-card__name {
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  text-align: left;
-}
-
-.phase-card__name:hover {
-  color: var(--phase);
-}
-
-.phase-card__now {
-  flex: none;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--phase);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
 /* ---------- Journal ---------- */
 
 .day-group + .day-group {
@@ -5119,10 +4904,6 @@
 
 .dash-section--metrics {
   animation-delay: 0.08s;
-}
-
-.dash-section--phases {
-  animation-delay: 0.13s;
 }
 
 .dash-section--journal {

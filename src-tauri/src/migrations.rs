@@ -676,6 +676,25 @@ WHERE working_now = 1;
             )?;
             Ok(())
         }),
+        // Freeze phases to the three derived attention states. Historical
+        // check-ins keep their foreign keys; extra names are only inactivated.
+        M::up(
+            r#"
+INSERT INTO phases (name, created_at)
+SELECT name, 0 FROM (
+  SELECT 'Scoping' AS name
+  UNION ALL SELECT 'Doing'
+  UNION ALL SELECT 'Resting'
+)
+WHERE name NOT IN (SELECT name FROM phases);
+
+UPDATE phases SET inactive_since = NULL
+WHERE name IN ('Scoping', 'Doing', 'Resting');
+
+UPDATE phases SET inactive_since = COALESCE(inactive_since, CAST(strftime('%s', 'now') AS INTEGER))
+WHERE name NOT IN ('Scoping', 'Doing', 'Resting');
+"#,
+        ),
     ])
 }
 
@@ -1083,5 +1102,52 @@ CREATE TABLE phase_check_ins (
             .unwrap();
         assert_eq!(timer.0, 0);
         assert!(timer.1.is_some_and(|started_at| started_at > 0));
+    }
+
+    #[test]
+    fn freezes_canonical_phases_and_preserves_old_foreign_keys() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut conn, 27).unwrap();
+        conn.execute(
+            "UPDATE phases SET inactive_since = 50 WHERE name = 'Doing'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO phase_check_ins (id, created_at, phase_id) VALUES (1, 10, 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let doing_active: Option<i64> = conn
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE name = 'Doing'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(doing_active, None);
+
+        let extras: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM phases \
+                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting') \
+                   AND inactive_since IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(extras, 0);
+
+        let historical: i64 = conn
+            .query_row(
+                "SELECT phase_id FROM phase_check_ins WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(historical, 1);
     }
 }

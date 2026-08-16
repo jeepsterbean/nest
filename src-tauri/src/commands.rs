@@ -1,12 +1,13 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
     MetricRatingInput, Phase, PhaseCheckIn, Task, TaskDependency, TaskStatusEvent,
 };
+use crate::phase;
 use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
 use crate::CheckInTimer;
@@ -113,55 +114,6 @@ pub(crate) fn resolve_due_check_in(
     Ok(true)
 }
 
-/// Escape records idle only when the timer is at zero. Peeking at a running
-/// timer must not end the current phase.
-pub(crate) fn record_idle_on_dismiss(
-    conn: &Connection,
-    waiting_for_response: bool,
-    now: i64,
-) -> Result<bool> {
-    if !waiting_for_response {
-        return Ok(false);
-    }
-    Ok(record_phase_if_changed(conn, None, now)?.is_some())
-}
-
-pub(crate) fn record_phase_if_changed(
-    conn: &Connection,
-    phase_id: Option<i64>,
-    now: i64,
-) -> Result<Option<PhaseCheckIn>> {
-    if let Some(phase_id) = phase_id {
-        let phase = fetch_phase(conn, phase_id)
-            .map_err(|_| AppError::NotFound(format!("phase {phase_id}")))?;
-        if phase.inactive_since.is_some() {
-            return Err(AppError::InvalidInput("phase is paused".into()));
-        }
-    }
-
-    let latest: Option<Option<i64>> = conn
-        .query_row(
-            "SELECT phase_id FROM phase_check_ins ORDER BY created_at DESC, id DESC LIMIT 1",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
-    if latest == Some(phase_id) {
-        return Ok(None);
-    }
-
-    conn.execute(
-        "INSERT INTO phase_check_ins (created_at, phase_id) VALUES (?1, ?2)",
-        params![now, phase_id],
-    )?;
-    Ok(Some(PhaseCheckIn {
-        id: conn.last_insert_rowid(),
-        created_at: now,
-        phase_id,
-        phase_label: None,
-    }))
-}
-
 fn fetch_latest_phase_check_in(
     conn: &Connection,
     include_idle: bool,
@@ -217,22 +169,6 @@ fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
         params![id],
         |row| {
             Ok(Metric {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
-            })
-        },
-    )
-    .map_err(Into::into)
-}
-
-fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
-    conn.query_row(
-        "SELECT id, name, created_at, inactive_since FROM phases WHERE id = ?1",
-        params![id],
-        |row| {
-            Ok(Phase {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 created_at: row.get(2)?,
@@ -435,26 +371,43 @@ pub fn remove_task_dependency(
 }
 
 #[tauri::command]
-pub fn delete_task(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
-    let mut conn = state.lock().unwrap();
-    TaskGraph::delete_task(&mut conn, id)
+pub fn delete_task(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let changed = phase::with_current_signals(&app, |signals| -> Result<Option<String>> {
+        let mut conn = state.lock().unwrap();
+        let tx = conn.transaction()?;
+        TaskGraph::delete_task_in(&tx, id)?;
+        let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+        tx.commit()?;
+        Ok(changed)
+    })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn set_task_status(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     status: String,
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
-    let mut conn = state.lock().unwrap();
-    change_task_status(&mut conn, id, status)
+    let (task, changed) =
+        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            change_task_status(&tx, id, status)?;
+            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            tx.commit()?;
+            Ok((fetch_task(&conn, id)?, changed))
+        })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(task)
 }
 
-fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Task> {
+fn change_task_status(conn: &Connection, id: i64, status: &str) -> Result<()> {
     let now = now_unix_secs();
-    let tx = conn.transaction()?;
-    let current_status: String = match tx.query_row(
+    let current_status: String = match conn.query_row(
         "SELECT status FROM tasks WHERE id = ?1",
         params![id],
         |row| row.get(0),
@@ -467,32 +420,41 @@ fn change_task_status(conn: &mut Connection, id: i64, status: &str) -> Result<Ta
     };
     if current_status != status {
         if current_status == "active" && status != "active" {
-            bank_task_work(&tx, id, now)?;
+            bank_task_work(conn, id, now)?;
         }
-        tx.execute(
+        conn.execute(
             "UPDATE tasks SET status = ?1, \
              working_now = CASE WHEN ?1 = 'active' THEN working_now ELSE 0 END, \
              updated_at = ?2 WHERE id = ?3",
             params![status, now, id],
         )?;
-        tx.execute(
+        conn.execute(
             "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
              VALUES (?1, ?2, ?3, ?4)",
             params![id, current_status, status, now],
         )?;
     }
-    tx.commit()?;
-    fetch_task(conn, id)
+    Ok(())
 }
 
 #[tauri::command]
 pub fn set_task_working(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     working: bool,
 ) -> Result<Task> {
-    let conn = state.lock().unwrap();
-    change_task_working(&conn, id, working)
+    let (task, changed) =
+        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            change_task_working(&tx, id, working)?;
+            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            tx.commit()?;
+            Ok((fetch_task(&conn, id)?, changed))
+        })?;
+    phase::emit_phase_changed(&app, changed);
+    Ok(task)
 }
 
 fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
@@ -670,62 +632,6 @@ pub fn list_phases(
 }
 
 #[tauri::command]
-pub fn create_phase(state: State<'_, Mutex<Connection>>, name: String) -> Result<Phase> {
-    let trimmed = name.trim().to_string();
-    if trimmed.is_empty() {
-        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
-    }
-    let conn = state.lock().unwrap();
-    let now = now_unix_secs();
-    conn.execute(
-        "INSERT INTO phases (name, created_at) VALUES (?1, ?2)",
-        params![trimmed, now],
-    )?;
-    let id = conn.last_insert_rowid();
-    Ok(Phase {
-        id,
-        name: trimmed,
-        created_at: now,
-        inactive_since: None,
-    })
-}
-
-#[tauri::command]
-pub fn rename_phase(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Phase> {
-    let trimmed = name.trim().to_string();
-    if trimmed.is_empty() {
-        return Err(AppError::InvalidInput("phase name cannot be empty".into()));
-    }
-    let conn = state.lock().unwrap();
-    let updated = conn.execute(
-        "UPDATE phases SET name = ?1 WHERE id = ?2",
-        params![trimmed, id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("phase {id}")));
-    }
-    fetch_phase(&conn, id)
-}
-
-#[tauri::command]
-pub fn set_phase_active(
-    state: State<'_, Mutex<Connection>>,
-    id: i64,
-    active: bool,
-) -> Result<Phase> {
-    let conn = state.lock().unwrap();
-    let inactive_since: Option<i64> = if active { None } else { Some(now_unix_secs()) };
-    let updated = conn.execute(
-        "UPDATE phases SET inactive_since = ?1 WHERE id = ?2",
-        params![inactive_since, id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("phase {id}")));
-    }
-    fetch_phase(&conn, id)
-}
-
-#[tauri::command]
 pub fn submit_metric_check_in(
     state: State<'_, Mutex<Connection>>,
     ratings: Vec<MetricRatingInput>,
@@ -822,15 +728,6 @@ pub fn delete_metric_check_in(state: State<'_, Mutex<Connection>>, id: i64) -> R
         return Err(AppError::NotFound(format!("metric_check_in {id}")));
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn submit_phase_check_in(
-    state: State<'_, Mutex<Connection>>,
-    phase_id: Option<i64>,
-) -> Result<Option<PhaseCheckIn>> {
-    let conn = state.lock().unwrap();
-    record_phase_if_changed(&conn, phase_id, now_unix_secs())
 }
 
 #[tauri::command]
@@ -989,9 +886,8 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        bank_task_work, change_task_status, change_task_working, fetch_latest_phase_check_in,
-        fetch_task, normalize_optional_title, normalize_task_scope, record_idle_on_dismiss,
-        record_phase_if_changed, resolve_due_check_in, validate_task_status,
+        bank_task_work, change_task_status, change_task_working, fetch_task,
+        normalize_optional_title, normalize_task_scope, resolve_due_check_in, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -1071,74 +967,10 @@ mod tests {
         assert!(fetch_task(&conn, 1).unwrap().working_now);
 
         assert!(validate_task_status("paused").is_err());
-        let moved = change_task_status(&mut conn, 1, "up_next").unwrap();
+        change_task_status(&conn, 1, "up_next").unwrap();
+        let moved = fetch_task(&conn, 1).unwrap();
         assert!(!moved.working_now);
         assert_eq!(moved.work_started_at, None);
-    }
-
-    #[test]
-    fn phase_checkpoints_include_idle_and_skip_consecutive_duplicates() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        assert!(record_phase_if_changed(&conn, Some(3), 100)
-            .unwrap()
-            .is_some());
-        assert!(record_phase_if_changed(&conn, Some(3), 110)
-            .unwrap()
-            .is_none());
-        assert!(record_phase_if_changed(&conn, None, 120).unwrap().is_some());
-        assert!(record_phase_if_changed(&conn, None, 130).unwrap().is_none());
-
-        let rows: Vec<Option<i64>> = conn
-            .prepare("SELECT phase_id FROM phase_check_ins ORDER BY id")
-            .unwrap()
-            .query_map([], |row| row.get(0))
-            .unwrap()
-            .collect::<rusqlite::Result<_>>()
-            .unwrap();
-        assert_eq!(rows, vec![Some(3), None]);
-        assert_eq!(
-            fetch_latest_phase_check_in(&conn, true)
-                .unwrap()
-                .unwrap()
-                .phase_id,
-            None
-        );
-        assert_eq!(
-            fetch_latest_phase_check_in(&conn, false)
-                .unwrap()
-                .unwrap()
-                .phase_id,
-            Some(3)
-        );
-    }
-
-    #[test]
-    fn dismiss_records_idle_only_when_the_timer_is_due() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        assert!(record_phase_if_changed(&conn, Some(3), 100)
-            .unwrap()
-            .is_some());
-
-        assert!(!record_idle_on_dismiss(&conn, false, 110).unwrap());
-        assert_eq!(
-            fetch_latest_phase_check_in(&conn, true)
-                .unwrap()
-                .unwrap()
-                .phase_id,
-            Some(3)
-        );
-
-        assert!(record_idle_on_dismiss(&conn, true, 120).unwrap());
-        assert_eq!(
-            fetch_latest_phase_check_in(&conn, true)
-                .unwrap()
-                .unwrap()
-                .phase_id,
-            None
-        );
-        assert!(!record_idle_on_dismiss(&conn, true, 130).unwrap());
     }
 
     #[test]
