@@ -758,6 +758,39 @@ WHERE NOT EXISTS (SELECT 1 FROM phases WHERE name = 'Offline');
 UPDATE phases SET inactive_since = NULL WHERE name = 'Offline';
 "#,
         ),
+        // Task lists are drag-sortable, so tasks keep a manual sort_order.
+        // Seed it from the old newest-updated-first order.
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE tasks SET sort_order = (
+  SELECT COUNT(*) FROM tasks other
+  WHERE other.updated_at > tasks.updated_at
+     OR (other.updated_at = tasks.updated_at AND other.id > tasks.id)
+);
+"#,
+        ),
+        // Repair databases that burned a version slot on the sort_order
+        // migration while it briefly sat mid-list during development.
+        M::up_with_hook("", |tx| {
+            let has_sort_order: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'sort_order')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_sort_order {
+                tx.execute_batch(
+                    "ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+                     UPDATE tasks SET sort_order = (
+                       SELECT COUNT(*) FROM tasks other
+                       WHERE other.updated_at > tasks.updated_at
+                          OR (other.updated_at = tasks.updated_at AND other.id > tasks.id)
+                     );",
+                )?;
+            }
+            Ok(())
+        }),
     ])
 }
 
@@ -765,6 +798,31 @@ UPDATE phases SET inactive_since = NULL WHERE name = 'Offline';
 mod tests {
     use super::migrations;
     use rusqlite::Connection;
+
+    #[test]
+    fn repairs_a_database_that_burned_a_version_on_the_sort_order_migration() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let latest: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        // The shipped-then-moved migration left real databases one short of
+        // latest with no sort_order column.
+        conn.execute_batch("ALTER TABLE tasks DROP COLUMN sort_order;")
+            .unwrap();
+        conn.pragma_update(None, "user_version", latest - 1).unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+        let has_sort_order: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'sort_order')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(has_sort_order);
+    }
 
     #[test]
     fn repairs_database_missing_brain_dumps_after_mid_list_migration_insert() {

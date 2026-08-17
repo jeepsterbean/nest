@@ -43,6 +43,9 @@ private, journal-like. Preserve light and dark system themes.
 - Interactive controls need accessible names and visible focus states.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
+- A draggable surface drags from its own body. Never start a drag from a
+  control nested inside it — pointer capture eats the control's click, so the
+  press lands as a move instead of the action the user aimed at.
 
 ## Cleanup passes
 

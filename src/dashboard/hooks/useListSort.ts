@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from "rea
 import { moveId } from "../../lib/reorder";
 
 const DRAG_START_DISTANCE = 6;
+/** Ignore selector for rows built from controls, e.g. task cards. */
+export const CARD_CONTROLS =
+  "button, a, input, textarea, select, [contenteditable='true']";
 const IGNORE =
   "input, textarea, select, .pulse-visibility, .pulse-metric__remove, .menu-select, .icon-picker, .metric-icon-trigger";
 
@@ -15,11 +18,25 @@ type Session = {
   removeListeners: () => void;
 };
 
+export type SortRowProps = {
+  "data-sort": string;
+  "data-sort-id": string;
+  onPointerDown: (event: PointerEvent<HTMLElement>) => void;
+  onClickCapture: (event: {
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => void;
+};
+
 /** Pointer drag-to-reorder for a vertical list. Clicks still work if the pointer barely moves. */
 export function useListSort(
   kind: string,
   ids: number[],
-  onReorder: (ids: number[]) => void,
+  // targetId is the row the drag landed on, so a list spanning several lanes
+  // can tell which lane took the drop. Negative ids are lane placeholders.
+  onReorder: (ids: number[], draggedId: number, targetId: number) => void,
+  /** Rows whose controls must stay clickable pass their own selector. */
+  ignore: string = IGNORE,
 ) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [overId, setOverId] = useState<number | null>(null);
@@ -49,12 +66,12 @@ export function useListSort(
       .elementFromPoint(clientX, clientY)
       ?.closest<HTMLElement>(`[data-sort="${kind}"]`);
     const id = Number(row?.dataset.sortId);
-    return Number.isSafeInteger(id) && id > 0 ? id : null;
+    return Number.isSafeInteger(id) && id !== 0 ? id : null;
   };
 
   const onPointerDown = (event: PointerEvent<HTMLElement>, id: number) => {
     if (event.button !== 0 || !event.isPrimary) return;
-    if ((event.target as HTMLElement).closest(IGNORE)) return;
+    if ((event.target as HTMLElement).closest(ignore)) return;
 
     const onPointerMove = (move: globalThis.PointerEvent) => {
       const session = sessionRef.current;
@@ -84,7 +101,9 @@ export function useListSort(
         suppressClickRef.current = true;
         if (targetId !== null) {
           const next = moveId(idsRef.current, session.id, targetId);
-          if (next !== idsRef.current) onReorderRef.current(next);
+          if (next !== idsRef.current) {
+            onReorderRef.current(next, session.id, targetId);
+          }
         }
       }
       clear();
@@ -120,7 +139,7 @@ export function useListSort(
   return {
     draggingId,
     overId,
-    rowProps: (id: number) => ({
+    rowProps: (id: number): SortRowProps => ({
       "data-sort": kind,
       "data-sort-id": String(id),
       onPointerDown: (event: PointerEvent<HTMLElement>) => onPointerDown(event, id),

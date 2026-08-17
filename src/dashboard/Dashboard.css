@@ -2430,7 +2430,9 @@
   display: grid;
   min-height: 320px;
   flex: 1;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  /* One track per WORKING_STATUSES lane (backlog, up next, active). Completed
+     and cancelled live in .task-closed-rail, not here. */
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
   align-items: stretch;
   gap: 12px;
   overflow-x: auto;
@@ -2825,6 +2827,10 @@
 
 .task-card--dragging {
   opacity: 0.22;
+}
+
+.task-card--drop-target {
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
 }
 
 .task-drag-in-progress,

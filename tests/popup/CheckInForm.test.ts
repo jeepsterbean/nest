@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   firstScorablePulse,
-  holdPulseDue,
+  holdMetricDue,
   nextMetricIndex,
   PopupTopPanel,
 } from "../../src/popup/CheckInForm";
@@ -69,12 +69,12 @@ describe("firstScorablePulse", () => {
   });
 });
 
-describe("holdPulseDue", () => {
-  it("latches when the timer is due and only a Pulse save releases it", () => {
-    expect(holdPulseDue(false, false, false)).toBe(false);
-    expect(holdPulseDue(false, true, false)).toBe(true);
-    expect(holdPulseDue(true, false, false)).toBe(true);
-    expect(holdPulseDue(true, true, true)).toBe(false);
-    expect(holdPulseDue(true, false, true)).toBe(false);
+describe("holdMetricDue", () => {
+  it("latches when the timer is due and only a Metric check-in save releases it", () => {
+    expect(holdMetricDue(false, false, false)).toBe(false);
+    expect(holdMetricDue(false, true, false)).toBe(true);
+    expect(holdMetricDue(true, false, false)).toBe(true);
+    expect(holdMetricDue(true, true, true)).toBe(false);
+    expect(holdMetricDue(true, false, true)).toBe(false);
   });
 });

@@ -320,16 +320,6 @@
   outline: none;
 }
 
-.now-group--up-next .now-task {
-  opacity: 0.62;
-  transition: opacity 0.16s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.now-group--up-next .now-task:hover,
-.now-group--up-next .now-task:focus-within {
-  opacity: 1;
-}
-
 .now-list {
   display: flex;
   flex-direction: column;
@@ -341,10 +331,9 @@
 
 .now-task {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 9px;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-radius: 9px;
@@ -359,10 +348,6 @@
   background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface));
 }
 
-.now-task--up-next {
-  background: color-mix(in srgb, var(--surface) 56%, transparent);
-}
-
 .now-task__title,
 .now-task--composer input {
   font-family: inherit;
@@ -373,7 +358,47 @@
   line-height: 1.3;
 }
 
+.now-task[data-sort] {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.now-task.is-dragging {
+  opacity: 0.38;
+}
+
+.now-task.is-drop-target {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+}
+
+/* Empty lanes stay droppable: their placeholder is the lane's drop target. */
+.now-card__empty.is-drop-target {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+  color: var(--accent);
+}
+
+.list-sort-in-progress,
+.list-sort-in-progress * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.now-task__lead {
+  flex: none;
+}
+
+.now-task--composer input {
+  flex: 1;
+  min-width: 0;
+}
+
 .now-task__title {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
@@ -444,10 +469,6 @@
   min-width: 30px;
   padding: 0 6px;
   opacity: 1;
-}
-
-.now-task__activate svg {
-  transform: translateX(1px);
 }
 
 .now-task--composer {
@@ -524,7 +545,7 @@
   resize: none;
 }
 
-/* ---------- Pulse check-in ---------- */
+/* ---------- Metric check-in ---------- */
 
 .pulse-panel {
   position: relative;
@@ -859,10 +880,6 @@
   }
 
   .combined-timer__sweep {
-    transition: none;
-  }
-
-  .now-group--up-next .now-task {
     transition: none;
   }
 

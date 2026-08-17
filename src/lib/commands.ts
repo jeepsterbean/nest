@@ -70,6 +70,10 @@ export function removeMetricFromPulse(
   return invoke("remove_metric_from_pulse", { pulseId, metricId });
 }
 
+export function reorderTasks(ids: number[]): Promise<void> {
+  return invoke("reorder_tasks", { ids });
+}
+
 export function reorderPulses(ids: number[]): Promise<void> {
   return invoke("reorder_pulses", { ids });
 }

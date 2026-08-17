@@ -65,9 +65,9 @@ Phase they landed on; if that equals the Phase before the burst, they are
 omitted. Leading and trailing Resting, Offline, and Idle are trimmed from
 each day's strip. Journal defaults to Daily: today only, with arrows to move
 one calendar day at a time inside the last 30 days. Raw lists every recorded
-Pulse check-in, brain dump, and Phase checkpoint in the window, grouped by
+Metric check-in, brain dump, and Phase checkpoint in the window, grouped by
 day, with no 60-second collapse and no session strip. Time sits to the left
-of the timeline rail for every row. Pulse check-ins show the Pulse icon and
+of the timeline rail for every row. Metric check-ins show the Pulse icon and
 Metric scores on one row. Brain dumps match that row height until expanded.
 Pulse, Metric, and brain dump icons stand in for names. The Journal heading
 is omitted; Daily and Raw are the only chrome.
@@ -80,7 +80,12 @@ A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
 
 **Metric**:
-A 1–5 rating scored as part of a Pulse check-in.
+A 1–5 rating scored as part of a Metric check-in.
+
+**Metric check-in**:
+A recorded set of Metric ratings for one Pulse, saved when the last Metric
+in that Pulse is finished in the check-in popup.
+_Avoid_: Pulse check-in
 
 **Brain dump**:
 An unstructured captured thought, with an optional title, stored on its own.
@@ -95,6 +100,7 @@ _Avoid_: note, journal entry
 - Parent and Child relationships form a forest; Blocker and Dependent relationships form a DAG
 - A **Task** has **Worked time** that grows while it is **Working now**
 - A **Pulse** contains zero or more **Metrics** in a user-defined order
+- A **Metric check-in** records ratings for the Metrics in one Pulse
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
 - **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, and whether the Mac is locked or asleep
@@ -116,6 +122,7 @@ _Avoid_: note, journal entry
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
 - "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
+- "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 
 ## Check-in cadence
 
@@ -128,15 +135,15 @@ _Avoid_: note, journal entry
 - Completing an automatic popup starts the current interval if the timer is
   still paused. Dismissing it starts a five-minute interval if the timer is
   still paused.
-- When the timer runs out, the Pulse panel holds a gold due treatment until a
-  Pulse is saved. Restarting the clock or submitting a brain dump does not
-  clear it.
+- When the timer runs out, the Metric scoring panel holds a gold due treatment
+  until a Metric check-in is saved. Restarting the clock or submitting a brain
+  dump does not clear it.
 - The check-in popup is two columns. Left: remaining time on a clock face
   (click to pick an interval) and the Active / Up next task list, sized for
-  three rows with extra tasks scrolling. Right: brain dump above Pulse scoring.
-- The Pulse panel opens on the first Metric of the first visible Pulse.
+  three rows with extra tasks scrolling. Right: brain dump above Metric scoring.
+- The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
-  shown there; finishing the last Metric of a Pulse saves that Pulse and
+  shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
 - Opening the dashboard from the popup dismisses it.
 - Manually summoned popups keep the live countdown and do not reset it when

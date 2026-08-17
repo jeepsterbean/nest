@@ -248,7 +248,7 @@ describe("buildJournalDay", () => {
     expect(day.events).toEqual([]);
   });
 
-  it("keeps that day's Pulse check-ins and brain dumps", () => {
+  it("keeps that day's Metric check-ins and brain dumps", () => {
     const day = buildJournalDay(
       [metricCheckIn(1, at(16, 12), [{ metricId: 1, value: 3 }])],
       [dump(1, at(17, 9))],

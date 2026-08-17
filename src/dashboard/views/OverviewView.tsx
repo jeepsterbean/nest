@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   createTask,
+  reorderTasks,
   submitBrainDump,
 } from "../../lib/commands";
 import {
@@ -20,7 +21,12 @@ import {
   pencilIcon,
 } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { groupTasksByStatus, TASK_STATUS_LABEL } from "../lib/tasks";
+import { CARD_CONTROLS, useListSort } from "../hooks/useListSort";
+import {
+  groupTasksByStatus,
+  pinnedIdOrder,
+  TASK_STATUS_LABEL,
+} from "../lib/tasks";
 import { initialBrainDumpStart } from "../lib/brainDumps";
 import { TaskCard } from "../task/TaskCard";
 import { BrainDumpEntry } from "./BrainDumpEntry";
@@ -62,6 +68,33 @@ export function OverviewView() {
   }, [quickAddStatus]);
 
   const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
+  // One sort per lane, keyed by its own drag kind so a card can only be
+  // dropped among its own status — moving lanes stays the status pill's job.
+  const laneIds = (status: OverviewTaskStatus) =>
+    tasksByStatus[status].map((task) => task.id);
+  const onReorderLane = (ids: number[]) => {
+    void mutate(() => reorderTasks(pinnedIdOrder(ids, tasks)));
+  };
+  const laneSorts = {
+    active: useListSort(
+      "overview-active",
+      laneIds("active"),
+      onReorderLane,
+      CARD_CONTROLS,
+    ),
+    up_next: useListSort(
+      "overview-up-next",
+      laneIds("up_next"),
+      onReorderLane,
+      CARD_CONTROLS,
+    ),
+    backlog: useListSort(
+      "overview-backlog",
+      laneIds("backlog"),
+      onReorderLane,
+      CARD_CONTROLS,
+    ),
+  };
   const overviewBrainDumps = useMemo(
     () =>
       [...allBrainDumps]
@@ -245,18 +278,28 @@ export function OverviewView() {
     </button>
   );
 
-  const renderTaskList = (status: OverviewTaskStatus) =>
-    tasksByStatus[status].length === 0 ? (
+  const renderTaskList = (status: OverviewTaskStatus) => {
+    const sort = laneSorts[status];
+    return tasksByStatus[status].length === 0 ? (
       <div className="overview-task-group__empty">
         No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
       </div>
     ) : (
       <ol className="overview-task-list">
         {tasksByStatus[status].map((task) => (
-          <TaskCard key={task.id} task={task} focusLayout />
+          <TaskCard
+            key={task.id}
+            task={task}
+            focusLayout
+            draggable
+            dragging={sort.draggingId === task.id}
+            dropTarget={sort.overId === task.id}
+            rowProps={sort.rowProps(task.id)}
+          />
         ))}
       </ol>
     );
+  };
 
   const renderOverviewGroup = (status: OverviewTaskStatus) => {
     const collapsible = status === "backlog";

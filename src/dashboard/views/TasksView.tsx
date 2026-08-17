@@ -287,9 +287,12 @@ export function TasksView() {
     taskId: number,
   ) => {
     if (e.button !== 0 || !e.isPrimary) return;
+    // Cards drag from their body only. Starting a session on a control would
+    // capture the pointer and swallow the control's click on any hand tremor,
+    // silently dropping the task in another lane instead.
     if (
       (e.target as HTMLElement).closest(
-        "input, textarea, select, [contenteditable='true']",
+        "button, a, input, textarea, select, [contenteditable='true']",
       )
     ) {
       return;

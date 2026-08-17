@@ -3,6 +3,7 @@ import {
   CLOSED_STATUSES,
   clusterByScore,
   groupTasksByStatus,
+  pinnedIdOrder,
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
@@ -98,23 +99,44 @@ describe("groupTasksByStatus", () => {
     expect(grouped.up_next.map((t) => t.id)).toEqual([3]);
   });
 
-  it("sorts by updatedAt desc, then createdAt desc, then id desc", () => {
+  it("keeps the manual list order inside each bucket", () => {
     const grouped = groupTasksByStatus([
+      task(3, "active", 5, 200),
       task(1, "active", 10, 100),
-      task(2, "active", 20, 100), // same updatedAt as #1, higher createdAt -> first
-      task(3, "active", 5, 200), // highest updatedAt -> first overall
-      task(4, "active", 20, 100), // ties #2 on updatedAt+createdAt, lower id -> after #4? id desc
+      task(4, "backlog", 20, 100),
+      task(2, "active", 20, 100),
     ]);
-    expect(grouped.active.map((t) => t.id)).toEqual([3, 4, 2, 1]);
+    expect(grouped.active.map((t) => t.id)).toEqual([3, 1, 2]);
+    expect(grouped.backlog.map((t) => t.id)).toEqual([4]);
   });
 
-  it("puts working-now tasks first within active", () => {
+  it("pins working-now tasks above every idle one", () => {
     const grouped = groupTasksByStatus([
-      task(1, "active", 1, 200),
-      { ...task(2, "active", 1, 100), workingNow: true },
-      task(3, "backlog", 1, 300),
+      task(3, "active"),
+      { ...task(1, "active"), workingNow: true },
+      task(2, "active"),
+      { ...task(4, "active"), workingNow: true },
     ]);
-    expect(grouped.active.map((t) => t.id)).toEqual([2, 1]);
-    expect(grouped.backlog.map((t) => t.id)).toEqual([3]);
+    expect(grouped.active.map((t) => t.id)).toEqual([1, 4, 3, 2]);
+  });
+});
+
+describe("pinnedIdOrder", () => {
+  const tasks = [
+    { ...task(1, "active"), workingNow: true },
+    task(2, "active"),
+    task(3, "up_next"),
+  ];
+
+  it("hoists a working task back to the top of a drop that buried it", () => {
+    expect(pinnedIdOrder([2, 3, 1], tasks)).toEqual([1, 2, 3]);
+  });
+
+  it("keeps the dropped order among idle tasks", () => {
+    expect(pinnedIdOrder([3, 2, 1], tasks)).toEqual([1, 3, 2]);
+  });
+
+  it("drops lane placeholders and unknown ids", () => {
+    expect(pinnedIdOrder([-1, 2, -2, 99], tasks)).toEqual([2]);
   });
 });

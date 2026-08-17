@@ -3,6 +3,7 @@ import type {
   PointerEventHandler,
 } from "react";
 import type { Task } from "../../lib/types";
+import type { SortRowProps } from "../hooks/useListSort";
 import { StatusTrigger } from "./StatusTrigger";
 import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
@@ -19,8 +20,10 @@ export function TaskCard({
   focusLayout = false,
   draggable = false,
   dragging = false,
+  dropTarget = false,
   onPointerDown,
   onClickCapture,
+  rowProps,
 }: {
   task: Task;
   selected?: boolean;
@@ -32,8 +35,10 @@ export function TaskCard({
   focusLayout?: boolean;
   draggable?: boolean;
   dragging?: boolean;
+  dropTarget?: boolean;
   onPointerDown?: PointerEventHandler<HTMLLIElement>;
   onClickCapture?: MouseEventHandler<HTMLLIElement>;
+  rowProps?: SortRowProps;
 }) {
   return (
     <li
@@ -43,9 +48,10 @@ export function TaskCard({
         draggable ? " task-card--draggable" : ""
       }${
         dragging ? " task-card--dragging" : ""
-      }`}
+      }${dropTarget ? " task-card--drop-target" : ""}`}
       onPointerDown={onPointerDown}
       onClickCapture={onClickCapture}
+      {...rowProps}
     >
       <div
         className={`task-card__top${

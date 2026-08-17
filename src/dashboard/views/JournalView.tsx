@@ -197,7 +197,7 @@ function DayArticle({
       ) : showStrip && day.sessions.length > 0 ? null : (
         <div className="dash-empty dash-empty--quiet">
           <strong>Nothing this day</strong>
-          <span>Pulse check-ins and brain dumps will land here.</span>
+          <span>Metric check-ins and brain dumps will land here.</span>
         </div>
       )}
     </article>
@@ -301,7 +301,7 @@ export function JournalView() {
         <div className="dash-empty">
           <strong>Nothing here yet</strong>
           <span>
-            Press <kbd>⌘⇧E</kbd> anywhere to log your first check-in.
+            Press <kbd>⌘⇧E</kbd> anywhere to log your first Metric check-in.
           </span>
         </div>
       ) : (

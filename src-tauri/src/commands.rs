@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -114,67 +114,112 @@ pub(crate) fn resolve_due_check_in(
     Ok(true)
 }
 
+const TASK_COLUMNS: &str = "id, title, description, status, working_now, worked_seconds, \
+    work_started_at, scope, value, effort, parent_task_id, created_at, updated_at";
+const METRIC_COLUMNS: &str = "id, name, icon, created_at";
+const PHASE_CHECK_IN_COLUMNS: &str = "id, created_at, phase_id, phase_label";
+const BRAIN_DUMP_COLUMNS: &str = "id, created_at, title, text";
+
+fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
+    Ok(Task {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        description: row.get(2)?,
+        status: row.get(3)?,
+        working_now: row.get(4)?,
+        worked_seconds: row.get(5)?,
+        work_started_at: row.get(6)?,
+        scope: row.get(7)?,
+        value: row.get(8)?,
+        effort: row.get(9)?,
+        parent_task_id: row.get(10)?,
+        created_at: row.get(11)?,
+        updated_at: row.get(12)?,
+    })
+}
+
+fn map_metric(row: &Row<'_>) -> rusqlite::Result<Metric> {
+    Ok(Metric {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        icon: row.get(2)?,
+        created_at: row.get(3)?,
+    })
+}
+
+fn map_phase_check_in(row: &Row<'_>) -> rusqlite::Result<PhaseCheckIn> {
+    Ok(PhaseCheckIn {
+        id: row.get(0)?,
+        created_at: row.get(1)?,
+        phase_id: row.get(2)?,
+        phase_label: row.get(3)?,
+    })
+}
+
+fn map_brain_dump(row: &Row<'_>) -> rusqlite::Result<BrainDump> {
+    Ok(BrainDump {
+        id: row.get(0)?,
+        created_at: row.get(1)?,
+        title: row.get(2)?,
+        text: row.get(3)?,
+    })
+}
+
+/// Task mutations that can change Working now must sync Phase in the same
+/// transaction, then emit. Lock/sleep Offline is not this path: it also
+/// writes PhaseSignals.
+fn with_phase_tx<T>(
+    app: &AppHandle,
+    state: &State<'_, Mutex<Connection>>,
+    work: impl FnOnce(&Transaction<'_>) -> Result<T>,
+) -> Result<T> {
+    let (value, changed) =
+        phase::with_current_signals(app, |signals| -> Result<(T, Option<String>)> {
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            let value = work(&tx)?;
+            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            tx.commit()?;
+            Ok((value, changed))
+        })?;
+    phase::emit_phase_changed(app, changed);
+    Ok(value)
+}
+
 fn fetch_latest_phase_check_in(
     conn: &Connection,
     include_idle: bool,
 ) -> Result<Option<PhaseCheckIn>> {
     let query = if include_idle {
-        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
-         ORDER BY created_at DESC, id DESC LIMIT 1"
+        format!(
+            "SELECT {PHASE_CHECK_IN_COLUMNS} FROM phase_check_ins \
+             ORDER BY created_at DESC, id DESC LIMIT 1"
+        )
     } else {
-        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
-         WHERE phase_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1"
+        format!(
+            "SELECT {PHASE_CHECK_IN_COLUMNS} FROM phase_check_ins \
+             WHERE phase_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1"
+        )
     };
-    conn.query_row(query, [], |row| {
-        Ok(PhaseCheckIn {
-            id: row.get(0)?,
-            created_at: row.get(1)?,
-            phase_id: row.get(2)?,
-            phase_label: row.get(3)?,
-        })
-    })
-    .optional()
-    .map_err(Into::into)
+    conn.query_row(&query, [], map_phase_check_in)
+        .optional()
+        .map_err(Into::into)
 }
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
-         FROM tasks WHERE id = ?1",
+        &format!("SELECT {TASK_COLUMNS} FROM tasks WHERE id = ?1"),
         params![id],
-        |row| {
-            Ok(Task {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                description: row.get(2)?,
-                status: row.get(3)?,
-                working_now: row.get(4)?,
-                worked_seconds: row.get(5)?,
-                work_started_at: row.get(6)?,
-                scope: row.get(7)?,
-                value: row.get(8)?,
-                effort: row.get(9)?,
-                parent_task_id: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
-        },
+        map_task,
     )
     .map_err(Into::into)
 }
 
 fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
     conn.query_row(
-        "SELECT id, name, icon, created_at FROM metrics WHERE id = ?1",
+        &format!("SELECT {METRIC_COLUMNS} FROM metrics WHERE id = ?1"),
         params![id],
-        |row| {
-            Ok(Metric {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                icon: row.get(2)?,
-                created_at: row.get(3)?,
-            })
-        },
+        map_metric,
     )
     .map_err(Into::into)
 }
@@ -215,28 +260,11 @@ fn fetch_pulse(conn: &Connection, id: i64) -> Result<Pulse> {
 #[tauri::command]
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, working_now, worked_seconds, work_started_at, scope, value, effort, parent_task_id, created_at, updated_at \
-         FROM tasks ORDER BY updated_at DESC, created_at DESC, id DESC",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {TASK_COLUMNS} FROM tasks ORDER BY sort_order ASC, id ASC"
+    ))?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(Task {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                description: row.get(2)?,
-                status: row.get(3)?,
-                working_now: row.get(4)?,
-                worked_seconds: row.get(5)?,
-                work_started_at: row.get(6)?,
-                scope: row.get(7)?,
-                value: row.get(8)?,
-                effort: row.get(9)?,
-                parent_task_id: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
-        })?
+        .query_map([], map_task)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -305,8 +333,9 @@ pub fn create_task(
     }
     tx.execute(
         "INSERT INTO tasks \
-         (title, description, status, scope, parent_task_id, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+         (title, description, status, scope, parent_task_id, created_at, updated_at, sort_order) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, \
+           COALESCE((SELECT MIN(sort_order) FROM tasks), 0) - 1)",
         params![title, description, status, scope, parent_task_id, now, now],
     )?;
     let id = tx.last_insert_rowid();
@@ -405,16 +434,7 @@ pub fn remove_task_dependency(
 
 #[tauri::command]
 pub fn delete_task(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
-    let changed = phase::with_current_signals(&app, |signals| -> Result<Option<String>> {
-        let mut conn = state.lock().unwrap();
-        let tx = conn.transaction()?;
-        TaskGraph::delete_task_in(&tx, id)?;
-        let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
-        tx.commit()?;
-        Ok(changed)
-    })?;
-    phase::emit_phase_changed(&app, changed);
-    Ok(())
+    with_phase_tx(&app, &state, |tx| TaskGraph::delete_task_in(tx, id))
 }
 
 #[tauri::command]
@@ -425,17 +445,10 @@ pub fn set_task_status(
     status: String,
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
-    let (task, changed) =
-        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
-            let mut conn = state.lock().unwrap();
-            let tx = conn.transaction()?;
-            change_task_status(&tx, id, status)?;
-            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
-            tx.commit()?;
-            Ok((fetch_task(&conn, id)?, changed))
-        })?;
-    phase::emit_phase_changed(&app, changed);
-    Ok(task)
+    with_phase_tx(&app, &state, |tx| {
+        change_task_status(tx, id, status)?;
+        fetch_task(tx, id)
+    })
 }
 
 fn change_task_status(conn: &Connection, id: i64, status: &str) -> Result<()> {
@@ -477,17 +490,7 @@ pub fn set_task_working(
     id: i64,
     working: bool,
 ) -> Result<Task> {
-    let (task, changed) =
-        phase::with_current_signals(&app, |signals| -> Result<(Task, Option<String>)> {
-            let mut conn = state.lock().unwrap();
-            let tx = conn.transaction()?;
-            change_task_working(&tx, id, working)?;
-            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
-            tx.commit()?;
-            Ok((fetch_task(&conn, id)?, changed))
-        })?;
-    phase::emit_phase_changed(&app, changed);
-    Ok(task)
+    with_phase_tx(&app, &state, |tx| change_task_working(tx, id, working))
 }
 
 fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
@@ -606,20 +609,50 @@ pub fn set_task_score(
     fetch_task(&conn, id)
 }
 
+/// Reorders one lane of the board: the listed tasks take over the sort_order
+/// slots they already occupy, in the new order, leaving every other task put.
+fn set_task_order(conn: &Connection, ids: &[i64]) -> Result<()> {
+    let unique: std::collections::HashSet<_> = ids.iter().copied().collect();
+    if unique.len() != ids.len() {
+        return Err(AppError::InvalidInput(
+            "task order must list each task once".into(),
+        ));
+    }
+    let mut slots = Vec::with_capacity(ids.len());
+    for id in ids {
+        slots.push(
+            conn.query_row(
+                "SELECT sort_order FROM tasks WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|_| AppError::NotFound(format!("task {id}")))?,
+        );
+    }
+    slots.sort_unstable();
+    for (id, slot) in ids.iter().zip(slots) {
+        conn.execute(
+            "UPDATE tasks SET sort_order = ?1 WHERE id = ?2",
+            params![slot, id],
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_tasks(state: State<'_, Mutex<Connection>>, ids: Vec<i64>) -> Result<()> {
+    let conn = state.lock().unwrap();
+    set_task_order(&conn, &ids)
+}
+
 #[tauri::command]
 pub fn list_metrics(state: State<'_, Mutex<Connection>>) -> Result<Vec<Metric>> {
     let conn = state.lock().unwrap();
-    let mut stmt =
-        conn.prepare("SELECT id, name, icon, created_at FROM metrics ORDER BY created_at ASC")?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {METRIC_COLUMNS} FROM metrics ORDER BY created_at ASC"
+    ))?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(Metric {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                icon: row.get(2)?,
-                created_at: row.get(3)?,
-            })
-        })?
+        .query_map([], map_metric)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -1027,19 +1060,12 @@ pub fn list_phase_check_ins(
     to: i64,
 ) -> Result<Vec<PhaseCheckIn>> {
     let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at, phase_id, phase_label FROM phase_check_ins \
-         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PHASE_CHECK_IN_COLUMNS} FROM phase_check_ins \
+         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC"
+    ))?;
     let rows = stmt
-        .query_map(params![from, to], |row| {
-            Ok(PhaseCheckIn {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                phase_id: row.get(2)?,
-                phase_label: row.get(3)?,
-            })
-        })?
+        .query_map(params![from, to], map_phase_check_in)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -1126,16 +1152,9 @@ pub fn update_brain_dump_title(
         return Err(AppError::NotFound(format!("brain dump {id}")));
     }
     conn.query_row(
-        "SELECT id, created_at, title, text FROM brain_dumps WHERE id = ?1",
+        &format!("SELECT {BRAIN_DUMP_COLUMNS} FROM brain_dumps WHERE id = ?1"),
         params![id],
-        |row| {
-            Ok(BrainDump {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                title: row.get(2)?,
-                text: row.get(3)?,
-            })
-        },
+        map_brain_dump,
     )
     .map_err(Into::into)
 }
@@ -1147,19 +1166,12 @@ pub fn list_brain_dumps(
     to: i64,
 ) -> Result<Vec<BrainDump>> {
     let conn = state.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at, title, text FROM brain_dumps \
-         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {BRAIN_DUMP_COLUMNS} FROM brain_dumps \
+         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC"
+    ))?;
     let rows = stmt
-        .query_map(params![from, to], |row| {
-            Ok(BrainDump {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                title: row.get(2)?,
-                text: row.get(3)?,
-            })
-        })?
+        .query_map(params![from, to], map_brain_dump)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -1366,5 +1378,33 @@ mod tests {
         );
         assert!(super::set_pulse_order(&conn, &[1]).is_err());
         assert!(super::set_pulse_metric_order(&conn, 1, &[10]).is_err());
+    }
+
+    #[test]
+    fn reordering_one_lane_leaves_the_other_lanes_put() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at, sort_order) VALUES \
+             (1, 'A', 'active', 1, 1, 0), \
+             (2, 'B', 'up_next', 1, 1, 1), \
+             (3, 'C', 'active', 1, 1, 2), \
+             (4, 'D', 'active', 1, 1, 3);",
+        )
+        .unwrap();
+
+        // Active lane holds slots 0, 2, 3 — reversing it reuses those slots.
+        super::set_task_order(&conn, &[4, 3, 1]).unwrap();
+        let order: Vec<i64> = conn
+            .prepare("SELECT id FROM tasks ORDER BY sort_order ASC, id ASC")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(order, vec![4, 2, 3, 1]);
+
+        assert!(super::set_task_order(&conn, &[1, 1]).is_err());
+        assert!(super::set_task_order(&conn, &[99]).is_err());
     }
 }

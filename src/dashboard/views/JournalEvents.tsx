@@ -34,7 +34,7 @@ function EventIcon({ name, label }: { name: string; label: string }) {
   );
 }
 
-function PulseCheckInRow({
+function MetricCheckInRow({
   event,
   metrics,
   pulses,
@@ -49,7 +49,7 @@ function PulseCheckInRow({
     event.checkIn.pulseId === null
       ? undefined
       : pulses.find((item) => item.id === event.checkIn.pulseId);
-  const pulseLabel = pulse?.name ?? event.checkIn.pulseName ?? "Pulse check-in";
+  const pulseLabel = pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
 
   return (
     <JournalRow kind="metrics" at={event.at}>
@@ -79,8 +79,8 @@ function PulseCheckInRow({
         type="button"
         className="event__delete"
         onClick={() => onDelete(event.checkIn.id)}
-        aria-label="Delete check-in"
-        title="Delete check-in"
+        aria-label="Delete metric check-in"
+        title="Delete metric check-in"
       >
         ×
       </button>
@@ -155,7 +155,7 @@ export function JournalEvents({
         switch (event.kind) {
           case "metrics":
             return (
-              <PulseCheckInRow
+              <MetricCheckInRow
                 key={`metrics-${event.checkIn.id}`}
                 event={event}
                 metrics={metrics}

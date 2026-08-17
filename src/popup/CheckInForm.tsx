@@ -7,6 +7,7 @@ import {
   listMetrics,
   listPulses,
   listTasks,
+  reorderTasks,
   scheduleNextCheckIn,
   setTaskStatus,
   setTaskWorking,
@@ -25,18 +26,25 @@ import {
   checkInRemainingSeconds,
   formatCheckInCountdown,
 } from "../dashboard/lib/time";
-import { groupTasksByStatus } from "../dashboard/lib/tasks";
+import { groupTasksByStatus, pinnedIdOrder } from "../dashboard/lib/tasks";
+import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
 import {
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
   useBrainDumpDraft,
 } from "../lib/brainDumpDraft";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
+import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import "./CheckInForm.css";
 
 const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
+
+// Drop targets for a lane with no tasks in it. Negative so they can never
+// collide with a task id.
+const EMPTY_ACTIVE_ROW = -1;
+const EMPTY_UP_NEXT_ROW = -2;
 
 type LoadState = {
   metrics: Metric[];
@@ -48,7 +56,7 @@ type LoadState = {
 function PlayIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <path d="m7 5 7.5 5L7 15Z" />
+      <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -196,16 +204,29 @@ export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
 }
 
 /**
- * Sticky Pulse-due latch: turns on when the timer is due, stays on through a
- * restarted clock, and clears only after a Pulse check-in is saved.
+ * Sticky Metric-due latch: turns on when the timer is due, stays on through a
+ * restarted clock, and clears only after a Metric check-in is saved.
+ * Persisted so popup remounts (every summon) do not drop the glow.
  */
-export function holdPulseDue(
+export function holdMetricDue(
   held: boolean,
   timerDue: boolean,
-  pulseSaved: boolean,
+  metricCheckInSaved: boolean,
 ): boolean {
-  if (pulseSaved) return false;
+  if (metricCheckInSaved) return false;
   return held || timerDue;
+}
+
+function setHeldMetricDue(
+  setMetricDue: (update: (held: boolean) => boolean) => void,
+  timerDue: boolean,
+  metricCheckInSaved: boolean,
+) {
+  setMetricDue((held) => {
+    const next = holdMetricDue(held, timerDue, metricCheckInSaved);
+    writeMetricDueHeld(next);
+    return next;
+  });
 }
 
 function CheckInForm({
@@ -231,7 +252,7 @@ function CheckInForm({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const [pulseDue, setPulseDue] = useState(false);
+  const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const isLoaded = loaded !== null;
@@ -252,9 +273,29 @@ function CheckInForm({
     loaded !== null &&
     (loaded.schedule.waitingForResponse ||
       checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) === 0);
+  const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
+  const activeTasks = tasksByStatus.active;
+  const upNextTasks = tasksByStatus.up_next;
+  // One drag list spanning both lanes: dropping on a row of the other lane is
+  // what moves a task between Active and Up next. An empty lane still offers
+  // its placeholder as a drop target.
+  const boardRowIds = [
+    ...(activeTasks.length
+      ? activeTasks.map((task) => task.id)
+      : [EMPTY_ACTIVE_ROW]),
+    ...(upNextTasks.length
+      ? upNextTasks.map((task) => task.id)
+      : [EMPTY_UP_NEXT_ROW]),
+  ];
+  const boardSort = useListSort(
+    "popup-task",
+    boardRowIds,
+    (ids, draggedId, targetId) => void dropTask(ids, draggedId, targetId),
+    CARD_CONTROLS,
+  );
 
   useEffect(() => {
-    setPulseDue((held) => holdPulseDue(held, timerDue, false));
+    setHeldMetricDue(setMetricDue, timerDue, false);
   }, [timerDue]);
 
   useEffect(() => {
@@ -339,7 +380,7 @@ function CheckInForm({
 
   const updateTaskStatus = async (
     task: Task,
-    status: "active" | "completed",
+    status: "active" | "up_next" | "completed",
   ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
@@ -370,6 +411,75 @@ function CheckInForm({
           candidate.id === task.id ? updated : candidate,
         ),
       });
+      await emit("check-in-submitted");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** Up next's play button is one move: into Active, already working. */
+  const startUpNextTask = async (task: Task) => {
+    if (!loaded || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await setTaskStatus(task.id, "active");
+      const updated = await setTaskWorking(task.id, true);
+      setLoaded((current) =>
+        current
+          ? {
+              ...current,
+              tasks: current.tasks.map((candidate) =>
+                candidate.id === task.id ? updated : candidate,
+              ),
+            }
+          : current,
+      );
+      await emit("check-in-submitted");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const dropTask = async (
+    ids: number[],
+    draggedId: number,
+    targetId: number,
+  ) => {
+    if (!loaded || submitting) return;
+    const dragged = loaded.tasks.find((task) => task.id === draggedId);
+    if (!dragged) return;
+    const targetStatus =
+      targetId === EMPTY_ACTIVE_ROW
+        ? "active"
+        : targetId === EMPTY_UP_NEXT_ROW
+          ? "up_next"
+          : (loaded.tasks.find((task) => task.id === targetId)?.status ??
+            dragged.status);
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Pin against the moved task, never the pre-drop snapshot: leaving
+      // Active clears working now, and a stale pin would hoist the task to
+      // the top of the order it just left.
+      const moved =
+        targetStatus === dragged.status
+          ? null
+          : await setTaskStatus(draggedId, targetStatus);
+      await reorderTasks(
+        pinnedIdOrder(
+          ids,
+          moved
+            ? loaded.tasks.map((task) => (task.id === moved.id ? moved : task))
+            : loaded.tasks,
+        ),
+      );
+      const tasks = await listTasks();
+      setLoaded((current) => (current ? { ...current, tasks } : current));
       await emit("check-in-submitted");
     } catch (e) {
       setError(String(e));
@@ -438,7 +548,7 @@ function CheckInForm({
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
     setRatings({});
-    setPulseDue((held) => holdPulseDue(held, timerDue, true));
+    setHeldMetricDue(setMetricDue, timerDue, true);
     await emit("check-in-submitted");
   };
 
@@ -513,10 +623,53 @@ function CheckInForm({
     );
   }
 
-  const tasksByStatus = groupTasksByStatus(loaded.tasks);
-  const activeTasks = tasksByStatus.active;
-  const upNextTasks = tasksByStatus.up_next;
   const workingCount = loaded.tasks.filter((task) => task.workingNow).length;
+  // Both lanes render the same row: lead play control, title, complete. Only
+  // the lead's job differs — pause a running task, or start an Up next one.
+  const renderTaskRow = (task: Task) => (
+    <li
+      className={`now-task${task.workingNow ? " now-task--working" : ""}${
+        boardSort.draggingId === task.id ? " is-dragging" : ""
+      }${boardSort.overId === task.id ? " is-drop-target" : ""}`}
+      key={task.id}
+      {...boardSort.rowProps(task.id)}
+    >
+      <div className="now-task__actions now-task__lead">
+        {task.status === "active" ? (
+          <WorkingToggle
+            task={task}
+            playPause
+            nowMs={nowMs}
+            disabled={submitting}
+            onToggle={(working) => updateTaskWorking(task, working)}
+          />
+        ) : (
+          <button
+            type="button"
+            className="working-toggle working-toggle--play-pause"
+            aria-label={`Start working on ${task.title}`}
+            title="Move to Active and start working"
+            disabled={submitting}
+            onClick={() => void startUpNextTask(task)}
+          >
+            <PlayIcon />
+          </button>
+        )}
+      </div>
+      <span className="now-task__title">{task.title}</span>
+      <div className="now-task__actions">
+        <button
+          type="button"
+          aria-label={`Complete ${task.title}`}
+          title="Complete"
+          onClick={() => updateTaskStatus(task, "completed")}
+          disabled={submitting}
+        >
+          <CheckIcon />
+        </button>
+      </div>
+    </li>
+  );
   const taskView = (
     <section className="now-card" aria-label="Tasks">
       <div className="now-card__tasks">
@@ -585,70 +738,39 @@ function CheckInForm({
             </div>
           )}
           {activeTasks.length === 0 ? (
-            <p className="now-card__empty">Nothing active right now.</p>
+            <p
+              className={`now-card__empty${
+                boardSort.overId === EMPTY_ACTIVE_ROW ? " is-drop-target" : ""
+              }`}
+              {...boardSort.rowProps(EMPTY_ACTIVE_ROW)}
+            >
+              Nothing active right now.
+            </p>
           ) : (
-            <ul className="now-list">
-              {activeTasks.map((task) => (
-                <li
-                  className={`now-task${
-                    task.workingNow ? " now-task--working" : ""
-                  }`}
-                  key={task.id}
-                >
-                  <span className="now-task__title">{task.title}</span>
-                  <div className="now-task__actions">
-                    <WorkingToggle
-                      task={task}
-                      playPause
-                      nowMs={nowMs}
-                      disabled={submitting}
-                      onToggle={(working) => updateTaskWorking(task, working)}
-                    />
-                    <button
-                      type="button"
-                      aria-label={`Complete ${task.title}`}
-                      title="Complete"
-                      onClick={() => updateTaskStatus(task, "completed")}
-                      disabled={submitting}
-                    >
-                      <CheckIcon />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <ul className="now-list">{activeTasks.map(renderTaskRow)}</ul>
           )}
         </section>
-        {upNextTasks.length > 0 && (
-          <section
-            className="now-group now-group--up-next"
-            aria-labelledby="popup-up-next-tasks"
-          >
-            <header className="now-group__head">
-              <h2 id="popup-up-next-tasks">Up next</h2>
-              <span>{upNextTasks.length}</span>
-            </header>
-            <ul className="now-list">
-              {upNextTasks.map((task) => (
-                <li className="now-task now-task--up-next" key={task.id}>
-                  <span className="now-task__title">{task.title}</span>
-                  <div className="now-task__actions">
-                    <button
-                      type="button"
-                      className="now-task__activate"
-                      aria-label={`Activate ${task.title}`}
-                      title="Move to Active"
-                      onClick={() => updateTaskStatus(task, "active")}
-                      disabled={submitting}
-                    >
-                      <PlayIcon />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <section
+          className="now-group now-group--up-next"
+          aria-labelledby="popup-up-next-tasks"
+        >
+          <header className="now-group__head">
+            <h2 id="popup-up-next-tasks">Up next</h2>
+            <span>{upNextTasks.length}</span>
+          </header>
+          {upNextTasks.length === 0 ? (
+            <p
+              className={`now-card__empty${
+                boardSort.overId === EMPTY_UP_NEXT_ROW ? " is-drop-target" : ""
+              }`}
+              {...boardSort.rowProps(EMPTY_UP_NEXT_ROW)}
+            >
+              Nothing queued up next.
+            </p>
+          ) : (
+            <ul className="now-list">{upNextTasks.map(renderTaskRow)}</ul>
+          )}
+        </section>
       </div>
     </section>
   );
@@ -734,8 +856,8 @@ function CheckInForm({
         </section>
 
         <section
-          className={`pulse-panel${pulseDue ? " pulse-panel--due" : ""}`}
-          aria-label={pulseDue ? "Pulse check-in due" : "Pulse check-in"}
+          className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
+          aria-label={metricDue ? "Metric check-in due" : "Metric check-in"}
           onKeyDown={(event) => {
             if (event.key >= "1" && event.key <= "5") {
               event.preventDefault();

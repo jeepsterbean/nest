@@ -953,6 +953,7 @@ pub fn run() {
             commands::set_task_status,
             commands::set_task_working,
             commands::set_task_score,
+            commands::reorder_tasks,
             commands::create_metric,
             commands::rename_metric,
             commands::set_metric_icon,

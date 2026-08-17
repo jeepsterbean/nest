@@ -40,10 +40,11 @@ preserves calm, private, flow-friendly behavior.
 
 - Prefer clear, typed interfaces and domain vocabulary from `CONTEXT.md`.
   Use Task, Parent, Child, Blocker, Dependent, Ready, Blocked, Scope,
-  Working now, Worked time, Phase, Pulse, Metric, and Brain dump as defined
-  there. Do not invent synonyms (todo, subitem, dependency-as-jargon for
-  either side of a Blocker edge, stopwatch for Worked time) in user-facing
-  copy or new domain types.
+  Working now, Worked time, Phase, Pulse, Metric, Metric check-in, and Brain
+  dump as defined there. Do not invent synonyms (todo, subitem,
+  dependency-as-jargon for either side of a Blocker edge, stopwatch for Worked
+  time, Pulse check-in for Metric check-in) in user-facing copy or new domain
+  types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
   `completed`, `cancelled`) from derived readiness (`Ready` /
   `Blocked`). Ready/Blocked come from unresolved Blockers; they are not
@@ -88,6 +89,10 @@ preserves calm, private, flow-friendly behavior.
   types, command helpers, and tests in the same change.
 - Prefer `cargo test` coverage next to the Rust modules that own the behavior
   (`task_graph`, migrations, commands).
+- Task commands that can change Working now (`delete_task`, `set_task_status`,
+  `set_task_working`) go through `with_phase_tx` so Phase sync and emit stay in
+  the same transaction. Lock/sleep Offline is a separate path because it also
+  writes PhaseSignals.
 
 ## Frontend structure
 
