@@ -69,6 +69,7 @@ export const formatHourTick = (ts: number) =>
 
 /** Whole minutes and hours for journal summaries. Sub-minute spans stay "<1m". */
 export const formatCompactDuration = (seconds: number) => {
+  if (seconds <= 0) return "0m";
   if (seconds < 60) return "<1m";
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);

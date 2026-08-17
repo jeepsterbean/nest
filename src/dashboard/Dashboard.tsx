@@ -8,11 +8,11 @@ import {
   DashboardSidebar,
   type DashboardView,
 } from "./components/DashboardHeader";
-import { BrainDumpModal } from "./components/BrainDumpModal";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
+import { InsightsView } from "./views/InsightsView";
 import { JournalView } from "./views/JournalView";
 import { TasksView } from "./views/TasksView";
 import { MetricsView } from "./views/MetricsView";
@@ -21,7 +21,6 @@ import "./Dashboard.css";
 
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
-  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -48,23 +47,14 @@ function DashboardInner() {
 
   return (
     <main className="dashboard">
-      <DashboardSidebar
-        view={view}
-        onSelectView={setView}
-        brainDumpOpen={brainDumpOpen}
-        onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
-      />
+      <DashboardSidebar view={view} onSelectView={setView} />
       <div className={`dashboard__inner dashboard__inner--${view}`}>
         <DashboardHeader />
-
-        <BrainDumpModal
-          open={brainDumpOpen}
-          onClose={() => setBrainDumpOpen(false)}
-        />
 
         <ErrorBanner />
 
         {view === "overview" && <OverviewView />}
+        {view === "insights" && <InsightsView />}
         {view === "journal" && <JournalView />}
         {view === "tasks" && <TasksView />}
         {view === "metrics" && <MetricsView />}

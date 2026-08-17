@@ -58,19 +58,25 @@ display-asleep, or system-asleep; else Scoping if Nest is engaged
 (dashboard has attention or check-in popup up) or Notion desktop is frontmost;
 else Resting. Lock/sleep clears Working now (Worked time is banked; status
 stays Active) and writes Offline even from Resting. Clicking another display
-leaves dashboard attention even if the Nest window is still key. The Journal
-shows Phase as a day strip of settled sessions, not a checkpoint list.
-Checkpoints that change more than once within 60 seconds collapse to the
-Phase they landed on; if that equals the Phase before the burst, they are
-omitted. Leading and trailing Resting, Offline, and Idle are trimmed from
-each day's strip. Journal defaults to Daily: today only, with arrows to move
-one calendar day at a time inside the last 30 days. Raw lists every recorded
-Metric check-in, brain dump, and Phase checkpoint in the window, grouped by
-day, with no 60-second collapse and no session strip. Time sits to the left
-of the timeline rail for every row. Metric check-ins show the Pulse icon and
-Metric scores on one row. Brain dumps match that row height until expanded.
-Pulse, Metric, and brain dump icons stand in for names. The Journal heading
-is omitted; Daily and Raw are the only chrome.
+leaves dashboard attention even if the Nest window is still key. Overview
+shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
+Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
+(Idle time is counted as Offline). A quiet hour still shows those figures as
+0, not as missing. The right Overview panel is a brain dump composer that
+matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
+history lives in Journal. Insights is the longer look: the same stats and Phase
+totals plus a settled Phase strip, with range filters of
+1 hour, 24 hours, 7 days, and 30 days. The last chosen range is remembered;
+first visit is 24 hours. Journal is history only: Raw (every Metric check-in,
+brain dump, and Phase checkpoint), Brain dumps, Phases, and Metrics. Phases
+has Raw and Aggregated modes — Aggregated applies the 60-second settle
+collapse (a burst lands on the Phase it settled on; if that equals the Phase
+before the burst, it is omitted). Journal does not show the day strip or
+outcome stats. Events are grouped by day. Time sits to the left of the
+timeline rail for every row. Metric check-ins show the Pulse icon and Metric
+scores on one row. Brain dumps match that row height until expanded. Pulse,
+Metric, and brain dump icons stand in for names. The Journal heading is
+omitted; the view filters are the only chrome.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:

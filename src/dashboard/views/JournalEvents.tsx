@@ -102,7 +102,6 @@ function BrainDumpRow({
       <EventIcon name="notes" label="Brain dump" />
       <BrainDumpEntry
         dump={event.dump}
-        className="event-dump"
         expanded={expanded}
         onToggle={onToggle}
         showTime={false}

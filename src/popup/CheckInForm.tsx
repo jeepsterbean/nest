@@ -548,9 +548,9 @@ function CheckInForm({
   };
 
   const saveBrainDump = async () => {
-    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
+    const { text } = trimBrainDumpDraft(brainDumpDraft);
     if (!text) return;
-    await submitBrainDump(text, title);
+    await submitBrainDump(text, null);
     setBrainDumpDraft({ title: "", text: "" });
     await emit("check-in-submitted");
   };

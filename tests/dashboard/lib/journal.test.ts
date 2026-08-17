@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { completionTotals } from "../../../src/dashboard/lib/journal";
-import type { Task, TaskStatusEvent } from "../../../src/lib/types";
+import {
+  completionTotals,
+  filledPhaseTotals,
+  foldIdleIntoOffline,
+} from "../../../src/dashboard/lib/journal";
+import type { Phase, Task, TaskStatusEvent } from "../../../src/lib/types";
 
 const task = (id: number, status: Task["status"]): Task => ({
   id,
@@ -81,5 +85,46 @@ describe("completionTotals", () => {
       valueScored: 1,
       effortScored: 1,
     });
+  });
+});
+
+describe("foldIdleIntoOffline", () => {
+  const phases: Phase[] = [
+    { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
+    { id: 4, name: "Offline", createdAt: 0, inactiveSince: null },
+  ];
+
+  it("adds Idle seconds to Offline", () => {
+    expect(
+      foldIdleIntoOffline(
+        [
+          { phaseId: 1, seconds: 10 },
+          { phaseId: 4, seconds: 5 },
+          { phaseId: null, seconds: 7 },
+        ],
+        phases,
+      ),
+    ).toEqual([
+      { phaseId: 1, seconds: 10 },
+      { phaseId: 4, seconds: 12 },
+    ]);
+  });
+});
+
+describe("filledPhaseTotals", () => {
+  const phases: Phase[] = [
+    { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
+    { id: 2, name: "Scoping", createdAt: 0, inactiveSince: null },
+    { id: 3, name: "Resting", createdAt: 0, inactiveSince: null },
+    { id: 4, name: "Offline", createdAt: 0, inactiveSince: null },
+  ];
+
+  it("keeps missing live Phases as zero", () => {
+    expect(filledPhaseTotals([{ phaseId: 1, seconds: 40 }], phases)).toEqual([
+      { phaseId: 1, seconds: 40 },
+      { phaseId: 2, seconds: 0 },
+      { phaseId: 3, seconds: 0 },
+      { phaseId: 4, seconds: 0 },
+    ]);
   });
 });

@@ -43,13 +43,17 @@ private, journal-like. Preserve light and dark system themes.
 - Interactive controls need accessible names and visible focus states.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
-- Journal Daily layout: `[Daily|Raw] ← day →` on the left of `.day-group__head`,
-  phase totals on the right. Keep the switch compact under
-  `.dash-section--journal .view-toggle`. Raw keeps a left-aligned
-  `.journal-toolbar` (no shared phase row).
-- Daily outcome stats (Completed / Value / Effort / Check-ins) are a quiet
-  inline meta row (`.day-stats`), not a four-column KPI strip — value then
-  muted label, no hairline chrome.
+- Journal is a filtered history log: Raw / Brain dumps / Phases / Metrics.
+  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). Keep switches
+  compact under `.dash-section--journal .view-toggle`. No day strip or outcome
+  stats in Journal.
+- Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
+  duration totals only — no strip. Always show Completed / Value / Effort /
+  Check-ins and Doing / Scoping / Resting / Offline for the selected window,
+  using 0 when nothing happened. Insights owns the strip and range filters
+  (1h / 24h / 7d / 30d) under `.dash-section--insights`. Remember the last
+  range (`nest:insights-range`); 24h only when nothing is stored. Stats stay a quiet
+  inline meta row (`.day-stats`). Compact range toggle matches Journal.
 - A draggable surface drags from its own body. Never start a drag from a
   control nested inside it — pointer capture eats the control's click, so the
   press lands as a move instead of the action the user aimed at.

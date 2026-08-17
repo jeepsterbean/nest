@@ -5,18 +5,13 @@ import { pencilIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { formatDateTime } from "../lib/time";
 
-// A collapsible brain-dump card. `className` is the literal CSS prefix used to
-// build every child class, so it must stay one of the known variants. Shared by
-// the Overview (overview-dump) and Journal (event-dump) views.
 export function BrainDumpEntry({
   dump,
-  className,
   expanded,
   onToggle,
   showTime = true,
 }: {
   dump: BrainDump;
-  className: "overview-dump" | "event-dump";
   expanded: boolean;
   onToggle: () => void;
   showTime?: boolean;
@@ -49,10 +44,10 @@ export function BrainDumpEntry({
   };
 
   return (
-    <div className={className}>
-      <div className={`${className}__head`}>
+    <div className="event-dump">
+      <div className="event-dump__head">
         {editingTitle ? (
-          <div className={`${className}__title-editor`}>
+          <div className="event-dump__title-editor">
             <input
               ref={titleInputRef}
               type="text"
@@ -75,16 +70,16 @@ export function BrainDumpEntry({
         ) : (
           <button
             type="button"
-            className={`${className}__toggle`}
+            className="event-dump__toggle"
             aria-expanded={expanded}
             onClick={onToggle}
           >
-            <span className={`${className}__chevron`} aria-hidden="true">
+            <span className="event-dump__chevron" aria-hidden="true">
               {expanded ? "▾" : "▸"}
             </span>
-            <span className={`${className}__title`}>{title}</span>
+            <span className="event-dump__title">{title}</span>
             {showTime && named ? (
-              <time className={`${className}__time`}>
+              <time className="event-dump__time">
                 {formatDateTime(dump.createdAt)}
               </time>
             ) : null}
@@ -92,7 +87,7 @@ export function BrainDumpEntry({
         )}
         <button
           type="button"
-          className={`${className}__edit-title`}
+          className="event-dump__edit-title"
           onClick={() => setEditingTitle(true)}
           aria-label={
             dump.title?.trim()
@@ -104,7 +99,7 @@ export function BrainDumpEntry({
           {pencilIcon}
         </button>
       </div>
-      {expanded && <p className={`${className}__text`}>{dump.text}</p>}
+      {expanded && <p className="event-dump__text">{dump.text}</p>}
     </div>
   );
 }

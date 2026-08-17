@@ -6,7 +6,7 @@ import type {
 } from "../../lib/types";
 import type { PhaseTotal } from "./timeline";
 
-export const PHASE_ORDER = ["Doing", "Scoping", "Resting", "Offline", "Idle"];
+export const LIVE_PHASE_NAMES = ["Doing", "Scoping", "Resting", "Offline"] as const;
 
 export type Period = { from: number; to: number };
 
@@ -99,14 +99,37 @@ export const isQuietPhase = (phaseId: number | null, phases: Phase[]) => {
   return name === "Resting" || name === "Offline";
 };
 
-export const sortPhaseTotals = (totals: PhaseTotal[], phases: Phase[]) =>
-  [...totals]
-    .filter((row) => row.seconds > 0)
-    .sort((a, b) => {
-      const aOrder = PHASE_ORDER.indexOf(phaseName(a.phaseId, phases));
-      const bOrder = PHASE_ORDER.indexOf(phaseName(b.phaseId, phases));
-      return (
-        (aOrder === -1 ? PHASE_ORDER.length : aOrder) -
-        (bOrder === -1 ? PHASE_ORDER.length : bOrder)
-      );
-    });
+/** Always four live Phases so a quiet window still reads as 0, not missing. */
+export const filledPhaseTotals = (
+  totals: PhaseTotal[],
+  phases: Phase[],
+): PhaseTotal[] => {
+  const secondsByName = new Map<string, number>();
+  for (const row of foldIdleIntoOffline(totals, phases)) {
+    const name = phaseName(row.phaseId, phases);
+    const live = name === "Idle" ? "Offline" : name;
+    secondsByName.set(live, (secondsByName.get(live) ?? 0) + row.seconds);
+  }
+  return LIVE_PHASE_NAMES.map((name) => ({
+    phaseId: phases.find((phase) => phase.name === name)?.id ?? null,
+    seconds: secondsByName.get(name) ?? 0,
+  }));
+};
+
+/** Count Idle (null Phase) as Offline so summaries use the four live values. */
+export const foldIdleIntoOffline = (
+  totals: PhaseTotal[],
+  phases: Phase[],
+): PhaseTotal[] => {
+  const offlineId = phases.find((phase) => phase.name === "Offline")?.id;
+  if (offlineId === undefined) return totals;
+  const secondsByPhase = new Map<number | null, number>();
+  for (const row of totals) {
+    const phaseId = row.phaseId === null ? offlineId : row.phaseId;
+    secondsByPhase.set(
+      phaseId,
+      (secondsByPhase.get(phaseId) ?? 0) + row.seconds,
+    );
+  }
+  return [...secondsByPhase].map(([phaseId, seconds]) => ({ phaseId, seconds }));
+};

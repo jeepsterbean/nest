@@ -52,7 +52,6 @@ type DashboardData = {
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
   brainDumps: BrainDump[];
-  allBrainDumps: BrainDump[];
   latestPhase: PhaseCheckIn | null;
   checkInSchedule: CheckInSchedule | null;
   scopeTree: ScopeTree;
@@ -78,7 +77,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
   const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
-  const [allBrainDumps, setAllBrainDumps] = useState<BrainDump[]>([]);
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [checkInSchedule, setCheckInSchedule] =
     useState<CheckInSchedule | null>(null);
@@ -92,7 +90,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = now - HISTORY_WINDOW_SECONDS;
       const to = now + 1;
-      const [t, td, tse, m, pulses, p, ci, pci, allBd, lp, schedule] = await Promise.all([
+      const [t, td, tse, m, pulses, p, ci, pci, bd, lp, schedule] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
         listTaskStatusEvents(from, to),
@@ -101,7 +99,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         listPhases(true),
         listMetricCheckIns(from, to),
         listPhaseCheckIns(from, to),
-        listBrainDumps(0, to),
+        listBrainDumps(from, to),
         latestPhaseCheckIn(),
         getCheckInSchedule(),
       ]);
@@ -114,8 +112,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setPhases(p);
       setCheckIns(ci);
       setPhaseCheckIns(pci);
-      setBrainDumps(allBd.filter((dump) => dump.createdAt >= from));
-      setAllBrainDumps(allBd);
+      setBrainDumps(bd);
       setLatestPhase(lp);
       setCheckInSchedule(schedule);
     } catch (e) {
@@ -180,7 +177,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       checkIns,
       phaseCheckIns,
       brainDumps,
-      allBrainDumps,
       latestPhase,
       checkInSchedule,
       scopeTree,
@@ -201,7 +197,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       checkIns,
       phaseCheckIns,
       brainDumps,
-      allBrainDumps,
       latestPhase,
       checkInSchedule,
       scopeTree,

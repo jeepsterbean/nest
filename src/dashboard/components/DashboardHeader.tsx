@@ -11,17 +11,23 @@ import { phaseName } from "../lib/journal";
 import {
   chevronDownIcon,
   clockIcon,
+  insightsIcon,
   journalIcon,
   metricsIcon,
   overviewIcon,
-  pencilIcon,
   tasksIcon,
 } from "./icons";
 
-export type DashboardView = "overview" | "journal" | "tasks" | "metrics";
+export type DashboardView =
+  | "overview"
+  | "insights"
+  | "journal"
+  | "tasks"
+  | "metrics";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
+  { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "journal", label: "Journal", icon: journalIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
@@ -30,13 +36,9 @@ const VIEWS = [
 export function DashboardSidebar({
   view,
   onSelectView,
-  brainDumpOpen,
-  onToggleBrainDump,
 }: {
   view: DashboardView;
   onSelectView: (view: DashboardView) => void;
-  brainDumpOpen: boolean;
-  onToggleBrainDump: () => void;
 }) {
   return (
     <aside className="dash-sidebar">
@@ -59,17 +61,6 @@ export function DashboardSidebar({
           </button>
         ))}
       </nav>
-      <button
-        type="button"
-        className="brain-dump-trigger"
-        aria-label={brainDumpOpen ? "Close brain dump" : "Open brain dump"}
-        aria-expanded={brainDumpOpen}
-        aria-controls="brain-dump-composer"
-        onClick={onToggleBrainDump}
-      >
-        <span className="brain-dump-trigger__icon">{pencilIcon}</span>
-        <span className="dash-nav__label">Brain dump</span>
-      </button>
     </aside>
   );
 }

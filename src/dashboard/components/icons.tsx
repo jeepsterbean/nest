@@ -23,15 +23,6 @@ export const clockIcon = (
   </svg>
 );
 
-export const eyeOffIcon = (
-  <svg {...iconProps}>
-    <path d="M3 3l18 18" />
-    <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
-    <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9 6 9 6a15.6 15.6 0 0 1-2.1 2.8" />
-    <path d="M6.2 6.2C4.2 7.5 3 10 3 10s3.5 6 9 6a9.8 9.8 0 0 0 3-.5" />
-  </svg>
-);
-
 export const plusIcon = (
   <svg {...iconProps}>
     <line x1="12" x2="12" y1="5" y2="19" />
@@ -86,6 +77,13 @@ export const overviewIcon = (
     <rect x="14" y="4" width="6" height="6" rx="1" />
     <rect x="4" y="14" width="6" height="6" rx="1" />
     <rect x="14" y="14" width="6" height="6" rx="1" />
+  </svg>
+);
+
+export const insightsIcon = (
+  <svg {...iconProps}>
+    <path d="M4 16l5-5 3.5 3.5L20 7" />
+    <path d="M15 7h5v5" />
   </svg>
 );
 

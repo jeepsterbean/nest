@@ -3,7 +3,7 @@ import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
 } from "../../lib/types";
-import { dayLabel, endOfDayMs, startOfDayMs } from "./time";
+import { dayLabel, startOfDayMs } from "./time";
 
 export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
@@ -19,13 +19,6 @@ export type PhaseSession = {
 };
 
 export type PhaseTotal = { phaseId: number | null; seconds: number };
-
-export type JournalDay = {
-  key: number;
-  label: string;
-  sessions: PhaseSession[];
-  events: TimelineEvent[];
-};
 
 // Window-switching writes a checkpoint per change; bursts inside this window
 // are still settling, not a journal-worthy beat.
@@ -219,42 +212,20 @@ export const hourTicks = (from: number, to: number): number[] => {
 
 const isQuietDefault = (phaseId: number | null) => phaseId === null;
 
-const journalDayFrom = (
-  collapsed: PhaseCheckIn[],
-  events: TimelineEvent[],
-  isQuiet: (phaseId: number | null) => boolean,
-  dayStartMs: number,
-  nowMs: number,
-): JournalDay => {
-  const nowSec = Math.floor(nowMs / 1000);
-  const from = Math.floor(dayStartMs / 1000);
-  const to = Math.min(Math.floor(endOfDayMs(dayStartMs) / 1000), nowSec);
-  return {
-    key: dayStartMs,
-    label: dayLabel(from, nowMs),
-    sessions: trimQuietPhaseSessions(phaseSessions(collapsed, from, to), isQuiet),
-    events,
-  };
-};
-
-export const buildJournalDay = (
-  checkIns: MetricCheckInWithRatings[],
-  brainDumps: BrainDump[],
+/** Settled phase sessions for a rolling window (e.g. last 24 hours). */
+export const phaseSessionsInWindow = (
   phaseCheckIns: PhaseCheckIn[],
-  dayStartMs: number,
+  fromSec: number,
+  toSec: number,
   isQuiet: (phaseId: number | null) => boolean = isQuietDefault,
-  nowMs: number = Date.now(),
-): JournalDay => {
-  const events = buildTimeline(checkIns, [], brainDumps).filter(
-    (event) => startOfDayMs(event.at) === dayStartMs,
-  );
-  return journalDayFrom(
+  trimQuiet: boolean = true,
+): PhaseSession[] => {
+  const sessions = phaseSessions(
     collapsePhaseCheckIns(phaseCheckIns),
-    events,
-    isQuiet,
-    dayStartMs,
-    nowMs,
+    fromSec,
+    toSec,
   );
+  return trimQuiet ? trimQuietPhaseSessions(sessions, isQuiet) : sessions;
 };
 
 // Per-metric rating values in chronological order, for sparklines and stats.

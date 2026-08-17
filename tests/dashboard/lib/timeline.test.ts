@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildJournalDay,
   buildMetricSeries,
   buildTimeline,
   collapsePhaseCheckIns,
   groupByDay,
   hourTicks,
   phaseSessions,
+  phaseSessionsInWindow,
   phaseSessionTotals,
   trimQuietPhaseSessions,
 } from "../../../src/dashboard/lib/timeline";
@@ -234,52 +234,40 @@ describe("hourTicks", () => {
   });
 });
 
-describe("buildJournalDay", () => {
-  const now = new Date(2026, 5, 17, 16, 0).getTime();
-  const at = (day: number, hour: number, minute = 0) =>
-    sec(new Date(2026, 5, day, hour, minute));
-  const todayMs = new Date(2026, 5, 17).getTime();
-  const dayMs = new Date(2026, 5, 16).getTime();
-
-  it("returns an empty day so Daily can show a quiet date", () => {
-    const day = buildJournalDay([], [], [], dayMs, isQuiet, now);
-    expect(day.label).toBe("Yesterday");
-    expect(day.sessions).toEqual([]);
-    expect(day.events).toEqual([]);
-  });
-
-  it("keeps that day's Metric check-ins and brain dumps", () => {
-    const day = buildJournalDay(
-      [metricCheckIn(1, at(16, 12), [{ metricId: 1, value: 3 }])],
-      [dump(1, at(17, 9))],
-      [phaseCheckIn(1, at(16, 10), DOING)],
-      dayMs,
-      isQuiet,
-      now,
-    );
-    expect(day.events.map((event) => event.kind)).toEqual(["metrics"]);
-    expect(day.sessions.map((session) => session.phaseId)).toEqual([DOING]);
-  });
-
-  it("does not list a same-phase flicker as its own session", () => {
-    const day = buildJournalDay(
-      [],
-      [],
+describe("phaseSessionsInWindow", () => {
+  it("builds settled sessions for a rolling window", () => {
+    const sessions = phaseSessionsInWindow(
       [
-        phaseCheckIn(1, at(17, 9, 31), SCOPING),
-        phaseCheckIn(2, at(17, 9, 37), RESTING),
-        phaseCheckIn(3, at(17, 9, 37), SCOPING),
+        phaseCheckIn(1, 0, DOING),
+        phaseCheckIn(2, 100, SCOPING),
+        phaseCheckIn(3, 200, RESTING),
       ],
-      todayMs,
-      isQuiet,
-      now,
+      50,
+      250,
+      (phaseId) => phaseId === RESTING,
     );
-    expect(day.sessions).toEqual([
-      {
-        phaseId: SCOPING,
-        from: at(17, 9, 31),
-        to: at(17, 16),
-      },
+    expect(sessions).toEqual([
+      { phaseId: DOING, from: 50, to: 100 },
+      { phaseId: SCOPING, from: 100, to: 200 },
     ]);
+  });
+
+  it("can keep trailing quiet time when trim is off", () => {
+    const sessions = phaseSessionsInWindow(
+      [
+        phaseCheckIn(1, 0, DOING),
+        phaseCheckIn(2, 100, SCOPING),
+        phaseCheckIn(3, 200, RESTING),
+      ],
+      50,
+      250,
+      (phaseId) => phaseId === RESTING,
+      false,
+    );
+    expect(sessions[sessions.length - 1]).toEqual({
+      phaseId: RESTING,
+      from: 200,
+      to: 250,
+    });
   });
 });

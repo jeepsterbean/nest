@@ -125,7 +125,7 @@ describe("format helpers", () => {
   });
 
   it("formats compact durations in whole minutes", () => {
-    expect(formatCompactDuration(0)).toBe("<1m");
+    expect(formatCompactDuration(0)).toBe("0m");
     expect(formatCompactDuration(59)).toBe("<1m");
     expect(formatCompactDuration(60)).toBe("1m");
     expect(formatCompactDuration(90)).toBe("1m");
