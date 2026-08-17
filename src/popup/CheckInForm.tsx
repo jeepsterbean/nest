@@ -195,6 +195,19 @@ export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
   return pulses.find((pulse) => pulse.metricIds.length > 0) ?? null;
 }
 
+/**
+ * Sticky Pulse-due latch: turns on when the timer is due, stays on through a
+ * restarted clock, and clears only after a Pulse check-in is saved.
+ */
+export function holdPulseDue(
+  held: boolean,
+  timerDue: boolean,
+  pulseSaved: boolean,
+): boolean {
+  if (pulseSaved) return false;
+  return held || timerDue;
+}
+
 function CheckInForm({
   onDismiss,
   onComplete,
@@ -218,6 +231,7 @@ function CheckInForm({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
+  const [pulseDue, setPulseDue] = useState(false);
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const isLoaded = loaded !== null;
@@ -234,6 +248,14 @@ function CheckInForm({
     : [];
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
+  const timerDue =
+    loaded !== null &&
+    (loaded.schedule.waitingForResponse ||
+      checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) === 0);
+
+  useEffect(() => {
+    setPulseDue((held) => holdPulseDue(held, timerDue, false));
+  }, [timerDue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -416,6 +438,7 @@ function CheckInForm({
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
     setRatings({});
+    setPulseDue((held) => holdPulseDue(held, timerDue, true));
     await emit("check-in-submitted");
   };
 
@@ -630,7 +653,6 @@ function CheckInForm({
     </section>
   );
 
-  const timerDue = loaded.schedule.waitingForResponse;
   const countdown = timerDue
     ? "0:00"
     : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
@@ -712,8 +734,8 @@ function CheckInForm({
         </section>
 
         <section
-          className="pulse-panel"
-          aria-label="Pulse check-in"
+          className={`pulse-panel${pulseDue ? " pulse-panel--due" : ""}`}
+          aria-label={pulseDue ? "Pulse check-in due" : "Pulse check-in"}
           onKeyDown={(event) => {
             if (event.key >= "1" && event.key <= "5") {
               event.preventDefault();

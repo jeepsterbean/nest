@@ -527,12 +527,107 @@
 /* ---------- Pulse check-in ---------- */
 
 .pulse-panel {
+  position: relative;
   display: flex;
   min-height: 0;
   flex-direction: column;
   padding: 10px 16px 12px;
   overflow: hidden;
   background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+@property --pulse-due-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --pulse-due-orbit {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: -90deg;
+}
+
+@keyframes pulse-due-draw {
+  to {
+    --pulse-due-angle: 360deg;
+  }
+}
+
+@keyframes pulse-due-orbit {
+  to {
+    --pulse-due-orbit: 270deg;
+  }
+}
+
+@keyframes pulse-due-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--rating-2) 40%, transparent));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--rating-2) 70%, transparent));
+  }
+}
+
+.pulse-panel--due {
+  background: color-mix(in srgb, var(--rating-2) 10%, var(--surface));
+  box-shadow: inset 0 0 28px color-mix(in srgb, var(--rating-2) 14%, transparent);
+}
+
+.pulse-panel--due::before,
+.pulse-panel--due::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 10px;
+  padding: 2px;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.pulse-panel--due::after {
+  background: conic-gradient(
+    from -90deg,
+    color-mix(in srgb, var(--rating-2) 88%, var(--border)) var(--pulse-due-angle),
+    transparent 0
+  );
+  animation: pulse-due-draw 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pulse-panel--due::before {
+  z-index: 1;
+  background: conic-gradient(
+    from var(--pulse-due-orbit),
+    transparent 0%,
+    transparent 72%,
+    color-mix(in srgb, var(--rating-2) 22%, transparent) 82%,
+    color-mix(in srgb, var(--rating-2) 82%, white) 92%,
+    var(--rating-2) 96%,
+    transparent 100%
+  );
+  animation: pulse-due-orbit 5.5s linear infinite;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--rating-2) 70%, transparent));
+}
+
+.pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--rating-2) 70%, var(--border));
+  background: color-mix(in srgb, var(--rating-2) 18%, var(--surface));
+  color: var(--rating-2);
+}
+
+.pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] svg {
+  animation: pulse-due-breathe 2.4s ease-in-out infinite;
+}
+
+.pulse-panel--due .metric-rating {
+  border-color: color-mix(in srgb, var(--rating-2) 42%, var(--border));
 }
 
 .popup-pulse-toggle {
@@ -769,5 +864,21 @@
 
   .now-group--up-next .now-task {
     transition: none;
+  }
+
+  .pulse-panel--due::after {
+    animation: none;
+    --pulse-due-angle: 360deg;
+  }
+
+  .pulse-panel--due::before {
+    animation: none;
+    filter: none;
+    background: color-mix(in srgb, var(--rating-2) 55%, transparent);
+  }
+
+  .pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] svg {
+    animation: none;
+    filter: none;
   }
 }

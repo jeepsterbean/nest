@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildJournalDays,
+  buildJournalDay,
   buildMetricSeries,
   buildTimeline,
   collapsePhaseCheckIns,
@@ -78,6 +78,28 @@ describe("groupByDay", () => {
     const groups = groupByDay(events, now);
     expect(groups.map((g) => g.label)).toEqual(["Today", "Yesterday"]);
     expect(groups.map((g) => g.events.length)).toEqual([2, 1]);
+  });
+
+  it("keeps every Phase checkpoint for Raw", () => {
+    const now = new Date(2026, 5, 17, 10, 0).getTime();
+    const flicker = sec(new Date(2026, 5, 17, 9, 37));
+    const groups = groupByDay(
+      buildTimeline(
+        [],
+        [
+          phaseCheckIn(1, sec(new Date(2026, 5, 17, 9, 31)), SCOPING),
+          phaseCheckIn(2, flicker, RESTING),
+          phaseCheckIn(3, flicker, SCOPING),
+        ],
+        [],
+      ),
+      now,
+    );
+    expect(groups[0].events.map((event) => event.kind)).toEqual([
+      "phase",
+      "phase",
+      "phase",
+    ]);
   });
 });
 
@@ -212,51 +234,35 @@ describe("hourTicks", () => {
   });
 });
 
-describe("buildJournalDays", () => {
+describe("buildJournalDay", () => {
   const now = new Date(2026, 5, 17, 16, 0).getTime();
   const at = (day: number, hour: number, minute = 0) =>
     sec(new Date(2026, 5, day, hour, minute));
+  const todayMs = new Date(2026, 5, 17).getTime();
+  const dayMs = new Date(2026, 5, 16).getTime();
 
-  it("lists Pulse check-ins and brain dumps without Phase rows", () => {
-    const days = buildJournalDays(
-      [metricCheckIn(1, at(17, 12), [{ metricId: 1, value: 3 }])],
-      [dump(1, at(17, 9))],
-      [
-        phaseCheckIn(1, at(17, 9, 0), RESTING),
-        phaseCheckIn(2, at(17, 9, 31), SCOPING),
-        phaseCheckIn(3, at(17, 12), DOING),
-      ],
-      isQuiet,
-      now,
-    );
-    expect(days).toHaveLength(1);
-    expect(days[0].label).toBe("Today");
-    expect(days[0].events.map((event) => event.kind)).toEqual(["metrics", "dump"]);
-    expect(days[0].sessions.map((session) => session.phaseId)).toEqual([
-      SCOPING,
-      DOING,
-    ]);
+  it("returns an empty day so Daily can show a quiet date", () => {
+    const day = buildJournalDay([], [], [], dayMs, isQuiet, now);
+    expect(day.label).toBe("Yesterday");
+    expect(day.sessions).toEqual([]);
+    expect(day.events).toEqual([]);
   });
 
-  it("keeps a Phase-only day and hides a Resting-only day", () => {
-    const days = buildJournalDays(
-      [],
-      [],
-      [
-        phaseCheckIn(1, at(16, 10), DOING),
-        phaseCheckIn(2, at(16, 18), RESTING),
-        phaseCheckIn(3, at(15, 10), RESTING),
-      ],
+  it("keeps that day's Pulse check-ins and brain dumps", () => {
+    const day = buildJournalDay(
+      [metricCheckIn(1, at(16, 12), [{ metricId: 1, value: 3 }])],
+      [dump(1, at(17, 9))],
+      [phaseCheckIn(1, at(16, 10), DOING)],
+      dayMs,
       isQuiet,
       now,
     );
-    expect(days.map((day) => day.label)).toEqual(["Yesterday"]);
-    expect(days[0].events).toEqual([]);
-    expect(days[0].sessions.map((session) => session.phaseId)).toEqual([DOING]);
+    expect(day.events.map((event) => event.kind)).toEqual(["metrics"]);
+    expect(day.sessions.map((session) => session.phaseId)).toEqual([DOING]);
   });
 
   it("does not list a same-phase flicker as its own session", () => {
-    const days = buildJournalDays(
+    const day = buildJournalDay(
       [],
       [],
       [
@@ -264,10 +270,11 @@ describe("buildJournalDays", () => {
         phaseCheckIn(2, at(17, 9, 37), RESTING),
         phaseCheckIn(3, at(17, 9, 37), SCOPING),
       ],
+      todayMs,
       isQuiet,
       now,
     );
-    expect(days[0].sessions).toEqual([
+    expect(day.sessions).toEqual([
       {
         phaseId: SCOPING,
         from: at(17, 9, 31),

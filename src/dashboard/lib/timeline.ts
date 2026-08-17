@@ -4,7 +4,7 @@ import type {
   PhaseCheckIn,
 } from "../../lib/types";
 import { phaseAt } from "./insights";
-import { dayLabel, endOfDayMs, previousDayMs, startOfDayMs } from "./time";
+import { dayLabel, endOfDayMs, startOfDayMs } from "./time";
 
 export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
@@ -204,54 +204,42 @@ export const hourTicks = (from: number, to: number): number[] => {
 
 const isQuietDefault = (phaseId: number | null) => phaseId === null;
 
-// Newest-first days that have a Pulse check-in, a brain dump, or an engaged
-// Phase strip. Phase checkpoints themselves are not list events.
-export const buildJournalDays = (
+const journalDayFrom = (
+  collapsed: PhaseCheckIn[],
+  events: TimelineEvent[],
+  isQuiet: (phaseId: number | null) => boolean,
+  dayStartMs: number,
+  nowMs: number,
+): JournalDay => {
+  const nowSec = Math.floor(nowMs / 1000);
+  const from = Math.floor(dayStartMs / 1000);
+  const to = Math.min(Math.floor(endOfDayMs(dayStartMs) / 1000), nowSec);
+  return {
+    key: dayStartMs,
+    label: dayLabel(from, nowMs),
+    sessions: trimQuietPhaseSessions(phaseSessions(collapsed, from, to), isQuiet),
+    events,
+  };
+};
+
+export const buildJournalDay = (
   checkIns: MetricCheckInWithRatings[],
   brainDumps: BrainDump[],
   phaseCheckIns: PhaseCheckIn[],
+  dayStartMs: number,
   isQuiet: (phaseId: number | null) => boolean = isQuietDefault,
   nowMs: number = Date.now(),
-): JournalDay[] => {
-  const nowSec = Math.floor(nowMs / 1000);
-  const collapsed = collapsePhaseCheckIns(phaseCheckIns);
-  const events = buildTimeline(checkIns, [], brainDumps);
-  const grouped = groupByDay(events, nowMs);
-  const eventsByKey = new Map(grouped.map((group) => [group.key, group.events]));
-  const keys = new Set(eventsByKey.keys());
-
-  const earliest = Math.min(
-    nowSec,
-    ...events.map((event) => event.at),
-    ...collapsed.map((checkIn) => checkIn.createdAt),
+): JournalDay => {
+  const events = buildTimeline(checkIns, [], brainDumps).filter(
+    (event) => startOfDayMs(event.at) === dayStartMs,
   );
-  let cursor = startOfDayMs(nowSec);
-  const oldest = startOfDayMs(earliest);
-  while (cursor >= oldest) {
-    const from = Math.floor(cursor / 1000);
-    const to = Math.min(Math.floor(endOfDayMs(cursor) / 1000), nowSec);
-    if (trimQuietPhaseSessions(phaseSessions(collapsed, from, to), isQuiet).length) {
-      keys.add(cursor);
-    }
-    cursor = previousDayMs(cursor);
-  }
-
-  return [...keys]
-    .sort((a, b) => b - a)
-    .map((key) => {
-      const from = Math.floor(key / 1000);
-      const to = Math.min(Math.floor(endOfDayMs(key) / 1000), nowSec);
-      return {
-        key,
-        label: dayLabel(from, nowMs),
-        sessions: trimQuietPhaseSessions(
-          phaseSessions(collapsed, from, to),
-          isQuiet,
-        ),
-        events: eventsByKey.get(key) ?? [],
-      };
-    })
-    .filter((day) => day.sessions.length > 0 || day.events.length > 0);
+  return journalDayFrom(
+    collapsePhaseCheckIns(phaseCheckIns),
+    events,
+    isQuiet,
+    dayStartMs,
+    nowMs,
+  );
 };
 
 // Per-metric rating values in chronological order, for sparklines and stats.

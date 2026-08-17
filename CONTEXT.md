@@ -63,7 +63,14 @@ shows Phase as a day strip of settled sessions, not a checkpoint list.
 Checkpoints that change more than once within 60 seconds collapse to the
 Phase they landed on; if that equals the Phase before the burst, they are
 omitted. Leading and trailing Resting, Offline, and Idle are trimmed from
-each day's strip. Pulse check-ins and brain dumps remain the journal list.
+each day's strip. Journal defaults to Daily: today only, with arrows to move
+one calendar day at a time inside the last 30 days. Raw lists every recorded
+Pulse check-in, brain dump, and Phase checkpoint in the window, grouped by
+day, with no 60-second collapse and no session strip. Time sits to the left
+of the timeline rail for every row. Pulse check-ins show the Pulse icon and
+Metric scores on one row. Brain dumps match that row height until expanded.
+Pulse, Metric, and brain dump icons stand in for names. The Journal heading
+is omitted; Daily and Raw are the only chrome.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -121,6 +128,9 @@ _Avoid_: note, journal entry
 - Completing an automatic popup starts the current interval if the timer is
   still paused. Dismissing it starts a five-minute interval if the timer is
   still paused.
+- When the timer runs out, the Pulse panel holds a gold due treatment until a
+  Pulse is saved. Restarting the clock or submitting a brain dump does not
+  clear it.
 - The check-in popup is two columns. Left: remaining time on a clock face
   (click to pick an interval) and the Active / Up next task list, sized for
   three rows with extra tasks scrolling. Right: brain dump above Pulse scoring.
