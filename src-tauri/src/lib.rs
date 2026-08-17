@@ -46,9 +46,41 @@ tauri_panel! {
     panel!(NestPanel {
         config: {
             can_become_key_window: true,
-            can_become_main_window: false
+            can_become_main_window: false,
+            // Required to float over another app's native full-screen Space.
+            is_floating_panel: true
         }
     })
+}
+
+/// Collection behavior for the check-in panel over full-screen Spaces.
+/// Matches tauri-nspanel's fullscreen example, plus macOS 13+
+/// `CanJoinAllApplications` so the panel can join other apps' Spaces.
+/// Do not set `stationary()` — that pins the panel off the active
+/// full-screen Space, so summon "succeeds" while nothing is visible.
+#[cfg(target_os = "macos")]
+fn popup_collection_behavior() -> tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior {
+    CollectionBehavior::new()
+        .full_screen_auxiliary()
+        .can_join_all_spaces()
+        .ignores_cycle()
+        .value()
+        // The plugin wrapper does not yet expose this macOS 13 flag.
+        | tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior::CanJoinAllApplications
+}
+
+#[cfg(target_os = "macos")]
+fn configure_popup_panel(panel: &dyn tauri_nspanel::Panel<tauri::Wry>) {
+    let behavior = popup_collection_behavior();
+    panel.set_level(PanelLevel::ScreenSaver.value());
+    panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+    panel.set_floating_panel(true);
+    panel.set_collection_behavior(behavior);
+    panel.set_hides_on_deactivate(false);
+    append_diagnostic_log(format!(
+        "popup_panel_config collection_behavior={:#x}",
+        behavior.bits()
+    ));
 }
 
 #[cfg(target_os = "macos")]
@@ -308,6 +340,51 @@ fn install_phase_application_observer(app: tauri::AppHandle) {
     std::mem::forget(observer);
 }
 
+/// Stop Working now when the Mac locks, display-sleeps, or system-sleeps.
+#[cfg(target_os = "macos")]
+fn install_working_idle_observers(app: tauri::AppHandle) {
+    use objc2_app_kit::{
+        NSWorkspace, NSWorkspaceScreensDidSleepNotification, NSWorkspaceWillSleepNotification,
+    };
+    use objc2_foundation::{
+        NSDistributedNotificationCenter, NSNotification, NSNotificationCenter, NSString,
+    };
+    use tauri_nspanel::objc2::ClassType;
+
+    let workspace = NSWorkspace::sharedWorkspace().notificationCenter();
+    for name in unsafe {
+        [
+            NSWorkspaceWillSleepNotification,
+            NSWorkspaceScreensDidSleepNotification,
+        ]
+    } {
+        let app = app.clone();
+        let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+            commands::stop_all_working_now_and_sync(&app);
+        });
+        let observer = unsafe {
+            workspace.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
+        };
+        std::mem::forget(observer);
+    }
+
+    let lock_name = NSString::from_str("com.apple.screenIsLocked");
+    let lock_block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+        commands::stop_all_working_now_and_sync(&app);
+    });
+    let distributed = NSDistributedNotificationCenter::defaultCenter();
+    let observer = unsafe {
+        NSNotificationCenter::addObserverForName_object_queue_usingBlock(
+            distributed.as_super(),
+            Some(&lock_name),
+            None,
+            None,
+            &lock_block,
+        )
+    };
+    std::mem::forget(observer);
+}
+
 fn show_window(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
@@ -424,6 +501,9 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
             return;
         }
     };
+    // Re-apply before every show — Spaces / full-screen can leave the panel
+    // with a stale collection behavior from the last Space it lived on.
+    configure_popup_panel(panel.as_ref());
     // Reposition before showing so it appears on the active screen without a
     // visible jump.
     match app.get_webview_window(label) {
@@ -434,7 +514,11 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
         }
     }
     panel.show_and_make_key();
-    append_diagnostic_log(format!("popup_summon_macos_shown label={label}"));
+    let on_active_space = panel.as_panel().isOnActiveSpace();
+    append_diagnostic_log(format!(
+        "popup_summon_macos_shown label={label} visible={} on_active_space={on_active_space}",
+        panel.is_visible()
+    ));
     phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
@@ -643,30 +727,14 @@ pub fn run() {
 
                 if let Some(window) = app.get_webview_window("popup") {
                     match window.to_panel::<NestPanel>() {
-                        Ok(panel) => {
-                            panel.set_level(PanelLevel::ScreenSaver.value());
-                            panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
-                            let behavior = CollectionBehavior::new()
-                                .full_screen_auxiliary()
-                                .can_join_all_spaces()
-                                .stationary()
-                                .ignores_cycle()
-                                .value()
-                                // The plugin wrapper does not yet expose this macOS 13 flag.
-                                | tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior::CanJoinAllApplications;
-                            panel.set_collection_behavior(behavior);
-                            panel.set_hides_on_deactivate(false);
-                            append_diagnostic_log(format!(
-                                "popup_panel_config collection_behavior={:#x}",
-                                behavior.bits()
-                            ));
-                        }
+                        Ok(panel) => configure_popup_panel(panel.as_ref()),
                         Err(e) => eprintln!("nest: failed to convert 'popup' to NSPanel: {e:?}"),
                     }
                 }
 
                 install_popup_event_monitors(app.handle().clone());
                 install_phase_application_observer(app.handle().clone());
+                install_working_idle_observers(app.handle().clone());
             }
 
             #[cfg(not(target_os = "macos"))]

@@ -272,12 +272,12 @@
   font-weight: 700;
 }
 
+.now-group__rest,
 .now-group__add {
   display: inline-grid;
   width: 19px;
   height: 19px;
   place-items: center;
-  margin-left: auto;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -288,6 +288,21 @@
   line-height: 1;
 }
 
+.now-group__rest {
+  align-self: center;
+}
+
+.now-group__rest svg {
+  width: 12px;
+  height: 12px;
+}
+
+.now-group__add {
+  margin-left: auto;
+}
+
+.now-group__rest:hover,
+.now-group__rest:focus-visible,
 .now-group__add:hover,
 .now-group__add:focus-visible,
 .now-group__add[aria-expanded="true"] {
@@ -295,6 +310,10 @@
   outline: none;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.now-group__rest:disabled {
+  opacity: 0.45;
 }
 
 .now-group--up-next {

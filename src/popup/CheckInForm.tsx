@@ -356,6 +356,29 @@ function CheckInForm({
     }
   };
 
+  const restAllWorking = async () => {
+    if (!loaded || submitting) return;
+    const working = loaded.tasks.filter((task) => task.workingNow);
+    if (working.length === 0) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updates = new Map<number, Task>();
+      for (const task of working) {
+        updates.set(task.id, await setTaskWorking(task.id, false));
+      }
+      setLoaded({
+        ...loaded,
+        tasks: loaded.tasks.map((task) => updates.get(task.id) ?? task),
+      });
+      await emit("check-in-submitted");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const addTask = async () => {
     const title = taskTitle.trim();
     if (!loaded || submitting || !title) return;
@@ -470,6 +493,7 @@ function CheckInForm({
   const tasksByStatus = groupTasksByStatus(loaded.tasks);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
+  const workingCount = loaded.tasks.filter((task) => task.workingNow).length;
   const taskView = (
     <section className="now-card" aria-label="Tasks">
       <div className="now-card__tasks">
@@ -477,6 +501,18 @@ function CheckInForm({
           <header className="now-group__head">
             <h2 id="popup-active-tasks">Active</h2>
             <span>{activeTasks.length}</span>
+            {workingCount > 0 && (
+              <button
+                type="button"
+                className="now-group__rest"
+                aria-label={`Rest — stop ${workingCount} working ${workingCount === 1 ? "task" : "tasks"}`}
+                title="Rest — stop all working tasks"
+                disabled={submitting}
+                onClick={() => void restAllWorking()}
+              >
+                <NestIcon name="moon" />
+              </button>
+            )}
             <button
               type="button"
               className="now-group__add"

@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
@@ -534,6 +534,50 @@ fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()> {
         params![now, id],
     )?;
     Ok(())
+}
+
+/// Bank Worked time and clear Working now on every task that has it.
+pub(crate) fn stop_all_working_now(conn: &Connection, now: i64) -> Result<usize> {
+    let updated = conn.execute(
+        "UPDATE tasks SET \
+         worked_seconds = worked_seconds + CASE \
+           WHEN work_started_at IS NULL THEN 0 \
+           ELSE MAX(0, ?1 - work_started_at) \
+         END, \
+         working_now = 0, work_started_at = NULL, updated_at = ?1 \
+         WHERE working_now = 1",
+        params![now],
+    )?;
+    Ok(updated)
+}
+
+/// Stop every Working now task and re-derive Phase. Used when the Mac locks,
+/// display-sleeps, or system-sleeps.
+pub(crate) fn stop_all_working_now_and_sync(app: &AppHandle) {
+    let outcome =
+        phase::with_current_signals(app, |signals| -> Result<(bool, Option<String>)> {
+            let state = app.state::<Mutex<Connection>>();
+            let mut conn = state.lock().unwrap();
+            let tx = conn.transaction()?;
+            let now = now_unix_secs();
+            let stopped = stop_all_working_now(&tx, now)? > 0;
+            let changed = if stopped {
+                phase::sync_derived_phase(&tx, signals, now)?
+            } else {
+                None
+            };
+            tx.commit()?;
+            Ok((stopped, changed))
+        });
+    match outcome {
+        Ok((stopped, changed)) => {
+            if stopped {
+                let _ = app.emit("check-in-submitted", ());
+            }
+            phase::emit_phase_changed(app, changed);
+        }
+        Err(error) => eprintln!("nest: stop working on system idle failed: {error}"),
+    }
 }
 
 #[tauri::command]
@@ -1118,8 +1162,8 @@ pub fn list_brain_dumps(
 mod tests {
     use super::{
         bank_task_work, change_task_status, change_task_working, fetch_task,
-        normalize_optional_title, normalize_task_scope, resolve_due_check_in, valid_icon,
-        validate_task_status,
+        normalize_optional_title, normalize_task_scope, resolve_due_check_in, stop_all_working_now,
+        valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::CheckInTimer;
@@ -1210,6 +1254,47 @@ mod tests {
         let moved = fetch_task(&conn, 1).unwrap();
         assert!(!moved.working_now);
         assert_eq!(moved.work_started_at, None);
+    }
+
+    #[test]
+    fn stop_all_working_now_banks_every_working_task() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'A', 'active', 1, 1), (2, 'B', 'active', 1, 1), (3, 'C', 'active', 1, 1)",
+            [],
+        )
+        .unwrap();
+        change_task_working(&conn, 1, true).unwrap();
+        change_task_working(&conn, 2, true).unwrap();
+        conn.execute(
+            "UPDATE tasks SET worked_seconds = 10, work_started_at = 100 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE tasks SET worked_seconds = 5, work_started_at = 120 WHERE id = 2",
+            [],
+        )
+        .unwrap();
+
+        assert_eq!(stop_all_working_now(&conn, 150).unwrap(), 2);
+        assert_eq!(stop_all_working_now(&conn, 160).unwrap(), 0);
+
+        let first = fetch_task(&conn, 1).unwrap();
+        assert!(!first.working_now);
+        assert_eq!(first.worked_seconds, 60);
+        assert_eq!(first.work_started_at, None);
+
+        let second = fetch_task(&conn, 2).unwrap();
+        assert!(!second.working_now);
+        assert_eq!(second.worked_seconds, 35);
+        assert_eq!(second.work_started_at, None);
+
+        let idle = fetch_task(&conn, 3).unwrap();
+        assert!(!idle.working_now);
+        assert_eq!(idle.worked_seconds, 0);
     }
 
     #[test]
