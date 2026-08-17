@@ -50,10 +50,14 @@ private, journal-like. Preserve light and dark system themes.
 - Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
   duration totals only — no strip. Always show Completed / Value / Effort /
   Check-ins and Doing / Scoping / Resting / Offline for the selected window,
-  using 0 when nothing happened. Insights owns the strip and range filters
-  (1h / 24h / 7d / 30d) under `.dash-section--insights`. Remember the last
-  range (`nest:insights-range`); 24h only when nothing is stored. Stats stay a quiet
-  inline meta row (`.day-stats`). Compact range toggle matches Journal.
+  using 0 when nothing happened. The dump panel (`.overview-panel--dumps`)
+  matches the check-in popup composer: one textarea, shared draft,
+  Cmd/Ctrl+Enter. Dump history is Journal-only; there is no dashboard dump
+  modal or sidebar dump button.
+- Insights owns the strip and range filters (1h / 24h / 7d / 30d) under
+  `.dash-section--insights`. Remember the last range (`nest:insights-range`);
+  24h only when nothing is stored. Stats stay a quiet inline meta row
+  (`.day-stats`). Compact range toggle matches Journal.
 - A draggable surface drags from its own body. Never start a drag from a
   control nested inside it — pointer capture eats the control's click, so the
   press lands as a move instead of the action the user aimed at.

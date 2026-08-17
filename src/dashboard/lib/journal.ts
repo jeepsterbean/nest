@@ -17,15 +17,13 @@ export type CompletionTotals = {
   completed: number;
   value: number;
   effort: number;
-  valueScored: number;
-  effortScored: number;
 };
 
 /**
- * What a day actually recorded: every task with a completion event inside the
- * period, not each task's latest completion. A task completed and later
- * reopened still counts on the day it was completed; completing it twice in
- * one day still counts once. Scores are the task's current ones.
+ * What a period actually recorded: every task with a completion event inside
+ * the window, not each task's latest completion. A task completed and later
+ * reopened still counts in the window it was completed; completing it twice
+ * in one window still counts once. Scores are the task's current ones.
  */
 export function completionTotals(
   tasks: Task[],
@@ -43,20 +41,12 @@ export function completionTotals(
     completed: 0,
     value: 0,
     effort: 0,
-    valueScored: 0,
-    effortScored: 0,
   };
   for (const task of tasks) {
     if (!completedIds.has(task.id)) continue;
     totals.completed += 1;
-    if (task.value !== null) {
-      totals.value += task.value;
-      totals.valueScored += 1;
-    }
-    if (task.effort !== null) {
-      totals.effort += task.effort;
-      totals.effortScored += 1;
-    }
+    if (task.value !== null) totals.value += task.value;
+    if (task.effort !== null) totals.effort += task.effort;
   }
   return totals;
 }

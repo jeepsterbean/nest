@@ -102,6 +102,8 @@ preserves calm, private, flow-friendly behavior.
   (`commands.ts`, `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context,
   lib, components, hooks). Popup code lives under `src/popup/`.
+  Overview is last-hour summary plus dump capture; Insights is the ranged
+  look; Journal is filtered history.
 - Tasks UI layouts are Kanban and Table only. `taskGraph` /
   `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
   those layouts and the detail panel — it is not a canvas view.

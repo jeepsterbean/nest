@@ -94,7 +94,9 @@ in that Pulse is finished in the check-in popup.
 _Avoid_: Pulse check-in
 
 **Brain dump**:
-An unstructured captured thought, with an optional title, stored on its own.
+An unstructured captured thought stored on its own. Overview and the check-in
+popup capture text only (shared draft, Cmd/Ctrl+Enter). Journal can still
+attach an optional title to a saved dump.
 _Avoid_: note, journal entry
 
 ## Relationships

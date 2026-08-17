@@ -96,11 +96,11 @@ export function OverviewView() {
   }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
   const submitOverviewDump = async () => {
-    const { text } = trimBrainDumpDraft(brainDumpDraft);
+    const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
     const ok = await mutate(() => submitBrainDump(text, null));
-    if (ok) setBrainDumpDraft({ title: "", text: "" });
+    if (ok) setBrainDumpDraft({ text: "" });
     setBrainDumpSubmitting(false);
   };
 
@@ -276,10 +276,7 @@ export function OverviewView() {
             spellCheck={false}
             value={brainDumpText}
             onChange={(e) =>
-              setBrainDumpDraft((draft) => ({
-                ...draft,
-                text: e.target.value,
-              }))
+              setBrainDumpDraft({ text: e.target.value })
             }
             onKeyDown={(e) => {
               if (

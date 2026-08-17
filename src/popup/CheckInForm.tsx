@@ -548,10 +548,10 @@ function CheckInForm({
   };
 
   const saveBrainDump = async () => {
-    const { text } = trimBrainDumpDraft(brainDumpDraft);
+    const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text) return;
     await submitBrainDump(text, null);
-    setBrainDumpDraft({ title: "", text: "" });
+    setBrainDumpDraft({ text: "" });
     await emit("check-in-submitted");
   };
 
@@ -829,10 +829,7 @@ function CheckInForm({
             spellCheck={false}
             value={brainDumpText}
             onChange={(event) =>
-              setBrainDumpDraft((draft) => ({
-                ...draft,
-                text: event.target.value,
-              }))
+              setBrainDumpDraft({ text: event.target.value })
             }
             onKeyDown={(event) => {
               if (

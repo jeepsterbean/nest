@@ -67,7 +67,7 @@ describe("completionTotals", () => {
         [event(1, 1, "completed", 40), event(2, 2, "active", 70)],
         { from: 50, to: 80 },
       ),
-    ).toMatchObject({ completed: 0, value: 0, valueScored: 0 });
+    ).toMatchObject({ completed: 0, value: 0 });
   });
 
   it("totals current task scores without inventing missing values", () => {
@@ -82,8 +82,6 @@ describe("completionTotals", () => {
       completed: 2,
       value: 2,
       effort: 1,
-      valueScored: 1,
-      effortScored: 1,
     });
   });
 });

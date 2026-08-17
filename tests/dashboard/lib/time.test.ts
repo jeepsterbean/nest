@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  computeStreak,
   dayLabel,
-  endOfDayMs,
   formatCheckInCountdown,
   formatCompactDuration,
   formatDate,
@@ -48,13 +46,6 @@ describe("previousDayMs", () => {
   });
 });
 
-describe("endOfDayMs", () => {
-  it("returns the next local midnight", () => {
-    const today = new Date(2026, 5, 17, 0, 0, 0, 0).getTime();
-    expect(endOfDayMs(today)).toBe(new Date(2026, 5, 18).getTime());
-  });
-});
-
 describe("dayLabel", () => {
   const now = new Date(2026, 5, 17, 10, 0, 0).getTime();
 
@@ -70,35 +61,6 @@ describe("dayLabel", () => {
     const label = dayLabel(sec(new Date(2026, 5, 10, 12, 0)), now);
     expect(label).not.toBe("Today");
     expect(label).not.toBe("Yesterday");
-  });
-});
-
-describe("computeStreak", () => {
-  const now = new Date(2026, 5, 17, 12, 0, 0).getTime();
-  const onDay = (day: number) => sec(new Date(2026, 5, day, 9, 0));
-
-  it("returns 0 with no events", () => {
-    expect(computeStreak([], now)).toBe(0);
-  });
-
-  it("counts a single entry today as 1", () => {
-    expect(computeStreak([onDay(17)], now)).toBe(1);
-  });
-
-  it("counts today + yesterday as 2", () => {
-    expect(computeStreak([onDay(17), onDay(16)], now)).toBe(2);
-  });
-
-  it("stops at a gap", () => {
-    expect(computeStreak([onDay(17), onDay(15)], now)).toBe(1);
-  });
-
-  it("counts from yesterday when today has no entry yet", () => {
-    expect(computeStreak([onDay(16), onDay(15)], now)).toBe(2);
-  });
-
-  it("counts multiple entries on the same day once", () => {
-    expect(computeStreak([onDay(17), onDay(17)], now)).toBe(1);
   });
 });
 

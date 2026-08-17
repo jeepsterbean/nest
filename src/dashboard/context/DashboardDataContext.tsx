@@ -37,9 +37,9 @@ import type {
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 
-/** How far back check-ins, phases, dumps and status events are loaded. Views
- * must not let the user page past this, or they render "0" for "not loaded". */
-export const HISTORY_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+/** How far back check-ins, phases, dumps and status events are loaded.
+ * Insights' longest range (30 days) must stay inside this window. */
+const HISTORY_WINDOW_SECONDS = 30 * 24 * 60 * 60;
 
 type DashboardData = {
   tasks: Task[];

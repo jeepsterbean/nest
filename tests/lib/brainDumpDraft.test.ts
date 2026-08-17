@@ -23,10 +23,7 @@ describe("isBrainDumpSubmitShortcut", () => {
 });
 
 describe("trimBrainDumpDraft", () => {
-  it("keeps the title attached to the shared body", () => {
-    expect(trimBrainDumpDraft({ title: "  Plan  ", text: "  Details  " })).toEqual({
-      title: "Plan",
-      text: "Details",
-    });
+  it("trims the shared body", () => {
+    expect(trimBrainDumpDraft({ text: "  Details  " })).toBe("Details");
   });
 });

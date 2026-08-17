@@ -1,6 +1,6 @@
 // Pure time/date helpers shared across the dashboard and check-in popup.
-// `dayLabel` and `computeStreak` accept an injectable `nowMs` so they can be
-// tested deterministically; callers default it to the current clock.
+// `dayLabel` accepts an injectable `nowMs` so it can be tested
+// deterministically; callers default it to the current clock.
 
 export const startOfDayMs = (tsSecs: number) => {
   const d = new Date(tsSecs * 1000);
@@ -15,13 +15,6 @@ export const previousDayMs = (dayMs: number) => {
   return d.getTime();
 };
 
-export const endOfDayMs = (dayMs: number) => {
-  const d = new Date(dayMs);
-  d.setDate(d.getDate() + 1);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-};
-
 export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
   const day = startOfDayMs(tsSecs);
   const today = startOfDayMs(nowMs / 1000);
@@ -32,23 +25,6 @@ export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
     month: "long",
     day: "numeric",
   });
-};
-
-// Days in a row with at least one entry. Today not having one yet doesn't
-// break the streak — it just isn't counted.
-export const computeStreak = (
-  eventTimes: number[],
-  nowMs: number = Date.now(),
-) => {
-  const days = new Set(eventTimes.map(startOfDayMs));
-  let cursor = startOfDayMs(nowMs / 1000);
-  if (!days.has(cursor)) cursor = previousDayMs(cursor);
-  let streak = 0;
-  while (days.has(cursor)) {
-    streak += 1;
-    cursor = previousDayMs(cursor);
-  }
-  return streak;
 };
 
 export const greetingForHour = (hour: number) => {
