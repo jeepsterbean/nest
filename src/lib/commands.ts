@@ -168,6 +168,10 @@ export function setTaskWorking(id: number, working: boolean): Promise<Task> {
   return invoke("set_task_working", { id, working });
 }
 
+export function stopAllWorkingNow(): Promise<Task[]> {
+  return invoke("stop_all_working_now");
+}
+
 export function setTaskScore(
   id: number,
   value: RatingValue | null,

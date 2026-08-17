@@ -186,6 +186,7 @@ export function TaskRelations({ task }: { task: Task }) {
   );
 }
 
+/** Compact Parent/Blocker signals for cards and the table — not a canvas. */
 export function TaskGraphBadges({ task }: { task: Task }) {
   const { taskGraph } = useDashboardData();
   const blockers = unresolvedBlockers(taskGraph, task.id);

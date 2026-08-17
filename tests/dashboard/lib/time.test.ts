@@ -12,6 +12,7 @@ import {
   formatPlayButtonTime,
   formatWorkedTime,
   greetingForHour,
+  isCheckInDue,
   previousDayMs,
   startOfDayMs,
   taskTotalWorkedSeconds,
@@ -136,7 +137,7 @@ describe("format helpers", () => {
 describe("minute helpers", () => {
   const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
 
-  it("shows second-precision countdowns and marks due schedules", () => {
+  it("shows second-precision countdowns", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
     ).toBe("0:30");
@@ -146,6 +147,15 @@ describe("minute helpers", () => {
     expect(
       formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
     ).toBe("0:00");
+  });
+
+  it("marks a schedule due once it hits zero or is waiting on a response", () => {
+    const due = (waitingForResponse: boolean, at: Date) =>
+      isCheckInDue({ waitingForResponse, nextDueAt: sec(at) }, now);
+
+    expect(due(false, new Date(2026, 5, 17, 14, 30))).toBe(true);
+    expect(due(true, new Date(2026, 5, 17, 14, 40))).toBe(true);
+    expect(due(false, new Date(2026, 5, 17, 14, 40))).toBe(false);
   });
 });
 

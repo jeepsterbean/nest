@@ -6,11 +6,11 @@ import {
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import { formatCheckInCountdown, greetingForHour, checkInRemainingSeconds } from "../lib/time";
+import { formatCheckInCountdown, greetingForHour, CHECK_IN_INTERVALS, isCheckInDue } from "../lib/time";
+import { phaseName } from "../lib/journal";
 import {
   chevronDownIcon,
   clockIcon,
-  insightsIcon,
   journalIcon,
   metricsIcon,
   overviewIcon,
@@ -18,18 +18,10 @@ import {
   tasksIcon,
 } from "./icons";
 
-const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
-
-export type DashboardView =
-  | "overview"
-  | "insights"
-  | "journal"
-  | "tasks"
-  | "metrics";
+export type DashboardView = "overview" | "journal" | "tasks" | "metrics";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
-  { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "journal", label: "Journal", icon: journalIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
@@ -113,17 +105,11 @@ export function DashboardHeader() {
     ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
     : "—:—";
   const checkInDue =
-    checkInSchedule !== null &&
-    (checkInSchedule.waitingForResponse ||
-      checkInRemainingSeconds(checkInSchedule.nextDueAt, nowMs) === 0);
+    checkInSchedule !== null && isCheckInDue(checkInSchedule, nowMs);
   const timerLabel = checkInDue ? "time to check in!" : countdown;
 
   const currentPhaseName = latestPhase
-    ? latestPhase.phaseId === null
-      ? "Idle"
-      : (phases.find((phase) => phase.id === latestPhase.phaseId)?.name ??
-        latestPhase.phaseLabel ??
-        `Phase ${latestPhase.phaseId}`)
+    ? phaseName(latestPhase.phaseId, phases, latestPhase.phaseLabel)
     : null;
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);

@@ -3,7 +3,6 @@ import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
 } from "../../lib/types";
-import { phaseAt } from "./insights";
 import { dayLabel, endOfDayMs, startOfDayMs } from "./time";
 
 export type TimelineEvent =
@@ -85,6 +84,22 @@ export const groupByDay = (
 
 const byTimeThenId = (a: PhaseCheckIn, b: PhaseCheckIn) =>
   a.createdAt - b.createdAt || a.id - b.id;
+
+/** Phase in effect at `at` (latest checkpoint at or before that instant). */
+function phaseAt(checkIns: PhaseCheckIn[], at: number): number | null {
+  let result: PhaseCheckIn | null = null;
+  for (const checkIn of checkIns) {
+    if (
+      checkIn.createdAt <= at &&
+      (!result ||
+        checkIn.createdAt > result.createdAt ||
+        (checkIn.createdAt === result.createdAt && checkIn.id > result.id))
+    ) {
+      result = checkIn;
+    }
+  }
+  return result?.phaseId ?? null;
+}
 
 // Drop attention flickers: a burst of checkpoints within settleSeconds collapses
 // to the phase it landed on. If that equals the phase before the burst, omit it.

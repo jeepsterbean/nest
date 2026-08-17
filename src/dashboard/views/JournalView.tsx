@@ -1,8 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { deleteMetricCheckIn } from "../../lib/commands";
 import type { Metric, Phase, Pulse } from "../../lib/types";
 import { chevronLeftIcon, chevronRightIcon } from "../components/icons";
-import { isQuietPhase, phaseName, phaseTone, sortPhaseTotals } from "../lib/journal";
+import {
+  completionTotals,
+  countCheckIns,
+  isQuietPhase,
+  phaseName,
+  phaseTone,
+  sortPhaseTotals,
+} from "../lib/journal";
 import {
   endOfDayMs,
   formatCompactDuration,
@@ -20,15 +27,32 @@ import {
   type JournalDay,
   type PhaseSession,
 } from "../lib/timeline";
-import { useDashboardData } from "../context/DashboardDataContext";
+import {
+  HISTORY_WINDOW_SECONDS,
+  useDashboardData,
+} from "../context/DashboardDataContext";
 import { JournalEvents } from "./JournalEvents";
 
-const JOURNAL_WINDOW_SECONDS = 30 * 24 * 60 * 60;
 const JOURNAL_VIEWS = [
   { key: "daily", label: "Daily" },
   { key: "raw", label: "Raw" },
 ] as const;
 type JournalViewKey = (typeof JOURNAL_VIEWS)[number]["key"];
+
+type DayStat = { label: string; value: string };
+
+function DayStats({ stats }: { stats: DayStat[] }) {
+  return (
+    <dl className="day-stats">
+      {stats.map((stat) => (
+        <div key={stat.label} className="day-stats__cell">
+          <dt>{stat.label}</dt>
+          <dd>{stat.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 function PhaseStrip({
   sessions,
@@ -124,6 +148,34 @@ function DayNav({
   );
 }
 
+function JournalViewToggle({
+  value,
+  onChange,
+}: {
+  value: JournalViewKey;
+  onChange: (view: JournalViewKey) => void;
+}) {
+  return (
+    <div className="view-toggle" role="group" aria-label="Journal view">
+      {JOURNAL_VIEWS.map((view) => (
+        <button
+          key={view.key}
+          type="button"
+          className={
+            value === view.key
+              ? "view-toggle__btn view-toggle__btn--active"
+              : "view-toggle__btn"
+          }
+          aria-pressed={value === view.key}
+          onClick={() => onChange(view.key)}
+        >
+          {view.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function DayArticle({
   day,
   phases,
@@ -133,7 +185,9 @@ function DayArticle({
   onDeleteCheckIn,
   onToggleDump,
   nav,
+  lead,
   showStrip,
+  stats,
 }: {
   day: Pick<JournalDay, "label" | "sessions"> & {
     events: JournalDay["events"];
@@ -150,7 +204,9 @@ function DayArticle({
     onPrev: () => void;
     onNext: () => void;
   };
+  lead?: ReactNode;
   showStrip: boolean;
+  stats?: DayStat[];
 }) {
   const totals = showStrip
     ? sortPhaseTotals(phaseSessionTotals(day.sessions), phases)
@@ -159,11 +215,14 @@ function DayArticle({
   return (
     <article className="day-group">
       <header className="day-group__head">
-        {nav ? (
-          <DayNav label={day.label} {...nav} />
-        ) : (
-          <h3 className="day-group__label">{day.label}</h3>
-        )}
+        <div className="day-group__lead">
+          {lead}
+          {nav ? (
+            <DayNav label={day.label} {...nav} />
+          ) : (
+            <h3 className="day-group__label">{day.label}</h3>
+          )}
+        </div>
         {totals.length > 0 ? (
           <p className="day-group__totals">
             {totals.map((row) => {
@@ -181,6 +240,7 @@ function DayArticle({
           </p>
         ) : null}
       </header>
+      {stats ? <DayStats stats={stats} /> : null}
       {showStrip && day.sessions.length > 0 ? (
         <PhaseStrip sessions={day.sessions} phases={phases} />
       ) : null}
@@ -206,6 +266,8 @@ function DayArticle({
 
 export function JournalView() {
   const {
+    tasks,
+    taskStatusEvents,
     metrics,
     pulses,
     phases,
@@ -222,7 +284,7 @@ export function JournalView() {
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(new Set());
 
   const todayMs = startOfDayMs(Date.now() / 1000);
-  const oldestMs = startOfDayMs(Date.now() / 1000 - JOURNAL_WINDOW_SECONDS);
+  const oldestMs = startOfDayMs(Date.now() / 1000 - HISTORY_WINDOW_SECONDS);
   const dayMs = Math.min(Math.max(selectedDayMs, oldestMs), todayMs);
 
   const selectedDay = useMemo(
@@ -236,6 +298,29 @@ export function JournalView() {
       ),
     [checkIns, brainDumps, phaseCheckIns, phases, dayMs],
   );
+  const dayStats = useMemo<DayStat[]>(() => {
+    const period = { from: dayMs / 1000, to: endOfDayMs(dayMs) / 1000 };
+    const totals = completionTotals(tasks, taskStatusEvents, period);
+    // A zero total is only meaningful when something was actually scored.
+    const scored = (total: number, count: number) =>
+      count === 0 ? "—" : String(total);
+    return [
+      { label: "Completed", value: String(totals.completed) },
+      {
+        label: "Value",
+        value: scored(totals.value, totals.valueScored),
+      },
+      {
+        label: "Effort",
+        value: scored(totals.effort, totals.effortScored),
+      },
+      {
+        label: "Check-ins",
+        value: String(countCheckIns(checkIns, period)),
+      },
+    ];
+  }, [tasks, taskStatusEvents, checkIns, dayMs]);
+
   const rawDays = useMemo(
     () => groupByDay(buildTimeline(checkIns, phaseCheckIns, brainDumps)),
     [checkIns, phaseCheckIns, brainDumps],
@@ -262,31 +347,17 @@ export function JournalView() {
     onToggleDump: toggleDumpExpanded,
   };
 
+  const viewToggle = (
+    <JournalViewToggle value={journalView} onChange={setJournalView} />
+  );
+
   return (
     <section className="dash-section dash-section--journal">
-      <div className="journal-toolbar">
-        <div className="view-toggle" role="group" aria-label="Journal view">
-          {JOURNAL_VIEWS.map((view) => (
-            <button
-              key={view.key}
-              type="button"
-              className={
-                journalView === view.key
-                  ? "view-toggle__btn view-toggle__btn--active"
-                  : "view-toggle__btn"
-              }
-              aria-pressed={journalView === view.key}
-              onClick={() => setJournalView(view.key)}
-            >
-              {view.label}
-            </button>
-          ))}
-        </div>
-      </div>
       {journalView === "daily" ? (
         loaded ? (
           <DayArticle
             day={selectedDay}
+            lead={viewToggle}
             nav={{
               canPrev: dayMs > oldestMs,
               canNext: dayMs < todayMs,
@@ -294,25 +365,33 @@ export function JournalView() {
               onNext: () => setSelectedDayMs(endOfDayMs(dayMs)),
             }}
             showStrip
+            stats={dayStats}
             {...dayProps}
           />
-        ) : null
-      ) : loaded && rawDays.length === 0 ? (
-        <div className="dash-empty">
-          <strong>Nothing here yet</strong>
-          <span>
-            Press <kbd>⌘⇧E</kbd> anywhere to log your first Metric check-in.
-          </span>
-        </div>
+        ) : (
+          <div className="journal-toolbar">{viewToggle}</div>
+        )
       ) : (
-        rawDays.map((day) => (
-          <DayArticle
-            key={day.key}
-            day={{ label: day.label, sessions: [], events: day.events }}
-            showStrip={false}
-            {...dayProps}
-          />
-        ))
+        <>
+          <div className="journal-toolbar">{viewToggle}</div>
+          {loaded && rawDays.length === 0 ? (
+            <div className="dash-empty">
+              <strong>Nothing here yet</strong>
+              <span>
+                Press <kbd>⌘⇧E</kbd> anywhere to log your first Metric check-in.
+              </span>
+            </div>
+          ) : (
+            rawDays.map((day) => (
+              <DayArticle
+                key={day.key}
+                day={{ label: day.label, sessions: [], events: day.events }}
+                showStrip={false}
+                {...dayProps}
+              />
+            ))
+          )}
+        </>
       )}
     </section>
   );

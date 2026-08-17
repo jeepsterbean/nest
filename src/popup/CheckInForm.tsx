@@ -11,6 +11,7 @@ import {
   scheduleNextCheckIn,
   setTaskStatus,
   setTaskWorking,
+  stopAllWorkingNow,
   submitBrainDump,
   submitMetricCheckIn,
 } from "../lib/commands";
@@ -24,7 +25,9 @@ import type {
 } from "../lib/types";
 import {
   checkInRemainingSeconds,
+  CHECK_IN_INTERVALS,
   formatCheckInCountdown,
+  isCheckInDue,
 } from "../dashboard/lib/time";
 import { groupTasksByStatus, pinnedIdOrder } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
@@ -38,8 +41,6 @@ import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import "./CheckInForm.css";
-
-const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
 // Drop targets for a lane with no tasks in it. Negative so they can never
 // collide with a task id.
@@ -269,10 +270,7 @@ function CheckInForm({
     : [];
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
-  const timerDue =
-    loaded !== null &&
-    (loaded.schedule.waitingForResponse ||
-      checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) === 0);
+  const timerDue = loaded !== null && isCheckInDue(loaded.schedule, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -490,18 +488,15 @@ function CheckInForm({
 
   const restAllWorking = async () => {
     if (!loaded || submitting) return;
-    const working = loaded.tasks.filter((task) => task.workingNow);
-    if (working.length === 0) return;
+    if (!loaded.tasks.some((task) => task.workingNow)) return;
     setSubmitting(true);
     setError(null);
     try {
-      const updates = new Map<number, Task>();
-      for (const task of working) {
-        updates.set(task.id, await setTaskWorking(task.id, false));
-      }
+      const updates = await stopAllWorkingNow();
+      const byId = new Map(updates.map((task) => [task.id, task]));
       setLoaded({
         ...loaded,
-        tasks: loaded.tasks.map((task) => updates.get(task.id) ?? task),
+        tasks: loaded.tasks.map((task) => byId.get(task.id) ?? task),
       });
       await emit("check-in-submitted");
     } catch (e) {

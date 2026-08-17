@@ -13,7 +13,6 @@ import { ErrorBanner } from "./components/ErrorBanner";
 import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
-import { InsightsView } from "./views/InsightsView";
 import { JournalView } from "./views/JournalView";
 import { TasksView } from "./views/TasksView";
 import { MetricsView } from "./views/MetricsView";
@@ -66,7 +65,6 @@ function DashboardInner() {
         <ErrorBanner />
 
         {view === "overview" && <OverviewView />}
-        {view === "insights" && <InsightsView />}
         {view === "journal" && <JournalView />}
         {view === "tasks" && <TasksView />}
         {view === "metrics" && <MetricsView />}

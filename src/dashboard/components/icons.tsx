@@ -89,14 +89,6 @@ export const overviewIcon = (
   </svg>
 );
 
-export const insightsIcon = (
-  <svg {...iconProps}>
-    <path d="M9 18h6" />
-    <path d="M10 22h4" />
-    <path d="M8.4 14.5A7 7 0 1 1 15.6 14.5 4.2 4.2 0 0 0 14 18h-4a4.2 4.2 0 0 0-1.6-3.5z" />
-  </svg>
-);
-
 export const journalIcon = (
   <svg {...iconProps}>
     <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />

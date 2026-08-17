@@ -539,19 +539,33 @@ fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()> {
     Ok(())
 }
 
-/// Bank Worked time and clear Working now on every task that has it.
-pub(crate) fn stop_all_working_now(conn: &Connection, now: i64) -> Result<usize> {
-    let updated = conn.execute(
+/// Bank Worked time and clear Working now on every task that has it, returning
+/// the tasks it changed. RETURNING gives no row order; callers key by id.
+pub(crate) fn bank_all_working_now(conn: &Connection, now: i64) -> Result<Vec<Task>> {
+    let mut stmt = conn.prepare(&format!(
         "UPDATE tasks SET \
          worked_seconds = worked_seconds + CASE \
            WHEN work_started_at IS NULL THEN 0 \
            ELSE MAX(0, ?1 - work_started_at) \
          END, \
          working_now = 0, work_started_at = NULL, updated_at = ?1 \
-         WHERE working_now = 1",
-        params![now],
-    )?;
-    Ok(updated)
+         WHERE working_now = 1 \
+         RETURNING {TASK_COLUMNS}"
+    ))?;
+    let tasks = stmt
+        .query_map(params![now], map_task)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(tasks)
+}
+
+#[tauri::command]
+pub fn stop_all_working_now(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+) -> Result<Vec<Task>> {
+    with_phase_tx(&app, &state, |tx| {
+        bank_all_working_now(tx, now_unix_secs())
+    })
 }
 
 /// Bank Worked time, mark the Mac away, and record Offline even from Resting.
@@ -565,7 +579,7 @@ pub(crate) fn enter_system_offline(app: &AppHandle) {
         let mut conn = db.lock().unwrap();
         let tx = conn.transaction()?;
         let now = now_unix_secs();
-        let stopped = stop_all_working_now(&tx, now)? > 0;
+        let stopped = !bank_all_working_now(&tx, now)?.is_empty();
         let changed = phase::sync_derived_phase(&tx, current, now)?;
         tx.commit()?;
         Ok((stopped, changed))
@@ -918,18 +932,21 @@ pub fn list_phases(
     Ok(rows)
 }
 
-#[tauri::command]
-pub fn submit_metric_check_in(
-    state: State<'_, Mutex<Connection>>,
+/// Writes the check-in row and one row per rating, so it takes the transaction
+/// rather than the pooled connection: a mid-loop failure must not leave a
+/// check-in with only some of its ratings.
+fn record_metric_check_in(
+    tx: &Transaction<'_>,
     pulse_id: i64,
-    ratings: Vec<MetricRatingInput>,
+    ratings: &[MetricRatingInput],
+    now: i64,
 ) -> Result<MetricCheckIn> {
     if ratings.is_empty() {
         return Err(AppError::InvalidInput(
             "at least one rating is required".into(),
         ));
     }
-    for r in &ratings {
+    for r in ratings {
         if !(1..=5).contains(&r.value) {
             return Err(AppError::InvalidInput(format!(
                 "value {} out of range 1-5",
@@ -938,9 +955,6 @@ pub fn submit_metric_check_in(
         }
     }
 
-    let mut conn = state.lock().unwrap();
-    let tx = conn.transaction()?;
-    let now = now_unix_secs();
     let pulse_name: String = tx
         .query_row(
             "SELECT name FROM pulses WHERE id = ?1",
@@ -950,7 +964,7 @@ pub fn submit_metric_check_in(
         .optional()?
         .ok_or_else(|| AppError::NotFound(format!("pulse {pulse_id}")))?;
 
-    for rating in &ratings {
+    for rating in ratings {
         let belongs: bool = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM pulse_metrics WHERE pulse_id = ?1 AND metric_id = ?2)",
             params![pulse_id, rating.metric_id],
@@ -975,18 +989,30 @@ pub fn submit_metric_check_in(
             "INSERT INTO metric_ratings (check_in_id, metric_id, value) \
              VALUES (?1, ?2, ?3)",
         )?;
-        for r in &ratings {
+        for r in ratings {
             stmt.execute(params![check_in_id, r.metric_id, r.value])?;
         }
     }
 
-    tx.commit()?;
     Ok(MetricCheckIn {
         id: check_in_id,
         created_at: now,
         pulse_id: Some(pulse_id),
         pulse_name: Some(pulse_name),
     })
+}
+
+#[tauri::command]
+pub fn submit_metric_check_in(
+    state: State<'_, Mutex<Connection>>,
+    pulse_id: i64,
+    ratings: Vec<MetricRatingInput>,
+) -> Result<MetricCheckIn> {
+    let mut conn = state.lock().unwrap();
+    let tx = conn.transaction()?;
+    let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now_unix_secs())?;
+    tx.commit()?;
+    Ok(check_in)
 }
 
 #[tauri::command]
@@ -1179,11 +1205,12 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        bank_task_work, change_task_status, change_task_working, fetch_task,
-        normalize_optional_title, normalize_task_scope, resolve_due_check_in, stop_all_working_now,
-        valid_icon, validate_task_status,
+        bank_all_working_now, bank_task_work, change_task_status, change_task_working, fetch_task,
+        normalize_optional_title, normalize_task_scope, record_metric_check_in,
+        resolve_due_check_in, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
+    use crate::models::MetricRatingInput;
     use crate::CheckInTimer;
     use rusqlite::Connection;
 
@@ -1275,7 +1302,7 @@ mod tests {
     }
 
     #[test]
-    fn stop_all_working_now_banks_every_working_task() {
+    fn bank_all_working_now_banks_every_working_task() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
         conn.execute(
@@ -1297,8 +1324,18 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(stop_all_working_now(&conn, 150).unwrap(), 2);
-        assert_eq!(stop_all_working_now(&conn, 160).unwrap(), 0);
+        let mut banked = bank_all_working_now(&conn, 150).unwrap();
+        banked.sort_by_key(|task| task.id);
+        // The returned rows are what the popup renders, so they must already
+        // carry the banked totals, not the pre-update ones.
+        assert_eq!(
+            banked
+                .iter()
+                .map(|task| (task.id, task.worked_seconds, task.working_now))
+                .collect::<Vec<_>>(),
+            vec![(1, 60, false), (2, 35, false)],
+        );
+        assert!(bank_all_working_now(&conn, 160).unwrap().is_empty());
 
         let first = fetch_task(&conn, 1).unwrap();
         assert!(!first.working_now);
@@ -1406,5 +1443,85 @@ mod tests {
 
         assert!(super::set_task_order(&conn, &[1, 1]).is_err());
         assert!(super::set_task_order(&conn, &[99]).is_err());
+    }
+
+    #[test]
+    fn records_a_metric_check_in_for_pulse_metrics_only() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO pulses (id, name, created_at, sort_order) VALUES (1, 'Body', 1, 0);
+             INSERT INTO metrics (id, name, created_at) \
+             VALUES (10, 'Energy', 1), (11, 'Mood', 2), (12, 'Focus', 3);
+             INSERT INTO pulse_metrics (pulse_id, metric_id, sort_order) \
+             VALUES (1, 10, 0), (1, 11, 1);",
+        )
+        .unwrap();
+
+        let tx = conn.transaction().unwrap();
+        let saved = record_metric_check_in(
+            &tx,
+            1,
+            &[
+                MetricRatingInput {
+                    metric_id: 10,
+                    value: 4,
+                },
+                MetricRatingInput {
+                    metric_id: 11,
+                    value: 2,
+                },
+            ],
+            500,
+        )
+        .unwrap();
+        assert_eq!(saved.pulse_id, Some(1));
+        assert_eq!(saved.pulse_name.as_deref(), Some("Body"));
+        assert_eq!(saved.created_at, 500);
+
+        assert!(record_metric_check_in(&tx, 1, &[], 501).is_err());
+        assert!(record_metric_check_in(
+            &tx,
+            1,
+            &[MetricRatingInput {
+                metric_id: 10,
+                value: 6
+            }],
+            502,
+        )
+        .is_err());
+        assert!(record_metric_check_in(
+            &tx,
+            1,
+            &[MetricRatingInput {
+                metric_id: 12,
+                value: 3
+            }],
+            503,
+        )
+        .is_err());
+        assert!(record_metric_check_in(
+            &tx,
+            99,
+            &[MetricRatingInput {
+                metric_id: 10,
+                value: 3
+            }],
+            504,
+        )
+        .is_err());
+        tx.commit().unwrap();
+
+        let ratings: Vec<(i64, i64)> = conn
+            .prepare(
+                "SELECT metric_id, value FROM metric_ratings \
+                 WHERE check_in_id = ?1 ORDER BY metric_id ASC",
+            )
+            .unwrap()
+            .query_map([saved.id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(ratings, vec![(10, 4), (11, 2)]);
     }
 }

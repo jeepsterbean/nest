@@ -88,11 +88,11 @@ preserves calm, private, flow-friendly behavior.
 - When a schema or command payload changes, update Rust models, TypeScript
   types, command helpers, and tests in the same change.
 - Prefer `cargo test` coverage next to the Rust modules that own the behavior
-  (`task_graph`, migrations, commands).
+  (`task_graph` for Parent/Blocker integrity, migrations, commands).
 - Task commands that can change Working now (`delete_task`, `set_task_status`,
-  `set_task_working`) go through `with_phase_tx` so Phase sync and emit stay in
-  the same transaction. Lock/sleep Offline is a separate path because it also
-  writes PhaseSignals.
+  `set_task_working`, `stop_all_working_now`) go through `with_phase_tx` so Phase
+  sync and emit stay in the same transaction. Lock/sleep Offline is a separate
+  path because it also writes PhaseSignals.
 
 ## Frontend structure
 
@@ -102,6 +102,9 @@ preserves calm, private, flow-friendly behavior.
   (`commands.ts`, `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context,
   lib, components, hooks). Popup code lives under `src/popup/`.
+- Tasks UI layouts are Kanban and Table only. `taskGraph` /
+  `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
+  those layouts and the detail panel — it is not a canvas view.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Styles: dashboard in `src/dashboard/Dashboard.css`, popup in

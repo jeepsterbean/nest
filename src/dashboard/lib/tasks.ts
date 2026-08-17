@@ -28,21 +28,6 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
 
 export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
 
-// Groups scored tasks that share the same value/effort cell so the priority
-// matrix can fan them out instead of stacking chips invisibly. Input order is
-// preserved, so pass a deterministically sorted list.
-export const clusterByScore = (taskList: Task[]): Map<string, Task[]> => {
-  const clusters = new Map<string, Task[]>();
-  for (const task of taskList) {
-    if (task.value === null || task.effort === null) continue;
-    const key = `${task.value}:${task.effort}`;
-    const cluster = clusters.get(key);
-    if (cluster) cluster.push(task);
-    else clusters.set(key, [task]);
-  }
-  return clusters;
-};
-
 // Working now outranks manual order, always: a working task sits above every
 // idle one and no drag can push it below. Sort is stable, so the manual
 // sort_order still decides the order inside each band.

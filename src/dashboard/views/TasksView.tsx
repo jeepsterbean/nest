@@ -1,7 +1,4 @@
 import {
-  Fragment,
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -19,7 +16,6 @@ import { useTaskMenus } from "../context/TaskMenuContext";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
 import {
   CLOSED_STATUSES,
-  clusterByScore,
   groupTasksByStatus,
   TASK_STATUS_LABEL,
   TASK_STATUSES,
@@ -41,19 +37,10 @@ import {
   TaskWorkingControl,
   WorkingBadge,
 } from "../task/TaskWorkingControl";
-import { isTaskBlocked } from "../lib/taskGraph";
-
-const TaskGraphView = lazy(() =>
-  import("../task/TaskGraphView").then((module) => ({
-    default: module.TaskGraphView,
-  })),
-);
 
 const TASK_VIEWS = [
   { key: "kanban", label: "Kanban" },
   { key: "table", label: "Table" },
-  { key: "matrix", label: "Matrix" },
-  { key: "graph", label: "Graph" },
 ] as const;
 
 type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
@@ -464,156 +451,6 @@ export function TasksView() {
     </section>
   );
 
-  const renderTaskMatrix = () => {
-    const open = visibleTasks.filter(
-      (t) =>
-        t.status === "backlog" ||
-        t.status === "up_next" ||
-        t.status === "active",
-    );
-    const readyOpen = open.filter((task) => !isTaskBlocked(taskGraph, task.id));
-    const blockedOpen = open.filter((task) => isTaskBlocked(taskGraph, task.id));
-    const scored = readyOpen.filter((t) => t.value !== null && t.effort !== null);
-    const unscored = readyOpen.filter((t) => t.value === null || t.effort === null);
-    const ranked = [...scored].sort(
-      (a, b) =>
-        (b.value ?? 0) - (a.value ?? 0) ||
-        (a.effort ?? 0) - (b.effort ?? 0) ||
-        b.updatedAt - a.updatedAt,
-    );
-    return (
-      <div className="task-matrix-layout">
-        <div className="task-matrix">
-          <span className="task-matrix__axis task-matrix__axis--value">
-            Value
-          </span>
-          <div className="task-matrix__plot">
-            <div className="task-matrix__quadrants" aria-hidden="true">
-              <span className="task-matrix__quadrant">Quick wins</span>
-              <span className="task-matrix__quadrant">Big bets</span>
-              <span className="task-matrix__quadrant">Fill-ins</span>
-              <span className="task-matrix__quadrant">Thankless</span>
-            </div>
-            {scored.length === 0 ? (
-              <p className="task-matrix__empty">
-                Score a task's value and effort to place it here.
-              </p>
-            ) : (
-              [...clusterByScore(ranked).entries()].map(([key, group]) => {
-                const first = group[0];
-                const x = 8 + (((first.effort ?? 3) - 1) / 4) * 84;
-                const y = 8 + (((first.value ?? 3) - 1) / 4) * 84;
-                const visible = group.slice(0, 3);
-                const hidden = group.slice(3);
-                return (
-                  <Fragment key={key}>
-                    {visible.map((task, i) => (
-                      <button
-                        key={task.id}
-                        type="button"
-                        className={`task-matrix__chip${
-                          task.workingNow ? " task-matrix__chip--working" : ""
-                        }`}
-                        style={{
-                          left: `${x}%`,
-                          bottom: `${y}%`,
-                          transform: `translate(-50%, 50%) translate(${i * 9}px, ${i * -11}px)`,
-                          zIndex: visible.length - i,
-                        }}
-                        title={`${task.title} · value ${task.value}, effort ${task.effort}`}
-                        aria-label={`${task.title}${
-                          task.workingNow ? ", working now" : ""
-                        } · value ${task.value}, effort ${task.effort}`}
-                        onClick={(e) => selectTask(task.id, e.currentTarget)}
-                      >
-                        {task.workingNow && (
-                          <span className="working-beacon" aria-hidden="true" />
-                        )}
-                        {task.title}
-                      </button>
-                    ))}
-                    {hidden.length > 0 && (
-                      <span
-                        className="task-matrix__chip-count"
-                        style={{
-                          left: `${x}%`,
-                          bottom: `${y}%`,
-                          transform: `translate(-50%, 50%) translate(${visible.length * 9 + 8}px, ${visible.length * -11}px)`,
-                        }}
-                        title={hidden.map((task) => task.title).join(", ")}
-                      >
-                        +{hidden.length}
-                      </span>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </div>
-          <span className="task-matrix__axis task-matrix__axis--effort">
-            Effort
-          </span>
-        </div>
-        <div className="task-ranked">
-          <h3 className="task-ranked__head">Do next</h3>
-          {ranked.length === 0 ? (
-            <p className="task-ranked__empty">Score some tasks to rank them.</p>
-          ) : (
-            <ol className="task-ranked__list">
-              {ranked.map((task, i) => (
-                <li key={task.id} className="task-ranked__item">
-                  <span className="task-ranked__rank">{i + 1}</span>
-                  <button
-                    type="button"
-                    className="task-ranked__title"
-                    onClick={(e) => selectTask(task.id, e.currentTarget)}
-                  >
-                    {task.title}
-                  </button>
-                  <span className="task-ranked__badges">
-                    <span className="task-badge" title="Value">
-                      V{task.value}
-                    </span>
-                    <span className="task-badge" title="Effort">
-                      E{task.effort}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-          {unscored.length > 0 && (
-            <div className="task-ranked__unscored">
-              <h4 className="task-ranked__subhead">Needs scoring</h4>
-              <ol className="task-ranked__list">
-                {unscored.map((task) => (
-                  <li
-                    key={task.id}
-                    className="task-ranked__item task-ranked__item--unscored"
-                  >
-                    <button
-                      type="button"
-                      className="task-ranked__title"
-                      onClick={(e) => selectTask(task.id, e.currentTarget)}
-                    >
-                      {task.title}
-                    </button>
-                    <TaskScoreControls task={task} />
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {blockedOpen.length > 0 && (
-            <p className="task-ranked__blocked">
-              {blockedOpen.length} {blockedOpen.length === 1 ? "task is" : "tasks are"} waiting on blockers.
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
@@ -976,19 +813,6 @@ export function TasksView() {
                 </tbody>
               </table>
             </div>
-          )}
-          {taskView === "matrix" && renderTaskMatrix()}
-          {taskView === "graph" && (
-            <Suspense
-              fallback={
-                <div className="task-graph-empty">Preparing task map…</div>
-              }
-            >
-              <TaskGraphView
-                visibleTasks={visibleTasks}
-                onSelectTask={selectTask}
-              />
-            </Suspense>
           )}
           </div>
           {selectedTask && (

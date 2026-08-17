@@ -130,6 +130,17 @@ export const checkInRemainingSeconds = (
   nowMs: number = Date.now(),
 ) => Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
 
+/** Valid popup / header interval picks; must match Rust `check_in` step rules. */
+export const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
+
+/** Due when the timer is paused waiting, or the countdown has hit zero. */
+export const isCheckInDue = (
+  schedule: { waitingForResponse: boolean; nextDueAt: number },
+  nowMs: number = Date.now(),
+) =>
+  schedule.waitingForResponse ||
+  checkInRemainingSeconds(schedule.nextDueAt, nowMs) === 0;
+
 export const formatCheckInCountdown = (
   nextDueAt: number,
   nowMs: number = Date.now(),

@@ -20,6 +20,7 @@ import {
   listPhases,
   listTasks,
   listTaskDependencies,
+  listTaskStatusEvents,
 } from "../../lib/commands";
 import type {
   BrainDump,
@@ -31,15 +32,19 @@ import type {
   Pulse,
   Task,
   TaskDependency,
+  TaskStatusEvent,
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 
-const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
+/** How far back check-ins, phases, dumps and status events are loaded. Views
+ * must not let the user page past this, or they render "0" for "not loaded". */
+export const HISTORY_WINDOW_SECONDS = 30 * 24 * 60 * 60;
 
 type DashboardData = {
   tasks: Task[];
   taskDependencies: TaskDependency[];
+  taskStatusEvents: TaskStatusEvent[];
   taskGraph: TaskGraphProjection;
   metrics: Metric[];
   pulses: Pulse[];
@@ -66,6 +71,7 @@ const DashboardDataContext = createContext<DashboardData | null>(null);
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
+  const [taskStatusEvents, setTaskStatusEvents] = useState<TaskStatusEvent[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [pulses, setPulses] = useState<Pulse[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -84,11 +90,12 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     const request = ++reloadRequest.current;
     try {
       const now = Math.floor(Date.now() / 1000);
-      const from = now - THIRTY_DAYS_SECONDS;
+      const from = now - HISTORY_WINDOW_SECONDS;
       const to = now + 1;
-      const [t, td, m, pulses, p, ci, pci, allBd, lp, schedule] = await Promise.all([
+      const [t, td, tse, m, pulses, p, ci, pci, allBd, lp, schedule] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
+        listTaskStatusEvents(from, to),
         listMetrics(),
         listPulses(),
         listPhases(true),
@@ -101,6 +108,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       if (request !== reloadRequest.current) return;
       setTasks(t);
       setTaskDependencies(td);
+      setTaskStatusEvents(tse);
       setMetrics(m);
       setPulses(pulses);
       setPhases(p);
@@ -164,6 +172,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     () => ({
       tasks,
       taskDependencies,
+      taskStatusEvents,
       taskGraph,
       metrics,
       pulses,
@@ -184,6 +193,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     [
       tasks,
       taskDependencies,
+      taskStatusEvents,
       taskGraph,
       metrics,
       pulses,

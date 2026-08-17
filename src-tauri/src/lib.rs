@@ -952,6 +952,7 @@ pub fn run() {
             commands::delete_task,
             commands::set_task_status,
             commands::set_task_working,
+            commands::stop_all_working_now,
             commands::set_task_score,
             commands::reorder_tasks,
             commands::create_metric,
