@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   computeStreak,
   dayLabel,
+  endOfDayMs,
   formatCheckInCountdown,
+  formatCompactDuration,
   formatDate,
   formatDateTime,
+  formatHourTick,
   formatTime,
   formatPlayButtonTime,
   formatWorkedTime,
@@ -41,6 +44,13 @@ describe("previousDayMs", () => {
   it("crosses a month boundary (Mar 1 -> Feb 28 in a non-leap year)", () => {
     const mar1 = new Date(2026, 2, 1, 0, 0, 0, 0).getTime();
     expect(previousDayMs(mar1)).toBe(new Date(2026, 1, 28).getTime());
+  });
+});
+
+describe("endOfDayMs", () => {
+  it("returns the next local midnight", () => {
+    const today = new Date(2026, 5, 17, 0, 0, 0, 0).getTime();
+    expect(endOfDayMs(today)).toBe(new Date(2026, 5, 18).getTime());
   });
 });
 
@@ -110,6 +120,16 @@ describe("format helpers", () => {
     expect(typeof formatTime(ts)).toBe("string");
     expect(typeof formatDate(ts)).toBe("string");
     expect(typeof formatDateTime(ts)).toBe("string");
+    expect(typeof formatHourTick(ts)).toBe("string");
+  });
+
+  it("formats compact durations in whole minutes", () => {
+    expect(formatCompactDuration(0)).toBe("<1m");
+    expect(formatCompactDuration(59)).toBe("<1m");
+    expect(formatCompactDuration(60)).toBe("1m");
+    expect(formatCompactDuration(90)).toBe("1m");
+    expect(formatCompactDuration(3600)).toBe("1h");
+    expect(formatCompactDuration(3660)).toBe("1h 1m");
   });
 });
 

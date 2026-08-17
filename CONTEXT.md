@@ -52,11 +52,18 @@ _Avoid_: Session, stopwatch, in progress
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.
-The three values are **Doing**, **Scoping**, and **Resting**.
-Doing if any Task is Working now; else Scoping if Nest is engaged
+The four values are **Doing**, **Scoping**, **Resting**, and **Offline**.
+Doing if any Task is Working now; else Offline if the Mac is locked,
+display-asleep, or system-asleep; else Scoping if Nest is engaged
 (dashboard has attention or check-in popup up) or Notion desktop is frontmost;
-else Resting. Clicking another display leaves dashboard attention even if
-the Nest window is still key.
+else Resting. Lock/sleep clears Working now (Worked time is banked; status
+stays Active) and writes Offline even from Resting. Clicking another display
+leaves dashboard attention even if the Nest window is still key. The Journal
+shows Phase as a day strip of settled sessions, not a checkpoint list.
+Checkpoints that change more than once within 60 seconds collapse to the
+Phase they landed on; if that equals the Phase before the burst, they are
+omitted. Leading and trailing Resting, Offline, and Idle are trimmed from
+each day's strip. Pulse check-ins and brain dumps remain the journal list.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -83,7 +90,7 @@ _Avoid_: note, journal entry
 - A **Pulse** contains zero or more **Metrics** in a user-defined order
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
-- **Phase** is derived from Working now and whether Nest or Notion desktop currently has attention
+- **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, and whether the Mac is locked or asleep
 
 ## Example dialogue
 
@@ -91,7 +98,7 @@ _Avoid_: note, journal entry
 > **Domain expert:** "No. The Parent describes the work breakdown. Add a Blocker only when one Task must finish before another can proceed."
 
 > **Dev:** "If I leave Working now on overnight, should we subtract that from Worked time?"
-> **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on."
+> **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
 ## Flagged ambiguities
 
@@ -100,7 +107,8 @@ _Avoid_: note, journal entry
 - "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
-- "Idle" can look like a fourth Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, and Resting.
+- "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
+- "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
 
 ## Check-in cadence
 

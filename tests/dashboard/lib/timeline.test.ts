@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildJournalDays,
   buildMetricSeries,
   buildTimeline,
+  collapsePhaseCheckIns,
   groupByDay,
+  hourTicks,
+  phaseSessions,
+  phaseSessionTotals,
+  trimQuietPhaseSessions,
 } from "../../../src/dashboard/lib/timeline";
 import type {
   BrainDump,
@@ -22,10 +28,14 @@ const metricCheckIn = (
   ratings: ratings.map((r) => ({ checkInId: id, ...r })),
 });
 
-const phaseCheckIn = (id: number, createdAt: number): PhaseCheckIn => ({
+const phaseCheckIn = (
+  id: number,
+  createdAt: number,
+  phaseId: number | null = id,
+): PhaseCheckIn => ({
   id,
   createdAt,
-  phaseId: id,
+  phaseId,
   phaseLabel: null,
 });
 
@@ -35,6 +45,8 @@ const dump = (id: number, createdAt: number): BrainDump => ({
   title: null,
   text: `dump ${id}`,
 });
+
+const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
 describe("buildTimeline", () => {
   it("orders newest-first", () => {
@@ -80,5 +92,187 @@ describe("buildMetricSeries", () => {
     ]);
     expect(series.get(1)).toEqual([2, 3]);
     expect(series.get(2)).toEqual([5]);
+  });
+});
+
+const DOING = 1;
+const SCOPING = 2;
+const RESTING = 3;
+const isQuiet = (phaseId: number | null) =>
+  phaseId === null || phaseId === RESTING;
+
+describe("collapsePhaseCheckIns", () => {
+  it("keeps a burst's landed phase and drops a same-phase flicker", () => {
+    expect(
+      collapsePhaseCheckIns([
+        phaseCheckIn(1, 100, RESTING),
+        phaseCheckIn(2, 130, SCOPING),
+        phaseCheckIn(3, 150, DOING),
+      ]).map((checkIn) => checkIn.phaseId),
+    ).toEqual([DOING]);
+  });
+
+  it("omits a burst that lands back on the phase before it", () => {
+    const scoping = sec(new Date(2026, 5, 17, 9, 31));
+    const flicker = sec(new Date(2026, 5, 17, 9, 37));
+    expect(
+      collapsePhaseCheckIns([
+        phaseCheckIn(1, scoping, SCOPING),
+        phaseCheckIn(2, flicker, RESTING),
+        phaseCheckIn(3, flicker, SCOPING),
+      ]),
+    ).toEqual([phaseCheckIn(1, scoping, SCOPING)]);
+  });
+
+  it("keeps settled changes more than a minute apart", () => {
+    expect(
+      collapsePhaseCheckIns([
+        phaseCheckIn(1, 100, SCOPING),
+        phaseCheckIn(2, 161, DOING),
+      ]).map((checkIn) => ({ at: checkIn.createdAt, phaseId: checkIn.phaseId })),
+    ).toEqual([
+      { at: 100, phaseId: SCOPING },
+      { at: 161, phaseId: DOING },
+    ]);
+  });
+});
+
+describe("phaseSessions", () => {
+  it("clips stretches to the range and carries the phase already active", () => {
+    expect(
+      phaseSessions(
+        [
+          phaseCheckIn(1, 10, RESTING),
+          phaseCheckIn(2, 60, SCOPING),
+          phaseCheckIn(3, 120, DOING),
+        ],
+        40,
+        100,
+      ),
+    ).toEqual([
+      { phaseId: RESTING, from: 40, to: 60 },
+      { phaseId: SCOPING, from: 60, to: 100 },
+    ]);
+  });
+
+  it("starts at the first checkpoint when nothing precedes the range", () => {
+    expect(
+      phaseSessions([phaseCheckIn(1, 50, DOING)], 0, 80),
+    ).toEqual([{ phaseId: DOING, from: 50, to: 80 }]);
+  });
+});
+
+describe("trimQuietPhaseSessions", () => {
+  it("drops leading and trailing Resting but keeps a pause in the middle", () => {
+    expect(
+      trimQuietPhaseSessions(
+        [
+          { phaseId: RESTING, from: 0, to: 10 },
+          { phaseId: DOING, from: 10, to: 20 },
+          { phaseId: RESTING, from: 20, to: 25 },
+          { phaseId: SCOPING, from: 25, to: 40 },
+          { phaseId: RESTING, from: 40, to: 80 },
+        ],
+        isQuiet,
+      ),
+    ).toEqual([
+      { phaseId: DOING, from: 10, to: 20 },
+      { phaseId: RESTING, from: 20, to: 25 },
+      { phaseId: SCOPING, from: 25, to: 40 },
+    ]);
+  });
+});
+
+describe("phaseSessionTotals", () => {
+  it("sums seconds per phase", () => {
+    expect(
+      phaseSessionTotals([
+        { phaseId: DOING, from: 0, to: 10 },
+        { phaseId: SCOPING, from: 10, to: 15 },
+        { phaseId: DOING, from: 15, to: 25 },
+      ]),
+    ).toEqual([
+      { phaseId: DOING, seconds: 20 },
+      { phaseId: SCOPING, seconds: 5 },
+    ]);
+  });
+});
+
+describe("hourTicks", () => {
+  it("marks local hours strictly inside the span", () => {
+    const from = sec(new Date(2026, 5, 17, 9, 31));
+    const to = sec(new Date(2026, 5, 17, 14, 8));
+    expect(hourTicks(from, to)).toEqual([
+      sec(new Date(2026, 5, 17, 10)),
+      sec(new Date(2026, 5, 17, 11)),
+      sec(new Date(2026, 5, 17, 12)),
+      sec(new Date(2026, 5, 17, 13)),
+      sec(new Date(2026, 5, 17, 14)),
+    ]);
+  });
+});
+
+describe("buildJournalDays", () => {
+  const now = new Date(2026, 5, 17, 16, 0).getTime();
+  const at = (day: number, hour: number, minute = 0) =>
+    sec(new Date(2026, 5, day, hour, minute));
+
+  it("lists Pulse check-ins and brain dumps without Phase rows", () => {
+    const days = buildJournalDays(
+      [metricCheckIn(1, at(17, 12), [{ metricId: 1, value: 3 }])],
+      [dump(1, at(17, 9))],
+      [
+        phaseCheckIn(1, at(17, 9, 0), RESTING),
+        phaseCheckIn(2, at(17, 9, 31), SCOPING),
+        phaseCheckIn(3, at(17, 12), DOING),
+      ],
+      isQuiet,
+      now,
+    );
+    expect(days).toHaveLength(1);
+    expect(days[0].label).toBe("Today");
+    expect(days[0].events.map((event) => event.kind)).toEqual(["metrics", "dump"]);
+    expect(days[0].sessions.map((session) => session.phaseId)).toEqual([
+      SCOPING,
+      DOING,
+    ]);
+  });
+
+  it("keeps a Phase-only day and hides a Resting-only day", () => {
+    const days = buildJournalDays(
+      [],
+      [],
+      [
+        phaseCheckIn(1, at(16, 10), DOING),
+        phaseCheckIn(2, at(16, 18), RESTING),
+        phaseCheckIn(3, at(15, 10), RESTING),
+      ],
+      isQuiet,
+      now,
+    );
+    expect(days.map((day) => day.label)).toEqual(["Yesterday"]);
+    expect(days[0].events).toEqual([]);
+    expect(days[0].sessions.map((session) => session.phaseId)).toEqual([DOING]);
+  });
+
+  it("does not list a same-phase flicker as its own session", () => {
+    const days = buildJournalDays(
+      [],
+      [],
+      [
+        phaseCheckIn(1, at(17, 9, 31), SCOPING),
+        phaseCheckIn(2, at(17, 9, 37), RESTING),
+        phaseCheckIn(3, at(17, 9, 37), SCOPING),
+      ],
+      isQuiet,
+      now,
+    );
+    expect(days[0].sessions).toEqual([
+      {
+        phaseId: SCOPING,
+        from: at(17, 9, 31),
+        to: at(17, 16),
+      },
+    ]);
   });
 });

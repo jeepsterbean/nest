@@ -551,24 +551,22 @@ pub(crate) fn stop_all_working_now(conn: &Connection, now: i64) -> Result<usize>
     Ok(updated)
 }
 
-/// Stop every Working now task and re-derive Phase. Used when the Mac locks,
-/// display-sleeps, or system-sleeps.
-pub(crate) fn stop_all_working_now_and_sync(app: &AppHandle) {
-    let outcome =
-        phase::with_current_signals(app, |signals| -> Result<(bool, Option<String>)> {
-            let state = app.state::<Mutex<Connection>>();
-            let mut conn = state.lock().unwrap();
-            let tx = conn.transaction()?;
-            let now = now_unix_secs();
-            let stopped = stop_all_working_now(&tx, now)? > 0;
-            let changed = if stopped {
-                phase::sync_derived_phase(&tx, signals, now)?
-            } else {
-                None
-            };
-            tx.commit()?;
-            Ok((stopped, changed))
-        });
+/// Bank Worked time, mark the Mac away, and record Offline even from Resting.
+pub(crate) fn enter_system_offline(app: &AppHandle) {
+    let outcome = (|| -> Result<(bool, Option<String>)> {
+        let signals_state = app.state::<Mutex<phase::PhaseSignals>>();
+        let mut signals = signals_state.lock().unwrap();
+        signals.system_offline = true;
+        let current = *signals;
+        let db = app.state::<Mutex<Connection>>();
+        let mut conn = db.lock().unwrap();
+        let tx = conn.transaction()?;
+        let now = now_unix_secs();
+        let stopped = stop_all_working_now(&tx, now)? > 0;
+        let changed = phase::sync_derived_phase(&tx, current, now)?;
+        tx.commit()?;
+        Ok((stopped, changed))
+    })();
     match outcome {
         Ok((stopped, changed)) => {
             if stopped {
@@ -576,8 +574,16 @@ pub(crate) fn stop_all_working_now_and_sync(app: &AppHandle) {
             }
             phase::emit_phase_changed(app, changed);
         }
-        Err(error) => eprintln!("nest: stop working on system idle failed: {error}"),
+        Err(error) => eprintln!("nest: enter system offline failed: {error}"),
     }
+}
+
+/// Leave Offline. Engagement flags stay as they are, including a still-open popup.
+pub(crate) fn leave_system_offline(app: &AppHandle) {
+    phase::update_signals_and_sync(app, |signals| {
+        signals.system_offline = false;
+        signals.notion_frontmost = phase::notion_is_frontmost();
+    });
 }
 
 #[tauri::command]

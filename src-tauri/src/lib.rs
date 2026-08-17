@@ -340,11 +340,55 @@ fn install_phase_application_observer(app: tauri::AppHandle) {
     std::mem::forget(observer);
 }
 
-/// Stop Working now when the Mac locks, display-sleeps, or system-sleeps.
+/// Whether the login session currently reports a locked screen.
 #[cfg(target_os = "macos")]
-fn install_working_idle_observers(app: tauri::AppHandle) {
+fn screen_is_locked() -> bool {
+    use std::ffi::{c_void, CString};
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        fn CFRelease(cf: *const c_void);
+        fn CFDictionaryGetValue(dict: *const c_void, key: *const c_void) -> *const c_void;
+        fn CFStringCreateWithCString(
+            alloc: *const c_void,
+            c_str: *const i8,
+            encoding: u32,
+        ) -> *const c_void;
+        fn CFEqual(a: *const c_void, b: *const c_void) -> u8;
+        static kCFBooleanTrue: *const c_void;
+    }
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        fn CGSessionCopyCurrentDictionary() -> *const c_void;
+    }
+
+    const CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
+    let dict = unsafe { CGSessionCopyCurrentDictionary() };
+    if dict.is_null() {
+        return false;
+    }
+    let key_c = CString::new("CGSSessionScreenIsLocked").expect("static key");
+    let key = unsafe {
+        CFStringCreateWithCString(std::ptr::null(), key_c.as_ptr(), CF_STRING_ENCODING_UTF8)
+    };
+    let value = unsafe { CFDictionaryGetValue(dict, key) };
+    let locked = !value.is_null() && unsafe { CFEqual(value, kCFBooleanTrue) != 0 };
+    unsafe {
+        if !key.is_null() {
+            CFRelease(key);
+        }
+        CFRelease(dict);
+    }
+    locked
+}
+
+/// Enter Offline on lock / display-sleep / system-sleep; leave on unlock/wake
+/// unless the lock screen is still up.
+#[cfg(target_os = "macos")]
+fn install_system_offline_observers(app: tauri::AppHandle) {
     use objc2_app_kit::{
-        NSWorkspace, NSWorkspaceScreensDidSleepNotification, NSWorkspaceWillSleepNotification,
+        NSWorkspace, NSWorkspaceDidWakeNotification, NSWorkspaceScreensDidSleepNotification,
+        NSWorkspaceScreensDidWakeNotification, NSWorkspaceWillSleepNotification,
     };
     use objc2_foundation::{
         NSDistributedNotificationCenter, NSNotification, NSNotificationCenter, NSString,
@@ -360,7 +404,27 @@ fn install_working_idle_observers(app: tauri::AppHandle) {
     } {
         let app = app.clone();
         let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
-            commands::stop_all_working_now_and_sync(&app);
+            bump_leave_epoch(&app);
+            commands::enter_system_offline(&app);
+        });
+        let observer = unsafe {
+            workspace.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
+        };
+        std::mem::forget(observer);
+    }
+
+    for name in unsafe {
+        [
+            NSWorkspaceDidWakeNotification,
+            NSWorkspaceScreensDidWakeNotification,
+        ]
+    } {
+        let app = app.clone();
+        let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+            if screen_is_locked() {
+                return;
+            }
+            commands::leave_system_offline(&app);
         });
         let observer = unsafe {
             workspace.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
@@ -369,20 +433,28 @@ fn install_working_idle_observers(app: tauri::AppHandle) {
     }
 
     let lock_name = NSString::from_str("com.apple.screenIsLocked");
+    let lock_app = app.clone();
     let lock_block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
-        commands::stop_all_working_now_and_sync(&app);
+        bump_leave_epoch(&lock_app);
+        commands::enter_system_offline(&lock_app);
+    });
+    let unlock_name = NSString::from_str("com.apple.screenIsUnlocked");
+    let unlock_block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
+        commands::leave_system_offline(&app);
     });
     let distributed = NSDistributedNotificationCenter::defaultCenter();
-    let observer = unsafe {
-        NSNotificationCenter::addObserverForName_object_queue_usingBlock(
-            distributed.as_super(),
-            Some(&lock_name),
-            None,
-            None,
-            &lock_block,
-        )
-    };
-    std::mem::forget(observer);
+    for (name, block) in [(&lock_name, &lock_block), (&unlock_name, &unlock_block)] {
+        let observer = unsafe {
+            NSNotificationCenter::addObserverForName_object_queue_usingBlock(
+                distributed.as_super(),
+                Some(name),
+                None,
+                None,
+                block,
+            )
+        };
+        std::mem::forget(observer);
+    }
 }
 
 fn show_window(app: &tauri::AppHandle, label: &str) {
@@ -734,7 +806,7 @@ pub fn run() {
 
                 install_popup_event_monitors(app.handle().clone());
                 install_phase_application_observer(app.handle().clone());
-                install_working_idle_observers(app.handle().clone());
+                install_system_offline_observers(app.handle().clone());
             }
 
             #[cfg(not(target_os = "macos"))]

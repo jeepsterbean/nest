@@ -15,6 +15,13 @@ export const previousDayMs = (dayMs: number) => {
   return d.getTime();
 };
 
+export const endOfDayMs = (dayMs: number) => {
+  const d = new Date(dayMs);
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
 export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
   const day = startOfDayMs(tsSecs);
   const today = startOfDayMs(nowMs / 1000);
@@ -56,6 +63,19 @@ export const formatTime = (ts: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+export const formatHourTick = (ts: number) =>
+  new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "numeric" });
+
+/** Whole minutes and hours for journal summaries. Sub-minute spans stay "<1m". */
+export const formatCompactDuration = (seconds: number) => {
+  if (seconds < 60) return "<1m";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+};
 
 export const formatDate = (ts: number | null) =>
   ts === null

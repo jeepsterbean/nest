@@ -3,7 +3,8 @@ import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
 } from "../../lib/types";
-import { dayLabel, startOfDayMs } from "./time";
+import { phaseAt } from "./insights";
+import { dayLabel, endOfDayMs, previousDayMs, startOfDayMs } from "./time";
 
 export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
@@ -11,6 +12,25 @@ export type TimelineEvent =
   | { kind: "dump"; at: number; dump: BrainDump };
 
 export type DayGroup = { key: number; label: string; events: TimelineEvent[] };
+
+export type PhaseSession = {
+  phaseId: number | null;
+  from: number;
+  to: number;
+};
+
+export type PhaseTotal = { phaseId: number | null; seconds: number };
+
+export type JournalDay = {
+  key: number;
+  label: string;
+  sessions: PhaseSession[];
+  events: TimelineEvent[];
+};
+
+// Window-switching writes a checkpoint per change; bursts inside this window
+// are still settling, not a journal-worthy beat.
+export const PHASE_SETTLE_SECONDS = 60;
 
 // Independent popup submissions can land in the same second; rank them so the
 // feed remains deterministic and easy to scan.
@@ -61,6 +81,177 @@ export const groupByDay = (
     else groups.push({ key, label: dayLabel(ev.at, nowMs), events: [ev] });
   }
   return groups;
+};
+
+const byTimeThenId = (a: PhaseCheckIn, b: PhaseCheckIn) =>
+  a.createdAt - b.createdAt || a.id - b.id;
+
+// Drop attention flickers: a burst of checkpoints within settleSeconds collapses
+// to the phase it landed on. If that equals the phase before the burst, omit it.
+export const collapsePhaseCheckIns = (
+  checkIns: PhaseCheckIn[],
+  settleSeconds: number = PHASE_SETTLE_SECONDS,
+): PhaseCheckIn[] => {
+  const ordered = [...checkIns].sort(byTimeThenId);
+  if (ordered.length === 0) return [];
+
+  const clusters: PhaseCheckIn[][] = [];
+  let cluster: PhaseCheckIn[] = [ordered[0]];
+  for (let i = 1; i < ordered.length; i++) {
+    const checkIn = ordered[i];
+    const previous = cluster[cluster.length - 1];
+    if (checkIn.createdAt - previous.createdAt <= settleSeconds) {
+      cluster.push(checkIn);
+    } else {
+      clusters.push(cluster);
+      cluster = [checkIn];
+    }
+  }
+  clusters.push(cluster);
+
+  const settled: PhaseCheckIn[] = [];
+  let priorPhaseId: number | null | undefined;
+  for (const group of clusters) {
+    const last = group[group.length - 1];
+    if (priorPhaseId === last.phaseId) continue;
+    settled.push(last);
+    priorPhaseId = last.phaseId;
+  }
+  return settled;
+};
+
+// Ordered stretches of a (usually collapsed) checkpoint list, clipped to [from, to).
+export const phaseSessions = (
+  checkIns: PhaseCheckIn[],
+  from: number,
+  to: number,
+): PhaseSession[] => {
+  if (to <= from) return [];
+  const ordered = [...checkIns].sort(byTimeThenId);
+  const sessions: PhaseSession[] = [];
+  let started = ordered.some((checkIn) => checkIn.createdAt <= from);
+  let activePhase = phaseAt(ordered, from);
+  let cursor = from;
+
+  if (!started) {
+    const first = ordered.find(
+      (checkIn) => checkIn.createdAt > from && checkIn.createdAt < to,
+    );
+    if (!first) return [];
+    activePhase = first.phaseId;
+    cursor = first.createdAt;
+    started = true;
+  }
+
+  for (const checkIn of ordered) {
+    if (checkIn.createdAt <= cursor) continue;
+    if (checkIn.createdAt >= to) break;
+    if (checkIn.createdAt > cursor) {
+      sessions.push({
+        phaseId: activePhase,
+        from: cursor,
+        to: checkIn.createdAt,
+      });
+    }
+    activePhase = checkIn.phaseId;
+    cursor = checkIn.createdAt;
+  }
+  if (started && cursor < to) {
+    sessions.push({ phaseId: activePhase, from: cursor, to });
+  }
+  return sessions.filter((session) => session.to > session.from);
+};
+
+export const phaseSessionTotals = (sessions: PhaseSession[]): PhaseTotal[] => {
+  const secondsByPhase = new Map<number | null, number>();
+  for (const session of sessions) {
+    secondsByPhase.set(
+      session.phaseId,
+      (secondsByPhase.get(session.phaseId) ?? 0) + (session.to - session.from),
+    );
+  }
+  return [...secondsByPhase].map(([phaseId, seconds]) => ({ phaseId, seconds }));
+};
+
+// Drop leading/trailing Resting, Offline, or Idle so the day strip is the engaged span.
+export const trimQuietPhaseSessions = (
+  sessions: PhaseSession[],
+  isQuiet: (phaseId: number | null) => boolean,
+): PhaseSession[] => {
+  let start = 0;
+  let end = sessions.length;
+  while (start < end && isQuiet(sessions[start].phaseId)) start += 1;
+  while (end > start && isQuiet(sessions[end - 1].phaseId)) end -= 1;
+  return sessions.slice(start, end);
+};
+
+// Local-hour marks inside a strip range. Wider spans skip hours so labels fit.
+export const hourTicks = (from: number, to: number): number[] => {
+  const spanHours = (to - from) / 3600;
+  const step = spanHours > 12 ? 3 : spanHours > 6 ? 2 : 1;
+  const cursor = new Date(from * 1000);
+  cursor.setMinutes(0, 0, 0);
+  if (cursor.getTime() / 1000 <= from) cursor.setHours(cursor.getHours() + 1);
+  const ticks: number[] = [];
+  while (cursor.getTime() / 1000 < to) {
+    if (cursor.getHours() % step === 0) {
+      ticks.push(Math.floor(cursor.getTime() / 1000));
+    }
+    cursor.setHours(cursor.getHours() + 1);
+  }
+  return ticks;
+};
+
+const isQuietDefault = (phaseId: number | null) => phaseId === null;
+
+// Newest-first days that have a Pulse check-in, a brain dump, or an engaged
+// Phase strip. Phase checkpoints themselves are not list events.
+export const buildJournalDays = (
+  checkIns: MetricCheckInWithRatings[],
+  brainDumps: BrainDump[],
+  phaseCheckIns: PhaseCheckIn[],
+  isQuiet: (phaseId: number | null) => boolean = isQuietDefault,
+  nowMs: number = Date.now(),
+): JournalDay[] => {
+  const nowSec = Math.floor(nowMs / 1000);
+  const collapsed = collapsePhaseCheckIns(phaseCheckIns);
+  const events = buildTimeline(checkIns, [], brainDumps);
+  const grouped = groupByDay(events, nowMs);
+  const eventsByKey = new Map(grouped.map((group) => [group.key, group.events]));
+  const keys = new Set(eventsByKey.keys());
+
+  const earliest = Math.min(
+    nowSec,
+    ...events.map((event) => event.at),
+    ...collapsed.map((checkIn) => checkIn.createdAt),
+  );
+  let cursor = startOfDayMs(nowSec);
+  const oldest = startOfDayMs(earliest);
+  while (cursor >= oldest) {
+    const from = Math.floor(cursor / 1000);
+    const to = Math.min(Math.floor(endOfDayMs(cursor) / 1000), nowSec);
+    if (trimQuietPhaseSessions(phaseSessions(collapsed, from, to), isQuiet).length) {
+      keys.add(cursor);
+    }
+    cursor = previousDayMs(cursor);
+  }
+
+  return [...keys]
+    .sort((a, b) => b - a)
+    .map((key) => {
+      const from = Math.floor(key / 1000);
+      const to = Math.min(Math.floor(endOfDayMs(key) / 1000), nowSec);
+      return {
+        key,
+        label: dayLabel(from, nowMs),
+        sessions: trimQuietPhaseSessions(
+          phaseSessions(collapsed, from, to),
+          isQuiet,
+        ),
+        events: eventsByKey.get(key) ?? [],
+      };
+    })
+    .filter((day) => day.sessions.length > 0 || day.events.length > 0);
 };
 
 // Per-metric rating values in chronological order, for sparklines and stats.

@@ -747,6 +747,17 @@ ALTER TABLE pulse_metrics ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
 UPDATE pulse_metrics SET sort_order = rowid;
 "#,
         ),
+        // Offline is the live Phase for lock / display-sleep / system-sleep.
+        // Freeze-to-three inactivated any extra names; reactivate or insert it.
+        M::up(
+            r#"
+INSERT INTO phases (name, created_at)
+SELECT 'Offline', CAST(strftime('%s', 'now') AS INTEGER)
+WHERE NOT EXISTS (SELECT 1 FROM phases WHERE name = 'Offline');
+
+UPDATE phases SET inactive_since = NULL WHERE name = 'Offline';
+"#,
+        ),
     ])
 }
 
@@ -1204,7 +1215,7 @@ CREATE TABLE phase_check_ins (
         let extras: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM phases \
-                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting') \
+                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting', 'Offline') \
                    AND inactive_since IS NULL",
                 [],
                 |row| row.get(0),
@@ -1220,6 +1231,15 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(historical, 1);
+
+        let offline_active: Option<i64> = conn
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE name = 'Offline'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(offline_active, None);
     }
 
     #[test]
