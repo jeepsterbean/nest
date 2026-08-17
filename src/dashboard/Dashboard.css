@@ -509,7 +509,10 @@
 }
 
 @media (min-width: 861px) {
-  .dashboard__inner--overview {
+  .dashboard__inner--overview,
+  .dashboard__inner--journal,
+  .dashboard__inner--tasks,
+  .dashboard__inner--insights {
     height: 100vh;
     min-height: 0;
     box-sizing: border-box;
@@ -590,6 +593,11 @@
   cursor: pointer;
 }
 
+.overview-group__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* The status dot is the subtle cue between sections: accent for active,
    neutral for backlog (both inherited from the status-dot palette). */
 .overview-group .status-dot {
@@ -668,6 +676,11 @@
   color: var(--accent);
 }
 
+.overview-group__add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Collapse via grid-template-rows so no layout property is animated. */
 .overview-group__reveal {
   display: grid;
@@ -720,24 +733,8 @@
 
 .overview-quick-add button {
   padding: 0 14px;
-  border: none;
   border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
   font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: filter 0.15s;
-}
-
-.overview-quick-add button:not(:disabled):hover {
-  filter: brightness(1.06);
-}
-
-.overview-quick-add button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .overview-task-list {
@@ -779,6 +776,11 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.event-dump__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .event-dump__edit-title {
@@ -956,10 +958,13 @@
   box-shadow: var(--shadow);
 }
 
-.dash-section--tasks {
+.dash-section--tasks,
+.dash-section--journal,
+.dash-section--insights {
   display: flex;
   min-height: 0;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .dash-section__head {
@@ -969,6 +974,13 @@
   justify-content: space-between;
   gap: 12px 16px;
   margin-bottom: 16px;
+}
+
+/* Scrollable body under a fixed section header — see .dashboard__inner--{view}. */
+.dash-section__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .dash-section__title h2 {
@@ -983,49 +995,6 @@
   margin-top: 2px;
   color: var(--muted);
   font-size: 13px;
-}
-
-.add-form {
-  display: flex;
-  gap: 8px;
-}
-
-.add-form input {
-  width: 190px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  background: var(--surface);
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.add-form input::placeholder {
-  color: var(--muted);
-}
-
-.add-form input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.add-form button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-  transition: filter 0.15s;
-}
-
-.add-form button:not(:disabled):hover {
-  filter: brightness(1.08);
-}
-
-.add-form button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 /* ---------- Shared bits ---------- */
@@ -1237,26 +1206,41 @@
   font-weight: 600;
 }
 
-/* ---------- Tasks ---------- */
+/* ---------- Shared chrome ---------- */
 
+/* One segmented control for every section: Tasks, Journal, Insights, Metrics. */
 .view-toggle {
   display: inline-flex;
-  padding: 3px;
+  flex-shrink: 0;
+  padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface-2);
 }
 
 .view-toggle__btn {
-  min-width: 72px;
-  padding: 6px 12px;
+  min-width: 38px;
+  min-height: 24px;
+  padding: 3px 9px;
   border: none;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-toggle__btn:hover {
+  color: var(--ink);
+}
+
+.view-toggle__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .view-toggle__btn--active {
@@ -1264,6 +1248,35 @@
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
 }
+
+/* Filled accent CTA — the "submit new item" button. Size/spacing stay
+   per-instance (each sits in a differently-sized row); color, hover,
+   disabled, and focus behavior are shared so they don't drift again. */
+.btn-accent {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.btn-accent:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.btn-accent:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn-accent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Tasks ---------- */
 
 .task-board__loading {
   display: grid;
@@ -1282,6 +1295,7 @@
   grid-template-columns: 164px minmax(0, 1fr);
   align-items: stretch;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .task-workspace__main {
@@ -1681,24 +1695,8 @@
 
 .task-composer > button {
   padding: 8px 14px;
-  border: none;
   border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
   font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.task-composer > button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-.task-composer > button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .task-column {
@@ -1860,7 +1858,7 @@
   align-items: center;
   justify-content: center;
   border: 1.5px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -3232,35 +3230,6 @@
   background: var(--surface);
 }
 
-.metrics-tabs {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.metrics-tabs button {
-  min-height: 28px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.metrics-tabs button[aria-selected="true"] {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(50, 43, 33, 0.09);
-}
-
-.metrics-tabs button:focus-visible,
 .pulse-sidebar button:focus-visible,
 .pulse-detail button:focus-visible,
 .all-metrics button:focus-visible,
@@ -3316,6 +3285,11 @@
   cursor: pointer;
 }
 
+.pulse-sidebar__head button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .pulse-composer {
   display: flex;
   flex-direction: column;
@@ -3352,19 +3326,8 @@
 .pulse-composer button {
   min-height: 36px;
   padding: 0 10px;
-  border: none;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
   font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pulse-composer button:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
 }
 
 .pulse-list {
@@ -3660,44 +3623,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.pulse-range {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface-2);
-}
-
-.pulse-range button {
-  min-width: 38px;
-  min-height: 30px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pulse-range button:hover {
-  color: var(--ink);
-}
-
-.pulse-range button[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(50, 43, 33, 0.1);
-}
-
-.pulse-range button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .pulse-delete {
@@ -4085,24 +4010,6 @@
   justify-content: flex-start;
   gap: 8px 10px;
   margin: 0 0 14px;
-}
-
-/* Compact filters — history / insights chrome, not a section title. */
-.dash-section--journal .view-toggle,
-.dash-section--insights .view-toggle {
-  padding: 2px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.dash-section--journal .view-toggle__btn,
-.dash-section--insights .view-toggle__btn {
-  min-width: 0;
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
 .insights-head {
@@ -4636,12 +4543,11 @@
     flex-direction: column;
   }
 
+  /* Wraps so the full-width .view-toggle below doesn't crowd out delete. */
   .pulse-detail__actions {
     width: 100%;
     max-width: none;
-  }
-
-  .pulse-detail__actions {
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
@@ -4658,20 +4564,11 @@
     padding: 14px;
   }
 
-  .add-form {
-    flex: 1 0 100%;
-  }
-
   .view-toggle {
     flex: 1 0 100%;
   }
 
   .view-toggle__btn {
     flex: 1;
-  }
-
-  .add-form input {
-    flex: 1;
-    width: auto;
   }
 }

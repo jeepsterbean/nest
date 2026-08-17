@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { createTask, setTaskStatus } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
+import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
@@ -457,23 +458,12 @@ export function TasksView() {
         <div className="dash-section__title">
           <h2>Tasks</h2>
         </div>
-        <div className="view-toggle" role="group" aria-label="Task view">
-          {TASK_VIEWS.map((view) => (
-            <button
-              key={view.key}
-              type="button"
-              className={
-                taskView === view.key
-                  ? "view-toggle__btn view-toggle__btn--active"
-                  : "view-toggle__btn"
-              }
-              aria-pressed={taskView === view.key}
-              onClick={() => setTaskView(view.key)}
-            >
-              {view.label}
-            </button>
-          ))}
-        </div>
+        <ViewToggle
+          value={taskView}
+          options={TASK_VIEWS}
+          label="Task view"
+          onChange={setTaskView}
+        />
       </header>
 
       {!loaded ? (
@@ -653,7 +643,7 @@ export function TasksView() {
                     </div>
                   )}
                 </div>
-                <button type="submit" disabled={!composerTitle.trim()}>
+                <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
                   Add
                 </button>
               </form>

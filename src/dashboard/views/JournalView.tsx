@@ -9,6 +9,7 @@ import {
   type TimelineEvent,
 } from "../lib/timeline";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { ViewToggle } from "../components/ViewToggle";
 import { JournalEvents } from "./JournalEvents";
 
 const JOURNAL_VIEWS = [
@@ -46,38 +47,6 @@ const EMPTY_COPY: Record<
     body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
   },
 };
-
-function ViewToggle<T extends string>({
-  value,
-  options,
-  label,
-  onChange,
-}: {
-  value: T;
-  options: readonly { key: T; label: string }[];
-  label: string;
-  onChange: (key: T) => void;
-}) {
-  return (
-    <div className="view-toggle" role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.key}
-          type="button"
-          className={
-            value === option.key
-              ? "view-toggle__btn view-toggle__btn--active"
-              : "view-toggle__btn"
-          }
-          aria-pressed={value === option.key}
-          onClick={() => onChange(option.key)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function DayArticle({
   day,
@@ -188,6 +157,11 @@ export function JournalView() {
 
   return (
     <section className="dash-section dash-section--journal">
+      <header className="dash-section__head">
+        <div className="dash-section__title">
+          <h2>Journal</h2>
+        </div>
+      </header>
       <div className="journal-toolbar">
         <ViewToggle
           value={journalView}
@@ -204,25 +178,27 @@ export function JournalView() {
           />
         ) : null}
       </div>
-      {!loaded ? null : days.length === 0 ? (
-        <div className="dash-empty">
-          <strong>{empty.title}</strong>
-          <span>{empty.body}</span>
-        </div>
-      ) : (
-        days.map((day) => (
-          <DayArticle
-            key={day.key}
-            day={day}
-            phases={phases}
-            metrics={metrics}
-            pulses={pulses}
-            expandedDumpIds={expandedDumpIds}
-            onDeleteCheckIn={onDeleteCheckIn}
-            onToggleDump={toggleDumpExpanded}
-          />
-        ))
-      )}
+      <div className="dash-section__body">
+        {!loaded ? null : days.length === 0 ? (
+          <div className="dash-empty">
+            <strong>{empty.title}</strong>
+            <span>{empty.body}</span>
+          </div>
+        ) : (
+          days.map((day) => (
+            <DayArticle
+              key={day.key}
+              day={day}
+              phases={phases}
+              metrics={metrics}
+              pulses={pulses}
+              expandedDumpIds={expandedDumpIds}
+              onDeleteCheckIn={onDeleteCheckIn}
+              onToggleDump={toggleDumpExpanded}
+            />
+          ))
+        )}
+      </div>
     </section>
   );
 }

@@ -140,7 +140,7 @@ export function OverviewView() {
             if (!quickAddTitle.trim()) setQuickAddStatus(null);
           }}
         />
-        <button type="submit" disabled={!quickAddTitle.trim()}>
+        <button type="submit" className="btn-accent" disabled={!quickAddTitle.trim()}>
           Add
         </button>
       </form>

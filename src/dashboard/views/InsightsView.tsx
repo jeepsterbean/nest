@@ -4,6 +4,7 @@ import {
   PhaseStrip,
   PhaseTotals,
 } from "../components/DayReflection";
+import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   INSIGHT_RANGES,
@@ -51,39 +52,35 @@ export function InsightsView() {
 
   return (
     <section className="dash-section dash-section--insights">
-      <div className="journal-toolbar">
-        <div className="view-toggle" role="group" aria-label="Insights range">
-          {INSIGHT_RANGES.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={
-                rangeKey === item.key
-                  ? "view-toggle__btn view-toggle__btn--active"
-                  : "view-toggle__btn"
-              }
-              aria-pressed={rangeKey === item.key}
-              onClick={() => selectRange(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
+      <header className="dash-section__head">
+        <div className="dash-section__title">
+          <h2>Insights</h2>
         </div>
+      </header>
+      <div className="journal-toolbar">
+        <ViewToggle
+          value={rangeKey}
+          options={INSIGHT_RANGES}
+          label="Insights range"
+          onChange={selectRange}
+        />
       </div>
-      {!loaded ? null : (
-        <>
-          <header className="insights-head">
-            <DayStats stats={insight.stats} />
-            <PhaseTotals sessions={insight.sessions} phases={phases} />
-          </header>
-          <PhaseStrip
-            sessions={insight.stripSessions}
-            phases={phases}
-            from={insight.from}
-            to={insight.to}
-          />
-        </>
-      )}
+      <div className="dash-section__body">
+        {!loaded ? null : (
+          <>
+            <header className="insights-head">
+              <DayStats stats={insight.stats} />
+              <PhaseTotals sessions={insight.sessions} phases={phases} />
+            </header>
+            <PhaseStrip
+              sessions={insight.stripSessions}
+              phases={phases}
+              from={insight.from}
+              to={insight.to}
+            />
+          </>
+        )}
+      </div>
     </section>
   );
 }

@@ -18,6 +18,7 @@ import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
 import { IconPicker, NestIcon } from "../components/PulseIcon";
 import { Sparkline } from "../components/Sparkline";
+import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
@@ -25,10 +26,15 @@ import { buildMetricSeries } from "../lib/timeline";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
 const METRIC_RANGES = [
-  { key: "30m", label: "30 minutes", seconds: 30 * 60 },
-  { key: "1h", label: "1 hour", seconds: 60 * 60 },
-  { key: "3h", label: "3 hours", seconds: 3 * 60 * 60 },
-  { key: "1d", label: "1 day", seconds: 24 * 60 * 60 },
+  { key: "30m", label: "30m", aria: "30 minutes", seconds: 30 * 60 },
+  { key: "1h", label: "1h", aria: "1 hour", seconds: 60 * 60 },
+  { key: "3h", label: "3h", aria: "3 hours", seconds: 3 * 60 * 60 },
+  { key: "1d", label: "1d", aria: "1 day", seconds: 24 * 60 * 60 },
+] as const;
+
+const METRIC_VIEWS = [
+  { key: "pulses", label: "Pulses" },
+  { key: "all", label: "Metrics" },
 ] as const;
 
 function TrashIcon() {
@@ -195,28 +201,19 @@ export function MetricsView() {
   return (
     <section className="dash-section dash-section--metrics">
       <header className="dash-section__head metrics-head">
-        <nav className="metrics-tabs" role="tablist" aria-label="Metric views">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "pulses"}
-            onClick={() => setView("pulses")}
-          >
-            Pulses
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "all"}
-            onClick={() => setView("all")}
-          >
-            Metrics
-          </button>
-        </nav>
+        <div className="dash-section__title">
+          <h2>Metrics</h2>
+        </div>
+        <ViewToggle
+          value={view}
+          options={METRIC_VIEWS}
+          label="Metric views"
+          onChange={setView}
+        />
       </header>
 
       {view === "pulses" ? (
-        <div className="pulse-workspace" role="tabpanel">
+        <div className="pulse-workspace">
           <aside className="pulse-sidebar" aria-label="Pulses">
             <div className="pulse-sidebar__head">
               <span>Pulses</span>
@@ -242,7 +239,12 @@ export function MetricsView() {
                       if (event.key === "Escape") setAddingPulse(false);
                     }}
                   />
-                  <button type="submit" disabled={!newPulseName.trim()} aria-label="Create pulse">
+                  <button
+                    type="submit"
+                    className="btn-accent"
+                    disabled={!newPulseName.trim()}
+                    aria-label="Create pulse"
+                  >
                     Add
                   </button>
                 </div>
@@ -344,19 +346,12 @@ export function MetricsView() {
                     )}
                   </div>
                   <div className="pulse-detail__actions">
-                    <div className="pulse-range" role="group" aria-label="Metric history range">
-                      {METRIC_RANGES.map((range) => (
-                        <button
-                          type="button"
-                          key={range.key}
-                          aria-label={range.label}
-                          aria-pressed={metricRange === range.key}
-                          onClick={() => setMetricRange(range.key)}
-                        >
-                          {range.key}
-                        </button>
-                      ))}
-                    </div>
+                    <ViewToggle
+                      value={metricRange}
+                      options={METRIC_RANGES}
+                      label="Metric history range"
+                      onChange={setMetricRange}
+                    />
                     <button
                       type="button"
                       className="pulse-delete"
@@ -430,7 +425,7 @@ export function MetricsView() {
           </main>
         </div>
       ) : (
-        <div className="all-metrics" role="tabpanel">
+        <div className="all-metrics">
           <header className="all-metrics__head">
             <div>
               <h3>All metrics</h3>

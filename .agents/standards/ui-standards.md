@@ -44,9 +44,10 @@ private, journal-like. Preserve light and dark system themes.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
 - Journal is a filtered history log: Raw / Brain dumps / Phases / Metrics.
-  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). Keep switches
-  compact under `.dash-section--journal .view-toggle`. No day strip or outcome
-  stats in Journal.
+  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). No day strip
+  or outcome stats in Journal.
+- Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
+  size. No per-section size overrides; don't reinvent it per view.
 - Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
   duration totals only — no strip. Always show Completed / Value / Effort /
   Check-ins and Doing / Scoping / Resting / Offline for the selected window,

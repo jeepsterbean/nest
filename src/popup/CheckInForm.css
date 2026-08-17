@@ -320,6 +320,16 @@
   outline: none;
 }
 
+/* Queued, not in play — fade until the user actually looks at it. */
+.now-group--up-next .now-task {
+  opacity: 0.55;
+}
+
+.now-group--up-next .now-task:hover,
+.now-group--up-next .now-task:focus-within {
+  opacity: 1;
+}
+
 .now-list {
   display: flex;
   flex-direction: column;
@@ -340,7 +350,8 @@
   background: color-mix(in srgb, var(--surface) 76%, transparent);
   transition:
     border-color 0.18s cubic-bezier(0.25, 1, 0.5, 1),
-    background 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+    background 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.18s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .now-task--working {
