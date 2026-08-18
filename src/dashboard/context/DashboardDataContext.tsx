@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { subscribeTauriEvent } from "../../lib/tauriListen";
 import {
   getCheckInSchedule,
   latestPhaseCheckIn,
@@ -141,22 +141,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    const bind = (event: string) =>
-      listen(event, () => {
-        reload();
-      });
-    void Promise.all([bind("check-in-submitted"), bind("phase-changed")]).then(
-      (listeners) => {
-        if (cancelled) listeners.forEach((u) => u());
-        else unlisten = () => listeners.forEach((u) => u());
-      },
+    const stops = ["check-in-submitted", "phase-changed"].map((event) =>
+      subscribeTauriEvent(event, reload),
     );
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
+    return () => stops.forEach((stop) => stop());
   }, [reload]);
 
   const scopeTree = useMemo(() => buildScopeTree(tasks), [tasks]);

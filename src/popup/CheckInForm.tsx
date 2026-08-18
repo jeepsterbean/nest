@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { emit, listen } from "@tauri-apps/api/event";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { emit } from "@tauri-apps/api/event";
 import {
   createTask,
   getCheckInSchedule,
@@ -11,10 +10,12 @@ import {
   scheduleNextCheckIn,
   setTaskStatus,
   setTaskWorking,
+  showDashboard,
   stopAllWorkingNow,
   submitBrainDump,
   submitMetricCheckIn,
 } from "../lib/commands";
+import { subscribeTauriEvent } from "../lib/tauriListen";
 import type {
   CheckInSchedule,
   Metric,
@@ -316,20 +317,11 @@ function CheckInForm({
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    void listen("phase-changed", () => {
+    return subscribeTauriEvent("phase-changed", () => {
       void listTasks().then((tasks) => {
         setLoaded((current) => (current ? { ...current, tasks } : current));
       });
-    }).then((u) => {
-      if (cancelled) u();
-      else unlisten = u;
     });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
   }, []);
 
   useEffect(() => {
@@ -350,12 +342,8 @@ function CheckInForm({
   }, [isLoaded]);
 
   const openDashboard = async () => {
+    await showDashboard();
     await onDismiss();
-    const dashboard = await WebviewWindow.getByLabel("dashboard");
-    if (dashboard) {
-      await dashboard.show();
-      await dashboard.setFocus();
-    }
   };
 
   const startTimer = async (minutes: number) => {

@@ -457,11 +457,94 @@ fn install_system_offline_observers(app: tauri::AppHandle) {
     }
 }
 
-fn show_window(app: &tauri::AppHandle, label: &str) {
-    if let Some(window) = app.get_webview_window(label) {
+/// Closing the dashboard would otherwise destroy the webview. Accessory Nest
+/// has no Dock icon to relaunch from, so CloseRequested hides instead, and a
+/// missing window is rebuilt from tauri.conf.json.
+fn reveal_dashboard(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("dashboard") {
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        return;
     }
+    append_diagnostic_log("dashboard_missing recreating");
+    create_dashboard_window(app);
+}
+
+fn create_dashboard_window(app: &tauri::AppHandle) {
+    let Some(config) = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "dashboard")
+        .cloned()
+    else {
+        append_diagnostic_log("dashboard_recreate_failed reason=missing_config");
+        return;
+    };
+    match tauri::WebviewWindowBuilder::from_config(app, &config) {
+        Ok(builder) => match builder.visible(true).build() {
+            Ok(window) => {
+                attach_dashboard_events(&window);
+                append_diagnostic_log("dashboard_recreated");
+            }
+            Err(e) => append_diagnostic_log(format!("dashboard_recreate_failed error={e}")),
+        },
+        Err(e) => append_diagnostic_log(format!("dashboard_recreate_config_failed error={e}")),
+    }
+}
+
+fn leave_dashboard_attention_now(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        bump_leave_epoch(app);
+        let notion_frontmost = phase::notion_is_frontmost();
+        phase::update_signals_and_sync(app, |signals| {
+            phase::apply_left_dashboard(signals, notion_frontmost);
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    phase::update_signals_and_sync(app, |signals| {
+        signals.dashboard_focused = false;
+    });
+}
+
+fn attach_dashboard_events(window: &tauri::WebviewWindow) {
+    let handle = window.app_handle().clone();
+    let dashboard = window.clone();
+    window.on_window_event(move |event| match event {
+        tauri::WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            let _ = dashboard.hide();
+            append_diagnostic_log("dashboard_hidden reason=close_requested");
+            leave_dashboard_attention_now(&handle);
+        }
+        tauri::WindowEvent::Destroyed => {
+            append_diagnostic_log("dashboard_destroyed");
+            leave_dashboard_attention_now(&handle);
+        }
+        #[cfg(target_os = "macos")]
+        tauri::WindowEvent::Focused(true) => {
+            enter_dashboard_attention(&handle);
+        }
+        #[cfg(target_os = "macos")]
+        tauri::WindowEvent::Focused(false) => {
+            schedule_leave_dashboard_attention(&handle);
+        }
+        #[cfg(not(target_os = "macos"))]
+        tauri::WindowEvent::Focused(focused) => {
+            phase::update_signals_and_sync(&handle, |signals| {
+                signals.dashboard_focused = *focused;
+            });
+        }
+        _ => {}
+    });
+}
+
+#[tauri::command]
+async fn show_dashboard(app: tauri::AppHandle) {
+    reveal_dashboard(&app);
 }
 
 fn set_popup_route(app: &tauri::AppHandle, label: &str, route: &str) {
@@ -823,34 +906,7 @@ pub fn run() {
             }
 
             if let Some(window) = app.get_webview_window("dashboard") {
-                let handle = app.handle().clone();
-                window.on_window_event(move |event| {
-                    #[cfg(target_os = "macos")]
-                    match event {
-                        tauri::WindowEvent::Focused(true) => {
-                            enter_dashboard_attention(&handle);
-                        }
-                        tauri::WindowEvent::Focused(false) => {
-                            schedule_leave_dashboard_attention(&handle);
-                        }
-                        tauri::WindowEvent::CloseRequested { .. }
-                        | tauri::WindowEvent::Destroyed => {
-                            bump_leave_epoch(&handle);
-                            let notion_frontmost = phase::notion_is_frontmost();
-                            phase::update_signals_and_sync(&handle, |signals| {
-                                phase::apply_left_dashboard(signals, notion_frontmost);
-                            });
-                        }
-                        _ => {}
-                    }
-
-                    #[cfg(not(target_os = "macos"))]
-                    if let tauri::WindowEvent::Focused(focused) = event {
-                        phase::update_signals_and_sync(&handle, |signals| {
-                            signals.dashboard_focused = *focused;
-                        });
-                    }
-                });
+                attach_dashboard_events(&window);
             }
 
             let popup_visible = app
@@ -901,7 +957,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             menu.append(&quit)?;
             app.on_menu_event(|app, event| match event.id.as_ref() {
-                "open_dashboard" => show_window(app, "dashboard"),
+                "open_dashboard" => reveal_dashboard(app),
                 "quit" => app.exit(0),
                 _ => {}
             });
@@ -980,6 +1036,7 @@ pub fn run() {
             commands::list_brain_dumps,
             summon_check_in,
             close_check_in_popup,
+            show_dashboard,
             log_client_event,
         ])
         .build(tauri::generate_context!())

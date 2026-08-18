@@ -230,6 +230,10 @@ export function summonCheckIn(): Promise<void> {
   return invoke("summon_check_in");
 }
 
+export function showDashboard(): Promise<void> {
+  return invoke("show_dashboard");
+}
+
 export function submitBrainDump(
   text: string,
   title: string | null = null,

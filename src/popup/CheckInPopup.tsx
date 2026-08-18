@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { closeCheckInPopup, logClientEvent } from "../lib/commands";
+import { subscribeTauriEvent } from "../lib/tauriListen";
 import CheckInForm from "./CheckInForm";
 import "./CheckInPopup.css";
 
@@ -68,17 +68,7 @@ function CheckInPopup() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    listen("popup-dismiss-requested", () => void dismiss())
-      .then((u) => {
-        if (cancelled) u();
-        else unlisten = u;
-      });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
+    return subscribeTauriEvent("popup-dismiss-requested", dismiss);
   }, [dismiss]);
 
   return (
