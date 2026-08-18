@@ -73,13 +73,16 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 0, not as missing. The right Overview panel is a brain dump composer that
 matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
 history lives in Journal. Insights is the longer look: the same stats and Phase
-totals, a Phase strip, and a Work stretch timeline with one lane per Task
-worked in the range, with range filters of
-1 hour, 24 hours, 7 days, and 30 days. The strip and the lanes are one linear
-clock over the range sharing a single hour axis, so quiet time reads as empty
-track rather than being squeezed out. Clicking a stretch opens an editor for
-its start and end. The last chosen range is remembered;
-first visit is 24 hours. Journal is history only: Raw (every Metric check-in,
+totals, per-Task Worked time for the range, and a calendar grid. The grid runs
+time down the page — hours in a left gutter, one column per calendar day, each
+column a Phase ribbon beside its Work stretches. Ranges are Day and Week (Week
+starts Monday), anchored to real dates and paged with Earlier / Later / Today
+rather than measured back from now; paging stops where the loaded 30 days of
+history end. A stretch carries its Task title and times inside the block when it
+is tall enough; concurrent stretches sit side by side, since multiple Tasks may
+be Working now. A line marks the current time. Quiet time reads as empty track
+rather than being squeezed out. Clicking a stretch opens an editor for its start
+and end. The last chosen range is remembered; first visit is Day. Journal is history only: Raw (every Metric check-in,
 brain dump, and Phase checkpoint), Brain dumps, Phases, and Metrics. Phases
 has Raw and Aggregated modes — Aggregated applies the 60-second settle
 collapse (a burst lands on the Phase it settled on; if that equals the Phase

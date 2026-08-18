@@ -4,7 +4,6 @@ import {
   buildTimeline,
   collapsePhaseCheckIns,
   groupByDay,
-  hourTicks,
   phaseSessions,
   phaseSessionsInWindow,
   phaseSessionTotals,
@@ -216,20 +215,6 @@ describe("phaseSessionTotals", () => {
     ).toEqual([
       { phaseId: DOING, seconds: 20 },
       { phaseId: SCOPING, seconds: 5 },
-    ]);
-  });
-});
-
-describe("hourTicks", () => {
-  it("marks local hours strictly inside the span", () => {
-    const from = sec(new Date(2026, 5, 17, 9, 31));
-    const to = sec(new Date(2026, 5, 17, 14, 8));
-    expect(hourTicks(from, to)).toEqual([
-      sec(new Date(2026, 5, 17, 10)),
-      sec(new Date(2026, 5, 17, 11)),
-      sec(new Date(2026, 5, 17, 12)),
-      sec(new Date(2026, 5, 17, 13)),
-      sec(new Date(2026, 5, 17, 14)),
     ]);
   });
 });

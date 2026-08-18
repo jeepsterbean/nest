@@ -8,9 +8,11 @@ export const startOfDayMs = (tsSecs: number) => {
   return d.getTime();
 };
 
-export const previousDayMs = (dayMs: number) => {
+/** Start of the day `days` away from `dayMs`. setDate, not arithmetic, so a
+ * DST day keeps its real 23 or 25 hours. */
+export const shiftDayMs = (dayMs: number, days: number) => {
   const d = new Date(dayMs);
-  d.setDate(d.getDate() - 1);
+  d.setDate(d.getDate() + days);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 };
@@ -19,7 +21,7 @@ export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
   const day = startOfDayMs(tsSecs);
   const today = startOfDayMs(nowMs / 1000);
   if (day === today) return "Today";
-  if (day === previousDayMs(today)) return "Yesterday";
+  if (day === shiftDayMs(today, -1)) return "Yesterday";
   return new Date(tsSecs * 1000).toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",

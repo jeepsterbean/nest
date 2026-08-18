@@ -565,7 +565,6 @@ function CheckInForm({
     setError(null);
     try {
       await onComplete(async () => {
-        await saveBrainDump();
         await saveMetrics(pulse, checkInRatings);
         return timerDue
           ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)

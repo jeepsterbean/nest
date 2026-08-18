@@ -4118,70 +4118,6 @@
   line-height: 1.2;
 }
 
-.journal-strip__track {
-  position: relative;
-  height: 22px;
-  overflow: hidden;
-  border-radius: 7px;
-  background: var(--surface-2);
-}
-
-.journal-strip__seg {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: grid;
-  min-width: 0;
-  place-items: center;
-  overflow: hidden;
-}
-
-.journal-strip__seg--doing {
-  background: var(--doing);
-  color: var(--surface);
-}
-
-.journal-strip__seg--scoping {
-  background: var(--phase);
-  color: var(--surface);
-}
-
-.journal-strip__seg--resting {
-  background: color-mix(in srgb, var(--muted) 28%, var(--surface-2));
-  color: var(--muted);
-}
-
-.journal-strip__seg--offline {
-  background: color-mix(in srgb, var(--queue) 22%, var(--surface-2));
-  color: var(--muted);
-}
-
-.journal-strip__seg--idle,
-.journal-strip__seg--unknown {
-  background: var(--border);
-  color: var(--muted);
-}
-
-.journal-strip__name {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.journal-strip__ticks {
-  position: relative;
-  height: 14px;
-}
-
-.journal-strip__tick {
-  position: absolute;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  transform: translateX(-50%);
-}
-
 .timeline {
   --rail-x: 4.5rem;
   position: relative;
@@ -4566,78 +4502,245 @@
   }
 }
 
-/* Phase strip, task lanes and the hour axis share one gutter so a work block
-   and the Phase segment beneath it line up on the same clock. */
-.insights-timeline {
-  --tl-title: 9rem;
-  --tl-total: 3rem;
-  --tl-gap: 8px;
-  --tl-gutter: calc(var(--tl-title) + var(--tl-total) + var(--tl-gap) * 2);
+/* Vertical calendar: hours down the gutter, one column per day, each holding a
+   Phase ribbon beside its Work stretches. --tl-hour is set inline from TS, which
+   also owns the thresholds for when a block is tall enough to carry a label. */
+.tl {
+  --tl-gutter: 3.25rem;
+  --tl-ribbon: 72px;
+  margin-top: 10px;
+}
+
+.tl--week {
+  --tl-ribbon: 10px;
+}
+
+/* Seven ribbons of colour, no room for seven sets of names — the Phase totals
+   above already carry the legend. */
+.tl--week .tl__phase span {
+  display: none;
+}
+
+.tl__heads {
   display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: 6px;
-}
-
-.insights-timeline > .journal-strip__track,
-.insights-timeline > .journal-strip__ticks {
   margin-left: var(--tl-gutter);
+  padding-right: 10px;
 }
 
-.work-timeline {
+.tl__head {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.tl__scroll {
   display: grid;
+  grid-template-columns: var(--tl-gutter) 1fr;
+  max-height: min(70vh, 620px);
+  margin-top: 4px;
+  padding: 9px 0 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+/* One row per hour, so each label sits on its own hour rule without 24 rules
+   of nth-child arithmetic. */
+.tl__gutter {
+  display: grid;
+  grid-auto-rows: var(--tl-hour);
+}
+
+.tl__hour {
+  justify-self: end;
+  padding-right: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-0.5em);
+}
+
+
+.tl__cols {
+  position: relative;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 6px;
+  height: calc(var(--tl-hour) * 24);
+  padding-right: 10px;
+}
+
+.tl__rule {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.tl__col {
+  display: grid;
+  grid-template-columns: var(--tl-ribbon) 1fr;
   gap: 4px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
+  min-width: 0;
 }
 
-.work-lane {
-  display: grid;
-  grid-template-columns: var(--tl-title) var(--tl-total) 1fr;
-  column-gap: var(--tl-gap);
-  align-items: center;
+.tl__ribbon,
+.tl__work {
+  position: relative;
+  min-width: 0;
 }
 
-.work-lane__title {
+.tl__phase {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
   overflow: hidden;
-  color: var(--ink);
-  font-size: 12px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.tl__phase--doing {
+  background: var(--doing);
+  color: var(--surface);
+}
+
+.tl__phase--scoping {
+  background: var(--phase);
+  color: var(--surface);
+}
+
+.tl__phase--resting {
+  background: color-mix(in srgb, var(--muted) 28%, var(--surface-2));
+  color: var(--muted);
+}
+
+.tl__phase--offline {
+  background: color-mix(in srgb, var(--queue) 22%, var(--surface-2));
+  color: var(--muted);
+}
+
+.tl__phase--idle,
+.tl__phase--unknown {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.tl-block {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 1px solid var(--surface);
+  border-radius: 5px;
+  background: var(--doing);
+  color: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tl-block:hover {
+  filter: brightness(1.08);
+}
+
+.tl-block--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tl-block__title {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 650;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.work-lane__total {
-  color: var(--muted);
-  font-size: 11px;
+.tl-block__time {
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
-.work-lane__track {
-  position: relative;
-  height: 14px;
-  overflow: hidden;
-  border-radius: 5px;
-  background: var(--surface-2);
-}
-
-.work-block {
+.tl__now {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: var(--doing);
+  right: 0;
+  left: -4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.tl__now::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.insights-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.insights-nav button {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
   cursor: pointer;
 }
 
-.work-block:hover {
-  filter: brightness(1.08);
+.insights-nav button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.5;
 }
 
-.work-block--selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.insights-nav__title {
+  min-width: 8.5rem;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.day-group__totals--tasks {
+  margin-top: 8px;
+}
+
+.day-group__totals--tasks .day-group__total {
+  max-width: 16rem;
+  overflow: hidden;
+  color: var(--doing);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .stretch-editor {
@@ -4645,7 +4748,7 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-top: 10px;
+  margin-bottom: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;

@@ -11,7 +11,7 @@ import {
   formatWorkedTime,
   greetingForHour,
   isCheckInDue,
-  previousDayMs,
+  shiftDayMs,
   startOfDayMs,
   taskTotalWorkedSeconds,
   taskWorkSessionSeconds,
@@ -34,15 +34,15 @@ describe("startOfDayMs", () => {
   });
 });
 
-describe("previousDayMs", () => {
+describe("shiftDayMs", () => {
   it("steps back one calendar day", () => {
     const today = new Date(2026, 5, 17, 0, 0, 0, 0).getTime();
-    expect(previousDayMs(today)).toBe(new Date(2026, 5, 16).getTime());
+    expect(shiftDayMs(today, -1)).toBe(new Date(2026, 5, 16).getTime());
   });
 
   it("crosses a month boundary (Mar 1 -> Feb 28 in a non-leap year)", () => {
     const mar1 = new Date(2026, 2, 1, 0, 0, 0, 0).getTime();
-    expect(previousDayMs(mar1)).toBe(new Date(2026, 1, 28).getTime());
+    expect(shiftDayMs(mar1, -1)).toBe(new Date(2026, 1, 28).getTime());
   });
 });
 

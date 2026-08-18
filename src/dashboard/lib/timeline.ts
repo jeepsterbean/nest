@@ -193,23 +193,6 @@ export const trimQuietPhaseSessions = (
   return sessions.slice(start, end);
 };
 
-// Local-hour marks inside a strip range. Wider spans skip hours so labels fit.
-export const hourTicks = (from: number, to: number): number[] => {
-  const spanHours = (to - from) / 3600;
-  const step = spanHours > 12 ? 3 : spanHours > 6 ? 2 : 1;
-  const cursor = new Date(from * 1000);
-  cursor.setMinutes(0, 0, 0);
-  if (cursor.getTime() / 1000 <= from) cursor.setHours(cursor.getHours() + 1);
-  const ticks: number[] = [];
-  while (cursor.getTime() / 1000 < to) {
-    if (cursor.getHours() % step === 0) {
-      ticks.push(Math.floor(cursor.getTime() / 1000));
-    }
-    cursor.setHours(cursor.getHours() + 1);
-  }
-  return ticks;
-};
-
 const isQuietDefault = (phaseId: number | null) => phaseId === null;
 
 /** Settled phase sessions for a rolling window (e.g. last 24 hours). */
