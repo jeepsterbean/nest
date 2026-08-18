@@ -7,7 +7,8 @@ import {
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
 import { formatCheckInCountdown, greetingForHour, CHECK_IN_INTERVALS, isCheckInDue } from "../lib/time";
-import { phaseName } from "../lib/journal";
+import { phaseIconName, phaseName } from "../lib/journal";
+import { NestIcon } from "./PulseIcon";
 import {
   chevronDownIcon,
   clockIcon,
@@ -206,6 +207,9 @@ export function DashboardHeader() {
         </h1>
         <div className="dash-header__meta">
           <p className="dash-header__phase" aria-label={`Current phase: ${phaseLabel}`}>
+            <span className="dash-header__phase-icon" aria-hidden="true">
+              <NestIcon name={phaseIconName(phaseLabel)} />
+            </span>
             <span className="dash-header__phase-name">{phaseLabel}</span>
           </p>
           <div

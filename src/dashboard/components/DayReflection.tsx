@@ -1,8 +1,11 @@
 import type { Phase } from "../../lib/types";
+import { NestIcon } from "./PulseIcon";
 import {
   filledPhaseTotals,
   LIVE_PHASE_NAMES,
+  phaseIconName,
   phaseTone,
+  taskHue,
 } from "../lib/journal";
 import { formatCompactDuration } from "../lib/time";
 import { phaseSessionTotals, type PhaseSession } from "../lib/timeline";
@@ -43,7 +46,9 @@ export function PhaseTotals({
             key={name}
             className={`day-group__total day-group__total--${phaseTone(name)}`}
           >
-            <i aria-hidden="true" />
+            <span className="day-group__total-icon" aria-hidden="true">
+              <NestIcon name={phaseIconName(name)} />
+            </span>
             {name} {formatCompactDuration(row.seconds)}
           </span>
         );
@@ -61,7 +66,12 @@ export function TaskTotals({ blocks }: { blocks: WorkBlock[] }) {
   return (
     <p className="day-group__totals day-group__totals--tasks">
       {totals.map((row) => (
-        <span key={row.task.id} className="day-group__total" title={row.task.title}>
+        <span
+          key={row.task.id}
+          className="day-group__total"
+          title={row.task.title}
+          style={{ color: `hsl(${taskHue(row.task.id)} 55% 42%)` }}
+        >
           <i aria-hidden="true" />
           {row.task.title} {formatCompactDuration(row.seconds)}
         </span>

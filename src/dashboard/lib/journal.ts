@@ -83,6 +83,27 @@ export const phaseTone = (name: string) => {
   return "unknown";
 };
 
+/** Shared icon language for phase labels across header, journal, and totals. */
+export const phaseIconName = (name: string) => {
+  switch (phaseTone(name)) {
+    case "doing":
+      return "target";
+    case "scoping":
+      return "idea";
+    case "resting":
+      return "coffee";
+    case "offline":
+    case "idle":
+      return "moon";
+    default:
+      return "activity";
+  }
+};
+
+/** Stable hue per Task, so a block and its total carry the same colour.
+ * ponytail: id-hash hue, swap for a stored colour if Tasks ever get one. */
+export const taskHue = (id: number) => (id * 137) % 360;
+
 export const isQuietPhase = (phaseId: number | null, phases: Phase[]) => {
   if (phaseId === null) return true;
   const name = phases.find((phase) => phase.id === phaseId)?.name;

@@ -62,8 +62,14 @@ private, journal-like. Preserve light and dark system themes.
   Journal.
 - The grid is a linear clock running down the page: place every span with
   percentage `top`/`height` from `placeOnWindow`, never `flex-grow`, so a Work
-  stretch and the Phase ribbon beside it agree. Percentages are of the column's
+  stretch and the Phase wash behind it agree. Percentages are of the column's
   own real span, so a DST day still lands correctly.
+- One lane per column, no side-by-side tracks. Phase is ground: a continuous
+  `.tl__wash` tint behind the lane, no border, no radius, no label, never
+  clickable, plus a `.tl__mark` hairline and name chip at each switch (Day only
+  — Week reads Phase off the totals row). A Work stretch is figure: a
+  `.tl-block` card above the wash, tinted by `taskHue(task.id)` through
+  `--task-hue`, the same hue its swatch carries in the Task totals row.
 - `HOUR_PX` in `TimelineGrid.tsx` is the one density knob — it sets `--tl-hour`
   inline and decides which blocks are tall enough to carry a label. Change it
   there, not in CSS.

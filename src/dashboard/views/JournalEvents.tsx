@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metric, Phase, Pulse } from "../../lib/types";
 import { NestIcon } from "../components/PulseIcon";
-import { phaseName, phaseTone } from "../lib/journal";
+import { phaseIconName, phaseName, phaseTone } from "../lib/journal";
 import { formatTime } from "../lib/time";
 import type { TimelineEvent } from "../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
@@ -124,6 +124,7 @@ function PhaseRow({
   );
   return (
     <JournalRow kind="phase" at={event.at}>
+      <EventIcon name={phaseIconName(name)} label={`${name} phase`} />
       <span className={`event__phase event__phase--${phaseTone(name)}`}>
         {name}
       </span>

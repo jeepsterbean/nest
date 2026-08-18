@@ -166,6 +166,19 @@
   text-align: left;
 }
 
+.dash-header__phase-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--phase);
+}
+
+.dash-header__phase-icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
 .dash-header__phase-name {
   overflow: hidden;
   color: var(--phase);
@@ -4062,11 +4075,16 @@
   gap: 6px;
 }
 
-.day-group__total i {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: currentColor;
+.day-group__total-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.day-group__total-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.9;
 }
 
 .day-group__total--doing {
@@ -4502,23 +4520,14 @@
   }
 }
 
-/* Vertical calendar: hours down the gutter, one column per day, each holding a
-   Phase ribbon beside its Work stretches. --tl-hour is set inline from TS, which
-   also owns the thresholds for when a block is tall enough to carry a label. */
+/* Vertical calendar: hours down the gutter, one column per day. Phase is the
+   ground (a continuous wash + a hairline where it switches), Work stretches are
+   the figure (cards on top, one hue per Task). --tl-hour is set inline from TS,
+   which also owns the thresholds for when a block is tall enough for a label. */
 .tl {
   --tl-gutter: 3.25rem;
-  --tl-ribbon: 72px;
+  --tl-rail: 1.5rem;
   margin-top: 10px;
-}
-
-.tl--week {
-  --tl-ribbon: 10px;
-}
-
-/* Seven ribbons of colour, no room for seven sets of names — the Phase totals
-   above already carry the legend. */
-.tl--week .tl__phase span {
-  display: none;
 }
 
 .tl__heads {
@@ -4540,6 +4549,7 @@
 .tl__scroll {
   display: grid;
   grid-template-columns: var(--tl-gutter) 1fr;
+  gap: 0 6px;
   max-height: min(70vh, 620px);
   margin-top: 4px;
   padding: 9px 0 12px;
@@ -4547,6 +4557,62 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+}
+
+/* Day view keys its Phases on a rail outside the hours, so the columns stay
+   Work only and the switch reads as an icon rather than a label on the grid. */
+.tl--day .tl__scroll {
+  grid-template-columns: var(--tl-rail) var(--tl-gutter) 1fr;
+  padding-left: 8px;
+}
+
+.tl__rail {
+  position: relative;
+  height: calc(var(--tl-hour) * 24);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--muted) 6%, transparent);
+}
+
+.tl__rail-seg {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tl__rail-seg svg {
+  width: 13px;
+  height: 13px;
+}
+
+.tl__rail-seg--doing {
+  background: color-mix(in srgb, var(--doing) 22%, transparent);
+  color: var(--doing);
+}
+
+.tl__rail-seg--scoping {
+  background: color-mix(in srgb, var(--phase) 22%, transparent);
+  color: var(--phase);
+}
+
+.tl__rail-seg--resting {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  color: var(--muted);
+}
+
+.tl__rail-seg--offline {
+  background: color-mix(in srgb, var(--queue) 16%, transparent);
+  color: var(--queue);
+}
+
+/* Nothing recorded should look like nothing — the rail track shows through. */
+.tl__rail-seg--idle,
+.tl__rail-seg--unknown {
+  background: transparent;
+  color: var(--muted);
 }
 
 /* One row per hour, so each label sits on its own hour rule without 24 rules
@@ -4586,59 +4652,45 @@
   pointer-events: none;
 }
 
-.tl__col {
-  display: grid;
-  grid-template-columns: var(--tl-ribbon) 1fr;
-  gap: 4px;
-  min-width: 0;
-}
-
-.tl__ribbon,
-.tl__work {
+.tl__lane {
   position: relative;
   min-width: 0;
 }
 
-.tl__phase {
+/* No radius and no border, so consecutive sessions butt together into one
+   unbroken band — Phase is never absent, so it must never look gapped. Hover
+   stays live for the title: work cards are later siblings, so they already win
+   the hit test over their own area and the wash only answers the gaps. */
+.tl__wash {
   position: absolute;
   right: 0;
   left: 0;
-  display: flex;
-  align-items: flex-start;
-  overflow: hidden;
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.03em;
 }
 
-.tl__phase--doing {
-  background: var(--doing);
-  color: var(--surface);
+.tl__wash--doing {
+  background: color-mix(in srgb, var(--doing) 12%, transparent);
 }
 
-.tl__phase--scoping {
-  background: var(--phase);
-  color: var(--surface);
+.tl__wash--scoping {
+  background: color-mix(in srgb, var(--phase) 12%, transparent);
 }
 
-.tl__phase--resting {
-  background: color-mix(in srgb, var(--muted) 28%, var(--surface-2));
-  color: var(--muted);
+.tl__wash--resting {
+  background: color-mix(in srgb, var(--muted) 7%, transparent);
 }
 
-.tl__phase--offline {
-  background: color-mix(in srgb, var(--queue) 22%, var(--surface-2));
-  color: var(--muted);
+.tl__wash--offline {
+  background: color-mix(in srgb, var(--queue) 8%, transparent);
 }
 
-.tl__phase--idle,
-.tl__phase--unknown {
-  background: var(--border);
-  color: var(--muted);
+/* Nothing recorded should look like nothing. */
+.tl__wash--idle,
+.tl__wash--unknown {
+  background: transparent;
 }
 
+/* A card resting on the wash: opaque enough to lift off it, tinted by its own
+   Task so two stretches in the same hour differ before you read them. */
 .tl-block {
   position: absolute;
   display: flex;
@@ -4646,17 +4698,28 @@
   gap: 1px;
   overflow: hidden;
   padding: 2px 6px;
-  border: 1px solid var(--surface);
+  border: 1px solid
+    color-mix(in srgb, hsl(var(--task-hue, 210) 60% 50%) 35%, var(--surface));
+  border-left: 3px solid hsl(var(--task-hue, 210) 60% 45%);
   border-radius: 5px;
-  background: var(--doing);
-  color: var(--surface);
+  background: color-mix(
+    in srgb,
+    hsl(var(--task-hue, 210) 60% 50%) 14%,
+    var(--surface)
+  );
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .tl-block:hover {
-  filter: brightness(1.08);
+  background: color-mix(
+    in srgb,
+    hsl(var(--task-hue, 210) 60% 50%) 24%,
+    var(--surface)
+  );
 }
 
 .tl-block--selected {
@@ -4673,9 +4736,9 @@
 }
 
 .tl-block__time {
+  color: var(--muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.85;
   white-space: nowrap;
 }
 
@@ -4738,7 +4801,6 @@
 .day-group__totals--tasks .day-group__total {
   max-width: 16rem;
   overflow: hidden;
-  color: var(--doing);
   white-space: nowrap;
   text-overflow: ellipsis;
 }

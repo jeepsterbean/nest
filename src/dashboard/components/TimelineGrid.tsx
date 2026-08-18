@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Phase } from "../../lib/types";
-import { phaseName, phaseTone } from "../lib/journal";
+import { phaseIconName, phaseName, phaseTone, taskHue } from "../lib/journal";
+import { NestIcon } from "./PulseIcon";
 import { formatHourTick, formatTime } from "../lib/time";
 import type { PhaseSession } from "../lib/timeline";
 import { placeOnWindow, type WorkBlock } from "../lib/workTimeline";
@@ -15,6 +16,9 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 /** A block this tall fits its title; twice that also fits its start–end line. */
 const TITLE_PX = 18;
 const TIMES_PX = 34;
+
+/** A rail segment this tall carries its Phase icon; shorter ones stay a bare tint. */
+const RAIL_ICON_PX = 20;
 
 export type GridColumn = {
   from: number;
@@ -32,10 +36,21 @@ export type StretchEdit = {
 
 const pxOf = (sizePct: number) => (sizePct / 100) * DAY_PX;
 
-/** Vertical calendar: hours down the gutter, one column per day, each holding a
- * Phase ribbon beside its Work stretches. Every span is placed by percentage of
- * its own column, so a column and its ribbon always agree — a DST day's 23 or
- * 25 hours are squeezed into the same pixel height, off by ~4% twice a year. */
+/** Sessions with their column placement and display name — the rail and the
+ * wash draw the same list, so they can never disagree. */
+const placeSessions = (column: GridColumn, phases: Phase[]) =>
+  column.sessions.map((session) => ({
+    session,
+    name: phaseName(session.phaseId, phases),
+    ...placeOnWindow(session.from, session.to, column.from, column.to),
+  }));
+
+/** Vertical calendar: hours down the gutter, one column per day. Phase is the
+ * ground — a continuous wash behind the column, keyed by icon on the rail left
+ * of the hours; Work stretches are the figure — cards on top, one hue per Task.
+ * Every span is placed by percentage of its own column, so wash and card always
+ * agree — a DST day's 23 or 25 hours are squeezed into the same pixel height,
+ * off by ~4% twice a year. */
 export function TimelineGrid({
   columns,
   phases,
@@ -100,6 +115,24 @@ export function TimelineGrid({
         </div>
       ) : null}
       <div className="tl__scroll" ref={scrollRef}>
+        {mode === "day" && columns[0] ? (
+          <div className="tl__rail" aria-hidden="true">
+            {placeSessions(columns[0], phases).map(
+              ({ session, name, startPct, sizePct }) => (
+                <div
+                  key={`${session.from}-${session.phaseId}`}
+                  className={`tl__rail-seg tl__rail-seg--${phaseTone(name)}`}
+                  style={{ top: `${startPct}%`, height: `${sizePct}%` }}
+                  title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
+                >
+                  {pxOf(sizePct) >= RAIL_ICON_PX ? (
+                    <NestIcon name={phaseIconName(name)} />
+                  ) : null}
+                </div>
+              ),
+            )}
+          </div>
+        ) : null}
         <div className="tl__gutter">
           {HOURS.map((hour) => (
             <span key={hour} className="tl__hour">
@@ -142,68 +175,60 @@ function Column({
   const place = (from: number, to: number) =>
     placeOnWindow(from, to, column.from, column.to);
   const now = place(nowSec, nowSec);
+  const sessions = placeSessions(column, phases);
 
   return (
-    <div className="tl__col">
-      <div className="tl__ribbon">
-        {column.sessions.map((session) => {
-          const name = phaseName(session.phaseId, phases);
-          const { startPct, sizePct } = place(session.from, session.to);
-          return (
-            <div
-              key={`${session.from}-${session.phaseId}`}
-              className={`tl__phase tl__phase--${phaseTone(name)}`}
-              style={{ top: `${startPct}%`, height: `${sizePct}%` }}
-              title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
-            >
-              {pxOf(sizePct) >= 24 ? <span>{name}</span> : null}
-            </div>
-          );
-        })}
-      </div>
-      <div className="tl__work">
-        {column.blocks.map((block) => {
-          const height = pxOf(block.sizePct);
-          return (
-            <button
-              key={block.id}
-              type="button"
-              className={`tl-block${selectedId === block.id ? " tl-block--selected" : ""}`}
-              style={{
-                top: `${block.startPct}%`,
-                height: `max(3px, ${block.sizePct}%)`,
-                left: `${(block.col / block.cols) * 100}%`,
-                width: `${100 / block.cols}%`,
-              }}
-              title={`${block.task.title} · ${formatTime(block.from)} – ${formatTime(block.to)}`}
-              aria-label={`${block.task.title} · ${formatTime(block.from)} to ${formatTime(block.to)}`}
-              onClick={() =>
-                onSelect(
-                  selectedId === block.id
-                    ? null
-                    : {
-                        id: block.id,
-                        startedAt: block.from,
-                        endedAt: block.to,
-                      },
-                )
-              }
-            >
-              {height >= TITLE_PX ? (
-                <span className="tl-block__title">{block.task.title}</span>
-              ) : null}
-              {height >= TIMES_PX ? (
-                <span className="tl-block__time">
-                  {formatTime(block.from)} – {formatTime(block.to)}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-        {nowSec >= column.from && nowSec < column.to ? (
-          <div className="tl__now" style={{ top: `${now.startPct}%` }} />
-        ) : null}
-      </div>
+    <div className="tl__lane">
+      {sessions.map(({ session, name, startPct, sizePct }) => (
+        <div
+          key={`${session.from}-${session.phaseId}`}
+          className={`tl__wash tl__wash--${phaseTone(name)}`}
+          style={{ top: `${startPct}%`, height: `${sizePct}%` }}
+          title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
+        />
+      ))}
+      {column.blocks.map((block) => {
+        const height = pxOf(block.sizePct);
+        return (
+          <button
+            key={block.id}
+            type="button"
+            className={`tl-block${selectedId === block.id ? " tl-block--selected" : ""}`}
+            style={{
+              top: `${block.startPct}%`,
+              height: `max(3px, ${block.sizePct}%)`,
+              left: `${(block.col / block.cols) * 100}%`,
+              width: `${100 / block.cols}%`,
+              "--task-hue": taskHue(block.task.id),
+            } as React.CSSProperties}
+            title={`${block.task.title} · ${formatTime(block.from)} – ${formatTime(block.to)}`}
+            aria-label={`${block.task.title} · ${formatTime(block.from)} to ${formatTime(block.to)}`}
+            onClick={() =>
+              onSelect(
+                selectedId === block.id
+                  ? null
+                  : {
+                      id: block.id,
+                      startedAt: block.from,
+                      endedAt: block.to,
+                    },
+              )
+            }
+          >
+            {height >= TITLE_PX ? (
+              <span className="tl-block__title">{block.task.title}</span>
+            ) : null}
+            {height >= TIMES_PX ? (
+              <span className="tl-block__time">
+                {formatTime(block.from)} – {formatTime(block.to)}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+      {nowSec >= column.from && nowSec < column.to ? (
+        <div className="tl__now" style={{ top: `${now.startPct}%` }} />
+      ) : null}
     </div>
   );
 }
