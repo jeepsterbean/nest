@@ -42,6 +42,48 @@ export const formatTime = (ts: number) =>
     minute: "2-digit",
   });
 
+/** One Calendar drag snap step, in seconds. */
+export const QUARTER_HOUR_SECONDS = 15 * 60;
+
+/** Nearest local-time :00 / :15 / :30 / :45. Calendar drag uses this so a
+ * stretch lands on a clock time, not a unix-epoch multiple of 900. */
+export const snapToQuarterHour = (ts: number) => {
+  const d = new Date(ts * 1000);
+  const midnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const step = QUARTER_HOUR_SECONDS * 1000;
+  return Math.floor((midnight + Math.round((d.getTime() - midnight) / step) * step) / 1000);
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Local YYYY-MM-DD for `<input type="date">`. */
+export const toDateInput = (ts: number) => {
+  const d = new Date(ts * 1000);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+/** Local HH:MM for `<input type="time">`. */
+export const toTimeInput = (ts: number) => {
+  const d = new Date(ts * 1000);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
+/** Unix seconds from local date and time field values, or null if either is incomplete. */
+export const fromDateAndTime = (date: string, time: string) => {
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const clock = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(time);
+  if (!day || !clock) return null;
+  const ts = new Date(
+    Number(day[1]),
+    Number(day[2]) - 1,
+    Number(day[3]),
+    Number(clock[1]),
+    Number(clock[2]),
+    Number(clock[3] ?? 0),
+  ).getTime();
+  return Number.isNaN(ts) ? null : Math.floor(ts / 1000);
+};
+
 export const formatHourTick = (ts: number) =>
   new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "numeric" });
 

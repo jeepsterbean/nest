@@ -87,6 +87,15 @@ export const insightsIcon = (
   </svg>
 );
 
+export const calendarIcon = (
+  <svg {...iconProps}>
+    <rect x="4" y="5" width="16" height="15" rx="2" />
+    <path d="M8 3v4" />
+    <path d="M16 3v4" />
+    <path d="M4 10h16" />
+  </svg>
+);
+
 export const journalIcon = (
   <svg {...iconProps}>
     <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />

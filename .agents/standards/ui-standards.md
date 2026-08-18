@@ -55,11 +55,22 @@ private, journal-like. Preserve light and dark system themes.
   matches the check-in popup composer: one textarea, shared draft,
   Cmd/Ctrl+Enter. Dump history is Journal-only; there is no dashboard dump
   modal or sidebar dump button.
-- Insights owns the calendar grid (`.tl`) and the Day / Week range under
-  `.dash-section--insights`, with date nav (Earlier / Later / Today). Remember
-  the last range (`nest:insights-range`); Day only when nothing is stored. Stats
-  stay a quiet inline meta row (`.day-stats`). Compact range toggle matches
-  Journal.
+- Calendar owns the timetable (`.tl`) under `.dash-section--calendar`. Insights
+  is the ranged scoreboard under `.dash-section--insights`: outcome stats
+  (`.day-stats`), Phase totals, and per-Task Worked time. Both share Day / Week
+  and Earlier / Later / Today. Remember the last range (`nest:insights-range`);
+  Day only when nothing is stored. Compact range toggle matches Journal.
+- Drag a `.tl-block` body to move the Work stretch; drag a start or end edge to
+  resize. Times snap to 15-minute marks. Resize will not shrink below 15 minutes
+  unless now is closer. That floor is calendar-drag only. An open stretch's live
+  end stays pinned to now. Click still opens the editor if the pointer barely
+  moves. The editor sits beside the selected stretch, left or right of that
+  block — toward its outer edge when two share the hour, otherwise toward
+  whichever side has room. It flips if the preferred side would leave the
+  window. It closes once its stretch has scrolled out of the grid, so a card
+  fixed to the viewport never outlives the block it edits. The Task title is
+  editable. Start and end each have a date and a time; the times save before the
+  rename, since only the times can be refused.
 - The grid is a linear clock running down the page: place every span with
   percentage `top`/`height` from `placeOnWindow`, never `flex-grow`, so a Work
   stretch and the Phase wash behind it agree. Percentages are of the column's
@@ -67,9 +78,10 @@ private, journal-like. Preserve light and dark system themes.
 - One lane per column, no side-by-side tracks. Phase is ground: a continuous
   `.tl__wash` tint behind the lane, no border, no radius, no label, never
   clickable, plus a `.tl__mark` hairline and name chip at each switch (Day only
-  — Week reads Phase off the totals row). A Work stretch is figure: a
-  `.tl-block` card above the wash, tinted by `taskHue(task.id)` through
-  `--task-hue`, the same hue its swatch carries in the Task totals row.
+  — Week is wash only; Phase durations live on Insights). A Work stretch is
+  figure: a `.tl-block` card above the wash, tinted by `taskHue(task.id)`
+  through `--task-hue`, the same hue its swatch carries in the Insights Task
+  totals.
 - `HOUR_PX` in `TimelineGrid.tsx` is the one density knob — it sets `--tl-hour`
   inline and decides which blocks are tall enough to carry a label. Change it
   there, not in CSS.

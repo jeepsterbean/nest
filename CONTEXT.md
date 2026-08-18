@@ -47,7 +47,7 @@ _Avoid_: Status, Ready, in progress, paused
 **Work stretch**:
 One recorded span of Working now on a Task, with a start and an end. The
 current one is open: it has a start and no end yet. Stretches are kept, so
-Insights can show when work happened, and a mistimed one can be corrected or
+Calendar can show when work happened, and a mistimed one can be corrected or
 deleted after the fact.
 _Avoid_: Session, sitting, block
 
@@ -73,16 +73,26 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 0, not as missing. The right Overview panel is a brain dump composer that
 matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
 history lives in Journal. Insights is the longer look: the same stats and Phase
-totals, per-Task Worked time for the range, and a calendar grid. The grid runs
-time down the page — hours in a left gutter, one column per calendar day, each
-column a Phase ribbon beside its Work stretches. Ranges are Day and Week (Week
-starts Monday), anchored to real dates and paged with Earlier / Later / Today
-rather than measured back from now; paging stops where the loaded 30 days of
-history end. A stretch carries its Task title and times inside the block when it
-is tall enough; concurrent stretches sit side by side, since multiple Tasks may
-be Working now. A line marks the current time. Quiet time reads as empty track
-rather than being squeezed out. Clicking a stretch opens an editor for its start
-and end. The last chosen range is remembered; first visit is Day. Journal is history only: Raw (every Metric check-in,
+totals, and per-Task Worked time for the range. Calendar is the timetable of
+that range — hours in a left gutter, one column per calendar day, each column a
+Phase wash behind its Work stretches. Insights and Calendar share Day and Week
+(Week starts Monday), anchored to real dates and paged with Earlier / Later /
+Today rather than measured back from now; paging stops where the loaded 30 days
+of history end. The last chosen range is remembered; first visit is Day. A
+stretch carries its Task title and times inside the block when it is tall
+enough; concurrent stretches sit side by side, since multiple Tasks may be
+Working now. A line marks the current time. Quiet time reads as empty track
+rather than being squeezed out. Clicking a stretch opens an editor beside that
+stretch — left or right of the selected block, toward its outer edge when two
+share the hour, flipping so the editor stays on screen and closing once its
+stretch scrolls out of the grid. The Task title can be renamed there. Start and
+end each have a date and a time, and save first, since only the times can be
+refused. Dragging the stretch moves it; dragging a start or end edge resizes
+that bound. Calendar drag snaps to fifteen minutes and will not shrink a stretch
+below fifteen minutes unless now is closer (a stretch cannot end in the future).
+That floor is only for dragging on the grid; a recorded stretch may already be
+shorter. An open stretch's live end stays
+pinned to now. Journal is history only: Raw (every Metric check-in,
 brain dump, and Phase checkpoint), Brain dumps, Phases, and Metrics. Phases
 has Raw and Aggregated modes — Aggregated applies the 60-second settle
 collapse (a burst lands on the Phase it settled on; if that equals the Phase

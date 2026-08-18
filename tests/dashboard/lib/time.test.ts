@@ -12,9 +12,13 @@ import {
   greetingForHour,
   isCheckInDue,
   shiftDayMs,
+  snapToQuarterHour,
   startOfDayMs,
   taskTotalWorkedSeconds,
   taskWorkSessionSeconds,
+  toDateInput,
+  toTimeInput,
+  fromDateAndTime,
 } from "../../../src/dashboard/lib/time";
 
 // All day-boundary math is in local time (setHours), so expectations are built
@@ -118,6 +122,47 @@ describe("minute helpers", () => {
     expect(due(false, new Date(2026, 5, 17, 14, 30))).toBe(true);
     expect(due(true, new Date(2026, 5, 17, 14, 40))).toBe(true);
     expect(due(false, new Date(2026, 5, 17, 14, 40))).toBe(false);
+  });
+});
+
+describe("snapToQuarterHour", () => {
+  const at = (hours: number, minutes: number, seconds = 0) =>
+    sec(new Date(2026, 5, 17, hours, minutes, seconds));
+
+  it("leaves a quarter-hour mark alone", () => {
+    expect(snapToQuarterHour(at(10, 0))).toBe(at(10, 0));
+    expect(snapToQuarterHour(at(10, 15))).toBe(at(10, 15));
+    expect(snapToQuarterHour(at(10, 30))).toBe(at(10, 30));
+    expect(snapToQuarterHour(at(10, 45))).toBe(at(10, 45));
+  });
+
+  it("rounds to the nearest quarter hour", () => {
+    expect(snapToQuarterHour(at(10, 7))).toBe(at(10, 0));
+    expect(snapToQuarterHour(at(10, 8))).toBe(at(10, 15));
+    expect(snapToQuarterHour(at(10, 22, 29))).toBe(at(10, 15));
+    expect(snapToQuarterHour(at(10, 22, 30))).toBe(at(10, 30));
+  });
+
+  it("rolls midnight when rounding up past 23:52", () => {
+    expect(snapToQuarterHour(at(23, 53))).toBe(sec(new Date(2026, 5, 18)));
+  });
+});
+
+describe("date and time field values", () => {
+  const ts = sec(new Date(2026, 5, 17, 14, 5, 9));
+
+  it("splits a timestamp into local date and time fields", () => {
+    expect(toDateInput(ts)).toBe("2026-06-17");
+    expect(toTimeInput(ts)).toBe("14:05");
+  });
+
+  it("recombines date and time, ignoring incomplete values", () => {
+    expect(fromDateAndTime("2026-06-17", "14:05")).toBe(
+      sec(new Date(2026, 5, 17, 14, 5)),
+    );
+    expect(fromDateAndTime("2026-06-17", "14:05:09")).toBe(ts);
+    expect(fromDateAndTime("", "14:05")).toBeNull();
+    expect(fromDateAndTime("2026-06-17", "")).toBeNull();
   });
 });
 

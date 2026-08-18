@@ -10,6 +10,7 @@ import { formatCheckInCountdown, greetingForHour, CHECK_IN_INTERVALS, isCheckInD
 import { phaseIconName, phaseName } from "../lib/journal";
 import { NestIcon } from "./PulseIcon";
 import {
+  calendarIcon,
   chevronDownIcon,
   clockIcon,
   insightsIcon,
@@ -21,6 +22,7 @@ import {
 
 export type DashboardView =
   | "overview"
+  | "calendar"
   | "insights"
   | "journal"
   | "tasks"
@@ -28,6 +30,7 @@ export type DashboardView =
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
+  { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "journal", label: "Journal", icon: journalIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },

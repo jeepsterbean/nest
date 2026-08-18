@@ -98,6 +98,7 @@ export function TasksView() {
   const suppressClickTaskIdRef = useRef<number | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
   const composerStatusTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const composerStatusWrapRef = useRef<HTMLDivElement | null>(null);
   const { statusMenu, scopeMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
@@ -118,6 +119,18 @@ export function TasksView() {
       setSelectedTaskId(null);
     }
   }, [taskGraph, selectedTaskId]);
+
+  useEffect(() => {
+    if (!composerStatusOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const wrap = composerStatusWrapRef.current;
+      if (wrap && !wrap.contains(event.target as Node)) {
+        setComposerStatusOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [composerStatusOpen]);
 
   // Escape closes the detail panel, but only once open menus and in-place
   // editors have had their turn at the key.
@@ -547,6 +560,7 @@ export function TasksView() {
                   onChange={(e) => setComposerTitle(e.target.value)}
                 />
                 <div
+                  ref={composerStatusWrapRef}
                   className="task-composer__status-wrap"
                   onBlur={(e) => {
                     if (!e.currentTarget.contains(e.relatedTarget)) {

@@ -102,6 +102,18 @@ export function MetricsView() {
     );
   }, [pulses, selectedPulseId]);
 
+  useEffect(() => {
+    if (!iconPickerOpen && metricIconPickerId === null) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest(".pulse-icon-control, .metric-icon-control")) return;
+      setIconPickerOpen(false);
+      setMetricIconPickerId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [iconPickerOpen, metricIconPickerId]);
+
   const selectPulse = (id: number) => {
     setSelectedPulseId(id);
     setIconPickerOpen(false);
