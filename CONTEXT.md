@@ -44,10 +44,18 @@ being worked on. Multiple Tasks may be Working now. Leaving Active clears it;
 clearing it does not change status.
 _Avoid_: Status, Ready, in progress, paused
 
+**Work stretch**:
+One recorded span of Working now on a Task, with a start and an end. The
+current one is open: it has a start and no end yet. Stretches are kept, so
+Insights can show when work happened, and a mistimed one can be corrected or
+deleted after the fact.
+_Avoid_: Session, sitting, block
+
 **Worked time**:
-The total time a Task has been Working now, kept even after work stops.
-It keeps counting if Working now is left on. The Working now control shows
-the current stretch; the total is the piggy bank.
+The total time a Task has been Working now, kept even after work stops. It is
+the sum of the Task's finished Work stretches, so correcting a stretch moves
+the total. It keeps counting if Working now is left on. The Working now control
+shows the current stretch; the total is every stretch added up.
 _Avoid_: Session, stopwatch, in progress
 
 **Phase**:
@@ -65,8 +73,12 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 0, not as missing. The right Overview panel is a brain dump composer that
 matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
 history lives in Journal. Insights is the longer look: the same stats and Phase
-totals plus a settled Phase strip, with range filters of
-1 hour, 24 hours, 7 days, and 30 days. The last chosen range is remembered;
+totals, a Phase strip, and a Work stretch timeline with one lane per Task
+worked in the range, with range filters of
+1 hour, 24 hours, 7 days, and 30 days. The strip and the lanes are one linear
+clock over the range sharing a single hour axis, so quiet time reads as empty
+track rather than being squeezed out. Clicking a stretch opens an editor for
+its start and end. The last chosen range is remembered;
 first visit is 24 hours. Journal is history only: Raw (every Metric check-in,
 brain dump, and Phase checkpoint), Brain dumps, Phases, and Metrics. Phases
 has Raw and Aggregated modes — Aggregated applies the 60-second settle
@@ -106,6 +118,7 @@ _Avoid_: note, journal entry
 - A **Blocker** must be completed for its **Dependent** to become **Ready**
 - A **Scope** categorizes zero or more **Tasks** but does not contain them
 - Parent and Child relationships form a forest; Blocker and Dependent relationships form a DAG
+- A **Task** has zero or more **Work stretches**
 - A **Task** has **Worked time** that grows while it is **Working now**
 - A **Pulse** contains zero or more **Metrics** in a user-defined order
 - A **Metric check-in** records ratings for the Metrics in one Pulse
@@ -127,6 +140,7 @@ _Avoid_: note, journal entry
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; they are not stored status values.
 - "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
+- "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
 - "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.

@@ -90,9 +90,14 @@ preserves calm, private, flow-friendly behavior.
 - Prefer `cargo test` coverage next to the Rust modules that own the behavior
   (`task_graph` for Parent/Blocker integrity, migrations, commands).
 - Task commands that can change Working now (`delete_task`, `set_task_status`,
-  `set_task_working`, `stop_all_working_now`) go through `with_phase_tx` so Phase
-  sync and emit stay in the same transaction. Lock/sleep Offline is a separate
-  path because it also writes PhaseSignals.
+  `set_task_working`, `stop_all_working_now`, `update_task_work_stretch`,
+  `delete_task_work_stretch`) go through `with_phase_tx` so Phase sync and emit
+  stay in the same transaction. Lock/sleep Offline is a separate path because it
+  also writes PhaseSignals.
+- Working now, Worked time and the live start are derived from
+  `task_work_stretches` in `TASK_COLUMNS`, never stored on `tasks`, so a
+  corrected stretch moves the total. Selects using it must alias `tasks` as `t`;
+  RETURNING cannot carry it, because SQLite forbids subqueries there.
 
 ## Frontend structure
 

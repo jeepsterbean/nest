@@ -13,6 +13,7 @@ import type {
   Task,
   TaskDependency,
   TaskStatusEvent,
+  TaskWorkStretch,
   TaskStatus,
 } from "./types";
 
@@ -170,6 +171,25 @@ export function setTaskWorking(id: number, working: boolean): Promise<Task> {
 
 export function stopAllWorkingNow(): Promise<Task[]> {
   return invoke("stop_all_working_now");
+}
+
+export function listTaskWorkStretches(
+  from: number,
+  to: number,
+): Promise<TaskWorkStretch[]> {
+  return invoke("list_task_work_stretches", { from, to });
+}
+
+export function updateTaskWorkStretch(
+  id: number,
+  startedAt: number,
+  endedAt: number | null,
+): Promise<Task> {
+  return invoke("update_task_work_stretch", { id, startedAt, endedAt });
+}
+
+export function deleteTaskWorkStretch(id: number): Promise<Task> {
+  return invoke("delete_task_work_stretch", { id });
 }
 
 export function setTaskScore(

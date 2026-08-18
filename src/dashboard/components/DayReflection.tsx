@@ -15,6 +15,7 @@ import {
   phaseSessionTotals,
   type PhaseSession,
 } from "../lib/timeline";
+import { placeOnWindow } from "../lib/workTimeline";
 
 export type DayStat = { label: string; value: string };
 
@@ -60,24 +61,44 @@ export function PhaseTotals({
   );
 }
 
-/** Segmented phase bar for a session window. Empty ranges still show a track. */
+/** Hour marks for a window, shared by the Phase strip and the task timeline so
+ * one axis serves both. Wide spans have no room for hourly labels. */
+export function TimelineTicks({ from, to }: { from: number; to: number }) {
+  const span = to - from;
+  const ticks = span / 3600 > 36 ? [] : hourTicks(from, to);
+  if (ticks.length === 0) return null;
+  return (
+    <div className="journal-strip__ticks">
+      {ticks.map((tick) => (
+        <span
+          key={tick}
+          className="journal-strip__tick"
+          style={{ left: `${((tick - from) / span) * 100}%` }}
+        >
+          {formatHourTick(tick)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Segmented phase bar laid out as a linear clock over [from, to). Segments are
+ * positioned, not flex-grown, so uncovered time reads as empty track and a work
+ * block with the same bounds lands on the same pixels. */
 export function PhaseStrip({
   sessions,
   phases,
-  from: windowFrom,
-  to: windowTo,
+  from,
+  to,
 }: {
   sessions: PhaseSession[];
   phases: Phase[];
-  from?: number;
-  to?: number;
+  from: number;
+  to: number;
 }) {
-  const from = windowFrom ?? sessions[0]?.from;
-  const to = windowTo ?? sessions[sessions.length - 1]?.to;
-  if (from == null || to == null || to <= from) return null;
+  if (to <= from) return null;
 
   const span = to - from;
-  const ticks = span / 3600 > 36 ? [] : hourTicks(from, to);
   const summary =
     sessions.length === 0
       ? "No Phase time in this range"
@@ -89,46 +110,30 @@ export function PhaseStrip({
           .join(". ");
 
   return (
-    <div className="journal-strip" role="img" aria-label={summary}>
-      <div className="journal-strip__track">
-        {sessions.length === 0 ? (
+    <div className="journal-strip__track" role="img" aria-label={summary}>
+      {sessions.map((session) => {
+        const name = phaseName(session.phaseId, phases);
+        const duration = session.to - session.from;
+        const labeled = duration / span >= 0.14;
+        const { leftPct, widthPct } = placeOnWindow(
+          session.from,
+          session.to,
+          from,
+          to,
+        );
+        return (
           <div
-            className="journal-strip__seg journal-strip__seg--idle"
-            style={{ flexGrow: 1 }}
-          />
-        ) : (
-          sessions.map((session) => {
-            const name = phaseName(session.phaseId, phases);
-            const duration = session.to - session.from;
-            const labeled = span > 0 && duration / span >= 0.14;
-            return (
-              <div
-                key={`${session.from}-${session.phaseId}`}
-                className={`journal-strip__seg journal-strip__seg--${phaseTone(name)}`}
-                style={{ flexGrow: Math.max(duration, 1) }}
-                title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
-              >
-                {labeled ? (
-                  <span className="journal-strip__name">{name}</span>
-                ) : null}
-              </div>
-            );
-          })
-        )}
-      </div>
-      {ticks.length > 0 ? (
-        <div className="journal-strip__ticks">
-          {ticks.map((tick) => (
-            <span
-              key={tick}
-              className="journal-strip__tick"
-              style={{ left: `${((tick - from) / span) * 100}%` }}
-            >
-              {formatHourTick(tick)}
-            </span>
-          ))}
-        </div>
-      ) : null}
+            key={`${session.from}-${session.phaseId}`}
+            className={`journal-strip__seg journal-strip__seg--${phaseTone(name)}`}
+            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+            title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
+          >
+            {labeled ? (
+              <span className="journal-strip__name">{name}</span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

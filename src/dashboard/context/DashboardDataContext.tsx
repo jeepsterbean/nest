@@ -21,6 +21,7 @@ import {
   listTasks,
   listTaskDependencies,
   listTaskStatusEvents,
+  listTaskWorkStretches,
 } from "../../lib/commands";
 import type {
   BrainDump,
@@ -33,6 +34,7 @@ import type {
   Task,
   TaskDependency,
   TaskStatusEvent,
+  TaskWorkStretch,
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
@@ -45,6 +47,7 @@ type DashboardData = {
   tasks: Task[];
   taskDependencies: TaskDependency[];
   taskStatusEvents: TaskStatusEvent[];
+  taskWorkStretches: TaskWorkStretch[];
   taskGraph: TaskGraphProjection;
   metrics: Metric[];
   pulses: Pulse[];
@@ -71,6 +74,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
   const [taskStatusEvents, setTaskStatusEvents] = useState<TaskStatusEvent[]>([]);
+  const [taskWorkStretches, setTaskWorkStretches] = useState<TaskWorkStretch[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [pulses, setPulses] = useState<Pulse[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -90,10 +94,11 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = now - HISTORY_WINDOW_SECONDS;
       const to = now + 1;
-      const [t, td, tse, m, pulses, p, ci, pci, bd, lp, schedule] = await Promise.all([
+      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, lp, schedule] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
         listTaskStatusEvents(from, to),
+        listTaskWorkStretches(from, to),
         listMetrics(),
         listPulses(),
         listPhases(true),
@@ -107,6 +112,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setTasks(t);
       setTaskDependencies(td);
       setTaskStatusEvents(tse);
+      setTaskWorkStretches(tws);
       setMetrics(m);
       setPulses(pulses);
       setPhases(p);
@@ -158,6 +164,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       tasks,
       taskDependencies,
       taskStatusEvents,
+      taskWorkStretches,
       taskGraph,
       metrics,
       pulses,
@@ -178,6 +185,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       tasks,
       taskDependencies,
       taskStatusEvents,
+      taskWorkStretches,
       taskGraph,
       metrics,
       pulses,

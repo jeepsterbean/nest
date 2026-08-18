@@ -791,6 +791,39 @@ UPDATE tasks SET sort_order = (
             }
             Ok(())
         }),
+        // Each stretch of Working now becomes a row with a start and an end,
+        // replacing the three timer columns on tasks. Worked time, Working now,
+        // and the live start are derived from this table instead of stored, so
+        // a corrected stretch moves the total. Only live work carries over;
+        // banked totals start fresh. No table rebuild: SQLite drops a
+        // column-level CHECK along with its column, so sort_order and the
+        // parent self-FK are never at risk.
+        M::up(
+            r#"
+CREATE TABLE task_work_stretches (
+  id         INTEGER PRIMARY KEY,
+  task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  started_at INTEGER NOT NULL,
+  ended_at   INTEGER,
+  CHECK (ended_at IS NULL OR ended_at >= started_at)
+);
+
+CREATE INDEX idx_task_work_stretches_task_started
+  ON task_work_stretches(task_id, started_at DESC);
+CREATE INDEX idx_task_work_stretches_started_at
+  ON task_work_stretches(started_at);
+CREATE UNIQUE INDEX idx_task_work_stretches_open
+  ON task_work_stretches(task_id) WHERE ended_at IS NULL;
+
+INSERT INTO task_work_stretches (task_id, started_at, ended_at)
+SELECT id, work_started_at, NULL FROM tasks
+WHERE working_now = 1 AND work_started_at IS NOT NULL;
+
+ALTER TABLE tasks DROP COLUMN working_now;
+ALTER TABLE tasks DROP COLUMN worked_seconds;
+ALTER TABLE tasks DROP COLUMN work_started_at;
+"#,
+        ),
     ])
 }
 
@@ -799,18 +832,21 @@ mod tests {
     use super::migrations;
     use rusqlite::Connection;
 
+    /// Schema version right after tasks gained sort_order, i.e. the slot the
+    /// repair hook that follows it fixes up. Bump only if a migration is ever
+    /// inserted at or before that slot.
+    const SORT_ORDER_VERSION: usize = 34;
+
     #[test]
     fn repairs_a_database_that_burned_a_version_on_the_sort_order_migration() {
         let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        let latest: i64 = conn
-            .query_row("PRAGMA user_version", [], |row| row.get(0))
-            .unwrap();
-        // The shipped-then-moved migration left real databases one short of
-        // latest with no sort_order column.
+        // The shipped-then-moved migration left real databases stopped right
+        // after the sort_order slot with no sort_order column. Stop there
+        // rather than rewinding from latest, so appending migrations later
+        // neither retargets this test nor re-runs a one-shot migration.
+        migrations().to_version(&mut conn, SORT_ORDER_VERSION).unwrap();
         conn.execute_batch("ALTER TABLE tasks DROP COLUMN sort_order;")
             .unwrap();
-        conn.pragma_update(None, "user_version", latest - 1).unwrap();
 
         migrations().to_latest(&mut conn).unwrap();
         let has_sort_order: bool = conn
@@ -822,6 +858,65 @@ mod tests {
             )
             .unwrap();
         assert!(has_sort_order);
+    }
+
+    #[test]
+    fn work_stretches_carry_live_work_and_start_banked_time_fresh() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 35).unwrap();
+        conn.execute(
+            "INSERT INTO tasks \
+             (id, title, status, working_now, worked_seconds, work_started_at, \
+              sort_order, created_at, updated_at) \
+             VALUES (1, 'Working', 'active', 1, 300, 900, 7, 1, 1), \
+                    (2, 'Banked only', 'active', 0, 500, NULL, 8, 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let live: Vec<(i64, i64, Option<i64>)> = conn
+            .prepare("SELECT task_id, started_at, ended_at FROM task_work_stretches")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        // Only the in-flight timer carries over; old banked totals are dropped.
+        assert_eq!(live, vec![(1, 900, None)]);
+
+        let sort_order: i64 = conn
+            .query_row("SELECT sort_order FROM tasks WHERE id = 2", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(sort_order, 8);
+
+        let timer_columns: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('tasks') \
+                 WHERE name IN ('working_now', 'worked_seconds', 'work_started_at')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(timer_columns, 0);
+
+        // One open stretch per task, enforced by the partial unique index.
+        conn.execute(
+            "INSERT INTO task_work_stretches (task_id, started_at) VALUES (1, 950)",
+            [],
+        )
+        .unwrap_err();
+
+        let foreign_key_errors: i64 = conn
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(foreign_key_errors, 0);
     }
 
     #[test]
@@ -1078,10 +1173,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
-        let working_now: bool = conn
-            .query_row("SELECT working_now FROM tasks", [], |row| row.get(0))
+        let open_stretches: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_work_stretches WHERE ended_at IS NULL",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
-        assert!(!working_now);
+        assert_eq!(open_stretches, 0);
     }
 
     #[test]
@@ -1164,7 +1263,10 @@ CREATE TABLE phase_check_ins (
 
         let parked: (String, bool) = conn
             .query_row(
-                "SELECT status, working_now FROM tasks WHERE id = 1",
+                "SELECT t.status, \
+                 EXISTS(SELECT 1 FROM task_work_stretches s \
+                        WHERE s.task_id = t.id AND s.ended_at IS NULL) \
+                 FROM tasks t WHERE t.id = 1",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1208,9 +1310,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
+        // Live work carries over as an open stretch; banked totals start fresh.
         let timer: (i64, Option<i64>) = conn
             .query_row(
-                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                "SELECT COALESCE((SELECT SUM(ended_at - started_at) \
+                                  FROM task_work_stretches \
+                                  WHERE task_id = 1 AND ended_at IS NOT NULL), 0), \
+                 (SELECT started_at FROM task_work_stretches \
+                  WHERE task_id = 1 AND ended_at IS NULL)",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1233,9 +1340,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
+        // Live work carries over as an open stretch; banked totals start fresh.
         let timer: (i64, Option<i64>) = conn
             .query_row(
-                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                "SELECT COALESCE((SELECT SUM(ended_at - started_at) \
+                                  FROM task_work_stretches \
+                                  WHERE task_id = 1 AND ended_at IS NOT NULL), 0), \
+                 (SELECT started_at FROM task_work_stretches \
+                  WHERE task_id = 1 AND ended_at IS NULL)",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )

@@ -121,3 +121,13 @@ pub struct BrainDump {
     pub title: Option<String>,
     pub text: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskWorkStretch {
+    pub id: i64,
+    pub task_id: i64,
+    pub started_at: i64,
+    /// None while the stretch is still open, i.e. the task is Working now.
+    pub ended_at: Option<i64>,
+}

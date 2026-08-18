@@ -6,6 +6,7 @@ use crate::error::{AppError, Result};
 use crate::models::{
     BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
     MetricRatingInput, Phase, PhaseCheckIn, Pulse, Task, TaskDependency, TaskStatusEvent,
+    TaskWorkStretch,
 };
 use crate::phase;
 use crate::task_graph::TaskGraph;
@@ -114,8 +115,18 @@ pub(crate) fn resolve_due_check_in(
     Ok(true)
 }
 
-const TASK_COLUMNS: &str = "id, title, description, status, working_now, worked_seconds, \
-    work_started_at, scope, value, effort, parent_task_id, created_at, updated_at";
+/// Working now, Worked time and the live start are derived from
+/// task_work_stretches rather than stored, so a corrected stretch moves the
+/// total. Selects using this must alias the tasks table as `t`. Correlated
+/// subqueries are illegal in RETURNING, so it cannot be used there.
+const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
+    EXISTS(SELECT 1 FROM task_work_stretches s \
+           WHERE s.task_id = t.id AND s.ended_at IS NULL), \
+    COALESCE((SELECT SUM(s.ended_at - s.started_at) FROM task_work_stretches s \
+              WHERE s.task_id = t.id AND s.ended_at IS NOT NULL), 0), \
+    (SELECT s.started_at FROM task_work_stretches s \
+     WHERE s.task_id = t.id AND s.ended_at IS NULL), \
+    t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at";
 const METRIC_COLUMNS: &str = "id, name, icon, created_at";
 const PHASE_CHECK_IN_COLUMNS: &str = "id, created_at, phase_id, phase_label";
 const BRAIN_DUMP_COLUMNS: &str = "id, created_at, title, text";
@@ -208,7 +219,7 @@ fn fetch_latest_phase_check_in(
 
 fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        &format!("SELECT {TASK_COLUMNS} FROM tasks WHERE id = ?1"),
+        &format!("SELECT {TASK_COLUMNS} FROM tasks t WHERE t.id = ?1"),
         params![id],
         map_task,
     )
@@ -261,7 +272,7 @@ fn fetch_pulse(conn: &Connection, id: i64) -> Result<Pulse> {
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
     let mut stmt = conn.prepare(&format!(
-        "SELECT {TASK_COLUMNS} FROM tasks ORDER BY sort_order ASC, id ASC"
+        "SELECT {TASK_COLUMNS} FROM tasks t ORDER BY t.sort_order ASC, t.id ASC"
     ))?;
     let rows = stmt
         .query_map([], map_task)?
@@ -469,9 +480,7 @@ fn change_task_status(conn: &Connection, id: i64, status: &str) -> Result<()> {
             bank_task_work(conn, id, now)?;
         }
         conn.execute(
-            "UPDATE tasks SET status = ?1, \
-             working_now = CASE WHEN ?1 = 'active' THEN working_now ELSE 0 END, \
-             updated_at = ?2 WHERE id = ?3",
+            "UPDATE tasks SET status = ?1, updated_at = ?2 WHERE id = ?3",
             params![status, now, id],
         )?;
         conn.execute(
@@ -495,7 +504,10 @@ pub fn set_task_working(
 
 fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
     let (status, current): (String, bool) = match conn.query_row(
-        "SELECT status, working_now FROM tasks WHERE id = ?1",
+        "SELECT t.status, \
+         EXISTS(SELECT 1 FROM task_work_stretches s \
+                WHERE s.task_id = t.id AND s.ended_at IS NULL) \
+         FROM tasks t WHERE t.id = ?1",
         params![id],
         |row| Ok((row.get(0)?, row.get(1)?)),
     ) {
@@ -510,14 +522,17 @@ fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task
             "only active tasks can be marked as working now".into(),
         ));
     }
+    // The guard is load-bearing, not an optimization: a redundant start would
+    // violate the one-open-stretch index, and a redundant stop would close
+    // nothing while still bumping updated_at.
     if current != working {
         let now = now_unix_secs();
         if working {
             conn.execute(
-                "UPDATE tasks SET working_now = 1, work_started_at = ?1, updated_at = ?1 \
-                 WHERE id = ?2",
-                params![now, id],
+                "INSERT INTO task_work_stretches (task_id, started_at) VALUES (?1, ?2)",
+                params![id, now],
             )?;
+            touch_task(conn, id, now)?;
         } else {
             bank_task_work(conn, id, now)?;
         }
@@ -525,37 +540,50 @@ fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task
     fetch_task(conn, id)
 }
 
+/// Close the open stretch, if any. MAX pins the end to the start rather than
+/// letting a backwards clock fail the table's CHECK.
 fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()> {
     conn.execute(
-        "UPDATE tasks SET \
-         worked_seconds = worked_seconds + CASE \
-           WHEN work_started_at IS NULL THEN 0 \
-           ELSE MAX(0, ?1 - work_started_at) \
-         END, \
-         working_now = 0, work_started_at = NULL, updated_at = ?1 \
-         WHERE id = ?2",
+        "UPDATE task_work_stretches SET ended_at = MAX(?1, started_at) \
+         WHERE task_id = ?2 AND ended_at IS NULL",
+        params![now, id],
+    )?;
+    touch_task(conn, id, now)?;
+    Ok(())
+}
+
+/// Starting and stopping work no longer writes to tasks, but Worked time is
+/// still a change to the task as far as the Updated column and its sorts care.
+fn touch_task(conn: &Connection, id: i64, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tasks SET updated_at = ?1 WHERE id = ?2",
         params![now, id],
     )?;
     Ok(())
 }
 
 /// Bank Worked time and clear Working now on every task that has it, returning
-/// the tasks it changed. RETURNING gives no row order; callers key by id.
+/// the tasks it changed. RETURNING gives no row order; callers key by id. It
+/// also forbids the subqueries TASK_COLUMNS needs, so the closed stretches
+/// yield task ids and the rows are fetched after the update finishes.
 pub(crate) fn bank_all_working_now(conn: &Connection, now: i64) -> Result<Vec<Task>> {
-    let mut stmt = conn.prepare(&format!(
-        "UPDATE tasks SET \
-         worked_seconds = worked_seconds + CASE \
-           WHEN work_started_at IS NULL THEN 0 \
-           ELSE MAX(0, ?1 - work_started_at) \
-         END, \
-         working_now = 0, work_started_at = NULL, updated_at = ?1 \
-         WHERE working_now = 1 \
-         RETURNING {TASK_COLUMNS}"
-    ))?;
-    let tasks = stmt
-        .query_map(params![now], map_task)?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(tasks)
+    let task_ids = {
+        let mut stmt = conn.prepare(
+            "UPDATE task_work_stretches SET ended_at = MAX(?1, started_at) \
+             WHERE ended_at IS NULL RETURNING task_id",
+        )?;
+        let ids = stmt
+            .query_map(params![now], |row| row.get::<_, i64>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        ids
+    };
+    task_ids
+        .into_iter()
+        .map(|id| {
+            touch_task(conn, id, now)?;
+            fetch_task(conn, id)
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -565,6 +593,140 @@ pub fn stop_all_working_now(
 ) -> Result<Vec<Task>> {
     with_phase_tx(&app, &state, |tx| {
         bank_all_working_now(tx, now_unix_secs())
+    })
+}
+
+/// Far past any real timestamp, standing in for an open stretch's end so the
+/// half-open overlap test can treat every stretch the same way.
+const OPEN_STRETCH_SENTINEL: i64 = 99_999_999_999;
+
+#[tauri::command]
+pub fn list_task_work_stretches(
+    state: State<'_, Mutex<Connection>>,
+    from: i64,
+    to: i64,
+) -> Result<Vec<TaskWorkStretch>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, task_id, started_at, ended_at FROM task_work_stretches \
+         WHERE started_at < ?2 AND (ended_at IS NULL OR ended_at > ?1) \
+         ORDER BY started_at ASC, id ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![from, to], |row| {
+            Ok(TaskWorkStretch {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                started_at: row.get(2)?,
+                ended_at: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn update_task_work_stretch(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    started_at: i64,
+    ended_at: Option<i64>,
+) -> Result<Task> {
+    with_phase_tx(&app, &state, |tx| {
+        change_task_work_stretch(tx, id, started_at, ended_at, now_unix_secs())
+    })
+}
+
+fn change_task_work_stretch(
+    conn: &Connection,
+    id: i64,
+    started_at: i64,
+    ended_at: Option<i64>,
+    now: i64,
+) -> Result<Task> {
+    let (task_id, status): (i64, String) = conn
+        .query_row(
+            "SELECT s.task_id, t.status FROM task_work_stretches s \
+             JOIN tasks t ON t.id = s.task_id WHERE s.id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("task work stretch {id}")))?;
+
+    if let Some(ended_at) = ended_at {
+        if ended_at < started_at {
+            return Err(AppError::InvalidInput(
+                "a work stretch cannot end before it starts".into(),
+            ));
+        }
+        if ended_at > now {
+            return Err(AppError::InvalidInput(
+                "a work stretch cannot end in the future".into(),
+            ));
+        }
+    } else if status != "active" {
+        // Leaving it open means the task is Working now, which only Active
+        // tasks can be.
+        return Err(AppError::InvalidInput(
+            "only a stretch on an active task can be left open".into(),
+        ));
+    }
+    if started_at > now {
+        return Err(AppError::InvalidInput(
+            "a work stretch cannot start in the future".into(),
+        ));
+    }
+
+    // Half-open intervals, so a stretch may end exactly where the next begins.
+    let overlaps: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM task_work_stretches \
+         WHERE task_id = ?1 AND id <> ?2 \
+           AND started_at < ?3 AND COALESCE(ended_at, ?5) > ?4)",
+        params![
+            task_id,
+            id,
+            ended_at.unwrap_or(OPEN_STRETCH_SENTINEL),
+            started_at,
+            OPEN_STRETCH_SENTINEL
+        ],
+        |row| row.get(0),
+    )?;
+    if overlaps {
+        return Err(AppError::InvalidInput(
+            "work stretches on the same task cannot overlap".into(),
+        ));
+    }
+
+    conn.execute(
+        "UPDATE task_work_stretches SET started_at = ?1, ended_at = ?2 WHERE id = ?3",
+        params![started_at, ended_at, id],
+    )?;
+    touch_task(conn, task_id, now)?;
+    fetch_task(conn, task_id)
+}
+
+#[tauri::command]
+pub fn delete_task_work_stretch(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+) -> Result<Task> {
+    with_phase_tx(&app, &state, |tx| {
+        let now = now_unix_secs();
+        // The owning task has to be read before the row goes away.
+        let task_id: i64 = tx
+            .query_row(
+                "SELECT task_id FROM task_work_stretches WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| AppError::NotFound(format!("task work stretch {id}")))?;
+        tx.execute("DELETE FROM task_work_stretches WHERE id = ?1", params![id])?;
+        touch_task(tx, task_id, now)?;
+        fetch_task(tx, task_id)
     })
 }
 
@@ -1205,14 +1367,40 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        bank_all_working_now, bank_task_work, change_task_status, change_task_working, fetch_task,
-        normalize_optional_title, normalize_task_scope, record_metric_check_in,
-        resolve_due_check_in, valid_icon, validate_task_status,
+        bank_all_working_now, bank_task_work, change_task_status, change_task_work_stretch,
+        change_task_working, fetch_task, normalize_optional_title, normalize_task_scope,
+        record_metric_check_in, resolve_due_check_in, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
     use crate::CheckInTimer;
     use rusqlite::Connection;
+
+    /// Replace a task's stretches with `banked` seconds of finished work plus,
+    /// optionally, one open stretch. Worked time is derived, so seeding it means
+    /// seeding the stretches it sums.
+    fn seed_work(conn: &Connection, task_id: i64, banked: i64, open_since: Option<i64>) {
+        conn.execute(
+            "DELETE FROM task_work_stretches WHERE task_id = ?1",
+            [task_id],
+        )
+        .unwrap();
+        if banked > 0 {
+            conn.execute(
+                "INSERT INTO task_work_stretches (task_id, started_at, ended_at) \
+                 VALUES (?1, 0, ?2)",
+                [task_id, banked],
+            )
+            .unwrap();
+        }
+        if let Some(started_at) = open_since {
+            conn.execute(
+                "INSERT INTO task_work_stretches (task_id, started_at) VALUES (?1, ?2)",
+                [task_id, started_at],
+            )
+            .unwrap();
+        }
+    }
 
     #[test]
     fn normalizes_task_scope_segments() {
@@ -1232,6 +1420,108 @@ mod tests {
         );
         assert_eq!(normalize_optional_title(Some("   ".into())), None);
         assert_eq!(normalize_optional_title(None), None);
+    }
+
+    fn task_database() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Active', 'active', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn stretches(conn: &Connection, task_id: i64) -> Vec<(i64, i64, Option<i64>)> {
+        conn.prepare(
+            "SELECT id, started_at, ended_at FROM task_work_stretches \
+             WHERE task_id = ?1 ORDER BY started_at",
+        )
+        .unwrap()
+        .query_map([task_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
+    }
+
+    #[test]
+    fn each_stint_of_work_records_its_own_stretch() {
+        let conn = task_database();
+
+        seed_work(&conn, 1, 0, Some(100));
+        bank_task_work(&conn, 1, 160).unwrap();
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 60);
+
+        change_task_working(&conn, 1, true).unwrap();
+        conn.execute(
+            "UPDATE task_work_stretches SET started_at = 200 WHERE ended_at IS NULL",
+            [],
+        )
+        .unwrap();
+        bank_task_work(&conn, 1, 230).unwrap();
+
+        let recorded = stretches(&conn, 1);
+        assert_eq!(
+            recorded,
+            vec![(1, 100, Some(160)), (2, 200, Some(230))],
+            "both stretches keep their own start and end"
+        );
+        // Worked time is the sum of the closed stretches, not a running column.
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 90);
+    }
+
+    #[test]
+    fn editing_a_stretch_moves_worked_time() {
+        let conn = task_database();
+        seed_work(&conn, 1, 0, Some(100));
+        bank_task_work(&conn, 1, 160).unwrap();
+        let id = stretches(&conn, 1)[0].0;
+
+        let task = change_task_work_stretch(&conn, id, 100, Some(400), 1_000).unwrap();
+        assert_eq!(task.worked_seconds, 300);
+        assert!(!task.working_now);
+
+        // Reopening is how a forgotten start is corrected, and only Active
+        // tasks can be Working now.
+        let reopened = change_task_work_stretch(&conn, id, 100, None, 1_000).unwrap();
+        assert!(reopened.working_now);
+        assert_eq!(reopened.work_started_at, Some(100));
+        assert_eq!(reopened.worked_seconds, 0);
+
+        change_task_status(&conn, 1, "completed").unwrap();
+        assert!(change_task_work_stretch(&conn, id, 100, None, 1_000).is_err());
+    }
+
+    #[test]
+    fn a_stretch_cannot_overlap_a_sibling_or_run_into_the_future() {
+        let conn = task_database();
+        conn.execute(
+            "INSERT INTO task_work_stretches (task_id, started_at, ended_at) \
+             VALUES (1, 100, 200), (1, 300, 400)",
+            [],
+        )
+        .unwrap();
+        let second = stretches(&conn, 1)[1].0;
+
+        assert!(change_task_work_stretch(&conn, second, 150, Some(400), 1_000).is_err());
+        // Half-open, so ending exactly where the next begins is not an overlap.
+        assert!(change_task_work_stretch(&conn, second, 200, Some(400), 1_000).is_ok());
+        assert!(change_task_work_stretch(&conn, second, 200, Some(100), 1_000).is_err());
+        assert!(change_task_work_stretch(&conn, second, 200, Some(2_000), 1_000).is_err());
+        assert!(change_task_work_stretch(&conn, second, 1_500, Some(1_600), 1_000).is_err());
+        assert!(change_task_work_stretch(&conn, 999, 100, Some(200), 1_000).is_err());
+    }
+
+    #[test]
+    fn deleting_a_task_takes_its_stretches_with_it() {
+        let conn = task_database();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        seed_work(&conn, 1, 30, Some(100));
+
+        conn.execute("DELETE FROM tasks WHERE id = 1", []).unwrap();
+        assert!(stretches(&conn, 1).is_empty());
     }
 
     #[test]
@@ -1265,20 +1555,17 @@ mod tests {
         );
         assert!(change_task_working(&conn, 2, true).is_err());
 
-        conn.execute(
-            "UPDATE tasks SET worked_seconds = 20, work_started_at = 100 WHERE id = 1",
-            [],
-        )
-        .unwrap();
+        seed_work(&conn, 1, 20, Some(100));
         bank_task_work(&conn, 1, 150).unwrap();
         let stopped = fetch_task(&conn, 1).unwrap();
         assert_eq!(stopped.worked_seconds, 70);
         assert_eq!(stopped.work_started_at, None);
         assert!(!stopped.working_now);
 
+        // A backwards clock ends the stretch where it started rather than
+        // failing the table's CHECK, so it banks nothing.
         assert!(change_task_working(&conn, 1, true).unwrap().working_now);
-        conn.execute("UPDATE tasks SET work_started_at = 200 WHERE id = 1", [])
-            .unwrap();
+        seed_work(&conn, 1, 70, Some(200));
         bank_task_work(&conn, 1, 150).unwrap();
         assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 70);
 
@@ -1313,16 +1600,8 @@ mod tests {
         .unwrap();
         change_task_working(&conn, 1, true).unwrap();
         change_task_working(&conn, 2, true).unwrap();
-        conn.execute(
-            "UPDATE tasks SET worked_seconds = 10, work_started_at = 100 WHERE id = 1",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "UPDATE tasks SET worked_seconds = 5, work_started_at = 120 WHERE id = 2",
-            [],
-        )
-        .unwrap();
+        seed_work(&conn, 1, 10, Some(100));
+        seed_work(&conn, 2, 5, Some(120));
 
         let mut banked = bank_all_working_now(&conn, 150).unwrap();
         banked.sort_by_key(|task| task.id);

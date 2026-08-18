@@ -35,7 +35,7 @@ describe("outcomeStats", () => {
 });
 
 describe("windowInsight", () => {
-  it("keeps quiet time in totals and trims it from the strip", () => {
+  it("keeps quiet time, so the strip reads as a linear clock", () => {
     const insight = windowInsight(
       [],
       [],
@@ -52,7 +52,6 @@ describe("windowInsight", () => {
       { phaseId: 1, from: 0, to: 80 },
       { phaseId: 2, from: 80, to: 200 },
     ]);
-    expect(insight.stripSessions).toEqual([{ phaseId: 1, from: 0, to: 80 }]);
   });
 });
 

@@ -77,6 +77,14 @@ export type Task = {
   updatedAt: number;
 };
 
+/** One recorded stretch of Working now. Open (still running) while endedAt is null. */
+export type TaskWorkStretch = {
+  id: number;
+  taskId: number;
+  startedAt: number;
+  endedAt: number | null;
+};
+
 export type TaskDependency = {
   blockerTaskId: number;
   blockedTaskId: number;

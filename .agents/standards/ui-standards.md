@@ -55,10 +55,14 @@ private, journal-like. Preserve light and dark system themes.
   matches the check-in popup composer: one textarea, shared draft,
   Cmd/Ctrl+Enter. Dump history is Journal-only; there is no dashboard dump
   modal or sidebar dump button.
-- Insights owns the strip and range filters (1h / 24h / 7d / 30d) under
-  `.dash-section--insights`. Remember the last range (`nest:insights-range`);
-  24h only when nothing is stored. Stats stay a quiet inline meta row
-  (`.day-stats`). Compact range toggle matches Journal.
+- Insights owns the strip, the Work stretch timeline, and range filters
+  (1h / 24h / 7d / 30d) under `.dash-section--insights`. Remember the last range
+  (`nest:insights-range`); 24h only when nothing is stored. Stats stay a quiet
+  inline meta row (`.day-stats`). Compact range toggle matches Journal.
+- Time tracks are a linear clock over the range: place spans with percentage
+  `left`/`width` from `placeOnWindow`, never `flex-grow`, so the Phase strip, the
+  task lanes and the one shared hour axis (`TimelineTicks`) agree. They share a
+  gutter (`--tl-gutter`) so a work block and the Phase segment beneath it line up.
 - A draggable surface drags from its own body. Never start a drag from a
   control nested inside it — pointer capture eats the control's click, so the
   press lands as a move instead of the action the user aimed at.

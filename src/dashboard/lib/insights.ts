@@ -48,7 +48,6 @@ export type OutcomeStat = { label: string; value: string };
 export type WindowInsight = {
   stats: OutcomeStat[];
   sessions: PhaseSession[];
-  stripSessions: PhaseSession[];
 };
 
 export const outcomeStats = (
@@ -81,19 +80,14 @@ export const windowInsight = (
       from: fromSec,
       to: toSec,
     }),
+    // Untrimmed: the strip is a linear clock, so quiet edges are real empty
+    // track rather than something to squeeze out.
     sessions: phaseSessionsInWindow(
       phaseCheckIns,
       fromSec,
       toSec,
       isQuiet,
       false,
-    ),
-    stripSessions: phaseSessionsInWindow(
-      phaseCheckIns,
-      fromSec,
-      toSec,
-      isQuiet,
-      true,
     ),
   };
 };

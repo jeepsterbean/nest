@@ -4026,10 +4026,6 @@
   margin: 0;
 }
 
-.dash-section--insights .journal-strip {
-  margin: 0;
-}
-
 .day-group + .day-group {
   margin-top: 28px;
 }
@@ -4122,14 +4118,8 @@
   line-height: 1.2;
 }
 
-.journal-strip {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 16px;
-}
-
 .journal-strip__track {
-  display: flex;
+  position: relative;
   height: 22px;
   overflow: hidden;
   border-radius: 7px;
@@ -4137,6 +4127,9 @@
 }
 
 .journal-strip__seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: grid;
   min-width: 0;
   place-items: center;
@@ -4571,4 +4564,111 @@
   .view-toggle__btn {
     flex: 1;
   }
+}
+
+/* Phase strip, task lanes and the hour axis share one gutter so a work block
+   and the Phase segment beneath it line up on the same clock. */
+.insights-timeline {
+  --tl-title: 9rem;
+  --tl-total: 3rem;
+  --tl-gap: 8px;
+  --tl-gutter: calc(var(--tl-title) + var(--tl-total) + var(--tl-gap) * 2);
+  display: grid;
+  gap: 6px;
+}
+
+.insights-timeline > .journal-strip__track,
+.insights-timeline > .journal-strip__ticks {
+  margin-left: var(--tl-gutter);
+}
+
+.work-timeline {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.work-lane {
+  display: grid;
+  grid-template-columns: var(--tl-title) var(--tl-total) 1fr;
+  column-gap: var(--tl-gap);
+  align-items: center;
+}
+
+.work-lane__title {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.work-lane__total {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.work-lane__track {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.work-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--doing);
+  cursor: pointer;
+}
+
+.work-block:hover {
+  filter: brightness(1.08);
+}
+
+.work-block--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stretch-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.stretch-editor__task {
+  font-weight: 650;
+}
+
+.stretch-editor label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.stretch-editor input[type="datetime-local"] {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
 }

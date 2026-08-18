@@ -80,7 +80,7 @@ pub fn sync_derived_phase(
     now: i64,
 ) -> Result<Option<String>> {
     let working = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM tasks WHERE working_now = 1)",
+        "SELECT EXISTS(SELECT 1 FROM task_work_stretches WHERE ended_at IS NULL)",
         [],
         |row| row.get::<_, bool>(0),
     )?;
@@ -240,9 +240,30 @@ mod tests {
 
     fn insert_active(conn: &Connection, id: i64, working: bool) {
         conn.execute(
-            "INSERT INTO tasks (id, title, status, working_now, created_at, updated_at) \
-             VALUES (?1, ?2, 'active', ?3, 1, 1)",
-            params![id, id.to_string(), working as i64],
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (?1, ?2, 'active', 1, 1)",
+            params![id, id.to_string()],
+        )
+        .unwrap();
+        if working {
+            start_working(conn, id);
+        }
+    }
+
+    /// Working now is an open work stretch, so seed and clear it as one.
+    fn start_working(conn: &Connection, id: i64) {
+        conn.execute(
+            "INSERT INTO task_work_stretches (task_id, started_at) VALUES (?1, 1)",
+            params![id],
+        )
+        .unwrap();
+    }
+
+    fn stop_working(conn: &Connection, id: i64) {
+        conn.execute(
+            "UPDATE task_work_stretches SET ended_at = 2 \
+             WHERE task_id = ?1 AND ended_at IS NULL",
+            params![id],
         )
         .unwrap();
     }
@@ -270,8 +291,7 @@ mod tests {
             Some(PHASE_DOING)
         );
 
-        conn.execute("UPDATE tasks SET working_now = 0 WHERE id = 1", [])
-            .unwrap();
+        stop_working(&conn, 1);
         assert_eq!(
             sync_derived_phase(&conn, PhaseSignals::default(), 20).unwrap(),
             None
@@ -292,8 +312,7 @@ mod tests {
         let conn = database();
         insert_active(&conn, 1, true);
         sync_derived_phase(&conn, PhaseSignals::default(), 10).unwrap();
-        conn.execute("UPDATE tasks SET working_now = 0 WHERE id = 1", [])
-            .unwrap();
+        stop_working(&conn, 1);
 
         assert_eq!(
             sync_derived_phase(&conn, signals(false, true, false), 20)
@@ -410,8 +429,7 @@ mod tests {
                 .as_deref(),
             Some(PHASE_DOING)
         );
-        conn.execute("UPDATE tasks SET working_now = 0 WHERE id = 1", [])
-            .unwrap();
+        stop_working(&conn, 1);
         assert_eq!(
             sync_derived_phase(&conn, away(signals(false, true, false)), 20)
                 .unwrap()
