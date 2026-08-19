@@ -1,4 +1,4 @@
-.combined-checkin {
+.popup-workspace {
   --timer-collapse: 0;
 
   position: relative;
@@ -10,7 +10,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.combined-checkin--loading {
+.popup-workspace--loading {
   grid-template-columns: 1fr;
   place-items: center;
   color: var(--muted);
@@ -837,7 +837,7 @@
   text-decoration: underline;
 }
 
-.combined-checkin__error {
+.popup-workspace__error {
   flex: 0 0 auto;
   padding: 8px 11px;
   border-radius: 9px;
@@ -846,7 +846,7 @@
   font-size: 13px;
 }
 
-.combined-workspace > .combined-checkin__error {
+.combined-workspace > .popup-workspace__error {
   position: absolute;
   z-index: 10;
   right: 12px;
@@ -856,7 +856,7 @@
 }
 
 @media (max-width: 680px) {
-  .combined-checkin {
+  .popup-workspace {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

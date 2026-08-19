@@ -235,8 +235,8 @@ export function DashboardHeader() {
               aria-expanded={pickerOpen}
               aria-label={
                 timerDue
-                  ? "Time to check in. Change interval"
-                  : `Next check-in: ${countdown}. Change interval`
+                  ? "Timer due. Change interval"
+                  : `Timer in ${countdown}. Change interval`
               }
               disabled={!timerState || scheduling}
               onClick={() => {
@@ -259,9 +259,9 @@ export function DashboardHeader() {
             </button>
             {pickerOpen && (
               <div
-                className="checkin-picker"
+                className="timer-picker"
                 role="listbox"
-                aria-label="Next check-in in"
+                aria-label="Timer interval"
               >
                 {TIMER_INTERVALS.map((minutes) => {
                   const selected = timerState?.intervalMinutes === minutes;
@@ -271,13 +271,13 @@ export function DashboardHeader() {
                       type="button"
                       role="option"
                       aria-selected={selected}
-                      className="checkin-picker__option"
+                      className="timer-picker__option"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => selectInterval(minutes)}
                     >
                       <span>{minutes} min</span>
                       {selected && (
-                        <span className="checkin-picker__mark">Current</span>
+                        <span className="timer-picker__mark">Current</span>
                       )}
                     </button>
                   );

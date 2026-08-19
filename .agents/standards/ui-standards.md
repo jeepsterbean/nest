@@ -60,7 +60,7 @@ private, journal-like. Preserve light and dark system themes.
   (`.insight-mix`), Tasks with Worked time grouped by status as of that day's
   end (`.insight-ledger`), including Completions and Cancellations with no
   Working now that day, and Pulse Metric scores (`.insight-pulses`) for the
-  range — the column stays when there are no check-ins. Outcome
+  range — the column stays when there are no Metric check-ins. Outcome
   counts stay on Overview. Both share Day / Week
   and Earlier / Later / Today. Remember the last range (`nest:insights-range`);
   Day only when nothing is stored. Compact range toggle matches Logs.

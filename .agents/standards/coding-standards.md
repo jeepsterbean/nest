@@ -72,6 +72,10 @@ preserves calm, private, flow-friendly behavior.
   framework.
 - User-facing copy should match the calm, private tone in `.impeccable.md`
   and the domain distinctions in `CONTEXT.md`.
+- Timer and Popup chrome, aria, and class names use Timer / Popup / due — never
+  check-in. The dashboard timer due phrase `time to check in!` is the exception.
+  Popup timer UI shows countdown only. Metric check-in remains the saved Pulse
+  scoring record.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.

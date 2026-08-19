@@ -181,12 +181,16 @@ _Avoid_: Journal
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
+  Timer/Popup aria, class names, and chrome never say check-in. The dashboard
+  header due phrase "time to check in!" is the exception. The Popup clock shows
+  the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that screen is **Logs**. A brain dump is not a journal entry.
 
 ## Timer
 
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
+  When due it shows "time to check in!"; the Popup clock stays on the countdown.
 - At zero, the timer pauses, plays the system alert sound, and opens the
   popup. It stays at `0:00` until a new interval is picked or the
   popup is resolved.

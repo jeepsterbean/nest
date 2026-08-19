@@ -640,7 +640,7 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
     }
 }
 
-/// Summon a check-in popup. On macOS the popups are NSPanels, shown via the
+/// Show the Popup window. On macOS the popups are NSPanels, shown via the
 /// panel API so they become key (accept typing) without activating the app or
 /// leaving a full-screen Space. Elsewhere they're ordinary windows.
 #[cfg(target_os = "macos")]
@@ -963,7 +963,7 @@ pub fn run() {
             });
 
             let tooltip = if main_hotkey_ok {
-                format!("Nest — {HOTKEY_LABEL} for a check-in")
+                format!("Nest — {HOTKEY_LABEL} to open Popup")
             } else {
                 "Nest — hotkey unavailable".to_string()
             };

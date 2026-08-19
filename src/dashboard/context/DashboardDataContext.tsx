@@ -39,7 +39,7 @@ import type {
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 
-/** How far back check-ins, phases, dumps and status events are loaded.
+/** How far back metric check-ins, phase checkpoints, dumps and status events are loaded.
  * Calendar and Insights' longest range (30 days) must stay inside this window. */
 export const HISTORY_WINDOW_SECONDS = 30 * 24 * 60 * 60;
 

@@ -36,7 +36,7 @@ const EMPTY_COPY: Record<
   },
   dumps: {
     title: "No brain dumps yet",
-    body: "Capture a thought from Overview or the check-in popup.",
+    body: "Capture a thought from Overview or the popup.",
   },
   phases: {
     title: "No Phase changes yet",

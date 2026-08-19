@@ -130,11 +130,7 @@ export function PopupTopPanel({
           className="combined-timer__trigger"
           aria-haspopup="listbox"
           aria-expanded={timerPickerOpen}
-          aria-label={
-            timerDue
-              ? "Check-in due. Start a new timer"
-              : `Timer ${countdown}. Start a new timer`
-          }
+          aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
           disabled={schedulingTimer}
           onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
         >
@@ -593,9 +589,9 @@ function PopupContent({
 
   if (!loaded) {
     return (
-      <div className="combined-checkin combined-checkin--loading">
+      <div className="popup-workspace popup-workspace--loading">
         {error ? (
-          <div className="combined-checkin__error" role="alert">
+          <div className="popup-workspace__error" role="alert">
             {error}
           </div>
         ) : (
@@ -769,7 +765,7 @@ function PopupContent({
       );
   return (
     <div
-      className="combined-checkin"
+      className="popup-workspace"
       onPointerDownCapture={(event) => {
         const target = event.target as Element;
         if (timerPickerOpen && !target.closest(".combined-timer__main")) {
@@ -836,7 +832,7 @@ function PopupContent({
 
         <section
           className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
-          aria-label={metricDue ? "Metric check-in due" : "Metric check-in"}
+          aria-label="Metrics"
           onKeyDown={(event) => {
             if (event.key >= "1" && event.key <= "5") {
               event.preventDefault();
@@ -917,7 +913,7 @@ function PopupContent({
         </section>
 
         {error && (
-          <div className="combined-checkin__error" role="alert">
+          <div className="popup-workspace__error" role="alert">
             {error}
           </div>
         )}

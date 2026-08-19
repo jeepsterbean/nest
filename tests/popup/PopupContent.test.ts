@@ -30,10 +30,11 @@ const props: ComponentProps<typeof PopupTopPanel> = {
 };
 
 describe("PopupTopPanel", () => {
-  it("starts a new timer from the clock when a check-in is due", () => {
+  it("starts a new timer from the clock when the timer is due", () => {
     const html = renderToStaticMarkup(createElement(PopupTopPanel, props));
 
-    expect(html).toContain("Check-in due. Start a new timer");
+    expect(html).toContain('aria-label="Timer"');
+    expect(html).toContain("0:00");
     expect(html).toContain('aria-label="Start timer"');
     expect(html).toContain("15 min");
     expect(html).not.toContain("combined-timer__sweep");

@@ -72,8 +72,8 @@ function Popup() {
   }, [dismiss]);
 
   return (
-    <div className="checkin">
-      <div className="checkin__body" key={summonKey}>
+    <div className="popup">
+      <div className="popup__body" key={summonKey}>
         <PopupContent onDismiss={dismiss} onComplete={complete} />
       </div>
     </div>

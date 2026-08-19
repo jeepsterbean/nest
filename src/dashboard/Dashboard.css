@@ -258,7 +258,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-@keyframes checkin-due-breathe {
+@keyframes timer-due-breathe {
   0%,
   100% {
     opacity: 1;
@@ -290,7 +290,7 @@
   color: var(--rating-2);
   font-variant-numeric: normal;
   white-space: nowrap;
-  animation: checkin-due-breathe 2.4s ease-in-out infinite;
+  animation: timer-due-breathe 2.4s ease-in-out infinite;
 }
 
 .dash-header__timer--due:not(:disabled):hover,
@@ -409,7 +409,7 @@
   transform: translate(0, -50%);
 }
 
-.checkin-picker {
+.timer-picker {
   position: absolute;
   z-index: 20;
   top: calc(100% + 6px);
@@ -426,7 +426,7 @@
     0 1px 4px rgba(60, 48, 30, 0.07);
 }
 
-.checkin-picker__option {
+.timer-picker__option {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -442,25 +442,25 @@
   cursor: pointer;
 }
 
-.checkin-picker__option:hover,
-.checkin-picker__option:focus-visible {
+.timer-picker__option:hover,
+.timer-picker__option:focus-visible {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   outline: none;
 }
 
-.checkin-picker__option[aria-selected="true"] {
+.timer-picker__option[aria-selected="true"] {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
   color: var(--accent);
 }
 
-.checkin-picker__option > span:first-child {
+.timer-picker__option > span:first-child {
   font-size: 13px;
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
 }
 
-.checkin-picker__mark {
+.timer-picker__mark {
   color: var(--accent);
   font-size: 10px;
   font-weight: 800;

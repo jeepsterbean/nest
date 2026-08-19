@@ -11,7 +11,7 @@ export function readMetricDueHeld(storage: MetricDueStorage = localStorage) {
   }
 }
 
-/** Persist the Metric-due latch across popup remounts until a check-in is saved. */
+/** Persist the Metric-due latch across popup remounts until a Metric check-in is saved. */
 export function writeMetricDueHeld(
   held: boolean,
   storage: MetricDueStorage = localStorage,

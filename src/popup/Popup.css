@@ -1,9 +1,9 @@
 /* The popup shares the dashboard bundle but the dashboard's design tokens are
    scoped to `.dashboard`, so the popup gets none of them. Re-declare the same
-   warm "journal" token set on `.checkin` here. Kept as a local copy (rather than
+   warm palette on `.popup` here. Kept as a local copy (rather than
    a shared file) so the popup theme stays self-contained and independent of the
    dashboard window. Keep in sync with Dashboard.css if the palette changes. */
-.checkin {
+.popup {
   --bg: #f6f1e8;
   --bg-glow-1: rgba(116, 153, 217, 0.16);
   --bg-glow-2: rgba(214, 164, 88, 0.14);
@@ -44,7 +44,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .checkin {
+  .popup {
     --bg: #191613;
     --bg-glow-1: rgba(101, 142, 214, 0.12);
     --bg-glow-2: rgba(206, 153, 74, 0.1);
@@ -73,7 +73,7 @@
   }
 }
 
-.checkin__body {
+.popup__body {
   width: 100%;
   flex: 1;
   min-width: 0;
