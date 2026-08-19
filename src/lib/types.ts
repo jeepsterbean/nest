@@ -3,6 +3,7 @@ export type Metric = {
   name: string;
   icon: string;
   createdAt: number;
+  color: string | null;
 };
 
 export type Pulse = {

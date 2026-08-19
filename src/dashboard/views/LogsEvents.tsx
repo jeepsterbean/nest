@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { resolveMetricColorFromList } from "../../lib/metricColors";
 import type { Metric, Phase, Pulse } from "../../lib/types";
 import { NestIcon } from "../components/PulseIcon";
 import { phaseIconName, phaseName, phaseTone } from "../lib/period";
@@ -66,7 +67,10 @@ function MetricCheckInRow({
                 role="img"
                 aria-label={metricLabel}
               >
-                <NestIcon name={metric?.icon ?? "activity"} />
+                <NestIcon
+                  name={metric?.icon ?? "activity"}
+                  color={metric ? resolveMetricColorFromList(metrics, metric.id) : undefined}
+                />
               </span>
               <span className={`rating-pill rating-pill--v${rating.value}`}>
                 {rating.value}

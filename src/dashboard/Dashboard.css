@@ -3371,6 +3371,67 @@
   height: 15px;
 }
 
+.icon-picker .metric-color-picker--embedded {
+  position: static;
+  width: auto;
+  margin-top: 8px;
+  padding: 8px 0 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.metric-color-picker__auto {
+  display: flex;
+  width: 100%;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.metric-color-picker__auto:hover,
+.metric-color-picker__auto.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.metric-color-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(6, 28px);
+  gap: 5px;
+}
+
+.metric-color-picker__swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.metric-color-picker__swatch:hover {
+  transform: scale(1.06);
+}
+
+.metric-color-picker__swatch.is-selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
 .all-metric__name {
   min-width: 0;
   overflow: hidden;

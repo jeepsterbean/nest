@@ -9,9 +9,11 @@ import {
   renamePulse,
   reorderPulseMetrics,
   reorderPulses,
+  setMetricColor,
   setMetricIcon,
   setPulseIcon,
 } from "../../lib/commands";
+import { resolveMetricColorFromList } from "../../lib/metricColors";
 import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
@@ -195,6 +197,10 @@ export function MetricsView() {
     if (await mutate(() => setMetricIcon(metric.id, icon))) {
       setMetricIconPickerId(null);
     }
+  };
+
+  const onSetMetricColor = async (metric: Metric, color: string | null) => {
+    await mutate(() => setMetricColor(metric.id, color));
   };
 
   const pulseIds = pulses.map((pulse) => pulse.id);
@@ -391,7 +397,10 @@ export function MetricsView() {
                         {gripIcon}
                       </span>
                       <div className="metric-identity">
-                        <NestIcon name={metric.icon} />
+                        <NestIcon
+                          name={metric.icon}
+                          color={resolveMetricColorFromList(metrics, metric.id)}
+                        />
                         <strong>{metric.name}</strong>
                       </div>
                       <MetricTrend values={pulseSeries.get(metric.id) ?? []} />
@@ -447,6 +456,7 @@ export function MetricsView() {
           <ul className="pulse-metrics pulse-metrics--all">
             {metrics.map((metric: Metric) => {
                 const membershipCount = pulses.filter((pulse) => pulse.metricIds.includes(metric.id)).length;
+                const metricColor = resolveMetricColorFromList(metrics, metric.id);
                 return (
                   <li className="pulse-metric" key={metric.id}>
                     <div className="metric-identity">
@@ -458,13 +468,16 @@ export function MetricsView() {
                           aria-expanded={metricIconPickerId === metric.id}
                           onClick={() => setMetricIconPickerId((id) => id === metric.id ? null : metric.id)}
                         >
-                          <NestIcon name={metric.icon} />
+                          <NestIcon name={metric.icon} color={metricColor} />
                         </button>
                         {metricIconPickerId === metric.id && (
                           <IconPicker
                             value={metric.icon}
                             label={`Icon for ${metric.name}`}
+                            color={metric.color}
+                            iconColor={metricColor}
                             onChange={(icon) => void onSetMetricIcon(metric, icon)}
+                            onColorChange={(color) => void onSetMetricColor(metric, color)}
                           />
                         )}
                       </div>

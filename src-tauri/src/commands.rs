@@ -127,7 +127,7 @@ const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
     (SELECT s.started_at FROM task_work_stretches s \
      WHERE s.task_id = t.id AND s.ended_at IS NULL), \
     t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at";
-const METRIC_COLUMNS: &str = "id, name, icon, created_at";
+const METRIC_COLUMNS: &str = "id, name, icon, created_at, color";
 const PHASE_CHECK_IN_COLUMNS: &str = "id, created_at, phase_id, phase_label";
 const BRAIN_DUMP_COLUMNS: &str = "id, created_at, title, text";
 
@@ -155,6 +155,7 @@ fn map_metric(row: &Row<'_>) -> rusqlite::Result<Metric> {
         name: row.get(1)?,
         icon: row.get(2)?,
         created_at: row.get(3)?,
+        color: row.get(4)?,
     })
 }
 
@@ -233,6 +234,17 @@ fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
         map_metric,
     )
     .map_err(Into::into)
+}
+
+fn valid_metric_color(color: &str) -> bool {
+    let bytes = color.as_bytes();
+    if bytes.first() != Some(&b'#') {
+        return false;
+    }
+    match bytes.len() {
+        4 | 7 => bytes[1..].iter().all(|byte| byte.is_ascii_hexdigit()),
+        _ => false,
+    }
 }
 
 fn valid_icon(icon: &str) -> bool {
@@ -878,6 +890,7 @@ pub fn create_metric(state: State<'_, Mutex<Connection>>, name: String) -> Resul
         name: trimmed,
         icon: "activity".into(),
         created_at: now,
+        color: None,
     })
 }
 
@@ -911,6 +924,28 @@ pub fn set_metric_icon(
     if conn.execute(
         "UPDATE metrics SET icon = ?1 WHERE id = ?2",
         params![icon, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("metric {id}")));
+    }
+    fetch_metric(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_metric_color(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    color: Option<String>,
+) -> Result<Metric> {
+    if let Some(ref value) = color {
+        if !valid_metric_color(value) {
+            return Err(AppError::InvalidInput("invalid metric color".into()));
+        }
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE metrics SET color = ?1 WHERE id = ?2",
+        params![color, id],
     )? == 0
     {
         return Err(AppError::NotFound(format!("metric {id}")));

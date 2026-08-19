@@ -45,6 +45,7 @@ import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
+import { resolveMetricColorFromList } from "../lib/metricColors";
 import "./PopupContent.css";
 
 // Drop targets for a lane with no tasks in it. Negative so they can never
@@ -1007,7 +1008,10 @@ function PopupContent({
               aria-live="polite"
             >
               <div className="metric-step__title">
-                <NestIcon name={activeMetric.icon} />
+                <NestIcon
+                  name={activeMetric.icon}
+                  color={resolveMetricColorFromList(loaded?.metrics ?? [], activeMetric.id)}
+                />
                 <h2>{activeMetric.name}</h2>
               </div>
               <div

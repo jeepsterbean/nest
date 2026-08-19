@@ -37,6 +37,10 @@ export function setMetricIcon(id: number, icon: string): Promise<Metric> {
   return invoke("set_metric_icon", { id, icon });
 }
 
+export function setMetricColor(id: number, color: string | null): Promise<Metric> {
+  return invoke("set_metric_color", { id, color });
+}
+
 export function listPulses(): Promise<Pulse[]> {
   return invoke("list_pulses");
 }

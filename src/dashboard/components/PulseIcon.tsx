@@ -50,6 +50,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { MetricColorPicker } from "./MetricColorPicker";
 
 export const NEST_ICONS = [
   { key: "activity", label: "Activity", Icon: Activity },
@@ -110,9 +111,15 @@ const ICONS = Object.fromEntries(
   NEST_ICONS.map(({ key, Icon }) => [key, Icon]),
 ) as Record<string, LucideIcon>;
 
-export function NestIcon({ name }: { name: string }) {
+export function NestIcon({ name, color }: { name: string; color?: string }) {
   const Icon = ICONS[name] ?? Activity;
-  return <Icon aria-hidden="true" focusable="false" />;
+  return (
+    <Icon
+      aria-hidden="true"
+      focusable="false"
+      style={color ? { color } : undefined}
+    />
+  );
 }
 
 export function pickRandomIcon(current: string, random = Math.random) {
@@ -124,11 +131,18 @@ export function IconPicker({
   value,
   label,
   onChange,
+  color = null,
+  iconColor,
+  onColorChange,
 }: {
   value: string;
   label: string;
   onChange: (icon: string) => void;
+  color?: string | null;
+  iconColor?: string;
+  onColorChange?: (color: string | null) => void;
 }) {
+  const tint = iconColor ?? color ?? undefined;
   return (
     <div className="icon-picker" role="group" aria-label={label}>
       <button
@@ -149,10 +163,18 @@ export function IconPicker({
             title={iconLabel}
             onClick={() => onChange(key)}
           >
-            <NestIcon name={key} />
+            <NestIcon name={key} color={value === key ? tint : undefined} />
           </button>
         ))}
       </div>
+      {onColorChange ? (
+        <MetricColorPicker
+          embedded
+          value={color}
+          label={`Color for ${label}`}
+          onChange={onColorChange}
+        />
+      ) : null}
     </div>
   );
 }

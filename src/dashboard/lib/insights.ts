@@ -9,6 +9,7 @@ import type {
   TaskStatus,
   TaskStatusEvent,
 } from "../../lib/types";
+import { resolveMetricColorFromList } from "../../lib/metricColors";
 import {
   cancelledInPeriod,
   completedInPeriod,
@@ -316,6 +317,7 @@ export type InsightMetricRow = {
   metricId: number;
   name: string;
   icon: string;
+  color: string;
   values: number[];
   average: number;
 };
@@ -381,6 +383,7 @@ export const insightCheckIns = (
           metricId,
           name: metric?.name ?? `Metric ${metricId}`,
           icon: metric?.icon ?? "activity",
+          color: resolveMetricColorFromList(metrics, metricId),
           values,
           average: average(values),
         };

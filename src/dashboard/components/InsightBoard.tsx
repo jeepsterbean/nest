@@ -201,7 +201,7 @@ function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
     <li className="insight-metric">
       <div className="insight-metric__head">
         <span className="insight-metric__name">
-          <NestIcon name={metric.icon} />
+          <NestIcon name={metric.icon} color={metric.color} />
           {metric.name}
         </span>
         <span className="insight-metric__avg">{metric.average.toFixed(1)}</span>

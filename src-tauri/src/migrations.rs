@@ -841,6 +841,7 @@ CREATE TABLE app_heartbeat (
 INSERT INTO app_heartbeat (id, beat_at) VALUES (1, 0);
 "#,
         ),
+        M::up("ALTER TABLE metrics ADD COLUMN color TEXT;"),
     ])
 }
 

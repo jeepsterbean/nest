@@ -7,6 +7,7 @@ pub struct Metric {
     pub name: String,
     pub icon: String,
     pub created_at: i64,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
