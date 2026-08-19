@@ -63,7 +63,7 @@ A derived attention state, written as a checkpoint when it changes.
 The four values are **Doing**, **Scoping**, **Resting**, and **Offline**.
 Doing if any Task is Working now; else Offline if the Mac is locked,
 display-asleep, or system-asleep; else Scoping if Nest is engaged
-(dashboard has attention or check-in popup up) or Notion desktop is frontmost;
+(dashboard has attention or the popup is up) or Notion desktop is frontmost;
 else Resting. Lock/sleep clears Working now (Worked time is banked; status
 stays Active) and writes Offline even from Resting. Clicking another display
 leaves dashboard attention even if the Nest window is still key. Overview
@@ -71,7 +71,7 @@ shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
 0, not as missing. The right Overview panel is a brain dump composer that
-matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
+matches the popup (shared draft, Cmd/Ctrl+Enter to save). Dump
 history lives in Logs. Insights is the longer look: a Phase mix for the
 range, Tasks with Worked time that day grouped by status as of that day's end
 (Active, Up next, Backlog, Completed, Cancelled), plus Completions and
@@ -102,7 +102,7 @@ pinned to now.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
-A named group of Metrics scored together during a check-in. The order of
+A named group of Metrics scored together during a Metric check-in. The order of
 Pulses, and of Metrics inside a Pulse, is the order they appear in the popup.
 A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
@@ -112,12 +112,22 @@ A 1–5 rating scored as part of a Metric check-in.
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
-in that Pulse is finished in the check-in popup.
+in that Pulse is finished in the popup.
 _Avoid_: Pulse check-in
 
+**Timer**:
+The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
+opens the Popup. Picking an interval starts that cycle from now.
+_Avoid_: Check-in, schedule
+
+**Popup**:
+The window the Timer (or ⌘⇧E) opens. It is for scoring Metrics and capturing
+a brain dump, not a stored record.
+_Avoid_: Check-in popup
+
 **Brain dump**:
-An unstructured captured thought stored on its own. Overview and the check-in
-popup capture text only (shared draft, Cmd/Ctrl+Enter). Logs can still
+An unstructured captured thought stored on its own. Overview and the popup
+capture text only (shared draft, Cmd/Ctrl+Enter). Logs can still
 attach an optional title to a saved dump.
 _Avoid_: note, journal entry
 
@@ -169,24 +179,26 @@ _Avoid_: Journal
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
 - "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
+- "check-in" for the clock or the window — resolved: the clock is the **Timer**;
+  the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that screen is **Logs**. A brain dump is not a journal entry.
 
-## Check-in cadence
+## Timer
 
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
 - At zero, the timer pauses, plays the system alert sound, and opens the
-  check-in popup. It stays at `0:00` until a new interval is picked or the
+  popup. It stays at `0:00` until a new interval is picked or the
   popup is resolved.
 - Picking an interval on the clock starts that cycle immediately, including
-  when a check-in is due.
+  when the timer is due.
 - Completing an automatic popup starts the current interval if the timer is
   still paused. Dismissing it starts a five-minute interval if the timer is
   still paused.
 - When the timer runs out, the Metric scoring panel holds a gold due treatment
   until a Metric check-in is saved. Restarting the clock or submitting a brain
   dump does not clear it.
-- The check-in popup is two columns. Left: remaining time on a clock face
+- The popup is two columns. Left: remaining time on a clock face
   (click to pick an interval) and the Active / Up next task list, sized for
   three rows with extra tasks scrolling. Right: brain dump above Metric scoring.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
@@ -194,5 +206,5 @@ _Avoid_: Journal
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
 - Opening the dashboard from the popup dismisses it.
-- Manually summoned popups keep the live countdown and do not reset it when
+- Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

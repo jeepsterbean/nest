@@ -1,4 +1,4 @@
-mod check_in;
+mod timer;
 mod commands;
 mod db;
 mod error;
@@ -36,7 +36,7 @@ use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
 };
 
-// The check-in popup is subclassed into this non-activating NSPanel at
+// The popup is subclassed into this non-activating NSPanel at
 // startup. A non-activating panel can become the key window (so the form
 // accepts typing) without activating Nest — which is what lets it float over
 // another app's native full-screen Space instead of being hidden or yanking
@@ -53,11 +53,11 @@ tauri_panel! {
     })
 }
 
-/// Collection behavior for the check-in panel over full-screen Spaces.
+/// Collection behavior for the popup panel over full-screen Spaces.
 /// Matches tauri-nspanel's fullscreen example, plus macOS 13+
 /// `CanJoinAllApplications` so the panel can join other apps' Spaces.
 /// Do not set `stationary()` — that pins the panel off the active
-/// full-screen Space, so summon "succeeds" while nothing is visible.
+/// full-screen Space, so show_popup "succeeds" while nothing is visible.
 #[cfg(target_os = "macos")]
 fn popup_collection_behavior() -> tauri_nspanel::objc2_app_kit::NSWindowCollectionBehavior {
     CollectionBehavior::new()
@@ -127,12 +127,12 @@ fn log_client_event(message: String) {
 }
 
 #[tauri::command]
-fn summon_check_in(app: tauri::AppHandle) {
+fn show_popup(app: tauri::AppHandle) {
     summon_popup_with_route(&app, "popup", "#/popup");
 }
 
 #[tauri::command]
-fn close_check_in_popup(
+fn close_popup(
     app: tauri::AppHandle,
     dismissed: bool,
     minutes: Option<i64>,
@@ -145,15 +145,15 @@ fn close_check_in_popup(
     )
 }
 
-// Cadence of the recurring check-in popup. At zero it pauses until the popup
-// is completed or dismissed; schedule_next_check_in starts the next cycle.
-pub struct CheckInTimer {
+// Cadence of the recurring popup. At zero it pauses until the popup
+// is completed or dismissed; start_timer starts the next cycle.
+pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
     pub waiting_for_response: bool,
 }
 
-impl CheckInTimer {
+impl Timer {
     fn pause_if_due(&mut self, now: i64) -> bool {
         if self.waiting_for_response || now < self.next_due_at {
             return false;
@@ -163,48 +163,48 @@ impl CheckInTimer {
     }
 }
 
-fn load_check_in_timer(conn: &rusqlite::Connection) -> CheckInTimer {
+fn load_timer(conn: &rusqlite::Connection) -> Timer {
     let now = now_unix_secs();
     let persisted = conn
         .query_row(
-            "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+            "SELECT interval_minutes, next_due_at FROM timer_schedule WHERE id = 1",
             [],
             |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
         )
         .ok();
 
     let (interval_minutes, next_due_at) = match persisted {
-        Some((minutes, due_at)) if check_in::is_valid_interval(minutes) => (minutes, due_at),
+        Some((minutes, due_at)) if timer::is_valid_interval(minutes) => (minutes, due_at),
         // Missing row or a bad interval (corrupt/hand-edited db): fall back to
         // the default cadence starting now.
         _ => (
-            check_in::DEFAULT_MINUTES,
-            now + check_in::DEFAULT_MINUTES * 60,
+            timer::DEFAULT_MINUTES,
+            now + timer::DEFAULT_MINUTES * 60,
         ),
     };
 
     append_diagnostic_log(format!(
-        "check_in_timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
+        "timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
         next_due_at <= now
     ));
 
-    CheckInTimer {
+    Timer {
         interval_minutes,
         next_due_at,
         waiting_for_response: false,
     }
 }
 
-fn start_check_in_timer(app: tauri::AppHandle) {
+fn spawn_timer_loop(app: tauri::AppHandle) {
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
         let now = now_unix_secs();
         let due = {
-            let timer = app.state::<Mutex<CheckInTimer>>();
+            let timer = app.state::<Mutex<Timer>>();
             let mut timer = timer.lock().unwrap();
             if timer.pause_if_due(now) {
                 append_diagnostic_log(format!(
-                    "check_in_timer_due now={now} next_due_at={} waiting_for_response=true",
+                    "timer_due now={now} next_due_at={} waiting_for_response=true",
                     timer.next_due_at
                 ));
                 true
@@ -221,7 +221,7 @@ fn start_check_in_timer(app: tauri::AppHandle) {
                 summon_popup_with_route(&app_for_ui, "popup", "#/popup");
             }) {
                 append_diagnostic_log(format!(
-                    "check_in_timer_main_thread_dispatch_failed error={e}"
+                    "timer_main_thread_dispatch_failed error={e}"
                 ));
             }
         }
@@ -689,7 +689,7 @@ fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
-fn hide_check_in_popup(app: &tauri::AppHandle, reason: &str) {
+fn hide_popup(app: &tauri::AppHandle, reason: &str) {
     #[cfg(target_os = "macos")]
     hide_popup_panel(app, reason);
 
@@ -707,16 +707,16 @@ fn resolve_and_hide_popup(
 ) -> error::Result<()> {
     let timer_changed = {
         let state = app.state::<Mutex<rusqlite::Connection>>();
-        let timer_state = app.state::<Mutex<CheckInTimer>>();
+        let timer_state = app.state::<Mutex<Timer>>();
         let conn = state.lock().unwrap();
         let mut timer = timer_state.lock().unwrap();
-        commands::resolve_due_check_in(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
+        commands::resolve_due_timer(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
     };
 
-    hide_check_in_popup(app, reason);
+    hide_popup(app, reason);
     phase::update_signals_and_sync(app, |signals| signals.popup_visible = false);
     if timer_changed {
-        let _ = app.emit("check-in-submitted", ());
+        let _ = app.emit("data-changed", ());
     }
     Ok(())
 }
@@ -861,7 +861,7 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
-            let check_in_timer = load_check_in_timer(&conn);
+            let timer = load_timer(&conn);
             app.manage(Mutex::new(phase::PhaseSignals {
                 notion_frontmost: phase::notion_is_frontmost(),
                 ..phase::PhaseSignals::default()
@@ -869,11 +869,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.manage(PhaseLeaveEpoch(AtomicU64::new(0)));
             app.manage(Mutex::new(conn));
-            app.manage(Mutex::new(check_in_timer));
-            start_check_in_timer(app.handle().clone());
+            app.manage(Mutex::new(timer));
+            spawn_timer_loop(app.handle().clone());
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
-            // the check-in popup into a non-activating NSPanel so it overlays
+            // the popup into a non-activating NSPanel so it overlays
             // other apps' full-screen Spaces and accepts typing without pulling
             // the user out of full-screen.
             #[cfg(target_os = "macos")]
@@ -1032,13 +1032,13 @@ pub fn run() {
             commands::delete_metric_check_in,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
-            commands::get_check_in_schedule,
-            commands::schedule_next_check_in,
+            commands::get_timer_state,
+            commands::start_timer,
             commands::submit_brain_dump,
             commands::update_brain_dump_title,
             commands::list_brain_dumps,
-            summon_check_in,
-            close_check_in_popup,
+            show_popup,
+            close_popup,
             show_dashboard,
             log_client_event,
         ])
@@ -1058,12 +1058,12 @@ fn finalize_phase_on_exit(app: &tauri::AppHandle) {
 }
 
 #[cfg(test)]
-mod check_in_timer_tests {
-    use super::CheckInTimer;
+mod timer_tests {
+    use super::Timer;
 
     #[test]
     fn due_timer_pauses_until_rescheduled() {
-        let mut timer = CheckInTimer {
+        let mut timer = Timer {
             interval_minutes: 15,
             next_due_at: 100,
             waiting_for_response: false,

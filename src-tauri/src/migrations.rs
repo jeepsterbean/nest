@@ -824,6 +824,9 @@ ALTER TABLE tasks DROP COLUMN worked_seconds;
 ALTER TABLE tasks DROP COLUMN work_started_at;
 "#,
         ),
+        // TimerState lives here. The table kept the old check-in name until
+        // the timer/popup rename; live queries must use timer_schedule.
+        M::up("ALTER TABLE check_in_schedule RENAME TO timer_schedule;"),
     ])
 }
 
@@ -1014,7 +1017,7 @@ CREATE TABLE phase_check_ins (
 
         let (interval, next_due_at): (i64, i64) = conn
             .query_row(
-                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                "SELECT interval_minutes, next_due_at FROM timer_schedule WHERE id = 1",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )

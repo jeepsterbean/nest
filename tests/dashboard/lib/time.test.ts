@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dayLabel,
-  formatCheckInCountdown,
+  formatTimerCountdown,
   formatCompactDuration,
   formatDate,
   formatHourTick,
@@ -9,7 +9,7 @@ import {
   formatPlayButtonTime,
   formatWorkedTime,
   greetingForHour,
-  isCheckInDue,
+  isTimerDue,
   shiftDayMs,
   snapToQuarterHour,
   startOfDayMs,
@@ -103,19 +103,19 @@ describe("minute helpers", () => {
 
   it("shows second-precision countdowns", () => {
     expect(
-      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
+      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
     ).toBe("0:30");
     expect(
-      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 32, 5)), now),
+      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 32, 5)), now),
     ).toBe("1:35");
     expect(
-      formatCheckInCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
+      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
     ).toBe("0:00");
   });
 
-  it("marks a schedule due once it hits zero or is waiting on a response", () => {
+  it("marks a timer due once it hits zero or is waiting on a response", () => {
     const due = (waitingForResponse: boolean, at: Date) =>
-      isCheckInDue({ waitingForResponse, nextDueAt: sec(at) }, now);
+      isTimerDue({ waitingForResponse, nextDueAt: sec(at) }, now);
 
     expect(due(false, new Date(2026, 5, 17, 14, 30))).toBe(true);
     expect(due(true, new Date(2026, 5, 17, 14, 40))).toBe(true);

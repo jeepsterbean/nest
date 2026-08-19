@@ -1,4 +1,4 @@
-// Pure time/date helpers shared across the dashboard and check-in popup.
+// Pure time/date helpers shared across the dashboard and popup.
 // `dayLabel` accepts an injectable `nowMs` so it can be tested
 // deterministically; callers default it to the current clock.
 
@@ -137,27 +137,27 @@ export const formatWorkedTime = (seconds: number) => {
 export const formatPlayButtonTime = (seconds: number) =>
   seconds < 60 ? String(seconds) : String(Math.floor(seconds / 60));
 
-export const checkInRemainingSeconds = (
+export const timerRemainingSeconds = (
   nextDueAt: number,
   nowMs: number = Date.now(),
 ) => Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
 
-/** Valid popup / header interval picks; must match Rust `check_in` step rules. */
-export const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
+/** Valid popup / header interval picks; must match Rust `timer` step rules. */
+export const TIMER_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
 
 /** Due when the timer is paused waiting, or the countdown has hit zero. */
-export const isCheckInDue = (
-  schedule: { waitingForResponse: boolean; nextDueAt: number },
+export const isTimerDue = (
+  timer: { waitingForResponse: boolean; nextDueAt: number },
   nowMs: number = Date.now(),
 ) =>
-  schedule.waitingForResponse ||
-  checkInRemainingSeconds(schedule.nextDueAt, nowMs) === 0;
+  timer.waitingForResponse ||
+  timerRemainingSeconds(timer.nextDueAt, nowMs) === 0;
 
-export const formatCheckInCountdown = (
+export const formatTimerCountdown = (
   nextDueAt: number,
   nowMs: number = Date.now(),
 ) => {
-  const secondsRemaining = checkInRemainingSeconds(nextDueAt, nowMs);
+  const secondsRemaining = timerRemainingSeconds(nextDueAt, nowMs);
   const minutes = Math.floor(secondsRemaining / 60);
   const seconds = secondsRemaining % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;

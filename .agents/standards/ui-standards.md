@@ -1,7 +1,7 @@
 # Frontend and UI standards
 
 Supplements `coding-standards.md`. Applies to Nest’s functional surfaces
-(dashboard, check-in popup, forms) — not marketing pages.
+(dashboard, popup, forms) — not marketing pages.
 
 Follow `.impeccable.md` for brand, tone, and aesthetic direction: calm, warm,
 private, journal-like. Preserve light and dark system themes.
@@ -22,7 +22,7 @@ private, journal-like. Preserve light and dark system themes.
 - No prop unless a caller actually passes a non-default value today.
 - Delete props nothing sets.
 - Don't scaffold UI libraries/primitives before they're wired into a real
-  dashboard view or the check-in popup.
+  dashboard view or the popup.
 - Reuse existing controls (`MenuSelect`, `NestIcon` / `IconPicker`, task
   menus, shared icons in `icons.tsx`) before adding new ones.
 
@@ -52,7 +52,7 @@ private, journal-like. Preserve light and dark system themes.
   duration totals only — no strip. Always show Completed / Value / Effort /
   Check-ins and Doing / Scoping / Resting / Offline for the selected window,
   using 0 when nothing happened. The dump panel (`.overview-panel--dumps`)
-  matches the check-in popup composer: one textarea, shared draft,
+  matches the popup composer: one textarea, shared draft,
   Cmd/Ctrl+Enter. Dump history is Logs-only; there is no dashboard dump
   modal or sidebar dump button.
 - Calendar owns the timetable (`.tl`) under `.dash-section--calendar`. Insights

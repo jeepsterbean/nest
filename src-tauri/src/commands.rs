@@ -4,14 +4,14 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    BrainDump, CheckInSchedule, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
+    BrainDump, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
     MetricRatingInput, Phase, PhaseCheckIn, Pulse, Task, TaskDependency, TaskStatusEvent,
-    TaskWorkStretch,
+    TaskWorkStretch, TimerState,
 };
 use crate::phase;
 use crate::task_graph::TaskGraph;
 use crate::time::now_unix_secs;
-use crate::CheckInTimer;
+use crate::Timer;
 
 // One greeting line at the 600px dashboard minimum (~420px at 31px serif).
 const MAX_REMINDER_CHARS: usize = 27;
@@ -76,27 +76,27 @@ fn validate_task_score(score: Option<i64>, label: &str) -> Result<Option<i64>> {
     }
 }
 
-fn validate_check_in_interval(minutes: i64) -> Result<i64> {
-    if !crate::check_in::is_valid_interval(minutes) {
+fn validate_timer_interval(minutes: i64) -> Result<i64> {
+    if !crate::timer::is_valid_interval(minutes) {
         return Err(AppError::InvalidInput(
-            "next check-in must be 5, 10, 15, 20, 25, or 30 minutes".into(),
+            "timer interval must be 5, 10, 15, 20, 25, or 30 minutes".into(),
         ));
     }
     Ok(minutes)
 }
 
-pub(crate) fn resolve_due_check_in(
+pub(crate) fn resolve_due_timer(
     conn: &Connection,
-    timer: &mut CheckInTimer,
+    timer: &mut Timer,
     dismissed: bool,
     minutes: Option<i64>,
     now: i64,
 ) -> Result<bool> {
     let minutes = if dismissed {
-        crate::check_in::MIN_MINUTES
+        crate::timer::MIN_MINUTES
     } else {
         minutes
-            .map(validate_check_in_interval)
+            .map(validate_timer_interval)
             .transpose()?
             .unwrap_or(timer.interval_minutes)
     };
@@ -106,7 +106,7 @@ pub(crate) fn resolve_due_check_in(
 
     let next_due_at = now + minutes * 60;
     conn.execute(
-        "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+        "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
         params![minutes, next_due_at],
     )?;
     timer.interval_minutes = minutes;
@@ -749,7 +749,7 @@ pub(crate) fn enter_system_offline(app: &AppHandle) {
     match outcome {
         Ok((stopped, changed)) => {
             if stopped {
-                let _ = app.emit("check-in-submitted", ());
+                let _ = app.emit("data-changed", ());
             }
             phase::emit_phase_changed(app, changed);
         }
@@ -1259,9 +1259,9 @@ pub fn list_phase_check_ins(
 }
 
 #[tauri::command]
-pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<CheckInSchedule> {
+pub fn get_timer_state(timer: State<'_, Mutex<Timer>>) -> Result<TimerState> {
     let timer = timer.lock().unwrap();
-    Ok(CheckInSchedule {
+    Ok(TimerState {
         interval_minutes: timer.interval_minutes,
         next_due_at: timer.next_due_at,
         waiting_for_response: timer.waiting_for_response,
@@ -1269,19 +1269,19 @@ pub fn get_check_in_schedule(timer: State<'_, Mutex<CheckInTimer>>) -> Result<Ch
 }
 
 #[tauri::command]
-pub fn schedule_next_check_in(
+pub fn start_timer(
     state: State<'_, Mutex<Connection>>,
-    timer: State<'_, Mutex<CheckInTimer>>,
+    timer: State<'_, Mutex<Timer>>,
     minutes: i64,
-) -> Result<CheckInSchedule> {
-    let minutes = validate_check_in_interval(minutes)?;
+) -> Result<TimerState> {
+    let minutes = validate_timer_interval(minutes)?;
     let now = now_unix_secs();
     let next_due_at = now + minutes * 60;
 
     {
         let conn = state.lock().unwrap();
         conn.execute(
-            "UPDATE check_in_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
+            "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
             params![minutes, next_due_at],
         )?;
     }
@@ -1292,7 +1292,7 @@ pub fn schedule_next_check_in(
         timer.waiting_for_response = false;
     }
 
-    Ok(CheckInSchedule {
+    Ok(TimerState {
         interval_minutes: minutes,
         next_due_at,
         waiting_for_response: false,
@@ -1369,11 +1369,11 @@ mod tests {
     use super::{
         bank_all_working_now, bank_task_work, change_task_status, change_task_work_stretch,
         change_task_working, fetch_task, normalize_optional_title, normalize_task_scope,
-        record_metric_check_in, resolve_due_check_in, valid_icon, validate_task_status,
+        record_metric_check_in, resolve_due_timer, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
-    use crate::CheckInTimer;
+    use crate::Timer;
     use rusqlite::Connection;
 
     /// Replace a task's stretches with `banked` seconds of finished work plus,
@@ -1635,29 +1635,29 @@ mod tests {
     fn closing_a_due_popup_resolves_once_by_outcome() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
-        let mut timer = CheckInTimer {
+        let mut timer = Timer {
             interval_minutes: 20,
             next_due_at: 900,
             waiting_for_response: true,
         };
 
-        assert!(resolve_due_check_in(&conn, &mut timer, true, None, 1_000,).unwrap());
+        assert!(resolve_due_timer(&conn, &mut timer, true, None, 1_000,).unwrap());
         assert_eq!(timer.interval_minutes, 5);
         assert_eq!(timer.next_due_at, 1_300);
         assert!(!timer.waiting_for_response);
 
-        assert!(!resolve_due_check_in(&conn, &mut timer, false, Some(30), 1_001,).unwrap());
+        assert!(!resolve_due_timer(&conn, &mut timer, false, Some(30), 1_001,).unwrap());
         assert_eq!(timer.next_due_at, 1_300);
 
         timer.interval_minutes = 20;
         timer.waiting_for_response = true;
-        assert!(resolve_due_check_in(&conn, &mut timer, false, Some(30), 2_000,).unwrap());
+        assert!(resolve_due_timer(&conn, &mut timer, false, Some(30), 2_000,).unwrap());
         assert_eq!(timer.interval_minutes, 30);
         assert_eq!(timer.next_due_at, 3_800);
 
         timer.interval_minutes = 20;
         timer.waiting_for_response = true;
-        assert!(resolve_due_check_in(&conn, &mut timer, false, None, 4_000,).unwrap());
+        assert!(resolve_due_timer(&conn, &mut timer, false, None, 4_000,).unwrap());
         assert_eq!(timer.interval_minutes, 20);
         assert_eq!(timer.next_due_at, 5_200);
         assert!(!timer.waiting_for_response);

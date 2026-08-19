@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   BrainDump,
-  CheckInSchedule,
   Metric,
   MetricCheckIn,
   MetricCheckInWithRatings,
@@ -15,6 +14,7 @@ import type {
   TaskStatusEvent,
   TaskWorkStretch,
   TaskStatus,
+  TimerState,
 } from "./types";
 
 export function listReminders(): Promise<string[]> {
@@ -231,23 +231,23 @@ export function listPhaseCheckIns(
   return invoke("list_phase_check_ins", { from, to });
 }
 
-export function getCheckInSchedule(): Promise<CheckInSchedule> {
-  return invoke("get_check_in_schedule");
+export function getTimerState(): Promise<TimerState> {
+  return invoke("get_timer_state");
 }
 
-export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
-  return invoke("schedule_next_check_in", { minutes });
+export function startTimer(minutes: number): Promise<TimerState> {
+  return invoke("start_timer", { minutes });
 }
 
-export function closeCheckInPopup(
+export function closePopup(
   dismissed: boolean,
   minutes: number | null = null,
 ): Promise<void> {
-  return invoke("close_check_in_popup", { dismissed, minutes });
+  return invoke("close_popup", { dismissed, minutes });
 }
 
-export function summonCheckIn(): Promise<void> {
-  return invoke("summon_check_in");
+export function showPopup(): Promise<void> {
+  return invoke("show_popup");
 }
 
 export function showDashboard(): Promise<void> {

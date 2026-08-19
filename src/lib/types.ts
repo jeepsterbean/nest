@@ -99,7 +99,7 @@ export type TaskStatusEvent = {
   createdAt: number;
 };
 
-export type CheckInSchedule = {
+export type TimerState = {
   intervalMinutes: number;
   nextDueAt: number;
   waitingForResponse: boolean;

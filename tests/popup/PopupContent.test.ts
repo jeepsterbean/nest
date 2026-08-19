@@ -6,7 +6,7 @@ import {
   holdMetricDue,
   nextMetricIndex,
   PopupTopPanel,
-} from "../../src/popup/CheckInForm";
+} from "../../src/popup/PopupContent";
 import type { Pulse } from "../../src/lib/types";
 
 const pulse = (id: number, metricIds: number[]): Pulse => ({

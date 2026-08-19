@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { emit } from "@tauri-apps/api/event";
 import {
   createTask,
-  getCheckInSchedule,
+  getTimerState,
   listMetrics,
   listPulses,
   listTasks,
   reorderTasks,
-  scheduleNextCheckIn,
+  startTimer,
   setTaskStatus,
   setTaskWorking,
   showDashboard,
@@ -17,7 +17,7 @@ import {
 } from "../lib/commands";
 import { subscribeTauriEvent } from "../lib/tauriListen";
 import type {
-  CheckInSchedule,
+  TimerState,
   Metric,
   MetricRatingInput,
   Pulse,
@@ -25,10 +25,10 @@ import type {
   Task,
 } from "../lib/types";
 import {
-  checkInRemainingSeconds,
-  CHECK_IN_INTERVALS,
-  formatCheckInCountdown,
-  isCheckInDue,
+  timerRemainingSeconds,
+  TIMER_INTERVALS,
+  formatTimerCountdown,
+  isTimerDue,
 } from "../dashboard/lib/time";
 import { groupTasksByStatus, pinnedIdOrder } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
@@ -41,7 +41,7 @@ import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
-import "./CheckInForm.css";
+import "./PopupContent.css";
 
 // Drop targets for a lane with no tasks in it. Negative so they can never
 // collide with a task id.
@@ -52,7 +52,7 @@ type LoadState = {
   metrics: Metric[];
   pulses: Pulse[];
   tasks: Task[];
-  schedule: CheckInSchedule;
+  timer: TimerState;
 };
 
 function PlayIcon() {
@@ -168,7 +168,7 @@ export function PopupTopPanel({
             role="listbox"
             aria-label="Start timer"
           >
-            {CHECK_IN_INTERVALS.map((minutes) => (
+            {TIMER_INTERVALS.map((minutes) => (
               <button
                 key={minutes}
                 type="button"
@@ -231,7 +231,7 @@ function setHeldMetricDue(
   });
 }
 
-function CheckInForm({
+function PopupContent({
   onDismiss,
   onComplete,
 }: {
@@ -239,7 +239,7 @@ function CheckInForm({
   onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
-  const [nextCheckInMinutes, setNextCheckInMinutes] = useState<number | null>(
+  const [nextTimerMinutes, setNextTimerMinutes] = useState<number | null>(
     null,
   );
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
@@ -271,7 +271,7 @@ function CheckInForm({
     : [];
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
-  const timerDue = loaded !== null && isCheckInDue(loaded.schedule, nowMs);
+  const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -299,13 +299,13 @@ function CheckInForm({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listMetrics(), listPulses(), listTasks(), getCheckInSchedule()])
-      .then(([metrics, pulses, tasks, schedule]) => {
+    Promise.all([listMetrics(), listPulses(), listTasks(), getTimerState()])
+      .then(([metrics, pulses, tasks, timer]) => {
         if (cancelled) return;
         const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
-        setLoaded({ metrics, pulses, tasks, schedule });
+        setLoaded({ metrics, pulses, tasks, timer });
         setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
-        setNextCheckInMinutes(schedule.intervalMinutes);
+        setNextTimerMinutes(timer.intervalMinutes);
         setError(null);
       })
       .catch((e) => {
@@ -346,17 +346,17 @@ function CheckInForm({
     await onDismiss();
   };
 
-  const startTimer = async (minutes: number) => {
+  const applyTimer = async (minutes: number) => {
     if (schedulingTimer) return;
     setSchedulingTimer(true);
     setError(null);
     try {
-      const schedule = await scheduleNextCheckIn(minutes);
-      setLoaded((current) => (current ? { ...current, schedule } : current));
-      setNextCheckInMinutes(minutes);
+      const timer = await startTimer(minutes);
+      setLoaded((current) => (current ? { ...current, timer } : current));
+      setNextTimerMinutes(minutes);
       setNowMs(Date.now());
       setTimerPickerOpen(false);
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -377,7 +377,7 @@ function CheckInForm({
         ...loaded,
         tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
       });
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -397,7 +397,7 @@ function CheckInForm({
           candidate.id === task.id ? updated : candidate,
         ),
       });
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -423,7 +423,7 @@ function CheckInForm({
             }
           : current,
       );
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -466,7 +466,7 @@ function CheckInForm({
       );
       const tasks = await listTasks();
       setLoaded((current) => (current ? { ...current, tasks } : current));
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -486,7 +486,7 @@ function CheckInForm({
         ...loaded,
         tasks: loaded.tasks.map((task) => byId.get(task.id) ?? task),
       });
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -506,7 +506,7 @@ function CheckInForm({
       );
       setTaskTitle("");
       setAddingTask(false);
-      await emit("check-in-submitted");
+      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -532,7 +532,7 @@ function CheckInForm({
     await submitMetricCheckIn(pulse.id, ratingsInput);
     setRatings({});
     setHeldMetricDue(setMetricDue, timerDue, true);
-    await emit("check-in-submitted");
+    await emit("data-changed");
   };
 
   const saveBrainDump = async () => {
@@ -540,7 +540,7 @@ function CheckInForm({
     if (!text) return;
     await submitBrainDump(text, null);
     setBrainDumpDraft({ text: "" });
-    await emit("check-in-submitted");
+    await emit("data-changed");
   };
 
   const submitBrainDumpDraft = async () => {
@@ -567,7 +567,7 @@ function CheckInForm({
       await onComplete(async () => {
         await saveMetrics(pulse, checkInRatings);
         return timerDue
-          ? (nextCheckInMinutes ?? loaded.schedule.intervalMinutes)
+          ? (nextTimerMinutes ?? loaded.timer.intervalMinutes)
           : null;
       });
     } catch (e) {
@@ -759,13 +759,13 @@ function CheckInForm({
 
   const countdown = timerDue
     ? "0:00"
-    : formatCheckInCountdown(loaded.schedule.nextDueAt, nowMs);
+    : formatTimerCountdown(loaded.timer.nextDueAt, nowMs);
   const remainingRatio = timerDue
     ? 0
     : Math.min(
         1,
-        checkInRemainingSeconds(loaded.schedule.nextDueAt, nowMs) /
-          (loaded.schedule.intervalMinutes * 60),
+        timerRemainingSeconds(loaded.timer.nextDueAt, nowMs) /
+          (loaded.timer.intervalMinutes * 60),
       );
   return (
     <div
@@ -794,10 +794,10 @@ function CheckInForm({
           timerPickerOpen={timerPickerOpen}
           schedulingTimer={schedulingTimer}
           selectedInterval={
-            nextCheckInMinutes ?? loaded.schedule.intervalMinutes
+            nextTimerMinutes ?? loaded.timer.intervalMinutes
           }
           onTimerPickerOpenChange={setTimerPickerOpen}
-          onSelectInterval={(minutes) => void startTimer(minutes)}
+          onSelectInterval={(minutes) => void applyTimer(minutes)}
           onOpenDashboard={() => void openDashboard()}
         />
         {taskView}
@@ -926,4 +926,4 @@ function CheckInForm({
   );
 }
 
-export default CheckInForm;
+export default PopupContent;

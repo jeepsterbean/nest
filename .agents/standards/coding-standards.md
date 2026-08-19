@@ -41,7 +41,7 @@ preserves calm, private, flow-friendly behavior.
 - Prefer clear, typed interfaces and domain vocabulary from `CONTEXT.md`.
   Use Task, Parent, Child, Blocker, Dependent, Ready, Blocked, Scope,
   Working now, Work stretch, Worked time, Phase, Pulse, Metric, Metric
-  check-in, and Brain dump as defined there. Do not invent synonyms (todo,
+  check-in, Brain dump, Timer, Popup, and Logs as defined there. Do not invent synonyms (todo,
   subitem, dependency-as-jargon for either side of a Blocker edge, stopwatch
   for Worked time, session for Work stretch, Pulse check-in for Metric
   check-in) in user-facing copy or new domain types.
@@ -102,7 +102,7 @@ preserves calm, private, flow-friendly behavior.
 ## Frontend structure
 
 - Entry: `src/main.tsx` / `src/App.tsx`. Two windows share the SPA:
-  dashboard (default) and check-in popup (`#/popup`).
+  dashboard (default) and popup (`#/popup`).
 - Shared IPC and window-agnostic helpers live under `src/lib/`
   (`commands.ts`, `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context,
@@ -117,7 +117,7 @@ preserves calm, private, flow-friendly behavior.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Styles: dashboard in `src/dashboard/Dashboard.css`, popup in
-  `src/popup/CheckInForm.css` and `src/popup/CheckInPopup.css`. Prefer
+  `src/popup/PopupContent.css` and `src/popup/Popup.css`. Prefer
   extending existing class patterns over inventing parallel systems.
   Do not add a CSS framework unless explicitly requested.
 

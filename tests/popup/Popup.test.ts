@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolvePopupOnce } from "../../src/popup/CheckInPopup";
+import { resolvePopupOnce } from "../../src/popup/Popup";
 
 describe("resolvePopupOnce", () => {
   it("keeps an in-flight completion from being overtaken and releases failed claims", async () => {

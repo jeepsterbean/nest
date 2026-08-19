@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listReminders, scheduleNextCheckIn } from "../../lib/commands";
+import { listReminders, startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import { formatCheckInCountdown, greetingForHour, CHECK_IN_INTERVALS, isCheckInDue } from "../lib/time";
+import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
 import { phaseIconName, phaseName } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import {
@@ -71,7 +71,7 @@ export function DashboardSidebar({
 
 export function DashboardHeader() {
   const {
-    checkInSchedule,
+    timerState,
     phases,
     latestPhase,
     mutate,
@@ -96,12 +96,12 @@ export function DashboardHeader() {
   const visibleMessage = reducedMotion
     ? message
     : message.slice(0, typewriter.characterIndex);
-  const countdown = checkInSchedule
-    ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
+  const countdown = timerState
+    ? formatTimerCountdown(timerState.nextDueAt, nowMs)
     : "—:—";
-  const checkInDue =
-    checkInSchedule !== null && isCheckInDue(checkInSchedule, nowMs);
-  const timerLabel = checkInDue ? "time to check in!" : countdown;
+  const timerDue =
+    timerState !== null && isTimerDue(timerState, nowMs);
+  const timerLabel = timerDue ? "time to check in!" : countdown;
 
   const currentPhaseName = latestPhase
     ? phaseName(latestPhase.phaseId, phases, latestPhase.phaseLabel)
@@ -190,7 +190,7 @@ export function DashboardHeader() {
     setPickerOpen(false);
     if (scheduling) return;
     setScheduling(true);
-    await mutate(() => scheduleNextCheckIn(minutes));
+    await mutate(() => startTimer(minutes));
     setScheduling(false);
   };
 
@@ -227,18 +227,18 @@ export function DashboardHeader() {
             <button
               type="button"
               className={
-                checkInDue
+                timerDue
                   ? "dash-header__timer dash-header__timer--due"
                   : "dash-header__timer"
               }
               aria-haspopup="listbox"
               aria-expanded={pickerOpen}
               aria-label={
-                checkInDue
+                timerDue
                   ? "Time to check in. Change interval"
                   : `Next check-in: ${countdown}. Change interval`
               }
-              disabled={!checkInSchedule || scheduling}
+              disabled={!timerState || scheduling}
               onClick={() => {
                 setPickerOpen((open) => !open);
               }}
@@ -248,7 +248,7 @@ export function DashboardHeader() {
               </span>
               <strong
                 className={
-                  checkInDue ? "dash-header__timer-label--due" : undefined
+                  timerDue ? "dash-header__timer-label--due" : undefined
                 }
               >
                 {timerLabel}
@@ -263,8 +263,8 @@ export function DashboardHeader() {
                 role="listbox"
                 aria-label="Next check-in in"
               >
-                {CHECK_IN_INTERVALS.map((minutes) => {
-                  const selected = checkInSchedule?.intervalMinutes === minutes;
+                {TIMER_INTERVALS.map((minutes) => {
+                  const selected = timerState?.intervalMinutes === minutes;
                   return (
                     <button
                       key={minutes}
