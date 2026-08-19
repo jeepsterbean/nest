@@ -14,7 +14,14 @@ import type { TaskStatus } from "../../lib/types";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
+import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
+import {
+  readTaskView,
+  TASK_VIEWS,
+  writeTaskView,
+  type TaskTableColumnId,
+} from "../lib/taskTable";
 import {
   CLOSED_STATUSES,
   groupTasksByStatus,
@@ -33,19 +40,10 @@ import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskScopeButton } from "../task/TaskScopeButton";
 import { TaskScoreControls } from "../task/TaskScoreControls";
-import { TaskGraphBadges } from "../task/TaskRelations";
 import {
-  TaskWorkingControl,
   WorkedTime,
   WorkingBadge,
 } from "../task/TaskWorkingControl";
-
-const TASK_VIEWS = [
-  { key: "kanban", label: "Kanban" },
-  { key: "table", label: "Table" },
-] as const;
-
-type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
 
 const DRAG_START_DISTANCE = 6;
 
@@ -79,7 +77,8 @@ type TaskDragPreview = {
 export function TasksView() {
   const { tasks, scopeTree, taskGraph, loaded, mutate, reload, setError } =
     useDashboardData();
-  const [taskView, setTaskView] = useState<TaskViewKey>("kanban");
+  const [taskView, setTaskView] = useState(readTaskView);
+  const tableColumns = useTaskTableColumns();
   const [composerTitle, setComposerTitle] = useState("");
   const [composerStatus, setComposerStatus] = useState<TaskStatus>("backlog");
   const [composerStatusOpen, setComposerStatusOpen] = useState(false);
@@ -466,6 +465,62 @@ export function TasksView() {
     </section>
   );
 
+  const renderTableCell = (id: TaskTableColumnId, task: (typeof tasks)[number]) => {
+    switch (id) {
+      case "title":
+        return (
+          <td key={id} className="task-table__col task-table__col--title task-table__title">
+            <span>{task.title}</span>
+            {task.workingNow && <WorkingBadge />}
+          </td>
+        );
+      case "scope":
+        return (
+          <td key={id} className="task-table__col task-table__col--scope">
+            <TaskScopeButton task={task} />
+          </td>
+        );
+      case "parent":
+        return (
+          <td key={id} className="task-table__col task-table__col--parent">
+            {task.parentTaskId === null
+              ? "—"
+              : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
+          </td>
+        );
+      case "status":
+        return (
+          <td key={id} className="task-table__col task-table__col--status">
+            <StatusTrigger task={task} />
+          </td>
+        );
+      case "priority":
+        return (
+          <td key={id} className="task-table__col task-table__col--priority">
+            <TaskScoreControls task={task} />
+          </td>
+        );
+      case "workedTime":
+        return (
+          <td key={id} className="task-table__col task-table__col--workedTime">
+            <WorkedTime task={task} />
+          </td>
+        );
+      case "created":
+        return (
+          <td key={id} className="task-table__col task-table__col--created">
+            {formatDate(task.createdAt)}
+          </td>
+        );
+      case "updated":
+        return (
+          <td key={id} className="task-table__col task-table__col--updated">
+            {formatDate(task.updatedAt)}
+          </td>
+        );
+    }
+  };
+
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
@@ -476,7 +531,10 @@ export function TasksView() {
           value={taskView}
           options={TASK_VIEWS}
           label="Task view"
-          onChange={setTaskView}
+          onChange={(key) => {
+            writeTaskView(key);
+            setTaskView(key);
+          }}
         />
       </header>
 
@@ -545,8 +603,6 @@ export function TasksView() {
           )}
 
           <div className="task-workspace__main">
-          {taskView === "kanban" && (
-            <>
               <form className="task-composer" onSubmit={onComposerSubmit}>
                 <input
                   type="text"
@@ -662,6 +718,8 @@ export function TasksView() {
                   Add
                 </button>
               </form>
+          {taskView === "kanban" && (
+            <>
               {visibleTasks.length === 0 && (
                 <p className="task-board__empty">
                   {tasks.length === 0
@@ -722,26 +780,57 @@ export function TasksView() {
           )}
           {taskView === "table" && (
             <div className="task-table-wrap">
-              <table className="task-table">
+              <table
+                className="task-table"
+                style={{ width: tableColumns.tableWidth }}
+              >
+                <colgroup>
+                  {tableColumns.columns.map((column) => (
+                    <col key={column.id} style={{ width: column.width }} />
+                  ))}
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Title</th>
-                    <th>Scope</th>
-                    <th>Parent</th>
-                    <th>Status</th>
-                    <th>Readiness</th>
-                    <th>Priority</th>
-                    <th>Worked time</th>
-                    <th>Created</th>
-                    <th>Updated</th>
+                    {tableColumns.columns.map((column) => (
+                      <th
+                        key={column.id}
+                        className={`task-table__col task-table__col--${column.id}${
+                          tableColumns.draggingId === column.id
+                            ? " task-table__col--dragging"
+                            : ""
+                        }${
+                          tableColumns.overId === column.id
+                            ? " task-table__col--over"
+                            : ""
+                        }`}
+                        data-task-col={column.id}
+                        onPointerDown={(event) =>
+                          tableColumns.onMovePointerDown(event, column.id)
+                        }
+                      >
+                        {column.label}
+                        <span
+                          className="task-table__resize"
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-label={`Resize ${column.label}`}
+                          onPointerDown={(event) =>
+                            tableColumns.onResizePointerDown(event, column.id)
+                          }
+                        />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {visibleTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="task-table__empty">
+                      <td
+                        colSpan={tableColumns.columns.length}
+                        className="task-table__empty"
+                      >
                         {tasks.length === 0
-                          ? "Add a task from the Kanban view to start the board."
+                          ? "Nothing on the board yet — name the first task above."
                           : "No tasks match this scope."}
                       </td>
                     </tr>
@@ -777,41 +866,9 @@ export function TasksView() {
                             selectTask(task.id, e.currentTarget);
                           }}
                         >
-                          <td className="task-table__title">
-                            <span>{task.title}</span>
-                            {task.workingNow && <WorkingBadge />}
-                          </td>
-                          <td>
-                            <TaskScopeButton task={task} />
-                          </td>
-                          <td>
-                            {task.parentTaskId === null
-                              ? "—"
-                              : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
-                          </td>
-                          <td>
-                            <div className="task-table__status">
-                              <StatusTrigger task={task} />
-                              {task.status === "active" && (
-                                <TaskWorkingControl
-                                  task={task}
-                                  compact
-                                  showTime={false}
-                                />
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <TaskGraphBadges task={task} />
-                          </td>
-                          <td>
-                            <TaskScoreControls task={task} />
-                          </td>
-                          <td>
-                            <WorkedTime task={task} />
-                          </td>
-                          <td>{formatDate(task.createdAt)}</td>
-                          <td>{formatDate(task.updatedAt)}</td>
+                          {tableColumns.columns.map((column) =>
+                            renderTableCell(column.id, task),
+                          )}
                         </tr>
                       ))
                   )}

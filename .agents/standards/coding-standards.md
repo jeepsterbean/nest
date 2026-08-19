@@ -115,9 +115,11 @@ preserves calm, private, flow-friendly behavior.
   timetable; Insights is the ranged Phase mix, per-day Worked time grouped
   by status as of that day's end, and Metric check-in scores; Logs
   is filtered history.
-- Tasks UI layouts are Kanban and Table only. `taskGraph` /
-  `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
-  those layouts and the detail panel — it is not a canvas view.
+- Tasks UI layouts are Kanban and Table only. Table is the default; the last
+  chosen layout is remembered (`nest:task-view`). Table column order and widths
+  persist (`nest:task-table`). `taskGraph` / `TaskGraphProjection` indexes
+  Parent/Child and Blocker/Dependent edges for those layouts and the detail
+  panel — it is not a canvas view.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Styles: dashboard in `src/dashboard/Dashboard.css`, popup in

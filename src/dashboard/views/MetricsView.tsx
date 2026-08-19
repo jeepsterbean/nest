@@ -212,7 +212,7 @@ export function MetricsView() {
 
   return (
     <section className="dash-section dash-section--metrics">
-      <header className="dash-section__head metrics-head">
+      <header className="dash-section__head">
         <div className="dash-section__title">
           <h2>Metrics</h2>
         </div>
