@@ -827,6 +827,20 @@ ALTER TABLE tasks DROP COLUMN work_started_at;
         // TimerState lives here. The table kept the old check-in name until
         // the timer/popup rename; live queries must use timer_schedule.
         M::up("ALTER TABLE check_in_schedule RENAME TO timer_schedule;"),
+        // A running Nest stamps this while any Work stretch is open. A clean
+        // exit banks open stretches; after a crash there is no such moment, so
+        // the last heartbeat stands in for one and the downtime before the next
+        // launch is not counted as work.
+        M::up(
+            r#"
+CREATE TABLE app_heartbeat (
+  id      INTEGER PRIMARY KEY CHECK (id = 1),
+  beat_at INTEGER NOT NULL
+);
+
+INSERT INTO app_heartbeat (id, beat_at) VALUES (1, 0);
+"#,
+        ),
     ])
 }
 

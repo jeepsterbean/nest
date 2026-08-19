@@ -114,12 +114,6 @@ export const taskWorkSessionSeconds = (
     ? 0
     : Math.max(0, Math.floor(nowMs / 1000) - startedAt);
 
-export const taskTotalWorkedSeconds = (
-  bankedSeconds: number,
-  startedAt: number | null,
-  nowMs: number = Date.now(),
-) => bankedSeconds + taskWorkSessionSeconds(startedAt, nowMs);
-
 export const formatWorkedTime = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);

@@ -55,7 +55,9 @@ _Avoid_: Session, sitting, block
 The total time a Task has been Working now, kept even after work stops. It is
 the sum of the Task's finished Work stretches, so correcting a stretch moves
 the total. It keeps counting if Working now is left on. The Working now control
-shows the current stretch; the total is every stretch added up.
+shows the current stretch; the total is every stretch added up. The total has
+its own column in the Tasks table and sits in the detail panel, on every Task
+whatever its status — unlike the control, which is only on Active Tasks.
 _Avoid_: Session, stopwatch, in progress
 
 **Phase**:
@@ -65,7 +67,9 @@ Doing if any Task is Working now; else Offline if the Mac is locked,
 display-asleep, or system-asleep; else Scoping if Nest is engaged
 (dashboard has attention or the popup is up) or Notion desktop is frontmost;
 else Resting. Lock/sleep clears Working now (Worked time is banked; status
-stays Active) and writes Offline even from Resting. Clicking another display
+stays Active) and writes Offline even from Resting. Quitting clears it the same
+way, so time with Nest closed is never Worked time; if Nest dies without
+quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key. Overview
 shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
@@ -88,17 +92,18 @@ of history end. The last chosen range is remembered; first visit is Day. A
 stretch carries its Task title and times inside the block when it is tall
 enough; concurrent stretches sit side by side, since multiple Tasks may be
 Working now. A line marks the current time. Quiet time reads as empty track
-rather than being squeezed out. Clicking a stretch opens an editor beside that
-stretch — left or right of the selected block, toward its outer edge when two
-share the hour, flipping so the editor stays on screen and closing once its
-stretch scrolls out of the grid. The Task title can be renamed there. Start and
-end each have a date and a time, and save first, since only the times can be
-refused. Dragging the stretch moves it; dragging a start or end edge resizes
-that bound. Calendar drag snaps to fifteen minutes and will not shrink a stretch
-below fifteen minutes unless now is closer (a stretch cannot end in the future).
-That floor is only for dragging on the grid; a recorded stretch may already be
-shorter. An open stretch's live end stays
-pinned to now.
+rather than being squeezed out. An open stretch's live end stays pinned to now.
+That stretch cannot be edited on Calendar — its bottom edge is an unfinished
+line, and Working now is cleared from the Task, not from the grid. Clicking a
+closed stretch opens an editor beside that stretch — left or right of the
+selected block, toward its outer edge when two share the hour, flipping so the
+editor stays on screen and closing once its stretch scrolls out of the grid. The
+Task title can be renamed there. Start and end each have a date and a time, and
+save first, since only the times can be refused. Dragging a closed stretch moves
+it; dragging a start or end edge resizes that bound. Calendar drag snaps to
+fifteen minutes and will not shrink a stretch below fifteen minutes unless now
+is closer (a stretch cannot end in the future). That floor is only for dragging
+on the grid; a recorded stretch may already be shorter.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -178,7 +183,7 @@ _Avoid_: Journal
 - "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
 - "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
-- "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
+- "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch, though quitting still stops Working now.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
   Timer/Popup aria, class names, and chrome never say check-in. The dashboard

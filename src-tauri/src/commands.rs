@@ -586,6 +586,33 @@ pub(crate) fn bank_all_working_now(conn: &Connection, now: i64) -> Result<Vec<Ta
         .collect()
 }
 
+/// Stamp the last moment work was known live. The WHERE keeps an idle Nest off
+/// the disk entirely: with nothing open there is nothing to recover.
+pub(crate) fn beat_heartbeat(conn: &Connection, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE app_heartbeat SET beat_at = ?1 \
+         WHERE EXISTS (SELECT 1 FROM task_work_stretches WHERE ended_at IS NULL)",
+        params![now],
+    )?;
+    Ok(())
+}
+
+/// Nothing can be Working now while Nest is down, so a stretch still open at
+/// launch outlived the last session. Quitting banks them; this is the crash
+/// path, ending each at the last heartbeat instead of letting it run to now and
+/// bank the downtime as work.
+///
+/// ponytail: the heartbeat cadence is the resolution — a crash loses up to that
+/// much of the stretch. Beat more often if that gap ever matters.
+pub(crate) fn recover_open_stretches(conn: &Connection, now: i64) -> Result<usize> {
+    Ok(conn.execute(
+        "UPDATE task_work_stretches \
+         SET ended_at = MIN(?1, MAX(started_at, (SELECT beat_at FROM app_heartbeat))) \
+         WHERE ended_at IS NULL",
+        params![now],
+    )?)
+}
+
 #[tauri::command]
 pub fn stop_all_working_now(
     app: AppHandle,
@@ -1367,9 +1394,10 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        bank_all_working_now, bank_task_work, change_task_status, change_task_work_stretch,
-        change_task_working, fetch_task, normalize_optional_title, normalize_task_scope,
-        record_metric_check_in, resolve_due_timer, valid_icon, validate_task_status,
+        bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
+        change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
+        normalize_task_scope, record_metric_check_in, recover_open_stretches, resolve_due_timer,
+        valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
@@ -1444,6 +1472,31 @@ mod tests {
         .unwrap()
         .collect::<rusqlite::Result<_>>()
         .unwrap()
+    }
+
+    #[test]
+    fn a_crashed_stretch_ends_at_the_last_heartbeat_not_at_the_next_launch() {
+        let conn = task_database();
+
+        // Worked from 100, heartbeat still going at 400, then Nest died. The
+        // next launch is a day later and must not bank the gap.
+        seed_work(&conn, 1, 0, Some(100));
+        beat_heartbeat(&conn, 400).unwrap();
+        assert_eq!(recover_open_stretches(&conn, 90_000).unwrap(), 1);
+        assert_eq!(stretches(&conn, 1), vec![(1, 100, Some(400))]);
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 300);
+
+        // Nothing open: a second launch is a no-op, and an idle Nest never
+        // moves the heartbeat past the work it belongs to.
+        beat_heartbeat(&conn, 200_000).unwrap();
+        assert_eq!(recover_open_stretches(&conn, 200_000).unwrap(), 0);
+        assert_eq!(stretches(&conn, 1), vec![(1, 100, Some(400))]);
+
+        // Crash inside the first heartbeat: nothing to credit, but the stretch
+        // still closes rather than running forever.
+        seed_work(&conn, 1, 0, Some(300_000));
+        assert_eq!(recover_open_stretches(&conn, 400_000).unwrap(), 1);
+        assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 0);
     }
 
     #[test]

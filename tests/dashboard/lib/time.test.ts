@@ -13,7 +13,6 @@ import {
   shiftDayMs,
   snapToQuarterHour,
   startOfDayMs,
-  taskTotalWorkedSeconds,
   taskWorkSessionSeconds,
   toDateInput,
   toTimeInput,
@@ -170,11 +169,6 @@ describe("worked time", () => {
     expect(taskWorkSessionSeconds(130, 130_000)).toBe(0);
     expect(taskWorkSessionSeconds(140, 130_000)).toBe(0);
     expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
-  });
-
-  it("keeps the running session available for lifetime totals", () => {
-    expect(taskTotalWorkedSeconds(90, 100, 130_000)).toBe(120);
-    expect(taskTotalWorkedSeconds(90, null, 130_000)).toBe(90);
   });
 
   it("formats worked time", () => {

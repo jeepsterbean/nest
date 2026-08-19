@@ -5013,6 +5013,37 @@
   user-select: none;
 }
 
+/* Working now: no hard bottom bound. Dots in the Task hue walk toward now. */
+.tl-block--open {
+  cursor: default;
+  border-bottom-color: transparent;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tl-block--open::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 6px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 2px 2px,
+    hsl(var(--task-hue, 210) 60% 42%) 1.15px,
+    transparent 1.3px
+  );
+  background-size: 7px 6px;
+  animation: tl-live-edge 1.4s linear infinite;
+}
+
+@keyframes tl-live-edge {
+  to {
+    background-position: 7px 0;
+  }
+}
+
 .tl-block:hover {
   background: color-mix(
     in srgb,
@@ -5183,17 +5214,6 @@
   background: var(--surface-2);
   color: var(--ink);
   font: inherit;
-}
-
-.stretch-editor input:disabled {
-  opacity: 0.55;
-}
-
-.stretch-editor__open {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--muted);
 }
 
 .stretch-editor__actions {

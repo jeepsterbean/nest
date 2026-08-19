@@ -51,7 +51,7 @@ export type GridColumn = {
 export type StretchEdit = {
   id: number;
   startedAt: number;
-  endedAt: number | null;
+  endedAt: number;
   /** The day column that was clicked, so the editor sits beside that lane. */
   columnFrom: number;
 };
@@ -247,6 +247,8 @@ export function TimelineGrid({
     column: GridColumn,
   ) => {
     if (event.button !== 0 || !event.isPrimary || dragRef.current) return;
+    // Open stretches grow toward now; Working now is cleared on the Task.
+    if (block.endedAt === null) return;
     suppressClick.current = false;
     const at = locateTime(colsRef.current, columnsRef.current, event.clientX, event.clientY);
     if (at === null) return;
@@ -451,7 +453,7 @@ function Column({
   const now = place(nowSec, nowSec);
   const sessions = placeSessions(column, phases);
   const selectedBlock = selected
-    ? blocks.find((block) => block.id === selected.id)
+    ? blocks.find((block) => block.id === selected.id && block.endedAt !== null)
     : undefined;
 
   return (
@@ -466,17 +468,19 @@ function Column({
       ))}
       {blocks.map((block) => {
         const height = pxOf(block.sizePct);
-        const canResizeStart = block.startedAt >= column.from;
+        const isOpen = block.endedAt === null;
+        const canResizeStart = !isOpen && block.startedAt >= column.from;
         const canResizeEnd = block.endedAt !== null && block.endedAt <= column.to;
-        const isSelected = selected?.id === block.id;
+        const isSelected = !isOpen && selected?.id === block.id;
+        const when = `${block.task.title} · ${formatTime(block.from)} – ${formatTime(block.to)}`;
         return (
           <button
             key={block.id}
             ref={isSelected ? selectedRef : undefined}
             type="button"
-            className={`tl-block${isSelected ? " tl-block--selected" : ""}${
-              draggingId === block.id ? " tl-block--dragging" : ""
-            }`}
+            className={`tl-block${isOpen ? " tl-block--open" : ""}${
+              isSelected ? " tl-block--selected" : ""
+            }${draggingId === block.id ? " tl-block--dragging" : ""}`}
             style={{
               top: `${block.startPct}%`,
               height: `max(3px, ${block.sizePct}%)`,
@@ -484,10 +488,16 @@ function Column({
               width: `${100 / block.cols}%`,
               "--task-hue": taskHue(block.task.id),
             } as React.CSSProperties}
-            title={`${block.task.title} · ${formatTime(block.from)} – ${formatTime(block.to)}`}
-            aria-label={`${block.task.title} · ${formatTime(block.from)} to ${formatTime(block.to)}`}
+            title={isOpen ? `${when} · Working now` : when}
+            aria-label={
+              isOpen
+                ? `${block.task.title} · Working now · ${formatTime(block.from)} to ${formatTime(block.to)}`
+                : `${block.task.title} · ${formatTime(block.from)} to ${formatTime(block.to)}`
+            }
+            aria-disabled={isOpen || undefined}
             onPointerDown={(event) => onBlockPointerDown(event, block, column)}
             onClick={(event) => {
+              if (block.endedAt === null) return;
               // A drag ends in a click we must swallow. `detail` is 0 for a
               // keyboard Enter, which never follows a drag and must still open.
               const afterDrag = suppressClick.current && event.detail !== 0;
@@ -536,7 +546,6 @@ function Column({
           edit={selected}
           title={selectedBlock.task.title}
           taskId={selectedBlock.task.id}
-          canReopen={selectedBlock.task.status === "active"}
           preferredSide={stretchEditorSide(selectedBlock.col, selectedBlock.cols)}
           anchorRef={selectedRef}
           onCancel={cancel}
@@ -555,7 +564,6 @@ function StretchEditor({
   edit,
   title,
   taskId,
-  canReopen,
   preferredSide,
   anchorRef,
   onCancel,
@@ -565,7 +573,6 @@ function StretchEditor({
   edit: StretchEdit;
   title: string;
   taskId: number;
-  canReopen: boolean;
   preferredSide: "left" | "right" | null;
   anchorRef: { current: HTMLButtonElement | null };
   onCancel: () => void;
@@ -581,8 +588,7 @@ function StretchEditor({
   const [box, setBox] = useState<StretchEditorBox | null>(null);
   const [name, setName] = useState(title);
   const [startedAt, setStartedAt] = useState(edit.startedAt);
-  const [endedAt, setEndedAt] = useState(edit.endedAt ?? edit.startedAt);
-  const [open, setOpen] = useState(edit.endedAt === null);
+  const [endedAt, setEndedAt] = useState(edit.endedAt);
 
   const place = useCallback(() => {
     const anchor = anchorRef.current;
@@ -626,10 +632,6 @@ function StretchEditor({
       document.removeEventListener("scroll", place, true);
     };
   }, [place]);
-
-  useEffect(() => {
-    if (!canReopen) setOpen(false);
-  }, [canReopen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -683,7 +685,7 @@ function StretchEditor({
         onSave(
           edit.id,
           startedAt,
-          open ? null : endedAt,
+          endedAt,
           nextTitle && nextTitle !== title
             ? { taskId, title: nextTitle }
             : undefined,
@@ -721,7 +723,6 @@ function StretchEditor({
           <input
             type="date"
             value={toDateInput(endedAt)}
-            disabled={open}
             onChange={(event) =>
               applyStamp(setEndedAt, event.target.value, toTimeInput(endedAt))
             }
@@ -729,23 +730,12 @@ function StretchEditor({
           <input
             type="time"
             value={toTimeInput(endedAt)}
-            disabled={open}
             onChange={(event) =>
               applyStamp(setEndedAt, toDateInput(endedAt), event.target.value)
             }
           />
         </label>
       </div>
-      {canReopen ? (
-        <label className="stretch-editor__open">
-          <input
-            type="checkbox"
-            checked={open}
-            onChange={(event) => setOpen(event.target.checked)}
-          />
-          Still working
-        </label>
-      ) : null}
       <div className="stretch-editor__actions">
         <button type="submit" className="btn-accent">
           Save

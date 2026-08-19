@@ -114,7 +114,8 @@ export function WorkingToggle({
   );
 }
 
-export function WorkedTime({
+/** The open stretch only — nothing while the Task is not Working now. */
+export function CurrentStretch({
   task,
   nowMs,
 }: {
@@ -130,6 +131,30 @@ export function WorkedTime({
       dateTime={`PT${seconds}S`}
       title="Current Work stretch"
       aria-label={`${formatWorkedTime(seconds)} current Work stretch`}
+    >
+      {formatWorkedTime(seconds)}
+    </time>
+  );
+}
+
+/** Worked time: every finished stretch banked by SQL, plus the open one while
+ * it runs. Stands on its own — the total outlives Working now and Active, so
+ * it is not a child of the working control. */
+export function WorkedTime({
+  task,
+  nowMs,
+}: {
+  task: Task;
+  nowMs?: number;
+}) {
+  const seconds = task.workedSeconds + (useWorkSessionSeconds(task, nowMs) ?? 0);
+
+  return (
+    <time
+      className="worked-time"
+      dateTime={`PT${seconds}S`}
+      title="Worked time"
+      aria-label={`${formatWorkedTime(seconds)} Worked time`}
     >
       {formatWorkedTime(seconds)}
     </time>
@@ -156,7 +181,7 @@ export function TaskWorkingControl({
         playPause={playPause}
         onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
       />
-      {showTime && !playPause && <WorkedTime task={task} />}
+      {showTime && !playPause && <CurrentStretch task={task} />}
     </span>
   );
 }

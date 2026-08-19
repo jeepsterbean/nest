@@ -36,6 +36,7 @@ import { TaskScoreControls } from "../task/TaskScoreControls";
 import { TaskGraphBadges } from "../task/TaskRelations";
 import {
   TaskWorkingControl,
+  WorkedTime,
   WorkingBadge,
 } from "../task/TaskWorkingControl";
 
@@ -730,6 +731,7 @@ export function TasksView() {
                     <th>Status</th>
                     <th>Readiness</th>
                     <th>Priority</th>
+                    <th>Worked time</th>
                     <th>Created</th>
                     <th>Updated</th>
                   </tr>
@@ -737,7 +739,7 @@ export function TasksView() {
                 <tbody>
                   {visibleTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="task-table__empty">
+                      <td colSpan={9} className="task-table__empty">
                         {tasks.length === 0
                           ? "Add a task from the Kanban view to start the board."
                           : "No tasks match this scope."}
@@ -804,6 +806,9 @@ export function TasksView() {
                           </td>
                           <td>
                             <TaskScoreControls task={task} />
+                          </td>
+                          <td>
+                            <WorkedTime task={task} />
                           </td>
                           <td>{formatDate(task.createdAt)}</td>
                           <td>{formatDate(task.updatedAt)}</td>

@@ -195,34 +195,49 @@ fn load_timer(conn: &rusqlite::Connection) -> Timer {
     }
 }
 
-fn spawn_timer_loop(app: tauri::AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        let now = now_unix_secs();
-        let due = {
-            let timer = app.state::<Mutex<Timer>>();
-            let mut timer = timer.lock().unwrap();
-            if timer.pause_if_due(now) {
-                append_diagnostic_log(format!(
-                    "timer_due now={now} next_due_at={} waiting_for_response=true",
-                    timer.next_due_at
-                ));
-                true
-            } else {
-                false
-            }
-        };
+/// How often the running app stamps its heartbeat while work is open. Also the
+/// most a crash can shave off the stretch it was in the middle of.
+const HEARTBEAT_SECONDS: u64 = 60;
 
-        if due {
-            let app_for_ui = app.clone();
-            if let Err(e) = app.run_on_main_thread(move || {
-                #[cfg(target_os = "macos")]
-                tauri_nspanel::objc2_app_kit::NSBeep();
-                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
-            }) {
-                append_diagnostic_log(format!(
-                    "timer_main_thread_dispatch_failed error={e}"
-                ));
+fn spawn_timer_loop(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let mut ticks: u64 = 0;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let now = now_unix_secs();
+
+            ticks += 1;
+            if ticks.is_multiple_of(HEARTBEAT_SECONDS) {
+                let db = app.state::<Mutex<rusqlite::Connection>>();
+                let conn = db.lock().unwrap();
+                if let Err(e) = commands::beat_heartbeat(&conn, now) {
+                    append_diagnostic_log(format!("heartbeat_failed error={e}"));
+                }
+            }
+
+            let due = {
+                let timer = app.state::<Mutex<Timer>>();
+                let mut timer = timer.lock().unwrap();
+                if timer.pause_if_due(now) {
+                    append_diagnostic_log(format!(
+                        "timer_due now={now} next_due_at={} waiting_for_response=true",
+                        timer.next_due_at
+                    ));
+                    true
+                } else {
+                    false
+                }
+            };
+
+            if due {
+                let app_for_ui = app.clone();
+                if let Err(e) = app.run_on_main_thread(move || {
+                    #[cfg(target_os = "macos")]
+                    tauri_nspanel::objc2_app_kit::NSBeep();
+                    summon_popup_with_route(&app_for_ui, "popup", "#/popup");
+                }) {
+                    append_diagnostic_log(format!("timer_main_thread_dispatch_failed error={e}"));
+                }
             }
         }
     });
@@ -861,6 +876,16 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
+            // Before anything reads stretches — the first Phase sync below
+            // derives Doing from them, and a leftover open stretch would make
+            // a just-launched Nest look like it never stopped working.
+            match commands::recover_open_stretches(&conn, now_unix_secs()) {
+                Ok(0) => {}
+                Ok(closed) => {
+                    append_diagnostic_log(format!("recovered_open_stretches closed={closed}"))
+                }
+                Err(e) => append_diagnostic_log(format!("recover_open_stretches_failed error={e}")),
+            }
             let timer = load_timer(&conn);
             app.manage(Mutex::new(phase::PhaseSignals {
                 notion_frontmost: phase::notion_is_frontmost(),
@@ -1046,12 +1071,22 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
-                finalize_phase_on_exit(app);
+                finalize_on_exit(app);
             }
         });
 }
 
-fn finalize_phase_on_exit(app: &tauri::AppHandle) {
+fn finalize_on_exit(app: &tauri::AppHandle) {
+    // Bank first. Quitting is not working, so an open stretch has to end here
+    // or the time until the next launch banks itself as work — and the final
+    // Phase below has to be derived from a Nest with nothing Working now.
+    {
+        let db = app.state::<Mutex<rusqlite::Connection>>();
+        let conn = db.lock().unwrap();
+        if let Err(e) = commands::bank_all_working_now(&conn, now_unix_secs()) {
+            append_diagnostic_log(format!("bank_on_exit_failed error={e}"));
+        }
+    }
     phase::update_signals_and_sync(app, |signals| {
         *signals = phase::PhaseSignals::default();
     });
