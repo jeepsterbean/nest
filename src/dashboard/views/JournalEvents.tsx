@@ -104,7 +104,6 @@ function BrainDumpRow({
         dump={event.dump}
         expanded={expanded}
         onToggle={onToggle}
-        showTime={false}
       />
     </JournalRow>
   );

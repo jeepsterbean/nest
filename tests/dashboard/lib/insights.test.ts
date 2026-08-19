@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  insightCheckIns,
   insightColumns,
+  insightDays,
   openAtPct,
   stepColumns,
   outcomeStats,
@@ -8,7 +10,18 @@ import {
   windowInsight,
   writeInsightMode,
 } from "../../../src/dashboard/lib/insights";
-import type { Phase, PhaseCheckIn } from "../../../src/lib/types";
+import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
+import type {
+  Metric,
+  MetricCheckInWithRatings,
+  Phase,
+  PhaseCheckIn,
+  Pulse,
+  Task,
+  TaskStatus,
+  TaskStatusEvent,
+  TaskWorkStretch,
+} from "../../../src/lib/types";
 
 const phases: Phase[] = [
   { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
@@ -189,5 +202,255 @@ describe("insight range memory", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
     expect(readInsightMode(storage)).toBe("day");
+  });
+});
+
+const task = (
+  id: number,
+  title = `Task ${id}`,
+  status: TaskStatus = "active",
+): Task => ({
+  id,
+  title,
+  description: "",
+  status,
+  workingNow: false,
+  workedSeconds: 0,
+  workStartedAt: null,
+  scope: null,
+  value: null,
+  effort: null,
+  parentTaskId: null,
+  createdAt: 0,
+  updatedAt: 0,
+});
+
+const stretch = (
+  id: number,
+  taskId: number,
+  startedAt: number,
+  endedAt: number | null,
+): TaskWorkStretch => ({ id, taskId, startedAt, endedAt });
+
+describe("insightDays", () => {
+  const monday = new Date(2026, 7, 17).getTime() / 1000;
+  const tuesday = new Date(2026, 7, 18).getTime() / 1000;
+  const wednesday = new Date(2026, 7, 19).getTime() / 1000;
+  const columns = [
+    { from: monday, to: tuesday, label: "Mon 17" },
+    { from: tuesday, to: wednesday, label: "Tue 18" },
+  ];
+
+  it("groups Worked time by status, live work first", () => {
+    const tasks = [
+      task(1, "Write", "active"),
+      task(2, "Review", "completed"),
+      task(3, "Drop", "cancelled"),
+    ];
+    const blocks = layoutWorkBlocks(
+      [
+        stretch(1, 1, monday + 3600, monday + 7200),
+        stretch(2, 3, monday + 8000, monday + 8600),
+        stretch(3, 2, tuesday + 1800, tuesday + 3600),
+      ],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
+    );
+    const days = insightDays(columns, blocks, tasks, [], wednesday);
+    expect(
+      days[0].groups.map((group) => [
+        group.status,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([
+      ["active", [["Write", 3600]]],
+      ["cancelled", [["Drop", 600]]],
+    ]);
+    expect(
+      days[1].groups.map((group) => [
+        group.status,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([["completed", [["Review", 1800]]]]);
+  });
+
+  it("keeps Monday under Active when the Task is completed later in the week", () => {
+    const events: TaskStatusEvent[] = [
+      {
+        id: 1,
+        taskId: 1,
+        fromStatus: "active",
+        toStatus: "completed",
+        createdAt: tuesday + 100,
+      },
+    ];
+    const days = insightDays(
+      columns,
+      layoutWorkBlocks(
+        [stretch(1, 1, monday + 3600, monday + 7200)],
+        [task(1, "Write", "completed")],
+        monday,
+        wednesday,
+        wednesday * 1000,
+      ),
+      [task(1, "Write", "completed")],
+      events,
+      wednesday,
+    );
+    expect(days[0].groups.map((group) => group.status)).toEqual(["active"]);
+    expect(
+      days[1].groups.map((group) => [
+        group.status,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([["completed", [["Write", 0]]]]);
+  });
+
+  it("puts a same-day completion under Completed", () => {
+    const events: TaskStatusEvent[] = [
+      {
+        id: 1,
+        taskId: 1,
+        fromStatus: "active",
+        toStatus: "completed",
+        createdAt: monday + 8000,
+      },
+    ];
+    const days = insightDays(
+      columns,
+      layoutWorkBlocks(
+        [stretch(1, 1, monday + 3600, monday + 7200)],
+        [task(1, "Write", "completed")],
+        monday,
+        wednesday,
+        wednesday * 1000,
+      ),
+      [task(1, "Write", "completed")],
+      events,
+      wednesday,
+    );
+    expect(days[0].groups.map((group) => group.status)).toEqual(["completed"]);
+  });
+
+  it("lists Completions and Cancellations with no Worked time that day", () => {
+    const tasks = [
+      task(1, "Ship", "completed"),
+      task(2, "Drop", "cancelled"),
+    ];
+    const events: TaskStatusEvent[] = [
+      {
+        id: 1,
+        taskId: 1,
+        fromStatus: "active",
+        toStatus: "completed",
+        createdAt: monday + 1000,
+      },
+      {
+        id: 2,
+        taskId: 2,
+        fromStatus: "active",
+        toStatus: "cancelled",
+        createdAt: monday + 2000,
+      },
+    ];
+    const days = insightDays(
+      columns,
+      layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
+      tasks,
+      events,
+      wednesday,
+    );
+    expect(
+      days[0].groups.map((group) => [
+        group.status,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([
+      ["completed", [["Ship", 0]]],
+      ["cancelled", [["Drop", 0]]],
+    ]);
+  });
+
+  it("leaves future days empty instead of calling them quiet", () => {
+    const noonMonday = monday + 12 * 3600;
+    const days = insightDays(
+      columns,
+      layoutWorkBlocks(
+        [stretch(1, 1, monday + 3600, monday + 7200)],
+        [task(1)],
+        monday,
+        wednesday,
+        noonMonday * 1000,
+      ),
+      [task(1)],
+      [],
+      noonMonday,
+    );
+    expect(days[0].isToday).toBe(true);
+    expect(days[1].isFuture).toBe(true);
+    expect(days[1].groups).toEqual([]);
+  });
+});
+
+describe("insightCheckIns", () => {
+  const metric = (id: number, name: string): Metric => ({
+    id,
+    name,
+    icon: "heart",
+    createdAt: 0,
+  });
+  const pulse = (id: number, name: string, metricIds: number[]): Pulse => ({
+    id,
+    name,
+    icon: "activity",
+    createdAt: 0,
+    metricIds,
+  });
+  const checkIn = (
+    id: number,
+    createdAt: number,
+    pulseId: number,
+    ratings: { metricId: number; value: number }[],
+  ): MetricCheckInWithRatings => ({
+    id,
+    createdAt,
+    pulseId,
+    pulseName: "Daily",
+    ratings: ratings.map((rating) => ({ checkInId: id, ...rating })),
+  });
+
+  it("groups ratings by Pulse in Pulse order, with averages", () => {
+    const groups = insightCheckIns(
+      [
+        checkIn(1, 20, 2, [{ metricId: 3, value: 2 }]),
+        checkIn(2, 10, 1, [
+          { metricId: 1, value: 4 },
+          { metricId: 2, value: 5 },
+        ]),
+        checkIn(3, 30, 1, [{ metricId: 1, value: 2 }]),
+      ],
+      [metric(1, "Energy"), metric(2, "Focus"), metric(3, "Mood")],
+      [pulse(1, "Body", [1, 2]), pulse(2, "Mind", [3])],
+      { from: 0, to: 100 },
+    );
+    expect(groups.map((group) => group.name)).toEqual(["Body", "Mind"]);
+    expect(groups[0].checkInCount).toBe(2);
+    expect(groups[0].metrics.map((row) => [row.name, row.values, row.average])).toEqual([
+      ["Energy", [4, 2], 3],
+      ["Focus", [5], 5],
+    ]);
+  });
+
+  it("omits check-ins outside the range", () => {
+    expect(
+      insightCheckIns(
+        [checkIn(1, 5, 1, [{ metricId: 1, value: 4 }])],
+        [metric(1, "Energy")],
+        [pulse(1, "Body", [1])],
+        { from: 10, to: 20 },
+      ),
+    ).toEqual([]);
   });
 });

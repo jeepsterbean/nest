@@ -3,29 +3,22 @@ import { updateBrainDumpTitle } from "../../lib/commands";
 import type { BrainDump } from "../../lib/types";
 import { pencilIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { formatDateTime } from "../lib/time";
 
 export function BrainDumpEntry({
   dump,
   expanded,
   onToggle,
-  showTime = true,
 }: {
   dump: BrainDump;
   expanded: boolean;
   onToggle: () => void;
-  showTime?: boolean;
 }) {
   const { mutate } = useDashboardData();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(dump.title ?? "");
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const named = dump.title?.trim();
-  const title =
-    named ||
-    (showTime
-      ? formatDateTime(dump.createdAt)
-      : dump.text.trim().split("\n")[0] || "Brain dump");
+  const title = named || dump.text.trim().split("\n")[0] || "Brain dump";
 
   useEffect(() => {
     if (!editingTitle) setTitleDraft(dump.title ?? "");
@@ -78,11 +71,6 @@ export function BrainDumpEntry({
               {expanded ? "▾" : "▸"}
             </span>
             <span className="event-dump__title">{title}</span>
-            {showTime && named ? (
-              <time className="event-dump__time">
-                {formatDateTime(dump.createdAt)}
-              </time>
-            ) : null}
           </button>
         )}
         <button

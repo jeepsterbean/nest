@@ -72,8 +72,14 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
 0, not as missing. The right Overview panel is a brain dump composer that
 matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
-history lives in Journal. Insights is the longer look: the same stats and Phase
-totals, and per-Task Worked time for the range. Calendar is the timetable of
+history lives in Journal. Insights is the longer look: a Phase mix for the
+range, Tasks with Worked time that day grouped by status as of that day's end
+(Active, Up next, Backlog, Completed, Cancelled), plus Completions and
+Cancellations with no Working now that day (0 Worked time). Metric check-ins
+sit in a dedicated column grouped by Pulse — average plus a tick per rating —
+even when the range has none. Outcome counts stay on Overview; Insights lists
+the Tasks and scores instead of repeating Completed / Value / Effort /
+Check-ins. Calendar is the timetable of
 that range — hours in a left gutter, one column per calendar day, each column a
 Phase wash behind its Work stretches. Insights and Calendar share Day and Week
 (Week starts Monday), anchored to real dates and paged with Earlier / Later /

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  completedInPeriod,
   completionTotals,
   filledPhaseTotals,
   foldIdleIntoOffline,
@@ -83,6 +84,28 @@ describe("completionTotals", () => {
       value: 2,
       effort: 1,
     });
+  });
+});
+
+describe("completedInPeriod", () => {
+  it("returns tasks in first-completion order", () => {
+    expect(
+      completedInPeriod(
+        [task(1, "completed"), task(2, "completed")],
+        [event(1, 2, "completed", 70), event(2, 1, "completed", 60)],
+        { from: 50, to: 80 },
+      ).map((item) => item.id),
+    ).toEqual([1, 2]);
+  });
+
+  it("keeps a reopened task on the day it was completed", () => {
+    expect(
+      completedInPeriod(
+        [task(1, "active")],
+        [event(1, 1, "completed", 70), event(2, 1, "active", 90)],
+        { from: 50, to: 80 },
+      ).map((item) => item.id),
+    ).toEqual([1]);
   });
 });
 

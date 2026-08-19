@@ -40,11 +40,11 @@ preserves calm, private, flow-friendly behavior.
 
 - Prefer clear, typed interfaces and domain vocabulary from `CONTEXT.md`.
   Use Task, Parent, Child, Blocker, Dependent, Ready, Blocked, Scope,
-  Working now, Worked time, Phase, Pulse, Metric, Metric check-in, and Brain
-  dump as defined there. Do not invent synonyms (todo, subitem,
-  dependency-as-jargon for either side of a Blocker edge, stopwatch for Worked
-  time, Pulse check-in for Metric check-in) in user-facing copy or new domain
-  types.
+  Working now, Work stretch, Worked time, Phase, Pulse, Metric, Metric
+  check-in, and Brain dump as defined there. Do not invent synonyms (todo,
+  subitem, dependency-as-jargon for either side of a Blocker edge, stopwatch
+  for Worked time, session for Work stretch, Pulse check-in for Metric
+  check-in) in user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
   `completed`, `cancelled`) from derived readiness (`Ready` /
   `Blocked`). Ready/Blocked come from unresolved Blockers; they are not
@@ -108,7 +108,8 @@ preserves calm, private, flow-friendly behavior.
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context,
   lib, components, hooks). Popup code lives under `src/popup/`.
   Overview is last-hour summary plus dump capture; Calendar is the Day/Week
-  timetable; Insights is the ranged stats and per-Task Worked time; Journal
+  timetable; Insights is the ranged Phase mix, per-day Worked time grouped
+  by status as of that day's end, and Metric check-in scores; Journal
   is filtered history.
 - Tasks UI layouts are Kanban and Table only. `taskGraph` /
   `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for

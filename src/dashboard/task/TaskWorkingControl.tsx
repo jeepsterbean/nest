@@ -37,15 +37,14 @@ function useWorkSessionSeconds(task: Task, nowMs?: number) {
   return taskWorkSessionSeconds(task.workStartedAt, nowMs ?? localNowMs);
 }
 
-export function WorkingBadge({ compact = false }: { compact?: boolean }) {
+export function WorkingBadge() {
   return (
     <span
-      className={`working-badge${compact ? " working-badge--compact" : ""}`}
-      aria-label={compact ? "Working now" : undefined}
+      className="working-badge working-badge--compact"
+      aria-label="Working now"
       title="Working now"
     >
       <span className="working-beacon" aria-hidden="true" />
-      {!compact && <span>Working now</span>}
     </span>
   );
 }
@@ -129,8 +128,8 @@ export function WorkedTime({
     <time
       className="worked-time"
       dateTime={`PT${seconds}S`}
-      title="Current work session"
-      aria-label={`${formatWorkedTime(seconds)} current work session`}
+      title="Current Work stretch"
+      aria-label={`${formatWorkedTime(seconds)} current Work stretch`}
     >
       {formatWorkedTime(seconds)}
     </time>

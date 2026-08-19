@@ -15,7 +15,7 @@ private, journal-like. Preserve light and dark system themes.
 - Don't caption self-explanatory controls (a labeled field, a dropdown with
   clear options) with extra headings or helper text.
 - Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,
-  Ready, Scope, Working now, Pulse, Brain dump). Avoid todo/subitem jargon.
+  Ready, Scope, Working now, Work stretch, Pulse, Brain dump). Avoid todo/subitem jargon.
 
 ## Components: no speculative flexibility
 
@@ -44,8 +44,8 @@ private, journal-like. Preserve light and dark system themes.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
 - Journal is a filtered history log: Raw / Brain dumps / Phases / Metrics.
-  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). No day strip
-  or outcome stats in Journal.
+  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). No heading,
+  day strip, or outcome stats — the view filters are the only chrome.
 - Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
   size. No per-section size overrides; don't reinvent it per view.
 - Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
@@ -56,8 +56,12 @@ private, journal-like. Preserve light and dark system themes.
   Cmd/Ctrl+Enter. Dump history is Journal-only; there is no dashboard dump
   modal or sidebar dump button.
 - Calendar owns the timetable (`.tl`) under `.dash-section--calendar`. Insights
-  is the ranged scoreboard under `.dash-section--insights`: outcome stats
-  (`.day-stats`), Phase totals, and per-Task Worked time. Both share Day / Week
+  is the ranged scoreboard under `.dash-section--insights`: Phase mix
+  (`.insight-mix`), Tasks with Worked time grouped by status as of that day's
+  end (`.insight-ledger`), including Completions and Cancellations with no
+  Working now that day, and Pulse Metric scores (`.insight-pulses`) for the
+  range — the column stays when there are no check-ins. Outcome
+  counts stay on Overview. Both share Day / Week
   and Earlier / Later / Today. Remember the last range (`nest:insights-range`);
   Day only when nothing is stored. Compact range toggle matches Journal.
 - Drag a `.tl-block` body to move the Work stretch; drag a start or end edge to
@@ -75,13 +79,13 @@ private, journal-like. Preserve light and dark system themes.
   percentage `top`/`height` from `placeOnWindow`, never `flex-grow`, so a Work
   stretch and the Phase wash behind it agree. Percentages are of the column's
   own real span, so a DST day still lands correctly.
-- One lane per column, no side-by-side tracks. Phase is ground: a continuous
-  `.tl__wash` tint behind the lane, no border, no radius, no label, never
-  clickable, plus a `.tl__mark` hairline and name chip at each switch (Day only
-  — Week is wash only; Phase durations live on Insights). A Work stretch is
-  figure: a `.tl-block` card above the wash, tinted by `taskHue(task.id)`
-  through `--task-hue`, the same hue its swatch carries in the Insights Task
-  totals.
+- Phase is ground: a continuous `.tl__wash` tint behind the lane, no border, no
+  radius, no label, never clickable. Day adds a `.tl__rail` of Phase icons left
+  of the hours; Week is wash only. Concurrent Work stretches sit side by side
+  (`col` / `cols` on each `.tl-block`) because multiple Tasks may be Working
+  now. A stretch is figure: a `.tl-block` card above the wash, tinted by
+  `taskHue(task.id)` through `--task-hue`, the same hue its swatch carries in
+  the Insights Worked time list.
 - `HOUR_PX` in `TimelineGrid.tsx` is the one density knob — it sets `--tl-hour`
   inline and decides which blocks are tall enough to carry a label. Change it
   there, not in CSS.

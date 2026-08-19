@@ -6,7 +6,7 @@ import {
   placeStretchEditor,
   stretchEditorSide,
   timeOnColumn,
-  workTotals,
+  workTotalsInSpan,
 } from "../../../src/dashboard/lib/workTimeline";
 import { phaseSessions } from "../../../src/dashboard/lib/timeline";
 import type { Task, TaskWorkStretch } from "../../../src/lib/types";
@@ -185,7 +185,7 @@ describe("layoutWorkBlocks", () => {
   });
 });
 
-describe("workTotals", () => {
+describe("workTotalsInSpan", () => {
   it("sums a task's blocks, busiest first", () => {
     const blocks = layoutWorkBlocks(
       [
@@ -198,9 +198,25 @@ describe("workTotals", () => {
       TO,
       NOW_MS,
     );
-    expect(workTotals(blocks).map((row) => [row.task.id, row.seconds])).toEqual([
+    expect(workTotalsInSpan(blocks, FROM, TO).map((row) => [row.task.id, row.seconds])).toEqual([
       [2, 400],
       [1, 200],
+    ]);
+  });
+
+  it("clips an overnight stretch onto each calendar day", () => {
+    const blocks = layoutWorkBlocks(
+      [stretch(1, 1, 1000, 1800)],
+      [task(1)],
+      FROM,
+      TO,
+      NOW_MS,
+    );
+    expect(workTotalsInSpan(blocks, 1000, 1400).map((row) => row.seconds)).toEqual([
+      400,
+    ]);
+    expect(workTotalsInSpan(blocks, 1400, 2000).map((row) => row.seconds)).toEqual([
+      400,
     ]);
   });
 });

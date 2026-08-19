@@ -4,7 +4,6 @@ import {
   formatCheckInCountdown,
   formatCompactDuration,
   formatDate,
-  formatDateTime,
   formatHourTick,
   formatTime,
   formatPlayButtonTime,
@@ -86,7 +85,6 @@ describe("format helpers", () => {
     const ts = sec(new Date(2026, 5, 17, 14, 30));
     expect(typeof formatTime(ts)).toBe("string");
     expect(typeof formatDate(ts)).toBe("string");
-    expect(typeof formatDateTime(ts)).toBe("string");
     expect(typeof formatHourTick(ts)).toBe("string");
   });
 

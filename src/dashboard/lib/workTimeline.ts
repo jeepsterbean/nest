@@ -23,7 +23,7 @@ export type StretchTimes = { startedAt: number; endedAt: number | null };
 export type StretchDragKind = "move" | "start" | "end";
 
 /** Place a span on [from, to). The one geometry every track uses, so a work
- * block and the Phase segment beside it land on the same pixels. Axis-neutral:
+ * block and the Phase wash behind it land on the same pixels. Axis-neutral:
  * the grid reads these as top/height. */
 export const placeOnWindow = (
   spanFrom: number,
@@ -223,14 +223,20 @@ export const placeStretchEditor = (
   };
 };
 
-/** Worked seconds per Task over the laid-out blocks, busiest first. Replaces
- * the total each per-task lane used to carry. */
-export const workTotals = (blocks: WorkBlock[]): { task: Task; seconds: number }[] => {
+/** Worked seconds per Task inside [from, to), busiest first. Clips each block
+ * so an overnight stretch splits cleanly across calendar days. */
+export const workTotalsInSpan = (
+  blocks: WorkBlock[],
+  from: number,
+  to: number,
+): { task: Task; seconds: number }[] => {
   const byTask = new Map<number, { task: Task; seconds: number }>();
   for (const block of blocks) {
+    const seconds = Math.min(block.to, to) - Math.max(block.from, from);
+    if (seconds <= 0) continue;
     const row = byTask.get(block.task.id);
-    if (row) row.seconds += block.to - block.from;
-    else byTask.set(block.task.id, { task: block.task, seconds: block.to - block.from });
+    if (row) row.seconds += seconds;
+    else byTask.set(block.task.id, { task: block.task, seconds });
   }
   return [...byTask.values()].sort(
     (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,

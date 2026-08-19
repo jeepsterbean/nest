@@ -1,20 +1,28 @@
 import type {
+  Metric,
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
+  Pulse,
+  RecordedTaskStatus,
   Task,
+  TaskStatus,
   TaskStatusEvent,
 } from "../../lib/types";
 import {
+  cancelledInPeriod,
+  completedInPeriod,
   completionTotals,
   countCheckIns,
   isQuietPhase,
+  type Period,
 } from "./journal";
 import {
   phaseSessionsInWindow,
   type PhaseSession,
 } from "./timeline";
 import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
+import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
 
 export const INSIGHT_MODES = [
   { key: "day", label: "Day" },
@@ -145,8 +153,7 @@ export const windowInsight = (
       from: fromSec,
       to: toSec,
     }),
-    // Untrimmed: the strip is a linear clock, so quiet edges are real empty
-    // track rather than something to squeeze out.
+    // Untrimmed: quiet edges stay as empty track rather than being squeezed out.
     sessions: phaseSessionsInWindow(
       phaseCheckIns,
       fromSec,
@@ -155,4 +162,235 @@ export const windowInsight = (
       false,
     ),
   };
+};
+
+export type InsightTaskRow = { task: Task; seconds: number };
+
+export type InsightStatusGroup = {
+  status: TaskStatus;
+  rows: InsightTaskRow[];
+};
+
+export type InsightDay = {
+  label: string;
+  from: number;
+  to: number;
+  isFuture: boolean;
+  isToday: boolean;
+  groups: InsightStatusGroup[];
+};
+
+/** Live work first, then closed. Omit empty statuses. */
+const INSIGHT_STATUS_ORDER: TaskStatus[] = [
+  "active",
+  "up_next",
+  "backlog",
+  "completed",
+  "cancelled",
+];
+
+const asLiveStatus = (
+  status: RecordedTaskStatus | null,
+  fallback: TaskStatus,
+): TaskStatus => {
+  if (status === "paused") return "active";
+  return status ?? fallback;
+};
+
+/** Status at `at`. A later completion must not rewrite an earlier day's group. */
+const statusAt = (
+  task: Task,
+  events: TaskStatusEvent[],
+  at: number,
+): TaskStatus => {
+  const mine = [...events]
+    .filter((event) => event.taskId === task.id)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  for (const event of mine) {
+    if (event.createdAt >= at) {
+      return asLiveStatus(event.fromStatus, task.status);
+    }
+  }
+  const last = mine[mine.length - 1];
+  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
+};
+
+const closedStatusInPeriod = (
+  taskId: number,
+  events: TaskStatusEvent[],
+  period: Period,
+): "completed" | "cancelled" | null => {
+  let last: "completed" | "cancelled" | null = null;
+  for (const event of events) {
+    if (event.taskId !== taskId) continue;
+    if (event.createdAt < period.from || event.createdAt >= period.to) continue;
+    if (event.toStatus === "completed" || event.toStatus === "cancelled") {
+      last = event.toStatus;
+    }
+  }
+  return last;
+};
+
+const groupInsightTasks = (
+  rows: InsightTaskRow[],
+  events: TaskStatusEvent[],
+  period: Period,
+): InsightStatusGroup[] => {
+  const buckets = new Map<TaskStatus, InsightTaskRow[]>();
+  for (const row of rows) {
+    const closed = closedStatusInPeriod(row.task.id, events, period);
+    const status =
+      row.seconds > 0
+        ? statusAt(row.task, events, period.to)
+        : (closed ?? statusAt(row.task, events, period.to));
+    const list = buckets.get(status);
+    if (list) list.push(row);
+    else buckets.set(status, [row]);
+  }
+  return INSIGHT_STATUS_ORDER.flatMap((status) => {
+    const grouped = buckets.get(status);
+    if (!grouped?.length) return [];
+    return [
+      {
+        status,
+        rows: [...grouped].sort(
+          (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
+        ),
+      },
+    ];
+  });
+};
+
+const mergeClosedTasks = (
+  worked: InsightTaskRow[],
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  period: Period,
+): InsightTaskRow[] => {
+  const byId = new Map(worked.map((row) => [row.task.id, row]));
+  for (const task of [
+    ...completedInPeriod(tasks, events, period),
+    ...cancelledInPeriod(tasks, events, period),
+  ]) {
+    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
+  }
+  return [...byId.values()];
+};
+
+/** One ledger per calendar column: Tasks with Worked time that day, plus
+ * Completions and Cancellations with no Working now, grouped by status as of
+ * that day's end. Future days stay empty rather than quiet. */
+export const insightDays = (
+  columns: InsightColumn[],
+  blocks: WorkBlock[],
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  nowSec: number,
+): InsightDay[] =>
+  columns.map((column) => {
+    const isFuture = nowSec < column.from;
+    const closedTo = Math.min(column.to, nowSec);
+    const period = { from: column.from, to: closedTo };
+    return {
+      label: column.label,
+      from: column.from,
+      to: column.to,
+      isFuture,
+      isToday: nowSec >= column.from && nowSec < column.to,
+      groups: isFuture
+        ? []
+        : groupInsightTasks(
+            mergeClosedTasks(
+              workTotalsInSpan(blocks, column.from, closedTo),
+              tasks,
+              events,
+              period,
+            ),
+            events,
+            period,
+          ),
+    };
+  });
+
+export type InsightMetricRow = {
+  metricId: number;
+  name: string;
+  icon: string;
+  values: number[];
+  average: number;
+};
+
+export type InsightPulseGroup = {
+  pulseId: number | null;
+  name: string;
+  icon: string;
+  checkInCount: number;
+  metrics: InsightMetricRow[];
+};
+
+const average = (values: number[]) =>
+  values.reduce((sum, value) => sum + value, 0) / values.length;
+
+/** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
+export const insightCheckIns = (
+  checkIns: MetricCheckInWithRatings[],
+  metrics: Metric[],
+  pulses: Pulse[],
+  period: Period,
+): InsightPulseGroup[] => {
+  const inRange = checkIns
+    .filter((checkIn) => checkIn.createdAt >= period.from && checkIn.createdAt < period.to)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  if (inRange.length === 0) return [];
+
+  const metricById = new Map(metrics.map((metric) => [metric.id, metric]));
+  const pulseById = new Map(pulses.map((pulse) => [pulse.id, pulse]));
+  const pulseIndex = new Map(pulses.map((pulse, index) => [pulse.id, index]));
+  const groups = new Map<number | null, MetricCheckInWithRatings[]>();
+  for (const checkIn of inRange) {
+    const key = checkIn.pulseId;
+    const list = groups.get(key);
+    if (list) list.push(checkIn);
+    else groups.set(key, [checkIn]);
+  }
+
+  const rows: InsightPulseGroup[] = [...groups].map(([pulseId, items]) => {
+    const pulse = pulseId === null ? undefined : pulseById.get(pulseId);
+    const valuesByMetric = new Map<number, number[]>();
+    for (const checkIn of items) {
+      for (const rating of checkIn.ratings) {
+        const values = valuesByMetric.get(rating.metricId);
+        if (values) values.push(rating.value);
+        else valuesByMetric.set(rating.metricId, [rating.value]);
+      }
+    }
+    const order = pulse?.metricIds ?? [];
+    const metricIds = [
+      ...order.filter((id) => valuesByMetric.has(id)),
+      ...[...valuesByMetric.keys()].filter((id) => !order.includes(id)),
+    ];
+    return {
+      pulseId,
+      name: pulse?.name ?? items[0].pulseName ?? "Metric check-in",
+      icon: pulse?.icon ?? "activity",
+      checkInCount: items.length,
+      metrics: metricIds.map((metricId) => {
+        const metric = metricById.get(metricId);
+        const values = valuesByMetric.get(metricId) ?? [];
+        return {
+          metricId,
+          name: metric?.name ?? `Metric ${metricId}`,
+          icon: metric?.icon ?? "activity",
+          values,
+          average: average(values),
+        };
+      }),
+    };
+  });
+
+  return rows.sort((a, b) => {
+    if (a.pulseId === null) return 1;
+    if (b.pulseId === null) return -1;
+    return (pulseIndex.get(a.pulseId) ?? 999) - (pulseIndex.get(b.pulseId) ?? 999);
+  });
 };

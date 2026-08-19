@@ -44,7 +44,7 @@ export function TaskCard({
     <li
       className={`task-card task-card--${task.status}${
         selected ? " task-card--selected" : ""
-      }${focusLayout ? " task-card--focus" : ""}${
+      }${
         draggable ? " task-card--draggable" : ""
       }${
         dragging ? " task-card--dragging" : ""

@@ -106,15 +106,6 @@ export const formatDate = (ts: number | null) =>
         day: "numeric",
       });
 
-export const formatDateTime = (ts: number) =>
-  new Date(ts * 1000).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
 export const taskWorkSessionSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),

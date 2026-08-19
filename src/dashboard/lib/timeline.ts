@@ -181,7 +181,7 @@ export const phaseSessionTotals = (sessions: PhaseSession[]): PhaseTotal[] => {
   return [...secondsByPhase].map(([phaseId, seconds]) => ({ phaseId, seconds }));
 };
 
-// Drop leading/trailing Resting, Offline, or Idle so the day strip is the engaged span.
+// Drop leading/trailing Resting, Offline, or Idle so only the engaged span remains.
 export const trimQuietPhaseSessions = (
   sessions: PhaseSession[],
   isQuiet: (phaseId: number | null) => boolean,
@@ -195,7 +195,7 @@ export const trimQuietPhaseSessions = (
 
 const isQuietDefault = (phaseId: number | null) => phaseId === null;
 
-/** Settled phase sessions for a rolling window (e.g. last 24 hours). */
+/** Settled phase sessions for a time window. */
 export const phaseSessionsInWindow = (
   phaseCheckIns: PhaseCheckIn[],
   fromSec: number,

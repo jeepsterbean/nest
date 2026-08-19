@@ -157,11 +157,6 @@ export function JournalView() {
 
   return (
     <section className="dash-section dash-section--journal">
-      <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Journal</h2>
-        </div>
-      </header>
       <div className="journal-toolbar">
         <ViewToggle
           value={journalView}

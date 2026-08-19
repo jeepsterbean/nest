@@ -1,11 +1,15 @@
 import { useMemo } from "react";
-import { DayStats, PhaseTotals, TaskTotals } from "../components/DayReflection";
+import { PhaseMix } from "../components/DayReflection";
+import {
+  InsightCheckIns,
+  InsightLedger,
+} from "../components/InsightBoard";
 import {
   InsightRangeBar,
   useInsightRange,
 } from "../components/InsightRangeBar";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { windowInsight } from "../lib/insights";
+import { insightCheckIns, insightDays, windowInsight } from "../lib/insights";
 import { layoutWorkBlocks } from "../lib/workTimeline";
 
 export function InsightsView() {
@@ -13,6 +17,8 @@ export function InsightsView() {
     tasks,
     taskStatusEvents,
     taskWorkStretches,
+    metrics,
+    pulses,
     checkIns,
     phaseCheckIns,
     phases,
@@ -22,33 +28,47 @@ export function InsightsView() {
 
   const insight = useMemo(() => {
     const nowSec = range.nowSec;
+    const closedTo = Math.min(range.to, nowSec);
+    const blocks = layoutWorkBlocks(
+      taskWorkStretches,
+      tasks,
+      range.from,
+      range.to,
+      range.nowMs,
+    );
+    const { sessions } = windowInsight(
+      tasks,
+      taskStatusEvents,
+      checkIns,
+      phaseCheckIns,
+      phases,
+      range.from,
+      closedTo,
+    );
     return {
-      blocks: layoutWorkBlocks(
-        taskWorkStretches,
-        tasks,
-        range.from,
-        range.to,
-        range.nowMs,
-      ),
-      ...windowInsight(
+      days: insightDays(
+        range.columns,
+        blocks,
         tasks,
         taskStatusEvents,
-        checkIns,
-        phaseCheckIns,
-        phases,
-        range.from,
-        // Clamped, or Phase totals would bank the rest of the week as
-        // whatever Phase we are in right now.
-        Math.min(range.to, nowSec),
+        nowSec,
       ),
+      checkIns: insightCheckIns(checkIns, metrics, pulses, {
+        from: range.from,
+        to: closedTo,
+      }),
+      sessions,
     };
   }, [
     tasks,
     taskStatusEvents,
     taskWorkStretches,
+    metrics,
+    pulses,
     checkIns,
     phaseCheckIns,
     phases,
+    range.columns,
     range.from,
     range.to,
     range.nowMs,
@@ -74,13 +94,13 @@ export function InsightsView() {
       />
       <div className="dash-section__body">
         {!loaded ? null : (
-          <>
-            <header className="insights-head">
-              <DayStats stats={insight.stats} />
-              <PhaseTotals sessions={insight.sessions} phases={phases} />
-            </header>
-            <TaskTotals blocks={insight.blocks} />
-          </>
+          <div className="insights-body">
+            <PhaseMix sessions={insight.sessions} phases={phases} />
+            <div className="insights-board">
+              <InsightLedger days={insight.days} mode={range.mode} />
+              <InsightCheckIns groups={insight.checkIns} />
+            </div>
+          </div>
         )}
       </div>
     </section>

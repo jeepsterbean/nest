@@ -759,10 +759,6 @@ export function TasksView() {
                             selectedTaskId === task.id
                               ? " task-table__row--selected"
                               : ""
-                          }${
-                            task.workingNow
-                              ? " task-table__row--working"
-                              : ""
                           }`}
                           tabIndex={0}
                           onClick={(e) => {
@@ -781,7 +777,7 @@ export function TasksView() {
                         >
                           <td className="task-table__title">
                             <span>{task.title}</span>
-                            {task.workingNow && <WorkingBadge compact />}
+                            {task.workingNow && <WorkingBadge />}
                           </td>
                           <td>
                             <TaskScopeButton task={task} />

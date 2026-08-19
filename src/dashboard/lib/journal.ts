@@ -19,31 +19,67 @@ export type CompletionTotals = {
   effort: number;
 };
 
+/** Tasks moved to `toStatus` inside the window, in first-move order. */
+export function tasksMovedToInPeriod(
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  period: Period,
+  toStatus: Task["status"],
+): Task[] {
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const seen = new Set<number>();
+  const moved: Task[] = [];
+  const ordered = [...events].sort(
+    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
+  );
+  for (const event of ordered) {
+    if (event.toStatus !== toStatus || !inPeriod(event.createdAt, period)) {
+      continue;
+    }
+    if (seen.has(event.taskId)) continue;
+    seen.add(event.taskId);
+    const task = taskById.get(event.taskId);
+    if (task) moved.push(task);
+  }
+  return moved;
+}
+
+/**
+ * Tasks with a completion event inside the window, in first-completion order.
+ * A Task completed and later reopened still belongs to the window it was
+ * completed; completing it twice in one window still yields it once.
+ */
+export function completedInPeriod(
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  period: Period,
+): Task[] {
+  return tasksMovedToInPeriod(tasks, events, period, "completed");
+}
+
+export function cancelledInPeriod(
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  period: Period,
+): Task[] {
+  return tasksMovedToInPeriod(tasks, events, period, "cancelled");
+}
+
 /**
  * What a period actually recorded: every task with a completion event inside
- * the window, not each task's latest completion. A task completed and later
- * reopened still counts in the window it was completed; completing it twice
- * in one window still counts once. Scores are the task's current ones.
+ * the window. Scores are the task's current ones.
  */
 export function completionTotals(
   tasks: Task[],
   events: TaskStatusEvent[],
   period: Period,
 ): CompletionTotals {
-  const completedIds = new Set<number>();
-  for (const event of events) {
-    if (event.toStatus === "completed" && inPeriod(event.createdAt, period)) {
-      completedIds.add(event.taskId);
-    }
-  }
-
   const totals: CompletionTotals = {
     completed: 0,
     value: 0,
     effort: 0,
   };
-  for (const task of tasks) {
-    if (!completedIds.has(task.id)) continue;
+  for (const task of completedInPeriod(tasks, events, period)) {
     totals.completed += 1;
     if (task.value !== null) totals.value += task.value;
     if (task.effort !== null) totals.effort += task.effort;

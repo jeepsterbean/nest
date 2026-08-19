@@ -209,7 +209,7 @@ export function OverviewView() {
       </div>
     );
     return (
-      <section className={`overview-group overview-group--${status}`}>
+      <section className="overview-group">
         <header className="overview-group__head">
           <h3 className="overview-group__heading">
             {collapsible ? (
