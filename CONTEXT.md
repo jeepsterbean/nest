@@ -59,7 +59,10 @@ shows the current stretch; the total is every stretch added up. The total has
 its own column in the Tasks table and sits in the detail panel, on every Task
 whatever its status — unlike the control, which is only on Active Tasks.
 Table is the default Tasks layout (Kanban is the other); last choice is
-remembered. Table columns can be reordered and resized. Working now is started
+remembered. Both layouts show one persisted status at a time — Backlog, Up next,
+Active, Completed, Cancelled — via a toggle; first visit is Active. New tasks
+are created in the status being viewed. The Scopes sidebar starts collapsed.
+Table columns can be reordered and resized. Working now is started
 from the detail panel or Kanban, not from the table.
 _Avoid_: Session, stopwatch, in progress
 

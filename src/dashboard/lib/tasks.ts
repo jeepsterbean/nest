@@ -8,8 +8,7 @@ export const TASK_STATUSES: TaskStatus[] = [
   "cancelled",
 ];
 
-// Board lanes: statuses that hold live work, in flow order. Completed and
-// cancelled are terminal and live in the board's closed rail instead.
+// Live work statuses, in flow order. Completed and cancelled are terminal.
 export const WORKING_STATUSES: TaskStatus[] = [
   "backlog",
   "up_next",
@@ -44,6 +43,11 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+export const TASK_STATUS_FILTERS = TASK_STATUSES.map((status) => ({
+  key: status,
+  label: TASK_STATUS_LABEL[status],
+}));
 
 export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
 

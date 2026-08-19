@@ -48,11 +48,15 @@ private, journal-like. Preserve light and dark system themes.
   day strip, or outcome stats — the view filters are the only chrome.
 - Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
   size. No per-section size overrides; don't reinvent it per view.
-- Tasks defaults to Table (`.task-table`). Drag a header to reorder columns;
+- Tasks defaults to Table (`.task-table`). A status `ViewToggle` filters Table
+  and Kanban to one persisted status (Backlog, Up next, Active, Completed,
+  Cancelled); first visit is Active. Kanban is a single-status card list. The
+  Scopes sidebar starts collapsed. Drag a header to reorder columns;
   drag the header's trailing edge to resize. Order and widths persist. There is
   no Working now play control or Readiness column in the table — start work
   from the detail panel or Kanban; Ready/Blocked still live on cards and in
-  detail. The add-task composer sits above both layouts.
+  detail. The add-task composer sits above both layouts and creates in the
+  status being viewed.
 - Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
   duration totals only — no strip. Always show Completed / Value / Effort /
   Check-ins and Doing / Scoping / Resting / Offline for the selected window,

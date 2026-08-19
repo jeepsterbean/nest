@@ -5,6 +5,8 @@ import {
   pinnedIdOrder,
   recentlyClosedTasks,
   RECENT_CLOSED_WINDOW_SECONDS,
+  TASK_STATUS_FILTERS,
+  TASK_STATUS_LABEL,
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
@@ -29,6 +31,17 @@ const task = (
   parentTaskId: null,
   createdAt,
   updatedAt,
+});
+
+describe("TASK_STATUS_FILTERS", () => {
+  it("covers every persisted status with its display label", () => {
+    expect(TASK_STATUS_FILTERS.map((filter) => filter.key)).toEqual(
+      TASK_STATUSES,
+    );
+    for (const filter of TASK_STATUS_FILTERS) {
+      expect(filter.label).toBe(TASK_STATUS_LABEL[filter.key]);
+    }
+  });
 });
 
 describe("board status groups", () => {

@@ -5,11 +5,8 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type MouseEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
-import { createPortal } from "react-dom";
-import { createTask, setTaskStatus } from "../../lib/commands";
+import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
@@ -23,18 +20,12 @@ import {
   type TaskTableColumnId,
 } from "../lib/taskTable";
 import {
-  CLOSED_STATUSES,
-  groupTasksByStatus,
+  pinWorkingNowFirst,
+  TASK_STATUS_FILTERS,
   TASK_STATUS_LABEL,
-  TASK_STATUSES,
-  WORKING_STATUSES,
 } from "../lib/tasks";
 import { formatDate } from "../lib/time";
-import {
-  checkIcon,
-  chevronDownIcon,
-  chevronRightIcon,
-} from "../components/icons";
+import { chevronRightIcon } from "../components/icons";
 import { StatusTrigger } from "../task/StatusTrigger";
 import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
@@ -45,44 +36,13 @@ import {
   WorkingBadge,
 } from "../task/TaskWorkingControl";
 
-const DRAG_START_DISTANCE = 6;
-
-const isTaskStatus = (value: string | undefined): value is TaskStatus =>
-  value !== undefined && TASK_STATUSES.some((status) => status === value);
-
-type TaskDragSession = {
-  pointerId: number;
-  taskId: number;
-  card: HTMLLIElement;
-  startX: number;
-  startY: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-  dragging: boolean;
-  removeListeners: () => void;
-};
-
-type TaskDragPreview = {
-  taskId: number;
-  x: number;
-  y: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-};
-
 export function TasksView() {
-  const { tasks, scopeTree, taskGraph, loaded, mutate, reload, setError } =
+  const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
     useDashboardData();
   const [taskView, setTaskView] = useState(readTaskView);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus>("active");
   const tableColumns = useTaskTableColumns();
   const [composerTitle, setComposerTitle] = useState("");
-  const [composerStatus, setComposerStatus] = useState<TaskStatus>("backlog");
-  const [composerStatusOpen, setComposerStatusOpen] = useState(false);
-  const [closedRailOpen, setClosedRailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
     null,
@@ -90,15 +50,8 @@ export function TasksView() {
   const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
     new Set(),
   );
-  const [scopePanelCollapsed, setScopePanelCollapsed] = useState(false);
-  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
-  const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
-  const [dragPreview, setDragPreview] = useState<TaskDragPreview | null>(null);
-  const dragSessionRef = useRef<TaskDragSession | null>(null);
-  const suppressClickTaskIdRef = useRef<number | null>(null);
+  const [scopePanelCollapsed, setScopePanelCollapsed] = useState(true);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
-  const composerStatusTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const composerStatusWrapRef = useRef<HTMLDivElement | null>(null);
   const { statusMenu, scopeMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
@@ -119,18 +72,6 @@ export function TasksView() {
       setSelectedTaskId(null);
     }
   }, [taskGraph, selectedTaskId]);
-
-  useEffect(() => {
-    if (!composerStatusOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const wrap = composerStatusWrapRef.current;
-      if (wrap && !wrap.contains(event.target as Node)) {
-        setComposerStatusOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [composerStatusOpen]);
 
   // Escape closes the detail panel, but only once open menus and in-place
   // editors have had their turn at the key.
@@ -162,35 +103,29 @@ export function TasksView() {
     });
   }, [scopeTree.paths, selectedTaskScope]);
 
-  useEffect(
-    () => () => {
-      const session = dragSessionRef.current;
-      session?.removeListeners();
-      if (session?.card.hasPointerCapture(session.pointerId)) {
-        session.card.releasePointerCapture(session.pointerId);
-      }
-      document.documentElement.classList.remove("task-drag-in-progress");
-    },
-    [],
-  );
-
-  const visibleTasks = useMemo(
+  const scopedTasks = useMemo(
     () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
     [tasks, selectedTaskScope],
   );
-  const visibleTasksByStatus = useMemo(
-    () => groupTasksByStatus(visibleTasks),
-    [visibleTasks],
+  const visibleTasks = useMemo(
+    () => scopedTasks.filter((task) => task.status === statusFilter),
+    [scopedTasks, statusFilter],
   );
+  const emptyListCopy =
+    tasks.length === 0
+      ? "Nothing on the board yet — name the first task above."
+      : scopedTasks.length === 0
+        ? "No tasks in this scope yet."
+        : `No ${TASK_STATUS_LABEL[statusFilter].toLowerCase()} tasks.`;
 
-  // Creates in the composer's status, inherits the active scope filter, and
+  // Creates in the status being viewed, inherits the active scope filter, and
   // opens the detail panel so the description and scores are one step away.
   const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const title = composerTitle.trim();
     if (!title) return;
     try {
-      const created = await createTask(title, "", composerStatus, selectedTaskScope);
+      const created = await createTask(title, "", statusFilter, selectedTaskScope);
       await reload();
       setComposerTitle("");
       selectTask(created.id);
@@ -208,160 +143,10 @@ export function TasksView() {
     });
   };
 
-  const statusAtPoint = (clientX: number, clientY: number) => {
-    const column = document
-      .elementFromPoint(clientX, clientY)
-      ?.closest<HTMLElement>("[data-task-status]");
-    const status = column?.dataset.taskStatus;
-    return isTaskStatus(status) ? status : null;
-  };
-
-  const clearTaskDrag = () => {
-    const session = dragSessionRef.current;
-    session?.removeListeners();
-    if (session?.card.hasPointerCapture(session.pointerId)) {
-      session.card.releasePointerCapture(session.pointerId);
-    }
-    document.documentElement.classList.remove("task-drag-in-progress");
-    dragSessionRef.current = null;
-    setDraggedTaskId(null);
-    setDragOverStatus(null);
-    setDragPreview(null);
-  };
-
-  const updateTaskDrag = (e: globalThis.PointerEvent) => {
-    const session = dragSessionRef.current;
-    if (!session || session.pointerId !== e.pointerId) return;
-
-    if (!session.dragging) {
-      const distance = Math.hypot(
-        e.clientX - session.startX,
-        e.clientY - session.startY,
-      );
-      if (distance < DRAG_START_DISTANCE) return;
-      session.dragging = true;
-      session.card.setPointerCapture(e.pointerId);
-      document.documentElement.classList.add("task-drag-in-progress");
-      setDraggedTaskId(session.taskId);
-    }
-
-    e.preventDefault();
-    setDragPreview({
-      taskId: session.taskId,
-      x: e.clientX,
-      y: e.clientY,
-      offsetX: session.offsetX,
-      offsetY: session.offsetY,
-      width: session.width,
-      height: session.height,
-    });
-    setDragOverStatus(statusAtPoint(e.clientX, e.clientY));
-  };
-
-  const finishTaskDrag = (e: globalThis.PointerEvent) => {
-    const session = dragSessionRef.current;
-    if (!session || session.pointerId !== e.pointerId) return;
-
-    const targetStatus = session.dragging
-      ? statusAtPoint(e.clientX, e.clientY)
-      : null;
-    const task = tasks.find((candidate) => candidate.id === session.taskId);
-
-    if (session.dragging) {
-      e.preventDefault();
-      suppressClickTaskIdRef.current = session.taskId;
-      window.setTimeout(() => {
-        if (suppressClickTaskIdRef.current === session.taskId) {
-          suppressClickTaskIdRef.current = null;
-        }
-      }, 0);
-    }
-
-    clearTaskDrag();
-
-    if (!task || !targetStatus || task.status === targetStatus) return;
-    void mutate(() => setTaskStatus(task.id, targetStatus));
-  };
-
-  const onTaskPointerDown = (
-    e: ReactPointerEvent<HTMLLIElement>,
-    taskId: number,
-  ) => {
-    if (e.button !== 0 || !e.isPrimary) return;
-    // Cards drag from their body only. Starting a session on a control would
-    // capture the pointer and swallow the control's click on any hand tremor,
-    // silently dropping the task in another lane instead.
-    if (
-      (e.target as HTMLElement).closest(
-        "button, a, input, textarea, select, [contenteditable='true']",
-      )
-    ) {
-      return;
-    }
-
-    const cardRect = e.currentTarget.getBoundingClientRect();
-    const onPointerMove = (event: globalThis.PointerEvent) =>
-      updateTaskDrag(event);
-    const onPointerUp = (event: globalThis.PointerEvent) =>
-      finishTaskDrag(event);
-    const onPointerCancel = () => clearTaskDrag();
-    const removeListeners = () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-    };
-
-    dragSessionRef.current = {
-      pointerId: e.pointerId,
-      taskId,
-      card: e.currentTarget,
-      startX: e.clientX,
-      startY: e.clientY,
-      offsetX: e.clientX - cardRect.left,
-      offsetY: e.clientY - cardRect.top,
-      width: cardRect.width,
-      height: cardRect.height,
-      dragging: false,
-      removeListeners,
-    };
-
-    window.addEventListener("pointermove", onPointerMove, { passive: false });
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
-  };
-
-  const onTaskClickCapture = (e: MouseEvent<HTMLLIElement>, taskId: number) => {
-    if (suppressClickTaskIdRef.current !== taskId) return;
-    e.preventDefault();
-    e.stopPropagation();
-    suppressClickTaskIdRef.current = null;
-  };
-
   const selectedTask =
     selectedTaskId === null
       ? null
       : taskGraph.byId.get(selectedTaskId) ?? null;
-  const previewTask = dragPreview
-    ? tasks.find((task) => task.id === dragPreview.taskId)
-    : null;
-  const previewLeft = dragPreview
-    ? Math.max(
-        8,
-        Math.min(
-          dragPreview.x - dragPreview.offsetX,
-          window.innerWidth - dragPreview.width - 8,
-        ),
-      )
-    : 0;
-  const previewTop = dragPreview
-    ? Math.max(
-        8,
-        Math.min(
-          dragPreview.y - dragPreview.offsetY,
-          window.innerHeight - dragPreview.height - 8,
-        ),
-      )
-    : 0;
 
   const renderScopeNode = (node: ScopeNode) => {
     const selected = selectedTaskScope === node.path;
@@ -431,33 +216,23 @@ export function TasksView() {
     );
   };
 
-  const renderTaskColumn = (status: TaskStatus, closed = false) => (
-    <section
-      className={`task-column${closed ? " task-column--closed" : ""}${
-        dragOverStatus === status ? " task-column--drag-over" : ""
-      }`}
-      key={status}
-      data-task-status={status}
-    >
+  const renderTaskColumn = () => (
+    <section className="task-column">
       <header className="task-column__head">
-        <h3>{TASK_STATUS_LABEL[status]}</h3>
-        <span>{visibleTasksByStatus[status].length}</span>
+        <h3>{TASK_STATUS_LABEL[statusFilter]}</h3>
+        <span>{visibleTasks.length}</span>
       </header>
-      {visibleTasksByStatus[status].length === 0 ? (
-        <div className="task-column__empty">Nothing here</div>
+      {visibleTasks.length === 0 ? (
+        <div className="task-column__empty">{emptyListCopy}</div>
       ) : (
         <ol className="task-card-list">
-          {visibleTasksByStatus[status].map((task) => (
+          {pinWorkingNowFirst(visibleTasks).map((task) => (
             <TaskCard
               key={task.id}
               task={task}
               selected={selectedTaskId === task.id}
               onSelect={(origin) => selectTask(task.id, origin)}
               statusCompact
-              draggable
-              dragging={draggedTaskId === task.id}
-              onPointerDown={(e) => onTaskPointerDown(e, task.id)}
-              onClickCapture={(e) => onTaskClickCapture(e, task.id)}
             />
           ))}
         </ol>
@@ -527,15 +302,23 @@ export function TasksView() {
         <div className="dash-section__title">
           <h2>Tasks</h2>
         </div>
-        <ViewToggle
-          value={taskView}
-          options={TASK_VIEWS}
-          label="Task view"
-          onChange={(key) => {
-            writeTaskView(key);
-            setTaskView(key);
-          }}
-        />
+        <div className="dash-toolbar">
+          <ViewToggle
+            value={statusFilter}
+            options={TASK_STATUS_FILTERS}
+            label="Task status"
+            onChange={setStatusFilter}
+          />
+          <ViewToggle
+            value={taskView}
+            options={TASK_VIEWS}
+            label="Task view"
+            onChange={(key) => {
+              writeTaskView(key);
+              setTaskView(key);
+            }}
+          />
+        </div>
       </header>
 
       {!loaded ? (
@@ -603,180 +386,25 @@ export function TasksView() {
           )}
 
           <div className="task-workspace__main">
-              <form className="task-composer" onSubmit={onComposerSubmit}>
-                <input
-                  type="text"
-                  className="task-composer__title"
-                  placeholder={
-                    selectedTaskScope
-                      ? `Add a task in ${selectedTaskScope}…`
-                      : "Add a task…"
-                  }
-                  aria-label="New task title"
-                  value={composerTitle}
-                  onChange={(e) => setComposerTitle(e.target.value)}
-                />
-                <div
-                  ref={composerStatusWrapRef}
-                  className="task-composer__status-wrap"
-                  onBlur={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                      setComposerStatusOpen(false);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape" && composerStatusOpen) {
-                      e.preventDefault();
-                      setComposerStatusOpen(false);
-                      composerStatusTriggerRef.current?.focus();
-                    }
-                    if (
-                      composerStatusOpen &&
-                      (e.key === "ArrowDown" || e.key === "ArrowUp")
-                    ) {
-                      e.preventDefault();
-                      const options = Array.from(
-                        e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                          "[role='option']",
-                        ),
-                      );
-                      const index = options.indexOf(
-                        document.activeElement as HTMLButtonElement,
-                      );
-                      const delta = e.key === "ArrowDown" ? 1 : -1;
-                      options[
-                        (index + delta + options.length) % options.length
-                      ]?.focus();
-                    }
-                  }}
-                >
-                  <button
-                    ref={composerStatusTriggerRef}
-                    type="button"
-                    className="task-composer__status"
-                    aria-haspopup="listbox"
-                    aria-expanded={composerStatusOpen}
-                    onClick={() => setComposerStatusOpen((open) => !open)}
-                  >
-                    <span
-                      className={`status-dot status-dot--${composerStatus}`}
-                      aria-hidden="true"
-                    />
-                    <span>{TASK_STATUS_LABEL[composerStatus]}</span>
-                    <span
-                      className="task-composer__status-chevron"
-                      aria-hidden="true"
-                    >
-                      {chevronDownIcon}
-                    </span>
-                  </button>
-                  {composerStatusOpen && (
-                    <div
-                      className="task-composer__status-menu"
-                      role="listbox"
-                      aria-label="Status for the new task"
-                    >
-                      {WORKING_STATUSES.map((status) => {
-                        const selected = status === composerStatus;
-                        return (
-                          <button
-                            key={status}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            className={
-                              selected
-                                ? "task-composer__status-option is-selected"
-                                : "task-composer__status-option"
-                            }
-                            onClick={() => {
-                              setComposerStatus(status);
-                              setComposerStatusOpen(false);
-                              composerStatusTriggerRef.current?.focus();
-                            }}
-                          >
-                            <span
-                              className={`status-dot status-dot--${status}`}
-                              aria-hidden="true"
-                            />
-                            <span>{TASK_STATUS_LABEL[status]}</span>
-                            {selected && (
-                              <span
-                                className="task-composer__status-check"
-                                aria-hidden="true"
-                              >
-                                {checkIcon}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
-                  Add
-                </button>
-              </form>
+            <form className="task-composer" onSubmit={onComposerSubmit}>
+              <input
+                type="text"
+                className="task-composer__title"
+                placeholder={
+                  selectedTaskScope
+                    ? `Add a task in ${selectedTaskScope}…`
+                    : "Add a task…"
+                }
+                aria-label="New task title"
+                value={composerTitle}
+                onChange={(e) => setComposerTitle(e.target.value)}
+              />
+              <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
+                Add
+              </button>
+            </form>
           {taskView === "kanban" && (
-            <>
-              {visibleTasks.length === 0 && (
-                <p className="task-board__empty">
-                  {tasks.length === 0
-                    ? "Nothing on the board yet — name the first task above."
-                    : "No tasks in this scope yet."}
-                </p>
-              )}
-              <div className="task-board">
-                {WORKING_STATUSES.map((status) => renderTaskColumn(status))}
-              </div>
-              <section className="task-closed-rail">
-                <button
-                  type="button"
-                  className="task-closed-rail__toggle"
-                  aria-expanded={closedRailOpen}
-                  onClick={() => setClosedRailOpen((open) => !open)}
-                >
-                  <span
-                    className={`task-closed-rail__chevron${
-                      closedRailOpen ? " task-closed-rail__chevron--open" : ""
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {chevronRightIcon}
-                  </span>
-                  <span className="task-closed-rail__label">Done</span>
-                  <span className="task-closed-rail__counts">
-                    {visibleTasksByStatus.completed.length} completed ·{" "}
-                    {visibleTasksByStatus.cancelled.length} cancelled
-                  </span>
-                </button>
-                {draggedTaskId !== null && !closedRailOpen && (
-                  <div className="task-closed-rail__dropzones">
-                    {CLOSED_STATUSES.map((status) => (
-                      <div
-                        key={status}
-                        className={`task-closed-rail__dropzone${
-                          dragOverStatus === status
-                            ? " task-closed-rail__dropzone--over"
-                            : ""
-                        }`}
-                        data-task-status={status}
-                      >
-                        {TASK_STATUS_LABEL[status]}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {closedRailOpen && (
-                  <div className="task-closed-rail__columns">
-                    {CLOSED_STATUSES.map((status) =>
-                      renderTaskColumn(status, true),
-                    )}
-                  </div>
-                )}
-              </section>
-            </>
+            <div className="task-board">{renderTaskColumn()}</div>
           )}
           {taskView === "table" && (
             <div className="task-table-wrap">
@@ -829,19 +457,14 @@ export function TasksView() {
                         colSpan={tableColumns.columns.length}
                         className="task-table__empty"
                       >
-                        {tasks.length === 0
-                          ? "Nothing on the board yet — name the first task above."
-                          : "No tasks match this scope."}
+                        {emptyListCopy}
                       </td>
                     </tr>
                   ) : (
                     [...visibleTasks]
                       .sort(
                         (a, b) =>
-                          TASK_STATUSES.indexOf(a.status) -
-                            TASK_STATUSES.indexOf(b.status) ||
-                          b.updatedAt - a.updatedAt ||
-                          b.id - a.id,
+                          b.updatedAt - a.updatedAt || b.id - a.id,
                       )
                       .map((task) => (
                         <tr
@@ -886,21 +509,6 @@ export function TasksView() {
           )}
         </div>
       )}
-      {dragPreview &&
-        previewTask &&
-        createPortal(
-          <div
-            className="dashboard task-drag-preview"
-            style={{
-              width: dragPreview.width,
-              transform: `translate3d(${previewLeft}px, ${previewTop}px, 0)`,
-            }}
-            aria-hidden="true"
-          >
-            <TaskCard task={previewTask} showStatus={false} />
-          </div>,
-          document.body,
-        )}
     </section>
   );
 }
