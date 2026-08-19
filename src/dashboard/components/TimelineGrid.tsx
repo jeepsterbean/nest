@@ -54,6 +54,8 @@ export type StretchEdit = {
   endedAt: number;
   /** The day column that was clicked, so the editor sits beside that lane. */
   columnFrom: number;
+  /** Still Working now: the editor opens, but start and end stay locked. */
+  open: boolean;
 };
 
 type StretchPreview = StretchTimes & { id: number; source: WorkBlock };
@@ -247,7 +249,8 @@ export function TimelineGrid({
     column: GridColumn,
   ) => {
     if (event.button !== 0 || !event.isPrimary || dragRef.current) return;
-    // Open stretches grow toward now; Working now is cleared on the Task.
+    // Open stretches grow toward now and stay pinned there — click still
+    // selects, drag does not move the live end.
     if (block.endedAt === null) return;
     suppressClick.current = false;
     const at = locateTime(colsRef.current, columnsRef.current, event.clientX, event.clientY);
@@ -453,7 +456,7 @@ function Column({
   const now = place(nowSec, nowSec);
   const sessions = placeSessions(column, phases);
   const selectedBlock = selected
-    ? blocks.find((block) => block.id === selected.id && block.endedAt !== null)
+    ? blocks.find((block) => block.id === selected.id)
     : undefined;
 
   return (
@@ -471,7 +474,7 @@ function Column({
         const isOpen = block.endedAt === null;
         const canResizeStart = !isOpen && block.startedAt >= column.from;
         const canResizeEnd = block.endedAt !== null && block.endedAt <= column.to;
-        const isSelected = !isOpen && selected?.id === block.id;
+        const isSelected = selected?.id === block.id;
         const when = `${block.task.title} · ${formatTime(block.from)} – ${formatTime(block.to)}`;
         return (
           <button
@@ -494,10 +497,8 @@ function Column({
                 ? `${block.task.title} · Working now · ${formatTime(block.from)} to ${formatTime(block.to)}`
                 : `${block.task.title} · ${formatTime(block.from)} to ${formatTime(block.to)}`
             }
-            aria-disabled={isOpen || undefined}
             onPointerDown={(event) => onBlockPointerDown(event, block, column)}
             onClick={(event) => {
-              if (block.endedAt === null) return;
               // A drag ends in a click we must swallow. `detail` is 0 for a
               // keyboard Enter, which never follows a drag and must still open.
               const afterDrag = suppressClick.current && event.detail !== 0;
@@ -509,8 +510,9 @@ function Column({
                   : {
                       id: block.id,
                       startedAt: block.startedAt,
-                      endedAt: block.endedAt,
+                      endedAt: block.endedAt ?? nowSec,
                       columnFrom: column.from,
+                      open: isOpen,
                     },
               );
             }}
@@ -684,8 +686,8 @@ function StretchEditor({
         const nextTitle = name.trim();
         onSave(
           edit.id,
-          startedAt,
-          endedAt,
+          edit.open ? edit.startedAt : startedAt,
+          edit.open ? null : endedAt,
           nextTitle && nextTitle !== title
             ? { taskId, title: nextTitle }
             : undefined,
@@ -700,12 +702,16 @@ function StretchEditor({
         required
         onChange={(event) => setName(event.target.value)}
       />
-      <div className="stretch-editor__times">
+      <div
+        className="stretch-editor__times"
+        title={edit.open ? "Start and end stay locked while Working now" : undefined}
+      >
         <label>
           <span>Start</span>
           <input
             type="date"
             value={toDateInput(startedAt)}
+            disabled={edit.open}
             onChange={(event) =>
               applyStamp(setStartedAt, event.target.value, toTimeInput(startedAt))
             }
@@ -713,6 +719,7 @@ function StretchEditor({
           <input
             type="time"
             value={toTimeInput(startedAt)}
+            disabled={edit.open}
             onChange={(event) =>
               applyStamp(setStartedAt, toDateInput(startedAt), event.target.value)
             }
@@ -723,6 +730,7 @@ function StretchEditor({
           <input
             type="date"
             value={toDateInput(endedAt)}
+            disabled={edit.open}
             onChange={(event) =>
               applyStamp(setEndedAt, event.target.value, toTimeInput(endedAt))
             }
@@ -730,6 +738,7 @@ function StretchEditor({
           <input
             type="time"
             value={toTimeInput(endedAt)}
+            disabled={edit.open}
             onChange={(event) =>
               applyStamp(setEndedAt, toDateInput(endedAt), event.target.value)
             }

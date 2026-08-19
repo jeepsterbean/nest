@@ -3,6 +3,8 @@ import {
   CLOSED_STATUSES,
   groupTasksByStatus,
   pinnedIdOrder,
+  recentlyClosedTasks,
+  RECENT_CLOSED_WINDOW_SECONDS,
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
@@ -75,6 +77,38 @@ describe("groupTasksByStatus", () => {
       { ...task(4, "active"), workingNow: true },
     ]);
     expect(grouped.active.map((t) => t.id)).toEqual([1, 4, 3, 2]);
+  });
+});
+
+describe("recentlyClosedTasks", () => {
+  const nowMs = 1_000_000_000_000;
+  const nowSecs = nowMs / 1000;
+  const closed = (
+    id: number,
+    status: "completed" | "cancelled",
+    updatedAt: number,
+  ) => task(id, status, id, updatedAt);
+
+  it("keeps completed and cancelled Tasks updated within the last hour", () => {
+    const recent = recentlyClosedTasks(
+      [
+        closed(1, "completed", nowSecs - 10),
+        closed(2, "cancelled", nowSecs - 30),
+        task(3, "active", 3, nowSecs),
+        task(4, "up_next", 4, nowSecs),
+        closed(5, "completed", nowSecs - RECENT_CLOSED_WINDOW_SECONDS - 1),
+      ],
+      nowMs,
+    );
+    expect(recent.map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("includes a close exactly at the window edge", () => {
+    const recent = recentlyClosedTasks(
+      [closed(1, "completed", nowSecs - RECENT_CLOSED_WINDOW_SECONDS)],
+      nowMs,
+    );
+    expect(recent.map((t) => t.id)).toEqual([1]);
   });
 });
 

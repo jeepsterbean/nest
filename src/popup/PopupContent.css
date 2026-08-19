@@ -238,6 +238,17 @@
   overflow-y: auto;
 }
 
+.now-card__live {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.now-group--closed + .now-card__live {
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
 .now-group {
   display: flex;
   flex-direction: column;
@@ -330,6 +341,19 @@
   opacity: 1;
 }
 
+.now-group--closed .now-task {
+  opacity: 0.5;
+}
+
+.now-group--closed .now-task:hover,
+.now-group--closed .now-task:focus-within {
+  opacity: 1;
+}
+
+.now-task--cancelled .now-task__title {
+  text-decoration: line-through;
+}
+
 .now-list {
   display: flex;
   flex-direction: column;
@@ -403,6 +427,21 @@
   flex: none;
 }
 
+.now-task__mark {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  color: var(--muted);
+}
+
+.now-task__mark svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+}
+
 .now-task--composer input {
   flex: 1;
   min-width: 0;
@@ -444,7 +483,7 @@
 .now-task__actions svg {
   width: 15px;
   height: 15px;
-  fill: currentColor;
+  fill: none;
 }
 
 .now-task:hover .now-task__actions button,
@@ -473,6 +512,7 @@
 .now-task__actions .working-toggle--play-pause svg {
   width: 14px;
   height: 14px;
+  fill: currentColor;
 }
 
 .now-task__actions .working-toggle[aria-pressed="true"] {

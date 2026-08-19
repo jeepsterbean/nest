@@ -96,14 +96,15 @@ stretch carries its Task title and times inside the block when it is tall
 enough; concurrent stretches sit side by side, since multiple Tasks may be
 Working now. A line marks the current time. Quiet time reads as empty track
 rather than being squeezed out. An open stretch's live end stays pinned to now.
-That stretch cannot be edited on Calendar — its bottom edge is an unfinished
-line, and Working now is cleared from the Task, not from the grid. Clicking a
-closed stretch opens an editor beside that stretch — left or right of the
+That stretch cannot be moved or resized on Calendar — its bottom edge is an
+unfinished line, and Working now is cleared from the Task, not from the grid.
+Clicking a stretch opens an editor beside that stretch — left or right of the
 selected block, toward its outer edge when two share the hour, flipping so the
 editor stays on screen and closing once its stretch scrolls out of the grid. The
-Task title can be renamed there. Start and end each have a date and a time, and
-save first, since only the times can be refused. Dragging a closed stretch moves
-it; dragging a start or end edge resizes that bound. Calendar drag snaps to
+Task title can be renamed there. Start and end each have a date and a time,
+locked while the stretch is still open, and save first, since only the times
+can be refused. Dragging a closed stretch moves it; dragging a start or end
+edge resizes that bound. Calendar drag snaps to
 fifteen minutes and will not shrink a stretch below fifteen minutes unless now
 is closer (a stretch cannot end in the future). That floor is only for dragging
 on the grid; a recorded stretch may already be shorter.
@@ -212,7 +213,10 @@ _Avoid_: Journal
   dump does not clear it.
 - The popup is two columns. Left: remaining time on a clock face
   (click to pick an interval) and the Active / Up next task list, sized for
-  three rows with extra tasks scrolling. Right: brain dump above Metric scoring.
+  three rows with extra tasks scrolling. Completed and Cancelled Tasks from
+  the last 60 minutes sit above Active; the list opens on Active, and
+  scrolling up reveals them so they can be returned to Active. Active rows
+  have Up next to the left of Complete. Right: brain dump above Metric scoring.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and

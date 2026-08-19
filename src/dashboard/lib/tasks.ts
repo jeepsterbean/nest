@@ -18,6 +18,25 @@ export const WORKING_STATUSES: TaskStatus[] = [
 
 export const CLOSED_STATUSES: TaskStatus[] = ["completed", "cancelled"];
 
+/** Popup history above Active: closed Tasks still in this window. */
+export const RECENT_CLOSED_WINDOW_SECONDS = 60 * 60;
+
+/**
+ * Completed and cancelled Tasks whose last update falls in the last hour,
+ * oldest first so the newest sits just above Active.
+ * ponytail: uses updatedAt, not status events; a later rename can keep an
+ * older close in the window. Switch to events if that starts to matter.
+ */
+export const recentlyClosedTasks = (taskList: Task[], nowMs: number): Task[] => {
+  const cutoff = nowMs / 1000 - RECENT_CLOSED_WINDOW_SECONDS;
+  return taskList
+    .filter(
+      (task) =>
+        CLOSED_STATUSES.includes(task.status) && task.updatedAt >= cutoff,
+    )
+    .sort((a, b) => a.updatedAt - b.updatedAt || a.id - b.id);
+};
+
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
   up_next: "Up next",

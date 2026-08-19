@@ -72,17 +72,18 @@ private, journal-like. Preserve light and dark system themes.
 - Drag a closed `.tl-block` body to move the Work stretch; drag a start or end
   edge to resize. Times snap to 15-minute marks. Resize will not shrink below
   15 minutes unless now is closer. That floor is calendar-drag only. An open
-  stretch's live end stays pinned to now. It is not clickable, draggable, or
+  stretch's live end stays pinned to now. It is not draggable or
   resizable on the grid — Working now is cleared from the Task — and its bottom
   edge is an unfinished dotted line (`.tl-block--open`). Click still opens the
-  editor on a closed stretch if the pointer barely moves. The editor sits
-  beside the selected stretch, left or right of that block — toward its outer
-  edge when two share the hour, otherwise toward whichever side has room. It
+  editor if the pointer barely moves; start and end stay locked while it is
+  open. The editor sits beside the selected stretch, left or right of that
+  block — toward its outer edge when two share the hour, otherwise toward
+  whichever side has room. It
   flips if the preferred side would leave the window. It closes once its
   stretch has scrolled out of the grid, so a card fixed to the viewport never
   outlives the block it edits. The Task title is editable. Start and end each
-  have a date and a time; the times save before the rename, since only the
-  times can be refused.
+  have a date and a time, locked while the stretch is still open; the times
+  save before the rename, since only the times can be refused.
 - The grid is a linear clock running down the page: place every span with
   percentage `top`/`height` from `placeOnWindow`, never `flex-grow`, so a Work
   stretch and the Phase wash behind it agree. Percentages are of the column's

@@ -6,6 +6,7 @@ import {
   holdMetricDue,
   nextMetricIndex,
   PopupTopPanel,
+  taskListOwnsWheel,
 } from "../../src/popup/PopupContent";
 import type { Pulse } from "../../src/lib/types";
 
@@ -77,5 +78,23 @@ describe("holdMetricDue", () => {
     expect(holdMetricDue(true, false, false)).toBe(true);
     expect(holdMetricDue(true, true, true)).toBe(false);
     expect(holdMetricDue(true, false, true)).toBe(false);
+  });
+});
+
+describe("taskListOwnsWheel", () => {
+  const list = (scrollTop: number, clientHeight = 100, scrollHeight = 200) => ({
+    scrollTop,
+    clientHeight,
+    scrollHeight,
+  });
+
+  it("keeps upward wheel on the list when history sits above", () => {
+    expect(taskListOwnsWheel(-40, list(80))).toBe(true);
+    expect(taskListOwnsWheel(-40, list(0))).toBe(false);
+  });
+
+  it("keeps downward wheel on the list until the bottom", () => {
+    expect(taskListOwnsWheel(40, list(0))).toBe(true);
+    expect(taskListOwnsWheel(40, list(100))).toBe(false);
   });
 });

@@ -5055,7 +5055,7 @@
 
 /* Working now: no hard bottom bound. Dots in the Task hue walk toward now. */
 .tl-block--open {
-  cursor: default;
+  cursor: pointer;
   border-bottom-color: transparent;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
@@ -5254,6 +5254,13 @@
   background: var(--surface-2);
   color: var(--ink);
   font: inherit;
+}
+
+.stretch-editor input[type="date"]:disabled,
+.stretch-editor input[type="time"]:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.7;
 }
 
 .stretch-editor__actions {

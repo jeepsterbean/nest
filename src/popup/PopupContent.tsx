@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { emit } from "@tauri-apps/api/event";
 import {
   createTask,
@@ -30,7 +30,11 @@ import {
   formatTimerCountdown,
   isTimerDue,
 } from "../dashboard/lib/time";
-import { groupTasksByStatus, pinnedIdOrder } from "../dashboard/lib/tasks";
+import {
+  groupTasksByStatus,
+  pinnedIdOrder,
+  recentlyClosedTasks,
+} from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
 import {
   isBrainDumpSubmitShortcut,
@@ -76,6 +80,62 @@ function CheckIcon() {
       />
     </svg>
   );
+}
+
+function QueueIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d="M6 6.5 10 10l4-3.5M6 11.5 10 15l4-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d="M7.5 5.5H3.5v4M4 9.2A6.2 6.2 0 1 0 5.6 6.1"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function CancelledMark() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d="M6 6l8 8M14 6l-8 8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+/** Wheel on the task list scrolls it; the timer collapse only takes leftover motion. */
+export function taskListOwnsWheel(
+  deltaY: number,
+  list: Pick<HTMLElement, "scrollTop" | "clientHeight" | "scrollHeight">,
+) {
+  if (deltaY < 0) return list.scrollTop > 0;
+  if (deltaY > 0) {
+    return list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+  }
+  return false;
 }
 
 function ExpandIcon() {
@@ -253,6 +313,9 @@ function PopupContent({
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const taskListRef = useRef<HTMLDivElement | null>(null);
+  const liveTasksRef = useRef<HTMLDivElement | null>(null);
+  const stickToLiveRef = useRef(true);
   const isLoaded = loaded !== null;
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses = loaded?.pulses.filter(
@@ -271,6 +334,8 @@ function PopupContent({
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
+  const recentClosed = recentlyClosedTasks(loaded?.tasks ?? [], nowMs);
+  const recentClosedKey = recentClosed.map((task) => task.id).join(",");
   // One drag list spanning both lanes: dropping on a row of the other lane is
   // what moves a task between Active and Up next. An empty lane still offers
   // its placeholder as a drop target.
@@ -336,6 +401,13 @@ function PopupContent({
       }
     });
   }, [isLoaded]);
+
+  useLayoutEffect(() => {
+    if (!stickToLiveRef.current) return;
+    const list = taskListRef.current;
+    const live = liveTasksRef.current;
+    if (list && live) list.scrollTop = live.offsetTop;
+  }, [isLoaded, recentClosedKey]);
 
   const openDashboard = async () => {
     await showDashboard();
@@ -602,8 +674,8 @@ function PopupContent({
   }
 
   const workingCount = loaded.tasks.filter((task) => task.workingNow).length;
-  // Both lanes render the same row: lead play control, title, complete. Only
-  // the lead's job differs — pause a running task, or start an Up next one.
+  // Live lanes share a row: lead play control, title, trailing status
+  // actions. Closed history is a quieter restore row, not in the drag list.
   const renderTaskRow = (task: Task) => (
     <li
       className={`now-task${task.workingNow ? " now-task--working" : ""}${
@@ -636,6 +708,17 @@ function PopupContent({
       </div>
       <span className="now-task__title">{task.title}</span>
       <div className="now-task__actions">
+        {task.status === "active" && (
+          <button
+            type="button"
+            aria-label={`Move ${task.title} to Up next`}
+            title="Up next"
+            onClick={() => updateTaskStatus(task, "up_next")}
+            disabled={submitting}
+          >
+            <QueueIcon />
+          </button>
+        )}
         <button
           type="button"
           aria-label={`Complete ${task.title}`}
@@ -648,10 +731,54 @@ function PopupContent({
       </div>
     </li>
   );
+  const renderClosedRow = (task: Task) => (
+    <li
+      className={`now-task now-task--${task.status}`}
+      key={task.id}
+    >
+      <div className="now-task__mark now-task__lead" aria-hidden="true">
+        {task.status === "completed" ? <CheckIcon /> : <CancelledMark />}
+      </div>
+      <span className="now-task__title">{task.title}</span>
+      <div className="now-task__actions">
+        <button
+          type="button"
+          aria-label={`Return ${task.title} to Active`}
+          title="Return to Active"
+          onClick={() => updateTaskStatus(task, "active")}
+          disabled={submitting}
+        >
+          <RestoreIcon />
+        </button>
+      </div>
+    </li>
+  );
   const taskView = (
     <section className="now-card" aria-label="Tasks">
-      <div className="now-card__tasks">
-        <section className="now-group" aria-labelledby="popup-active-tasks">
+      <div
+        className="now-card__tasks"
+        ref={taskListRef}
+        onScroll={() => {
+          const list = taskListRef.current;
+          const live = liveTasksRef.current;
+          if (!list || !live) return;
+          stickToLiveRef.current = list.scrollTop >= live.offsetTop - 2;
+        }}
+      >
+        {recentClosed.length > 0 && (
+          <section
+            className="now-group now-group--closed"
+            aria-labelledby="popup-done-tasks"
+          >
+            <header className="now-group__head">
+              <h2 id="popup-done-tasks">Done</h2>
+              <span>{recentClosed.length}</span>
+            </header>
+            <ul className="now-list">{recentClosed.map(renderClosedRow)}</ul>
+          </section>
+        )}
+        <div className="now-card__live" ref={liveTasksRef}>
+          <section className="now-group" aria-labelledby="popup-active-tasks">
           <header className="now-group__head">
             <h2 id="popup-active-tasks">Active</h2>
             <span>{activeTasks.length}</span>
@@ -749,6 +876,7 @@ function PopupContent({
             <ul className="now-list">{upNextTasks.map(renderTaskRow)}</ul>
           )}
         </section>
+        </div>
       </div>
     </section>
   );
@@ -773,6 +901,13 @@ function PopupContent({
         }
       }}
       onWheelCapture={(event) => {
+        const list = (event.target as Element).closest(".now-card__tasks");
+        if (
+          list instanceof HTMLElement &&
+          taskListOwnsWheel(event.deltaY, list)
+        ) {
+          return;
+        }
         const current = Number(
           event.currentTarget.style.getPropertyValue("--timer-collapse"),
         );
