@@ -523,7 +523,7 @@
 
 @media (min-width: 861px) {
   .dashboard__inner--overview,
-  .dashboard__inner--journal,
+  .dashboard__inner--logs,
   .dashboard__inner--tasks,
   .dashboard__inner--insights,
   .dashboard__inner--calendar {
@@ -966,7 +966,7 @@
 }
 
 .dash-section--tasks,
-.dash-section--journal,
+.dash-section--logs,
 .dash-section--insights,
 .dash-section--calendar {
   display: flex;
@@ -1209,7 +1209,16 @@
 
 /* ---------- Shared chrome ---------- */
 
-/* One segmented control for every section: Tasks, Journal, Insights, Metrics. */
+/* One segmented control for every section: Tasks, Logs, Insights, Metrics. */
+.dash-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 10px;
+  margin: 0 0 14px;
+}
+
 .view-toggle {
   display: inline-flex;
   flex-shrink: 0;
@@ -4002,16 +4011,7 @@
   font-size: 12px;
 }
 
-/* ---------- Journal ---------- */
-
-.journal-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px 10px;
-  margin: 0 0 14px;
-}
+/* ---------- Insights ---------- */
 
 .insights-body {
   display: flex;
@@ -4621,7 +4621,7 @@
   animation-delay: 0.12s;
 }
 
-.dash-section--journal {
+.dash-section--logs {
   animation-delay: 0.18s;
 }
 

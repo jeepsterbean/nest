@@ -15,7 +15,7 @@ import {
   updateTaskWorkStretch,
 } from "../../lib/commands";
 import { openAtPct } from "../lib/insights";
-import { isQuietPhase } from "../lib/journal";
+import { isQuietPhase } from "../lib/period";
 import { phaseSessionsInWindow } from "../lib/timeline";
 import { layoutWorkBlocks } from "../lib/workTimeline";
 

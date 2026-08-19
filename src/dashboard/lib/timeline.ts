@@ -21,7 +21,7 @@ export type PhaseSession = {
 export type PhaseTotal = { phaseId: number | null; seconds: number };
 
 // Window-switching writes a checkpoint per change; bursts inside this window
-// are still settling, not a journal-worthy beat.
+// are still settling, not a Logs-worthy beat.
 export const PHASE_SETTLE_SECONDS = 60;
 
 // Independent popup submissions can land in the same second; rank them so the

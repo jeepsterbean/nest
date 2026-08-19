@@ -698,7 +698,7 @@ WHERE name NOT IN ('Scoping', 'Doing', 'Resting');
         // A pulse is now the only grouping/lifecycle for metrics. Preserve the
         // old active set as one pulse, leave old inactive metrics unassigned,
         // and snapshot the pulse name on check-ins so deleting a pulse keeps
-        // its journal history legible.
+        // its history legible.
         M::up(
             r#"
 CREATE TABLE pulses (

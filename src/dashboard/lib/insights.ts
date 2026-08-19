@@ -16,7 +16,7 @@ import {
   countCheckIns,
   isQuietPhase,
   type Period,
-} from "./journal";
+} from "./period";
 import {
   phaseSessionsInWindow,
   type PhaseSession,

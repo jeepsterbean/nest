@@ -119,7 +119,7 @@ export const phaseTone = (name: string) => {
   return "unknown";
 };
 
-/** Shared icon language for phase labels across header, journal, and totals. */
+/** Shared icon language for phase labels across header, Logs, and totals. */
 export const phaseIconName = (name: string) => {
   switch (phaseTone(name)) {
     case "doing":

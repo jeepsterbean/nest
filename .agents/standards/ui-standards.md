@@ -15,7 +15,7 @@ private, journal-like. Preserve light and dark system themes.
 - Don't caption self-explanatory controls (a labeled field, a dropdown with
   clear options) with extra headings or helper text.
 - Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,
-  Ready, Scope, Working now, Work stretch, Pulse, Brain dump). Avoid todo/subitem jargon.
+  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Logs). Avoid todo/subitem jargon.
 
 ## Components: no speculative flexibility
 
@@ -43,7 +43,7 @@ private, journal-like. Preserve light and dark system themes.
 - Interactive controls need accessible names and visible focus states.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
-- Journal is a filtered history log: Raw / Brain dumps / Phases / Metrics.
+- Logs is filtered history: Raw / Brain dumps / Phases / Metrics.
   Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). No heading,
   day strip, or outcome stats — the view filters are the only chrome.
 - Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
@@ -53,7 +53,7 @@ private, journal-like. Preserve light and dark system themes.
   Check-ins and Doing / Scoping / Resting / Offline for the selected window,
   using 0 when nothing happened. The dump panel (`.overview-panel--dumps`)
   matches the check-in popup composer: one textarea, shared draft,
-  Cmd/Ctrl+Enter. Dump history is Journal-only; there is no dashboard dump
+  Cmd/Ctrl+Enter. Dump history is Logs-only; there is no dashboard dump
   modal or sidebar dump button.
 - Calendar owns the timetable (`.tl`) under `.dash-section--calendar`. Insights
   is the ranged scoreboard under `.dash-section--insights`: Phase mix
@@ -63,7 +63,7 @@ private, journal-like. Preserve light and dark system themes.
   range — the column stays when there are no check-ins. Outcome
   counts stay on Overview. Both share Day / Week
   and Earlier / Later / Today. Remember the last range (`nest:insights-range`);
-  Day only when nothing is stored. Compact range toggle matches Journal.
+  Day only when nothing is stored. Compact range toggle matches Logs.
 - Drag a `.tl-block` body to move the Work stretch; drag a start or end edge to
   resize. Times snap to 15-minute marks. Resize will not shrink below 15 minutes
   unless now is closer. That floor is calendar-drag only. An open stretch's live

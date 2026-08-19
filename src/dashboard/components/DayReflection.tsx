@@ -5,7 +5,7 @@ import {
   LIVE_PHASE_NAMES,
   phaseIconName,
   phaseTone,
-} from "../lib/journal";
+} from "../lib/period";
 import { formatCompactDuration } from "../lib/time";
 import { phaseSessionTotals, type PhaseSession } from "../lib/timeline";
 

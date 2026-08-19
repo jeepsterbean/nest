@@ -4,7 +4,7 @@ import {
   completionTotals,
   filledPhaseTotals,
   foldIdleIntoOffline,
-} from "../../../src/dashboard/lib/journal";
+} from "../../../src/dashboard/lib/period";
 import type { Phase, Task, TaskStatusEvent } from "../../../src/lib/types";
 
 const task = (id: number, status: Task["status"]): Task => ({

@@ -84,7 +84,7 @@ export function InsightRangeBar({
   onToday: () => void;
 }) {
   return (
-    <div className="journal-toolbar">
+    <div className="dash-toolbar">
       <ViewToggle
         value={mode}
         options={INSIGHT_MODES}

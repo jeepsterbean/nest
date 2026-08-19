@@ -86,7 +86,7 @@ export const NEST_ICONS = [
   { key: "moon", label: "Moon", Icon: Moon },
   { key: "mountain", label: "Challenge", Icon: Mountain },
   { key: "music", label: "Music", Icon: Music2 },
-  { key: "notes", label: "Journal", Icon: NotebookPen },
+  { key: "notes", label: "Notes", Icon: NotebookPen },
   { key: "palette", label: "Creativity", Icon: Palette },
   { key: "body", label: "Body", Icon: PersonStanding },
   { key: "medicine", label: "Medicine", Icon: Pill },

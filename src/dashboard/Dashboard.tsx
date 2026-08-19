@@ -14,7 +14,7 @@ import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
 import { CalendarView } from "./views/CalendarView";
 import { InsightsView } from "./views/InsightsView";
-import { JournalView } from "./views/JournalView";
+import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
 import { MetricsView } from "./views/MetricsView";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -57,7 +57,7 @@ function DashboardInner() {
         {view === "overview" && <OverviewView />}
         {view === "calendar" && <CalendarView />}
         {view === "insights" && <InsightsView />}
-        {view === "journal" && <JournalView />}
+        {view === "logs" && <LogsView />}
         {view === "tasks" && <TasksView />}
         {view === "metrics" && <MetricsView />}
       </div>

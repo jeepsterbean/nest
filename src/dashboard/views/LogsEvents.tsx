@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import type { Metric, Phase, Pulse } from "../../lib/types";
 import { NestIcon } from "../components/PulseIcon";
-import { phaseIconName, phaseName, phaseTone } from "../lib/journal";
+import { phaseIconName, phaseName, phaseTone } from "../lib/period";
 import { formatTime } from "../lib/time";
 import type { TimelineEvent } from "../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
-function JournalRow({
+function LogsRow({
   kind,
   at,
   children,
@@ -52,7 +52,7 @@ function MetricCheckInRow({
   const pulseLabel = pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
 
   return (
-    <JournalRow kind="metrics" at={event.at}>
+    <LogsRow kind="metrics" at={event.at}>
       <EventIcon name={pulse?.icon ?? "activity"} label={pulseLabel} />
       <ul className="event__ratings">
         {event.checkIn.ratings.map((rating) => {
@@ -84,7 +84,7 @@ function MetricCheckInRow({
       >
         ×
       </button>
-    </JournalRow>
+    </LogsRow>
   );
 }
 
@@ -98,14 +98,14 @@ function BrainDumpRow({
   onToggle: () => void;
 }) {
   return (
-    <JournalRow kind="dump" at={event.at}>
+    <LogsRow kind="dump" at={event.at}>
       <EventIcon name="notes" label="Brain dump" />
       <BrainDumpEntry
         dump={event.dump}
         expanded={expanded}
         onToggle={onToggle}
       />
-    </JournalRow>
+    </LogsRow>
   );
 }
 
@@ -122,16 +122,16 @@ function PhaseRow({
     event.checkIn.phaseLabel,
   );
   return (
-    <JournalRow kind="phase" at={event.at}>
+    <LogsRow kind="phase" at={event.at}>
       <EventIcon name={phaseIconName(name)} label={`${name} phase`} />
       <span className={`event__phase event__phase--${phaseTone(name)}`}>
         {name}
       </span>
-    </JournalRow>
+    </LogsRow>
   );
 }
 
-export function JournalEvents({
+export function LogsEvents({
   events,
   phases,
   metrics,

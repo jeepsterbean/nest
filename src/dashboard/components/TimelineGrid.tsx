@@ -8,7 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Phase } from "../../lib/types";
-import { phaseIconName, phaseName, phaseTone, taskHue } from "../lib/journal";
+import { phaseIconName, phaseName, phaseTone, taskHue } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import { formatHourTick, formatTime, fromDateAndTime, toDateInput, toTimeInput } from "../lib/time";
 import type { PhaseSession } from "../lib/timeline";

@@ -6,7 +6,7 @@ import type {
   InsightPulseGroup,
   InsightTaskRow as WorkedRow,
 } from "../lib/insights";
-import { taskHue } from "../lib/journal";
+import { taskHue } from "../lib/period";
 import { TASK_STATUS_LABEL } from "../lib/tasks";
 import { formatCompactDuration } from "../lib/time";
 import { NestIcon } from "./PulseIcon";

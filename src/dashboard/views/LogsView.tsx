@@ -10,15 +10,15 @@ import {
 } from "../lib/timeline";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { ViewToggle } from "../components/ViewToggle";
-import { JournalEvents } from "./JournalEvents";
+import { LogsEvents } from "./LogsEvents";
 
-const JOURNAL_VIEWS = [
+const LOGS_VIEWS = [
   { key: "raw", label: "Raw" },
   { key: "dumps", label: "Brain dumps" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
 ] as const;
-type JournalViewKey = (typeof JOURNAL_VIEWS)[number]["key"];
+type LogsViewKey = (typeof LOGS_VIEWS)[number]["key"];
 
 const PHASE_MODES = [
   { key: "raw", label: "Raw" },
@@ -27,7 +27,7 @@ const PHASE_MODES = [
 type PhaseModeKey = (typeof PHASE_MODES)[number]["key"];
 
 const EMPTY_COPY: Record<
-  JournalViewKey,
+  LogsViewKey,
   { title: string; body: string }
 > = {
   raw: {
@@ -70,7 +70,7 @@ function DayArticle({
       <header className="day-group__head">
         <h3 className="day-group__label">{day.label}</h3>
       </header>
-      <JournalEvents
+      <LogsEvents
         events={day.events}
         phases={phases}
         metrics={metrics}
@@ -87,8 +87,8 @@ function phaseEvents(checkIns: PhaseCheckIn[]): TimelineEvent[] {
   return buildTimeline([], checkIns, []);
 }
 
-function journalEvents(
-  view: JournalViewKey,
+function logsEvents(
+  view: LogsViewKey,
   phaseMode: PhaseModeKey,
   checkIns: Parameters<typeof buildTimeline>[0],
   phaseCheckIns: PhaseCheckIn[],
@@ -110,7 +110,7 @@ function journalEvents(
   }
 }
 
-export function JournalView() {
+export function LogsView() {
   const {
     metrics,
     pulses,
@@ -121,7 +121,7 @@ export function JournalView() {
     loaded,
     mutate,
   } = useDashboardData();
-  const [journalView, setJournalView] = useState<JournalViewKey>("raw");
+  const [logsView, setLogsView] = useState<LogsViewKey>("raw");
   const [phaseMode, setPhaseMode] = useState<PhaseModeKey>("aggregated");
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
@@ -130,15 +130,15 @@ export function JournalView() {
   const days = useMemo(
     () =>
       groupByDay(
-        journalEvents(
-          journalView,
+        logsEvents(
+          logsView,
           phaseMode,
           checkIns,
           phaseCheckIns,
           brainDumps,
         ),
       ),
-    [journalView, phaseMode, checkIns, phaseCheckIns, brainDumps],
+    [logsView, phaseMode, checkIns, phaseCheckIns, brainDumps],
   );
 
   const onDeleteCheckIn = (id: number) =>
@@ -153,18 +153,18 @@ export function JournalView() {
     });
   };
 
-  const empty = EMPTY_COPY[journalView];
+  const empty = EMPTY_COPY[logsView];
 
   return (
-    <section className="dash-section dash-section--journal">
-      <div className="journal-toolbar">
+    <section className="dash-section dash-section--logs">
+      <div className="dash-toolbar">
         <ViewToggle
-          value={journalView}
-          options={JOURNAL_VIEWS}
-          label="Journal view"
-          onChange={setJournalView}
+          value={logsView}
+          options={LOGS_VIEWS}
+          label="Logs view"
+          onChange={setLogsView}
         />
-        {journalView === "phases" ? (
+        {logsView === "phases" ? (
           <ViewToggle
             value={phaseMode}
             options={PHASE_MODES}

@@ -109,7 +109,7 @@ preserves calm, private, flow-friendly behavior.
   lib, components, hooks). Popup code lives under `src/popup/`.
   Overview is last-hour summary plus dump capture; Calendar is the Day/Week
   timetable; Insights is the ranged Phase mix, per-day Worked time grouped
-  by status as of that day's end, and Metric check-in scores; Journal
+  by status as of that day's end, and Metric check-in scores; Logs
   is filtered history.
 - Tasks UI layouts are Kanban and Table only. `taskGraph` /
   `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for

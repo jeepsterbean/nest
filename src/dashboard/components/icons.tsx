@@ -90,7 +90,7 @@ export const calendarIcon = (
   </svg>
 );
 
-export const journalIcon = (
+export const logsIcon = (
   <svg {...iconProps}>
     <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
     <path d="M8 4v16" />

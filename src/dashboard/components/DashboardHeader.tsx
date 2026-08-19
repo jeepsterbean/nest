@@ -7,14 +7,14 @@ import {
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
 import { formatCheckInCountdown, greetingForHour, CHECK_IN_INTERVALS, isCheckInDue } from "../lib/time";
-import { phaseIconName, phaseName } from "../lib/journal";
+import { phaseIconName, phaseName } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import {
   calendarIcon,
   chevronDownIcon,
   clockIcon,
   insightsIcon,
-  journalIcon,
+  logsIcon,
   metricsIcon,
   overviewIcon,
   tasksIcon,
@@ -24,7 +24,7 @@ export type DashboardView =
   | "overview"
   | "calendar"
   | "insights"
-  | "journal"
+  | "logs"
   | "tasks"
   | "metrics";
 
@@ -32,7 +32,7 @@ const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
   { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
-  { key: "journal", label: "Journal", icon: journalIcon },
+  { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
 ] as const;

@@ -87,7 +87,7 @@ export const fromDateAndTime = (date: string, time: string) => {
 export const formatHourTick = (ts: number) =>
   new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "numeric" });
 
-/** Whole minutes and hours for journal summaries. Sub-minute spans stay "<1m". */
+/** Whole minutes and hours for duration summaries. Sub-minute spans stay "<1m". */
 export const formatCompactDuration = (seconds: number) => {
   if (seconds <= 0) return "0m";
   if (seconds < 60) return "<1m";

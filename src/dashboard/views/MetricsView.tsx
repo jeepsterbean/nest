@@ -178,7 +178,7 @@ export function MetricsView() {
 
   const onDeletePulse = () => {
     if (!selectedPulse) return;
-    if (!window.confirm(`Delete “${selectedPulse.name}”? Its past Metric check-ins will stay in the journal.`)) {
+    if (!window.confirm(`Delete “${selectedPulse.name}”? Its past Metric check-ins will stay in Logs.`)) {
       return;
     }
     void mutate(() => deletePulse(selectedPulse.id));

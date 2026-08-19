@@ -72,7 +72,7 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
 0, not as missing. The right Overview panel is a brain dump composer that
 matches the check-in popup (shared draft, Cmd/Ctrl+Enter to save). Dump
-history lives in Journal. Insights is the longer look: a Phase mix for the
+history lives in Logs. Insights is the longer look: a Phase mix for the
 range, Tasks with Worked time that day grouped by status as of that day's end
 (Active, Up next, Backlog, Completed, Cancelled), plus Completions and
 Cancellations with no Working now that day (0 Worked time). Metric check-ins
@@ -98,16 +98,7 @@ that bound. Calendar drag snaps to fifteen minutes and will not shrink a stretch
 below fifteen minutes unless now is closer (a stretch cannot end in the future).
 That floor is only for dragging on the grid; a recorded stretch may already be
 shorter. An open stretch's live end stays
-pinned to now. Journal is history only: Raw (every Metric check-in,
-brain dump, and Phase checkpoint), Brain dumps, Phases, and Metrics. Phases
-has Raw and Aggregated modes — Aggregated applies the 60-second settle
-collapse (a burst lands on the Phase it settled on; if that equals the Phase
-before the burst, it is omitted). Journal does not show the day strip or
-outcome stats. Events are grouped by day. Time sits to the left of the
-timeline rail for every row. Metric check-ins show the Pulse icon and Metric
-scores on one row. Brain dumps match that row height until expanded. Pulse,
-Metric, and brain dump icons stand in for names. The Journal heading is
-omitted; the view filters are the only chrome.
+pinned to now.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -126,9 +117,23 @@ _Avoid_: Pulse check-in
 
 **Brain dump**:
 An unstructured captured thought stored on its own. Overview and the check-in
-popup capture text only (shared draft, Cmd/Ctrl+Enter). Journal can still
+popup capture text only (shared draft, Cmd/Ctrl+Enter). Logs can still
 attach an optional title to a saved dump.
 _Avoid_: note, journal entry
+
+**Logs**:
+The history screen. Not a stored record: Metric check-ins, brain dumps, and
+Phase checkpoints each stand on their own. Raw shows every one of those;
+Brain dumps, Phases, and Metrics filter to one kind. Phases has Raw and
+Aggregated modes — Aggregated applies the 60-second settle collapse (a burst
+lands on the Phase it settled on; if that equals the Phase before the burst,
+it is omitted). Logs does not show the day strip or outcome stats. Events
+are grouped by day. Time sits to the left of the timeline rail for every
+row. Metric check-ins show the Pulse icon and Metric scores on one row.
+Brain dumps match that row height until expanded. Pulse, Metric, and brain
+dump icons stand in for names. The Logs heading is omitted; the view
+filters are the only chrome.
+_Avoid_: Journal
 
 ## Relationships
 
@@ -143,6 +148,7 @@ _Avoid_: note, journal entry
 - A **Metric check-in** records ratings for the Metrics in one Pulse
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
+- **Logs** shows Metric check-ins, brain dumps, and Phase checkpoints; it does not contain them
 - **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, and whether the Mac is locked or asleep
 
 ## Example dialogue
@@ -164,6 +170,7 @@ _Avoid_: note, journal entry
 - "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
+- "journal" was the history screen — resolved: that screen is **Logs**. A brain dump is not a journal entry.
 
 ## Check-in cadence
 
