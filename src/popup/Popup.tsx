@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { closePopup, logClientEvent } from "../lib/commands";
 import { subscribeTauriEvent } from "../lib/tauriListen";
 import PopupContent from "./PopupContent";
+import { startPopupWindowDrag } from "./windowDrag";
 import "./Popup.css";
 
 export async function resolvePopupOnce(
@@ -73,6 +74,17 @@ function Popup() {
 
   return (
     <div className="popup">
+      <button
+        type="button"
+        className="popup__drag"
+        aria-label="Move window"
+        title="Drag to move"
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          startPopupWindowDrag();
+        }}
+      />
       <div className="popup__body" key={summonKey}>
         <PopupContent onDismiss={dismiss} onComplete={complete} />
       </div>

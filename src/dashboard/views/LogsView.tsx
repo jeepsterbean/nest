@@ -9,32 +9,34 @@ import {
   type DayGroup,
   type TimelineEvent,
 } from "../lib/timeline";
+import {
+  LOG_EVENT_BATCH_SIZE,
+  LOG_LAYOUTS,
+  PHASE_LOG_MODES,
+  RAW_LOG_FILTERS,
+  readLogsPreferences,
+  writeLogsPreferences,
+  type LogsPreferences,
+  type PhaseLogModeKey,
+  type RawLogFilterKey,
+} from "../lib/logs";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
 import { LogsRawTable } from "./LogsRawTable";
-
-const LOGS_VIEWS = [
-  { key: "raw", label: "Raw" },
-  { key: "dumps", label: "Brain dumps" },
-  { key: "phases", label: "Phases" },
-  { key: "metrics", label: "Metrics" },
-] as const;
-type LogsViewKey = (typeof LOGS_VIEWS)[number]["key"];
-
-const PHASE_MODES = [
-  { key: "raw", label: "Raw" },
-  { key: "aggregated", label: "Aggregated" },
-] as const;
-type PhaseModeKey = (typeof PHASE_MODES)[number]["key"];
+import { LogsTimeline } from "./LogsTimeline";
 
 const EMPTY_COPY: Record<
-  LogsViewKey,
+  RawLogFilterKey | "timeline",
   { title: string; body: string }
 > = {
-  raw: {
+  all: {
     title: "Nothing here yet",
     body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
+  },
+  timeline: {
+    title: "Nothing on the timeline yet",
+    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -90,8 +92,8 @@ function phaseEvents(checkIns: PhaseCheckIn[]): TimelineEvent[] {
 }
 
 function filteredEvents(
-  view: Exclude<LogsViewKey, "raw">,
-  phaseMode: PhaseModeKey,
+  view: Exclude<RawLogFilterKey, "all">,
+  phaseMode: PhaseLogModeKey,
   checkIns: Parameters<typeof buildTimeline>[0],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: Parameters<typeof buildTimeline>[2],
@@ -123,32 +125,62 @@ export function LogsView() {
     loaded,
     mutate,
   } = useDashboardData();
-  const [logsView, setLogsView] = useState<LogsViewKey>("raw");
-  const [phaseMode, setPhaseMode] = useState<PhaseModeKey>("aggregated");
+  const [preferences, setPreferences] = useState(readLogsPreferences);
+  const [visibleEventCount, setVisibleEventCount] = useState(
+    LOG_EVENT_BATCH_SIZE,
+  );
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
+  const { layout: logsLayout, rawFilter, phaseMode } = preferences;
 
   const rawEvents = useMemo(
     () => buildRawLog(checkIns, phaseCheckIns, brainDumps, taskWorkStretches),
     [checkIns, phaseCheckIns, brainDumps, taskWorkStretches],
   );
 
-  const days = useMemo(
-    () =>
-      logsView === "raw"
-        ? []
-        : groupByDay(
-            filteredEvents(
-              logsView,
-              phaseMode,
-              checkIns,
-              phaseCheckIns,
-              brainDumps,
-            ),
-          ),
-    [logsView, phaseMode, checkIns, phaseCheckIns, brainDumps],
+  const timelineEvents = useMemo(
+    () => rawEvents.filter((event) => event.kind !== "phase"),
+    [rawEvents],
   );
+
+  const filteredRawEvents = useMemo(
+    () =>
+      rawFilter === "all"
+        ? []
+        : filteredEvents(
+            rawFilter,
+            phaseMode,
+            checkIns,
+            phaseCheckIns,
+            brainDumps,
+          ),
+    [rawFilter, phaseMode, checkIns, phaseCheckIns, brainDumps],
+  );
+
+  const visibleRawEvents = useMemo(
+    () => rawEvents.slice(0, visibleEventCount),
+    [rawEvents, visibleEventCount],
+  );
+  const visibleTimelineEvents = useMemo(
+    () => timelineEvents.slice(0, visibleEventCount),
+    [timelineEvents, visibleEventCount],
+  );
+  const visibleFilteredEvents = useMemo(
+    () => filteredRawEvents.slice(0, visibleEventCount),
+    [filteredRawEvents, visibleEventCount],
+  );
+  const days = useMemo(
+    () => groupByDay(visibleFilteredEvents),
+    [visibleFilteredEvents],
+  );
+
+  const updatePreferences = (changes: Partial<LogsPreferences>) => {
+    const next = { ...preferences, ...changes };
+    writeLogsPreferences(next);
+    setPreferences(next);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+  };
 
   const onDeleteCheckIn = (id: number) =>
     void mutate(() => deleteMetricCheckIn(id));
@@ -162,37 +194,69 @@ export function LogsView() {
     });
   };
 
-  const empty = EMPTY_COPY[logsView];
-  const rawEmpty = logsView === "raw" && rawEvents.length === 0;
-  const filteredEmpty = logsView !== "raw" && days.length === 0;
+  const empty = EMPTY_COPY[logsLayout === "timeline" ? "timeline" : rawFilter];
+  const eventCount =
+    logsLayout === "timeline"
+      ? timelineEvents.length
+      : rawFilter === "all"
+        ? rawEvents.length
+        : filteredRawEvents.length;
+  const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
+  const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
 
   return (
     <section className="dash-section dash-section--logs">
       <div className="dash-toolbar">
         <ViewToggle
-          value={logsView}
-          options={LOGS_VIEWS}
-          label="Logs view"
-          onChange={setLogsView}
+          value={logsLayout}
+          options={LOG_LAYOUTS}
+          label="Logs layout"
+          onChange={(layout) => updatePreferences({ layout })}
         />
-        {logsView === "phases" ? (
-          <ViewToggle
-            value={phaseMode}
-            options={PHASE_MODES}
-            label="Phase history mode"
-            onChange={setPhaseMode}
-          />
-        ) : null}
       </div>
       <div className="dash-section__body">
-        {!loaded ? null : rawEmpty || filteredEmpty ? (
+        {logsLayout === "raw" ? (
+          <div className="logs-raw-controls">
+            <ViewToggle
+              value={rawFilter}
+              options={RAW_LOG_FILTERS}
+              label="Raw log filter"
+              onChange={(nextRawFilter) =>
+                updatePreferences({ rawFilter: nextRawFilter })
+              }
+            />
+            {rawFilter === "phases" ? (
+              <ViewToggle
+                value={phaseMode}
+                options={PHASE_LOG_MODES}
+                label="Phase history mode"
+                onChange={(nextPhaseMode) =>
+                  updatePreferences({ phaseMode: nextPhaseMode })
+                }
+              />
+            ) : null}
+          </div>
+        ) : null}
+        {!loaded ? null : eventCount === 0 ? (
           <div className="dash-empty">
             <strong>{empty.title}</strong>
             <span>{empty.body}</span>
           </div>
-        ) : logsView === "raw" ? (
+        ) : logsLayout === "timeline" ? (
+          <LogsTimeline
+            events={visibleTimelineEvents}
+            phaseCheckIns={phaseCheckIns}
+            phases={phases}
+            metrics={metrics}
+            pulses={pulses}
+            tasks={tasks}
+            expandedDumpIds={expandedDumpIds}
+            onDeleteCheckIn={onDeleteCheckIn}
+            onToggleDump={toggleDumpExpanded}
+          />
+        ) : rawFilter === "all" ? (
           <LogsRawTable
-            events={rawEvents}
+            events={visibleRawEvents}
             phases={phases}
             metrics={metrics}
             pulses={pulses}
@@ -215,6 +279,22 @@ export function LogsView() {
             />
           ))
         )}
+        {loaded && remainingEventCount > 0 ? (
+          <div className="logs-load-older">
+            <button
+              type="button"
+              className="btn-accent"
+              onClick={() =>
+                setVisibleEventCount((count) => count + LOG_EVENT_BATCH_SIZE)
+              }
+            >
+              Load {nextBatchSize} older
+            </button>
+            <span>
+              Showing {Math.min(visibleEventCount, eventCount)} of {eventCount}
+            </span>
+          </div>
+        ) : null}
       </div>
     </section>
   );

@@ -43,9 +43,11 @@ private, journal-like. Preserve light and dark system themes.
 - Interactive controls need accessible names and visible focus states.
 - Compact targets are fine when clearly labeled; don't crowd the workspace
   with decorative chrome.
-- Logs is filtered history: Raw / Brain dumps / Phases / Metrics.
-  Phases adds a Raw | Aggregated sub-toggle (60s settle collapse). No heading,
-  day strip, or outcome stats — the view filters are the only chrome.
+- Logs has Raw and Timeline layouts. Raw contains All / Brain dumps / Phases /
+  Metrics filters; Phases adds a Raw | Aggregated sub-toggle (60s settle
+  collapse). Timeline pairs the active Phase rail with Metric, brain dump, and
+  Working now events. No heading, day strip, or outcome stats — the view
+  filters are the only chrome.
 - Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
   size. No per-section size overrides; don't reinvent it per view.
 - Tasks defaults to Table (`.task-table`). A status `ViewToggle` filters Table

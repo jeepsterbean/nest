@@ -279,3 +279,8 @@ export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
 export function logClientEvent(message: string): Promise<void> {
   return invoke("log_client_event", { message });
 }
+
+/** Marks that the user started dragging the popup (persist origin on hide). */
+export function notePopupDrag(): Promise<void> {
+  return invoke("note_popup_drag");
+}

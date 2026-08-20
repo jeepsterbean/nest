@@ -5,6 +5,8 @@ import {
   buildTimeline,
   collapsePhaseCheckIns,
   groupByDay,
+  mergePhaseCheckInsIntoEvents,
+  phaseCheckInAt,
   phaseSessions,
   phaseSessionsInWindow,
   phaseSessionTotals,
@@ -137,6 +139,28 @@ describe("groupByDay", () => {
   });
 });
 
+describe("mergePhaseCheckInsIntoEvents", () => {
+  it("pairs newest-first events with the Phase active at each event", () => {
+    const events = buildTimeline(
+      [],
+      [],
+      [dump(1, 210), dump(2, 100), dump(3, 40)],
+    );
+    const paired = mergePhaseCheckInsIntoEvents(events, [
+      phaseCheckIn(2, 150, SCOPING),
+      phaseCheckIn(1, 50, RESTING),
+      phaseCheckIn(4, 200, DOING),
+      phaseCheckIn(3, 200, SCOPING),
+    ]);
+
+    expect(paired.map(({ phaseCheckIn }) => phaseCheckIn?.id ?? null)).toEqual([
+      4,
+      1,
+      null,
+    ]);
+  });
+});
+
 describe("buildMetricSeries", () => {
   it("groups values per metric in chronological order with multi-rating fan-out", () => {
     const series = buildMetricSeries([
@@ -194,6 +218,19 @@ describe("collapsePhaseCheckIns", () => {
 });
 
 describe("phaseSessions", () => {
+  it("finds the latest checkpoint at an event time", () => {
+    expect(
+      phaseCheckInAt(
+        [
+          phaseCheckIn(1, 50, RESTING),
+          phaseCheckIn(2, 100, SCOPING),
+          phaseCheckIn(3, 100, DOING),
+        ],
+        100,
+      )?.id,
+    ).toBe(3);
+  });
+
   it("clips stretches to the range and carries the phase already active", () => {
     expect(
       phaseSessions(

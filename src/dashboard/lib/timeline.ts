@@ -17,8 +17,13 @@ export type WorkLogEvent =
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
 export type RawLogEvent = TimelineEvent | WorkLogEvent;
+export type TimelineLogEvent = Exclude<RawLogEvent, { kind: "phase" }>;
 
-export type DayGroup = { key: number; label: string; events: TimelineEvent[] };
+export type DayGroup<T extends { at: number } = TimelineEvent> = {
+  key: number;
+  label: string;
+  events: T[];
+};
 
 export type PhaseSession = {
   phaseId: number | null;
@@ -96,11 +101,11 @@ export const buildRawLog = (
 };
 
 // Collapse a newest-first timeline into per-day groups (preserving order).
-export const groupByDay = (
-  events: TimelineEvent[],
+export const groupByDay = <T extends { at: number }>(
+  events: T[],
   nowMs: number = Date.now(),
-): DayGroup[] => {
-  const groups: DayGroup[] = [];
+): DayGroup<T>[] => {
+  const groups: DayGroup<T>[] = [];
   for (const ev of events) {
     const key = startOfDayMs(ev.at);
     const last = groups[groups.length - 1];
@@ -113,8 +118,11 @@ export const groupByDay = (
 const byTimeThenId = (a: PhaseCheckIn, b: PhaseCheckIn) =>
   a.createdAt - b.createdAt || a.id - b.id;
 
-/** Phase in effect at `at` (latest checkpoint at or before that instant). */
-function phaseAt(checkIns: PhaseCheckIn[], at: number): number | null {
+/** Phase checkpoint in effect at `at`, breaking same-second ties by id. */
+export function phaseCheckInAt(
+  checkIns: PhaseCheckIn[],
+  at: number,
+): PhaseCheckIn | null {
   let result: PhaseCheckIn | null = null;
   for (const checkIn of checkIns) {
     if (
@@ -126,8 +134,38 @@ function phaseAt(checkIns: PhaseCheckIn[], at: number): number | null {
       result = checkIn;
     }
   }
-  return result?.phaseId ?? null;
+  return result;
 }
+
+export type EventWithPhaseCheckIn<T extends { at: number }> = {
+  at: number;
+  event: T;
+  phaseCheckIn: PhaseCheckIn | null;
+};
+
+/** Pair newest-first events with their active Phase in one pass. */
+export function mergePhaseCheckInsIntoEvents<T extends { at: number }>(
+  events: T[],
+  checkIns: PhaseCheckIn[],
+): EventWithPhaseCheckIn<T>[] {
+  const newestCheckIns = [...checkIns].sort(
+    (a, b) => b.createdAt - a.createdAt || b.id - a.id,
+  );
+  let checkInIndex = 0;
+  return events.map((event) => {
+    while (newestCheckIns[checkInIndex]?.createdAt > event.at) {
+      checkInIndex += 1;
+    }
+    return {
+      at: event.at,
+      event,
+      phaseCheckIn: newestCheckIns[checkInIndex] ?? null,
+    };
+  });
+}
+
+const phaseAt = (checkIns: PhaseCheckIn[], at: number) =>
+  phaseCheckInAt(checkIns, at)?.phaseId ?? null;
 
 // Drop attention flickers: a burst of checkpoints within settleSeconds collapses
 // to the phase it landed on. If that equals the phase before the burst, omit it.

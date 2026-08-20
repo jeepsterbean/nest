@@ -1,9 +1,15 @@
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/popup/windowDrag", () => ({
+  startPopupWindowDrag: vi.fn(),
+}));
+
 import {
   firstScorablePulse,
   holdMetricDue,
+  isPopupWindowDragTarget,
   nextMetricIndex,
   PopupTopPanel,
   taskListOwnsWheel,
@@ -54,6 +60,23 @@ describe("PopupTopPanel", () => {
 
     expect(html).toContain("combined-timer__sweep");
     expect(html).toContain("7:30");
+  });
+});
+
+describe("isPopupWindowDragTarget", () => {
+  it("allows empty chrome and rejects controls", () => {
+    expect(isPopupWindowDragTarget(null)).toBe(false);
+    expect(
+      isPopupWindowDragTarget({
+        closest: () => null,
+      } as unknown as EventTarget),
+    ).toBe(true);
+    expect(
+      isPopupWindowDragTarget({
+        closest: (selector: string) =>
+          selector.includes("button") ? {} : null,
+      } as unknown as EventTarget),
+    ).toBe(false);
   });
 });
 

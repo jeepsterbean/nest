@@ -6,7 +6,7 @@ import { formatDateTime } from "../lib/time";
 import type { RawLogEvent } from "../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 
-const TYPE_LABEL: Record<RawLogEvent["kind"], string> = {
+export const LOG_TYPE_LABEL: Record<RawLogEvent["kind"], string> = {
   metrics: "Metric",
   dump: "Brain dump",
   phase: "Phase",
@@ -81,7 +81,7 @@ function MetricDetail({
   );
 }
 
-function DetailCell({
+export function LogEventDetail({
   event,
   phases,
   metrics,
@@ -194,10 +194,10 @@ export function LogsRawTable({
                   </time>
                 </td>
                 <td className="logs-table__col logs-table__col--type">
-                  {TYPE_LABEL[event.kind]}
+                  {LOG_TYPE_LABEL[event.kind]}
                 </td>
                 <td className="logs-table__col logs-table__col--detail">
-                  <DetailCell
+                  <LogEventDetail
                     event={event}
                     phases={phases}
                     metrics={metrics}

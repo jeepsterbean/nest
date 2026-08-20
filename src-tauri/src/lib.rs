@@ -6,6 +6,7 @@ mod error;
 mod migrations;
 mod models;
 mod phase;
+mod popup_placement;
 mod task_graph;
 mod time;
 
@@ -126,6 +127,11 @@ fn install_diagnostic_logging(app_data_dir: PathBuf) {
 #[tauri::command]
 fn log_client_event(message: String) {
     append_diagnostic_log(format!("client {message}"));
+}
+
+#[tauri::command]
+fn note_popup_drag() {
+    popup_placement::mark_user_drag();
 }
 
 #[tauri::command]
@@ -713,6 +719,29 @@ fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
     summon_popup(app, label);
 }
 
+/// Place the popup: last user-dragged origin if still on a screen, else center
+/// on the screen under the mouse pointer.
+#[cfg(target_os = "macos")]
+fn place_popup(window: &tauri::WebviewWindow) {
+    if restore_saved_popup_origin(window) {
+        return;
+    }
+    center_on_cursor_screen(window);
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+unsafe fn for_each_ns_screen(mut body: impl FnMut(cocoa::base::id)) {
+    use cocoa::appkit::NSScreen;
+    use cocoa::base::{id, nil};
+    use cocoa::foundation::NSArray;
+
+    let screens: id = NSScreen::screens(nil);
+    for i in 0..NSArray::count(screens) {
+        body(NSArray::objectAtIndex(screens, i));
+    }
+}
+
 /// Center the popup on the screen the mouse pointer is on. Uses macOS's own
 /// screen coordinates so the pointer and the screens are measured with the
 /// same "ruler" — Tauri's cross-platform cursor/monitor values disagree on
@@ -723,7 +752,7 @@ fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
 fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
     use cocoa::appkit::{NSEvent, NSScreen, NSWindow};
     use cocoa::base::{id, nil};
-    use cocoa::foundation::{NSArray, NSPoint, NSRect};
+    use cocoa::foundation::{NSPoint, NSRect};
 
     let Ok(ns_window_ptr) = window.ns_window() else {
         append_diagnostic_log("popup_center_failed reason=missing_ns_window");
@@ -736,10 +765,11 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
 
         // Screen whose frame contains the pointer; fall back to the screen the
         // window is currently on.
-        let screens: id = NSScreen::screens(nil);
         let mut target: id = nil;
-        for i in 0..NSArray::count(screens) {
-            let screen: id = NSArray::objectAtIndex(screens, i);
+        for_each_ns_screen(|screen| {
+            if target != nil {
+                return;
+            }
             let f: NSRect = NSScreen::frame(screen);
             let inside = mouse.x >= f.origin.x
                 && mouse.x <= f.origin.x + f.size.width
@@ -747,9 +777,8 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
                 && mouse.y <= f.origin.y + f.size.height;
             if inside {
                 target = screen;
-                break;
             }
-        }
+        });
         if target == nil {
             target = NSWindow::screen(ns_window);
         }
@@ -772,12 +801,85 @@ fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn restore_saved_popup_origin(window: &tauri::WebviewWindow) -> bool {
+    use cocoa::appkit::{NSScreen, NSWindow};
+    use cocoa::base::id;
+    use cocoa::foundation::{NSPoint, NSRect};
+
+    let Some(origin) = popup_placement::load() else {
+        return false;
+    };
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        return false;
+    };
+    let ns_window = ns_window_ptr as id;
+
+    unsafe {
+        let win: NSRect = NSWindow::frame(ns_window);
+        let mut frames = Vec::new();
+        for_each_ns_screen(|screen| {
+            let f: NSRect = NSScreen::visibleFrame(screen);
+            frames.push((f.origin.x, f.origin.y, f.size.width, f.size.height));
+        });
+        if !popup_placement::origin_is_usable(
+            origin,
+            win.size.width,
+            win.size.height,
+            &frames,
+        ) {
+            append_diagnostic_log(format!(
+                "popup_restore_skipped origin=({:.0},{:.0}) reason=off_screen",
+                origin.x, origin.y
+            ));
+            return false;
+        }
+        append_diagnostic_log(format!(
+            "popup_restore origin=({:.0},{:.0})",
+            origin.x, origin.y
+        ));
+        NSWindow::setFrameOrigin_(ns_window, NSPoint::new(origin.x, origin.y));
+        true
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn persist_popup_origin_if_user_dragged(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::NSWindow;
+    use cocoa::base::id;
+
+    if !popup_placement::user_dragged() {
+        return;
+    }
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        popup_placement::clear_user_drag();
+        return;
+    };
+    let ns_window = ns_window_ptr as id;
+    unsafe {
+        let frame = NSWindow::frame(ns_window);
+        let origin = popup_placement::Origin {
+            x: frame.origin.x,
+            y: frame.origin.y,
+        };
+        popup_placement::save(origin);
+        append_diagnostic_log(format!(
+            "popup_origin_saved origin=({:.0},{:.0})",
+            origin.x, origin.y
+        ));
+    }
+    popup_placement::clear_user_drag();
+}
+
 /// Show the Popup window. On macOS the popups are NSPanels, shown via the
 /// panel API so they become key (accept typing) without activating the app or
 /// leaving a full-screen Space. Elsewhere they're ordinary windows.
 #[cfg(target_os = "macos")]
 fn summon_popup(app: &tauri::AppHandle, label: &str) {
     append_diagnostic_log(format!("popup_summon_macos label={label}"));
+    popup_placement::clear_user_drag();
     let panel = match app.get_webview_panel(label) {
         Ok(panel) => panel,
         Err(e) => {
@@ -794,7 +896,7 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     // Reposition before showing so it appears on the active screen without a
     // visible jump.
     match app.get_webview_window(label) {
-        Some(window) => center_on_cursor_screen(&window),
+        Some(window) => place_popup(&window),
         None => {
             append_diagnostic_log(format!("popup_center_missing_window label={label}"));
             eprintln!("nest[popup-pos]: get_webview_window('{label}') is None — cannot reposition")
@@ -811,6 +913,11 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
 
 #[cfg(target_os = "macos")]
 fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
+    if let Some(window) = app.get_webview_window("popup") {
+        persist_popup_origin_if_user_dragged(&window);
+    } else {
+        popup_placement::clear_user_drag();
+    }
     match app.get_webview_panel("popup") {
         Ok(panel) if panel.is_visible() => {
             append_diagnostic_log(format!("popup_hide_native reason={reason}"));
@@ -826,9 +933,21 @@ fn hide_popup(app: &tauri::AppHandle, reason: &str) {
     hide_popup_panel(app, reason);
 
     #[cfg(not(target_os = "macos"))]
-    if let Some(window) = app.get_webview_window("popup") {
-        let _ = window.hide();
+    {
+        popup_placement::clear_user_drag();
+        if let Some(window) = app.get_webview_window("popup") {
+            let _ = window.hide();
+        }
+        let _ = reason;
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn summon_popup(app: &tauri::AppHandle, label: &str) {
+    append_diagnostic_log(format!("popup_summon_window label={label}"));
+    popup_placement::clear_user_drag();
+    show_window(app, label);
+    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
 fn resolve_and_hide_popup(
@@ -954,13 +1073,6 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-fn summon_popup(app: &tauri::AppHandle, label: &str) {
-    append_diagnostic_log(format!("popup_summon_window label={label}"));
-    show_window(app, label);
-    phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let summon_shortcut = Shortcut::new(Some(HOTKEY_MODIFIERS), Code::KeyE);
@@ -991,6 +1103,7 @@ pub fn run() {
             // Database
             let app_data = app.path().app_data_dir()?;
             install_diagnostic_logging(app_data.clone());
+            popup_placement::install(app_data.clone());
             let db_path = app_data.join("nest.db");
             let conn = db::open(&db_path)?;
             // Before anything reads stretches — the first Phase sync below
@@ -1206,6 +1319,7 @@ pub fn run() {
             close_popup,
             show_dashboard,
             log_client_event,
+            note_popup_drag,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -1217,6 +1331,11 @@ pub fn run() {
 }
 
 fn finalize_on_exit(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    if let Some(window) = app.get_webview_window("popup") {
+        persist_popup_origin_if_user_dragged(&window);
+    }
+
     // Bank first. Quitting is not working, so an open stretch has to end here
     // or the time until the next launch banks itself as work — and the final
     // Phase below has to be derived from a Nest with nothing Working now.

@@ -145,16 +145,16 @@ _Avoid_: note, journal entry
 
 **Logs**:
 The history screen. Not a stored record: Metric check-ins, brain dumps, and
-Phase checkpoints each stand on their own. Raw shows every one of those;
-Brain dumps, Phases, and Metrics filter to one kind. Phases has Raw and
+Phase checkpoints each stand on their own. Raw shows the full table and holds
+the All, Brain dumps, Phases, and Metrics filters. Phases has Raw and
 Aggregated modes — Aggregated applies the 60-second settle collapse (a burst
 lands on the Phase it settled on; if that equals the Phase before the burst,
-it is omitted). Logs does not show the day strip or outcome stats. Events
-are grouped by day. Time sits to the left of the timeline rail for every
-row. Metric check-ins show the Pulse icon and Metric scores on one row.
-Brain dumps match that row height until expanded. Pulse, Metric, and brain
-dump icons stand in for names. The Logs heading is omitted; the view
-filters are the only chrome.
+it is omitted). Timeline places the Phase active at each event on a left rail
+and Metric check-ins, brain dumps, and Working now starts/stops on the right.
+Logs does not show the day strip or outcome stats. Events are grouped by day.
+Metric check-ins show the Pulse icon and Metric scores on one row. Brain dumps
+match that row height until expanded. Pulse, Metric, and brain dump icons stand
+in for names. The Logs heading is omitted; the view filters are the only chrome.
 _Avoid_: Journal
 
 ## Relationships

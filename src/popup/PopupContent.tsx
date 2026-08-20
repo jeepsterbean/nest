@@ -49,6 +49,7 @@ import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import { resolveMetricColorFromList } from "../lib/metricColors";
+import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 
 // Drop targets for a lane with no tasks in it. Negative so they can never
@@ -166,6 +167,19 @@ function ExpandIcon() {
   );
 }
 
+/** Empty timer chrome may move the window; controls inside it must not. */
+export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
+  if (
+    target == null ||
+    typeof (target as { closest?: unknown }).closest !== "function"
+  ) {
+    return false;
+  }
+  return !(target as Element).closest(
+    "button, [role='listbox'], a, input, textarea",
+  );
+}
+
 export function PopupTopPanel({
   timerDue,
   countdown,
@@ -189,7 +203,15 @@ export function PopupTopPanel({
   onOpenDashboard: () => void;
 }) {
   return (
-    <header className="combined-timer">
+    <header
+      className="combined-timer"
+      onPointerDown={(event) => {
+        if (event.button !== 0 || !isPopupWindowDragTarget(event.target)) {
+          return;
+        }
+        startPopupWindowDrag();
+      }}
+    >
       <div
         className="combined-timer__main"
         onBlur={(event) => {
@@ -1052,44 +1074,58 @@ function PopupContent({
             }
           }}
         >
-          {visiblePulses.length > 0 && (
-            <div className="popup-pulse-toggle" role="group" aria-label="Pulses">
-              {visiblePulses.map((pulse) => (
-                <button
-                  key={pulse.id}
-                  type="button"
-                  aria-label={pulse.name}
-                  title={pulse.name}
-                  aria-pressed={pulse.id === selectedPulseId}
-                  disabled={submitting || pulse.metricIds.length === 0}
-                  onFocus={() => {
-                    if (pulse.id === selectedPulseId) return;
-                    setSelectedPulseId(pulse.id);
-                    setMetricIndex(0);
-                  }}
-                  onClick={() => {
-                    setSelectedPulseId(pulse.id);
-                    setMetricIndex(0);
-                  }}
-                >
-                  <NestIcon name={pulse.icon} />
-                </button>
-              ))}
-            </div>
-          )}
-          {activeMetric ? (
-            <div
-              className="metric-step"
-              key={`${selectedPulseId}:${activeMetric.id}`}
-              aria-live="polite"
-            >
-              <div className="metric-step__title">
+          <div className="pulse-panel__header">
+            {activeMetric && (
+              <div
+                className="metric-step__title"
+                key={`${selectedPulseId}:${activeMetric.id}`}
+                aria-live="polite"
+              >
                 <NestIcon
                   name={activeMetric.icon}
-                  color={resolveMetricColorFromList(loaded?.metrics ?? [], activeMetric.id)}
+                  color={resolveMetricColorFromList(
+                    loaded?.metrics ?? [],
+                    activeMetric.id,
+                  )}
                 />
                 <h2>{activeMetric.name}</h2>
               </div>
+            )}
+            {visiblePulses.length > 0 && (
+              <div
+                className="popup-pulse-toggle"
+                role="group"
+                aria-label="Pulses"
+              >
+                {visiblePulses.map((pulse) => (
+                  <button
+                    key={pulse.id}
+                    type="button"
+                    aria-label={pulse.name}
+                    title={pulse.name}
+                    aria-pressed={pulse.id === selectedPulseId}
+                    disabled={submitting || pulse.metricIds.length === 0}
+                    onFocus={() => {
+                      if (pulse.id === selectedPulseId) return;
+                      setSelectedPulseId(pulse.id);
+                      setMetricIndex(0);
+                    }}
+                    onClick={() => {
+                      setSelectedPulseId(pulse.id);
+                      setMetricIndex(0);
+                    }}
+                  >
+                    <NestIcon name={pulse.icon} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {activeMetric ? (
+            <div
+              className="metric-step"
+              key={`${selectedPulseId}:${activeMetric.id}:ratings`}
+            >
               <div
                 className="metric-row__buttons"
                 role="group"
