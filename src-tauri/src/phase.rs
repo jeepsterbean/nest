@@ -11,6 +11,7 @@ pub const PHASE_SCOPING: &str = "Scoping";
 pub const PHASE_RESTING: &str = "Resting";
 pub const PHASE_OFFLINE: &str = "Offline";
 const NOTION_BUNDLE_ID: &str = "notion.id";
+const NOTION_CALENDAR_BUNDLE_ID: &str = "com.cron.electron";
 const NEST_BUNDLE_ID: &str = "com.huwenjie.nest";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -104,14 +105,14 @@ pub fn sync_derived_phase(
 }
 
 pub fn notion_is_frontmost() -> bool {
-    macos_frontmost_bundle_is(NOTION_BUNDLE_ID)
+    macos_frontmost_bundle_is_any(&[NOTION_BUNDLE_ID, NOTION_CALENDAR_BUNDLE_ID])
 }
 
 pub fn nest_is_frontmost() -> bool {
     macos_frontmost_bundle_is(NEST_BUNDLE_ID)
 }
 
-fn macos_frontmost_bundle_is(bundle_id: &str) -> bool {
+fn macos_frontmost_bundle_is_any(bundle_ids: &[&str]) -> bool {
     #[cfg(target_os = "macos")]
     {
         use objc2_app_kit::NSWorkspace;
@@ -119,13 +120,20 @@ fn macos_frontmost_bundle_is(bundle_id: &str) -> bool {
         NSWorkspace::sharedWorkspace()
             .frontmostApplication()
             .and_then(|app| app.bundleIdentifier())
-            .is_some_and(|bundle| bundle.to_string() == bundle_id)
+            .is_some_and(|bundle| {
+                let bundle = bundle.to_string();
+                bundle_ids.iter().any(|id| bundle == *id)
+            })
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = bundle_id;
+        let _ = bundle_ids;
         false
     }
+}
+
+fn macos_frontmost_bundle_is(bundle_id: &str) -> bool {
+    macos_frontmost_bundle_is_any(&[bundle_id])
 }
 
 fn fetch_active_phase_id(conn: &Connection, name: &str) -> Result<i64> {
