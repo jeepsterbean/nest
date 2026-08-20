@@ -21,13 +21,15 @@ pub struct PhaseSignals {
     pub system_offline: bool,
 }
 
-/// Priority: Working now, then lock/sleep, then Nest/Notion engagement, then Resting.
+/// Priority: Working now, lock/sleep, input idle, Nest/Notion engagement, Resting.
 /// Lock/sleep clears Working now before this runs, so Offline cannot lose to Doing.
-pub fn derived_phase(working: bool, signals: PhaseSignals) -> &'static str {
+pub fn derived_phase(working: bool, signals: PhaseSignals, activity_idle: bool) -> &'static str {
     if working {
         PHASE_DOING
     } else if signals.system_offline {
         PHASE_OFFLINE
+    } else if activity_idle {
+        PHASE_RESTING
     } else if signals.dashboard_focused || signals.popup_visible || signals.notion_frontmost {
         PHASE_SCOPING
     } else {
@@ -56,7 +58,7 @@ pub fn update_signals_and_sync(app: &AppHandle, update: impl FnOnce(&mut PhaseSi
         update(&mut signals);
         let connection = app.state::<Mutex<rusqlite::Connection>>();
         let conn = connection.lock().unwrap();
-        match sync_derived_phase(&conn, *signals, now_unix_secs()) {
+        match sync_derived_phase(&conn, *signals, now_unix_secs(), crate::activity::is_idle()) {
             Ok(changed) => changed,
             Err(error) => {
                 eprintln!("nest: phase sync failed: {error}");
@@ -69,8 +71,24 @@ pub fn update_signals_and_sync(app: &AppHandle, update: impl FnOnce(&mut PhaseSi
 
 pub fn emit_phase_changed(app: &AppHandle, name: Option<String>) {
     if let Some(name) = name {
+        // The menu bar title reads the phase from here on every tick.
+        *app.state::<crate::CurrentPhase>().inner().0.lock().unwrap() = name.clone();
         let _ = app.emit("phase-changed", name);
     }
+}
+
+/// Phase Nest is in right now, without recording a check-in.
+pub fn current_phase(
+    conn: &Connection,
+    signals: PhaseSignals,
+    activity_idle: bool,
+) -> Result<&'static str> {
+    let working = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM task_work_stretches WHERE ended_at IS NULL)",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
+    Ok(derived_phase(working, signals, activity_idle))
 }
 
 /// Read Working now from the same connection/transaction, then insert if changed.
@@ -78,13 +96,9 @@ pub fn sync_derived_phase(
     conn: &Connection,
     signals: PhaseSignals,
     now: i64,
+    activity_idle: bool,
 ) -> Result<Option<String>> {
-    let working = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM task_work_stretches WHERE ended_at IS NULL)",
-        [],
-        |row| row.get::<_, bool>(0),
-    )?;
-    let name = derived_phase(working, signals);
+    let name = current_phase(conn, signals, activity_idle)?;
     let phase_id = fetch_active_phase_id(conn, name)?;
     Ok(record_phase_if_changed(conn, Some(phase_id), now)?.map(|_| name.to_string()))
 }
@@ -191,32 +205,36 @@ mod tests {
     }
 
     #[test]
-    fn priority_prefers_working_now_then_offline_then_engagement() {
+    fn priority_prefers_working_now_then_offline_then_idle_then_engagement() {
         let engaged = signals(true, true, true);
-        assert_eq!(derived_phase(true, engaged), PHASE_DOING);
-        assert_eq!(derived_phase(true, PhaseSignals::default()), PHASE_DOING);
-        assert_eq!(derived_phase(true, away(engaged)), PHASE_DOING);
-        assert_eq!(derived_phase(false, away(engaged)), PHASE_OFFLINE);
+        assert_eq!(derived_phase(true, engaged, false), PHASE_DOING);
+        assert_eq!(derived_phase(true, PhaseSignals::default(), false), PHASE_DOING);
+        assert_eq!(derived_phase(true, away(engaged), false), PHASE_DOING);
+        assert_eq!(derived_phase(false, away(engaged), false), PHASE_OFFLINE);
         assert_eq!(
-            derived_phase(false, away(PhaseSignals::default())),
+            derived_phase(false, away(PhaseSignals::default()), false),
             PHASE_OFFLINE
         );
         assert_eq!(
-            derived_phase(false, signals(true, false, false)),
+            derived_phase(false, signals(true, false, false), false),
             PHASE_SCOPING
         );
         assert_eq!(
-            derived_phase(false, signals(false, true, false)),
+            derived_phase(false, signals(false, true, false), false),
             PHASE_SCOPING
         );
         assert_eq!(
-            derived_phase(false, signals(false, false, true)),
+            derived_phase(false, signals(false, false, true), false),
             PHASE_SCOPING
         );
-        assert_eq!(derived_phase(false, PhaseSignals::default()), PHASE_RESTING);
+        assert_eq!(derived_phase(false, PhaseSignals::default(), false), PHASE_RESTING);
         assert_eq!(
-            derived_phase(false, signals(false, true, false)),
-            PHASE_SCOPING
+            derived_phase(false, signals(false, true, false), true),
+            PHASE_RESTING
+        );
+        assert_eq!(
+            derived_phase(false, signals(false, false, true), true),
+            PHASE_RESTING
         );
     }
 
@@ -285,7 +303,7 @@ mod tests {
         insert_active(&conn, 1, true);
         insert_active(&conn, 2, true);
         assert_eq!(
-            sync_derived_phase(&conn, PhaseSignals::default(), 10)
+            sync_derived_phase(&conn, PhaseSignals::default(), 10, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_DOING)
@@ -293,13 +311,13 @@ mod tests {
 
         stop_working(&conn, 1);
         assert_eq!(
-            sync_derived_phase(&conn, PhaseSignals::default(), 20).unwrap(),
+            sync_derived_phase(&conn, PhaseSignals::default(), 20, false).unwrap(),
             None
         );
 
         conn.execute("DELETE FROM tasks WHERE id = 2", []).unwrap();
         assert_eq!(
-            sync_derived_phase(&conn, signals(false, false, false), 30)
+            sync_derived_phase(&conn, signals(false, false, false), 30, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_RESTING)
@@ -311,21 +329,21 @@ mod tests {
     fn last_working_task_derives_from_remaining_signals() {
         let conn = database();
         insert_active(&conn, 1, true);
-        sync_derived_phase(&conn, PhaseSignals::default(), 10).unwrap();
+        sync_derived_phase(&conn, PhaseSignals::default(), 10, false).unwrap();
         stop_working(&conn, 1);
 
         assert_eq!(
-            sync_derived_phase(&conn, signals(false, true, false), 20)
+            sync_derived_phase(&conn, signals(false, true, false), 20, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_SCOPING)
         );
         assert_eq!(
-            sync_derived_phase(&conn, signals(false, false, true), 30).unwrap(),
+            sync_derived_phase(&conn, signals(false, false, true), 30, false).unwrap(),
             None
         );
         assert_eq!(
-            sync_derived_phase(&conn, PhaseSignals::default(), 40)
+            sync_derived_phase(&conn, PhaseSignals::default(), 40, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_RESTING)
@@ -335,8 +353,20 @@ mod tests {
     #[test]
     fn dashboard_blur_while_popup_visible_stays_scoping() {
         assert_eq!(
-            derived_phase(false, signals(false, true, false)),
+            derived_phase(false, signals(false, true, false), false),
             PHASE_SCOPING
+        );
+    }
+
+    #[test]
+    fn idle_overrides_engagement_for_resting() {
+        assert_eq!(
+            derived_phase(false, signals(false, false, true), true),
+            PHASE_RESTING
+        );
+        assert_eq!(
+            derived_phase(false, signals(true, true, true), true),
+            PHASE_RESTING
         );
     }
 
@@ -344,21 +374,21 @@ mod tests {
     fn leaving_dashboard_clears_stale_key_window_focus() {
         let mut left = signals(true, false, false);
         apply_left_dashboard(&mut left, false);
-        assert_eq!(derived_phase(false, left), PHASE_RESTING);
+        assert_eq!(derived_phase(false, left, false), PHASE_RESTING);
 
         let mut to_notion = signals(true, false, false);
         apply_left_dashboard(&mut to_notion, true);
-        assert_eq!(derived_phase(false, to_notion), PHASE_SCOPING);
+        assert_eq!(derived_phase(false, to_notion, false), PHASE_SCOPING);
 
         let mut popup_up = signals(true, true, false);
         apply_left_dashboard(&mut popup_up, false);
-        assert_eq!(derived_phase(false, popup_up), PHASE_SCOPING);
+        assert_eq!(derived_phase(false, popup_up, false), PHASE_SCOPING);
     }
 
     #[test]
     fn popup_hide_with_notion_frontmost_stays_scoping() {
         assert_eq!(
-            derived_phase(false, signals(false, false, true)),
+            derived_phase(false, signals(false, false, true), false),
             PHASE_SCOPING
         );
     }
@@ -366,10 +396,10 @@ mod tests {
     #[test]
     fn switching_dashboard_to_notion_does_not_record_resting() {
         let conn = database();
-        assert!(sync_derived_phase(&conn, signals(true, false, false), 10)
+        assert!(sync_derived_phase(&conn, signals(true, false, false), 10, false)
             .unwrap()
             .is_some());
-        assert!(sync_derived_phase(&conn, signals(false, false, true), 20)
+        assert!(sync_derived_phase(&conn, signals(false, false, true), 20, false)
             .unwrap()
             .is_none());
         assert_eq!(names(&conn), vec![PHASE_SCOPING]);
@@ -379,9 +409,9 @@ mod tests {
     fn repeated_sync_inserts_nothing() {
         let conn = database();
         let rest = PhaseSignals::default();
-        assert!(sync_derived_phase(&conn, rest, 10).unwrap().is_some());
-        assert!(sync_derived_phase(&conn, rest, 11).unwrap().is_none());
-        assert!(sync_derived_phase(&conn, rest, 12).unwrap().is_none());
+        assert!(sync_derived_phase(&conn, rest, 10, false).unwrap().is_some());
+        assert!(sync_derived_phase(&conn, rest, 11, false).unwrap().is_none());
+        assert!(sync_derived_phase(&conn, rest, 12, false).unwrap().is_none());
         let (_, _, resting_id) = phase_ids(&conn);
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM phase_check_ins", [], |row| row.get(0))
@@ -401,19 +431,19 @@ mod tests {
     fn resting_to_offline_records_a_checkpoint() {
         let conn = database();
         assert_eq!(
-            sync_derived_phase(&conn, PhaseSignals::default(), 10)
+            sync_derived_phase(&conn, PhaseSignals::default(), 10, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_RESTING)
         );
         assert_eq!(
-            sync_derived_phase(&conn, away(PhaseSignals::default()), 20)
+            sync_derived_phase(&conn, away(PhaseSignals::default()), 20, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_OFFLINE)
         );
         assert_eq!(
-            sync_derived_phase(&conn, away(signals(true, true, true)), 21).unwrap(),
+            sync_derived_phase(&conn, away(signals(true, true, true)), 21, false).unwrap(),
             None
         );
         assert_eq!(names(&conn), vec![PHASE_RESTING, PHASE_OFFLINE]);
@@ -424,14 +454,14 @@ mod tests {
         let conn = database();
         insert_active(&conn, 1, true);
         assert_eq!(
-            sync_derived_phase(&conn, signals(false, true, false), 10)
+            sync_derived_phase(&conn, signals(false, true, false), 10, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_DOING)
         );
         stop_working(&conn, 1);
         assert_eq!(
-            sync_derived_phase(&conn, away(signals(false, true, false)), 20)
+            sync_derived_phase(&conn, away(signals(false, true, false)), 20, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_OFFLINE)
@@ -442,9 +472,9 @@ mod tests {
     #[test]
     fn wake_with_popup_returns_to_scoping() {
         let conn = database();
-        sync_derived_phase(&conn, away(signals(false, true, false)), 10).unwrap();
+        sync_derived_phase(&conn, away(signals(false, true, false)), 10, false).unwrap();
         assert_eq!(
-            sync_derived_phase(&conn, signals(false, true, false), 20)
+            sync_derived_phase(&conn, signals(false, true, false), 20, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_SCOPING)
@@ -454,9 +484,9 @@ mod tests {
     #[test]
     fn wake_without_engagement_returns_to_resting() {
         let conn = database();
-        sync_derived_phase(&conn, away(PhaseSignals::default()), 10).unwrap();
+        sync_derived_phase(&conn, away(PhaseSignals::default()), 10, false).unwrap();
         assert_eq!(
-            sync_derived_phase(&conn, PhaseSignals::default(), 20)
+            sync_derived_phase(&conn, PhaseSignals::default(), 20, false)
                 .unwrap()
                 .as_deref(),
             Some(PHASE_RESTING)

@@ -190,7 +190,12 @@ fn with_phase_tx<T>(
             let mut conn = state.lock().unwrap();
             let tx = conn.transaction()?;
             let value = work(&tx)?;
-            let changed = phase::sync_derived_phase(&tx, signals, now_unix_secs())?;
+            let changed = phase::sync_derived_phase(
+                &tx,
+                signals,
+                now_unix_secs(),
+                crate::activity::is_idle(),
+            )?;
             tx.commit()?;
             Ok((value, changed))
         })?;
@@ -781,7 +786,7 @@ pub(crate) fn enter_system_offline(app: &AppHandle) {
         let tx = conn.transaction()?;
         let now = now_unix_secs();
         let stopped = !bank_all_working_now(&tx, now)?.is_empty();
-        let changed = phase::sync_derived_phase(&tx, current, now)?;
+        let changed = phase::sync_derived_phase(&tx, current, now, crate::activity::is_idle())?;
         tx.commit()?;
         Ok((stopped, changed))
     })();

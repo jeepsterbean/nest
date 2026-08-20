@@ -1,3 +1,4 @@
+mod activity;
 mod timer;
 mod commands;
 mod db;
@@ -29,6 +30,7 @@ use tauri::{
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+use crate::activity::{ActivityIdleTracker, ActivityIdleTransition};
 use crate::time::now_unix_secs;
 
 #[cfg(target_os = "macos")]
@@ -199,9 +201,102 @@ fn load_timer(conn: &rusqlite::Connection) -> Timer {
 /// most a crash can shave off the stretch it was in the middle of.
 const HEARTBEAT_SECONDS: u64 = 60;
 
+/// Phase shown in the menu bar, kept fresh by `phase::emit_phase_changed` so
+/// the tick loop can build a title without touching the database.
+pub struct CurrentPhase(pub Mutex<String>);
+
+/// Menu bar glyphs, mirroring the dashboard's icon language
+/// (`phaseIconName` in `src/dashboard/lib/period.ts`).
+fn phase_emoji(name: &str) -> &'static str {
+    match name {
+        phase::PHASE_DOING => "🎯",
+        phase::PHASE_SCOPING => "💡",
+        phase::PHASE_RESTING => "☕",
+        phase::PHASE_OFFLINE => "🌙",
+        _ => "📊",
+    }
+}
+
+/// macOS has no animated status item, so movement is just re-setting the title
+/// with the next frame — one per tick while the timer waits on the popup.
+/// ponytail: 1 frame/sec off the existing loop; shorten the sleep to spin faster.
+const TIMER_DUE_FRAMES: [&str; 8] = ["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗"];
+
+/// `🎯 Doing 12:34` counting down, animated clock while the check-in is due.
+/// Countdown format matches `formatTimerCountdown` in the frontend.
+fn tray_title(phase: &str, timer: &Timer, now: i64, tick: u64) -> String {
+    if timer.waiting_for_response {
+        let frame = TIMER_DUE_FRAMES[tick as usize % TIMER_DUE_FRAMES.len()];
+        format!("{frame} {phase}")
+    } else {
+        let remaining = (timer.next_due_at - now).max(0);
+        format!(
+            "{} {phase} {}:{:02}",
+            phase_emoji(phase),
+            remaining / 60,
+            remaining % 60
+        )
+    }
+}
+
+fn popup_is_visible(app: &tauri::AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        return app
+            .get_webview_panel("popup")
+            .map(|panel| panel.is_visible())
+            .unwrap_or(false);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        app.get_webview_window("popup")
+            .and_then(|window| window.is_visible().ok())
+            .unwrap_or(false)
+    }
+}
+
+fn sync_activity_idle_transition(app: &tauri::AppHandle, transition: ActivityIdleTransition) {
+    match transition {
+        ActivityIdleTransition::BecameIdle => {
+            phase::update_signals_and_sync(app, |_| {});
+            let phase = app
+                .state::<CurrentPhase>()
+                .inner()
+                .0
+                .lock()
+                .unwrap()
+                .clone();
+            if phase == phase::PHASE_RESTING {
+                app.state::<ActivityIdleTracker>().arm_popup_on_resume();
+            }
+        }
+        ActivityIdleTransition::BecameActive { show_popup } => {
+            phase::update_signals_and_sync(app, |_| {});
+            if !show_popup {
+                return;
+            }
+            let waiting = app
+                .state::<Mutex<Timer>>()
+                .lock()
+                .unwrap()
+                .waiting_for_response;
+            if waiting || popup_is_visible(app) {
+                return;
+            }
+            let app_for_ui = app.clone();
+            if let Err(error) = app.run_on_main_thread(move || {
+                summon_popup_with_route(&app_for_ui, "popup", "#/popup");
+            }) {
+                append_diagnostic_log(format!("activity_popup_dispatch_failed error={error}"));
+            }
+        }
+    }
+}
+
 fn spawn_timer_loop(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let mut ticks: u64 = 0;
+        let mut shown_title = String::new();
         loop {
             std::thread::sleep(std::time::Duration::from_secs(1));
             let now = now_unix_secs();
@@ -237,6 +332,28 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                     summon_popup_with_route(&app_for_ui, "popup", "#/popup");
                 }) {
                     append_diagnostic_log(format!("timer_main_thread_dispatch_failed error={e}"));
+                }
+            }
+
+            if let Some(transition) = app
+                .state::<ActivityIdleTracker>()
+                .tick(activity::is_idle())
+            {
+                sync_activity_idle_transition(&app, transition);
+            }
+
+            let title = {
+                let phase = app.state::<CurrentPhase>().inner().0.lock().unwrap().clone();
+                let timer = app.state::<Mutex<Timer>>();
+                let timer = timer.lock().unwrap();
+                tray_title(&phase, &timer, now, ticks)
+            };
+            if title != shown_title {
+                if let Some(tray) = app.tray_by_id("main") {
+                    // Only relayout the menu bar when the text actually moves.
+                    if tray.set_title(Some(&title)).is_ok() {
+                        shown_title = title;
+                    }
                 }
             }
         }
@@ -895,7 +1012,10 @@ pub fn run() {
             app.manage(PhaseLeaveEpoch(AtomicU64::new(0)));
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(timer));
-            spawn_timer_loop(app.handle().clone());
+            app.manage(ActivityIdleTracker::new(activity::is_idle()));
+            // Before the phase observers below: they sync phases on background
+            // threads, and a sync writes the menu bar's phase.
+            app.manage(CurrentPhase(Mutex::new(String::new())));
 
             // macOS: run as an accessory (agent) app — no Dock icon — and turn
             // the popup into a non-activating NSPanel so it overlays
@@ -993,18 +1113,34 @@ pub fn run() {
                 "Nest — hotkey unavailable".to_string()
             };
 
+            // Seed the menu bar: the sync above only reports phase *changes*, so a
+            // relaunch into the same phase would leave the cached name empty.
+            let title = {
+                let db = app.state::<Mutex<rusqlite::Connection>>();
+                let conn = db.lock().unwrap();
+                let name = phase::with_current_signals(app.handle(), |signals| {
+                    phase::current_phase(&conn, signals, activity::is_idle())
+                })?;
+                *app.state::<CurrentPhase>().inner().0.lock().unwrap() = name.to_string();
+                let timer = app.state::<Mutex<Timer>>();
+                let timer = timer.lock().unwrap();
+                tray_title(name, &timer, now_unix_secs(), 0)
+            };
+            append_diagnostic_log(format!("tray_title title={title}"));
+
             if let Some(tray) = app.tray_by_id("main") {
                 append_diagnostic_log(format!("tray_config_found tooltip={tooltip}"));
                 tray.set_tooltip(Some(&tooltip))?;
-                tray.set_title(Some("Nest"))?;
+                // Phase + countdown live in the title, so no image icon.
+                tray.set_icon(None)?;
+                tray.set_title(Some(&title))?;
                 tray.set_menu(Some(menu))?;
                 let tray_lookup_ok = app.tray_by_id("main").is_some();
                 append_diagnostic_log(format!("tray_lookup id=main found={tray_lookup_ok}"));
             } else {
                 append_diagnostic_log(format!("tray_build_start tooltip={tooltip}"));
                 let tray = TrayIconBuilder::with_id("main")
-                    .icon(app.default_window_icon().unwrap().clone())
-                    .title("Nest")
+                    .title(&title)
                     .tooltip(&tooltip)
                     .menu(&menu)
                     .build(app)?;
@@ -1014,6 +1150,9 @@ pub fn run() {
                 let tray_managed = app.manage(tray);
                 append_diagnostic_log(format!("tray_manage stored={tray_managed}"));
             }
+
+            // After the tray exists — the loop refreshes its title every second.
+            spawn_timer_loop(app.handle().clone());
 
             Ok(())
         })
@@ -1095,7 +1234,26 @@ fn finalize_on_exit(app: &tauri::AppHandle) {
 
 #[cfg(test)]
 mod timer_tests {
-    use super::Timer;
+    use super::{tray_title, Timer};
+
+    #[test]
+    fn tray_title_counts_down_then_animates_when_due() {
+        let mut timer = Timer {
+            interval_minutes: 15,
+            next_due_at: 754,
+            waiting_for_response: false,
+        };
+
+        assert_eq!(tray_title("Doing", &timer, 0, 0), "🎯 Doing 12:34");
+        assert_eq!(tray_title("Resting", &timer, 750, 0), "☕ Resting 0:04");
+        // Overdue but not yet paused by the loop: floor at zero, never negative.
+        assert_eq!(tray_title("Scoping", &timer, 800, 0), "💡 Scoping 0:00");
+
+        timer.waiting_for_response = true;
+        assert_eq!(tray_title("Doing", &timer, 800, 0), "🕐 Doing");
+        assert_eq!(tray_title("Doing", &timer, 800, 1), "🕑 Doing");
+        assert_eq!(tray_title("Doing", &timer, 800, 8), "🕐 Doing");
+    }
 
     #[test]
     fn due_timer_pauses_until_rescheduled() {
