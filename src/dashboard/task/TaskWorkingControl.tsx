@@ -3,10 +3,11 @@ import { setTaskWorking } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
-  formatPlayButtonTime,
+  formatClockedTime,
   formatWorkedTime,
   taskWorkSessionSeconds,
 } from "../lib/time";
+import { workedSecondsToday } from "../lib/workTimeline";
 
 function PlayIcon() {
   return (
@@ -56,6 +57,7 @@ export function WorkingToggle({
   playPause = false,
   disabled = false,
   nowMs,
+  clockedSeconds,
 }: {
   task: Task;
   onToggle: (working: boolean) => Promise<unknown> | void;
@@ -63,12 +65,15 @@ export function WorkingToggle({
   playPause?: boolean;
   disabled?: boolean;
   nowMs?: number;
+  /** When set, the play control shows this elapsed total instead of the open stretch. */
+  clockedSeconds?: number;
 }) {
   const [pending, setPending] = useState(false);
-  const seconds = useWorkSessionSeconds(task, nowMs);
-  const label = task.workingNow ? "Stop working" : "Start working";
+  const sessionSeconds = useWorkSessionSeconds(task, nowMs);
+  const seconds = task.workingNow ? (clockedSeconds ?? sessionSeconds) : null;
   const timeLabel =
-    playPause && seconds !== null ? formatPlayButtonTime(seconds) : null;
+    playPause && seconds !== null ? formatClockedTime(seconds) : null;
+  const label = task.workingNow ? "Stop working" : "Start working";
   const sessionHint =
     seconds === null
       ? ""
@@ -118,11 +123,14 @@ export function WorkingToggle({
 export function CurrentStretch({
   task,
   nowMs,
+  clockedSeconds,
 }: {
   task: Task;
   nowMs?: number;
+  clockedSeconds?: number;
 }) {
-  const seconds = useWorkSessionSeconds(task, nowMs);
+  const session = useWorkSessionSeconds(task, nowMs);
+  const seconds = clockedSeconds ?? session;
   if (seconds === null) return null;
 
   return (
@@ -172,16 +180,33 @@ export function TaskWorkingControl({
   playPause?: boolean;
   showTime?: boolean;
 }) {
-  const { mutate } = useDashboardData();
+  const { mutate, taskWorkStretches } = useDashboardData();
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!task.workingNow) return;
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [task.workingNow]);
+  const clockedSeconds = task.workingNow
+    ? workedSecondsToday(taskWorkStretches, nowMs, task.id)
+    : undefined;
   return (
     <span className="working-control">
       <WorkingToggle
         task={task}
         compact={compact}
         playPause={playPause}
+        nowMs={nowMs}
+        clockedSeconds={clockedSeconds}
         onToggle={(working) => mutate(() => setTaskWorking(task.id, working))}
       />
-      {showTime && !playPause && <CurrentStretch task={task} />}
+      {showTime && !playPause && (
+        <CurrentStretch
+          task={task}
+          nowMs={nowMs}
+          clockedSeconds={clockedSeconds}
+        />
+      )}
     </span>
   );
 }

@@ -5,6 +5,7 @@ import {
   getTimerState,
   listMetrics,
   listPulses,
+  listTaskWorkStretches,
   listTasks,
   reorderTasks,
   startTimer,
@@ -23,13 +24,15 @@ import type {
   Pulse,
   RatingValue,
   Task,
+  TaskWorkStretch,
 } from "../lib/types";
 import {
+  formatTimerCountdown,
   timerRemainingSeconds,
   TIMER_INTERVALS,
-  formatTimerCountdown,
   isTimerDue,
 } from "../dashboard/lib/time";
+import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
@@ -57,7 +60,16 @@ type LoadState = {
   metrics: Metric[];
   pulses: Pulse[];
   tasks: Task[];
+  workStretches: TaskWorkStretch[];
   timer: TimerState;
+};
+
+const loadTodayStretches = (nowMs: number = Date.now()) => {
+  const now = Math.floor(nowMs / 1000);
+  const from = Math.floor(
+    new Date(nowMs).setHours(0, 0, 0, 0) / 1000,
+  );
+  return listTaskWorkStretches(from, now + 1);
 };
 
 function PlayIcon() {
@@ -361,11 +373,17 @@ function PopupContent({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listMetrics(), listPulses(), listTasks(), getTimerState()])
-      .then(([metrics, pulses, tasks, timer]) => {
+    Promise.all([
+      listMetrics(),
+      listPulses(),
+      listTasks(),
+      loadTodayStretches(),
+      getTimerState(),
+    ])
+      .then(([metrics, pulses, tasks, workStretches, timer]) => {
         if (cancelled) return;
         const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
-        setLoaded({ metrics, pulses, tasks, timer });
+        setLoaded({ metrics, pulses, tasks, workStretches, timer });
         setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
         setNextTimerMinutes(timer.intervalMinutes);
         setError(null);
@@ -379,11 +397,19 @@ function PopupContent({
   }, []);
 
   useEffect(() => {
-    return subscribeTauriEvent("phase-changed", () => {
-      void listTasks().then((tasks) => {
-        setLoaded((current) => (current ? { ...current, tasks } : current));
-      });
-    });
+    const refreshLive = () => {
+      void Promise.all([listTasks(), loadTodayStretches(), getTimerState()]).then(
+        ([tasks, workStretches, timer]) => {
+          setLoaded((current) =>
+            current ? { ...current, tasks, workStretches, timer } : current,
+          );
+        },
+      );
+    };
+    const stops = ["phase-changed", "data-changed"].map((event) =>
+      subscribeTauriEvent(event, refreshLive),
+    );
+    return () => stops.forEach((stop) => stop());
   }, []);
 
   useEffect(() => {
@@ -442,8 +468,10 @@ function PopupContent({
     setError(null);
     try {
       const updated = await setTaskStatus(task.id, status);
+      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
+        workStretches,
         tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
       });
       await emit("data-changed");
@@ -460,8 +488,10 @@ function PopupContent({
     setError(null);
     try {
       const updated = await setTaskWorking(task.id, working);
+      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
+        workStretches,
         tasks: loaded.tasks.map((candidate) =>
           candidate.id === task.id ? updated : candidate,
         ),
@@ -482,10 +512,12 @@ function PopupContent({
     try {
       await setTaskStatus(task.id, "active");
       const updated = await setTaskWorking(task.id, true);
+      const workStretches = await loadTodayStretches();
       setLoaded((current) =>
         current
           ? {
               ...current,
+              workStretches,
               tasks: current.tasks.map((candidate) =>
                 candidate.id === task.id ? updated : candidate,
               ),
@@ -534,7 +566,10 @@ function PopupContent({
         ),
       );
       const tasks = await listTasks();
-      setLoaded((current) => (current ? { ...current, tasks } : current));
+      const workStretches = await loadTodayStretches();
+      setLoaded((current) =>
+        current ? { ...current, tasks, workStretches } : current,
+      );
       await emit("data-changed");
     } catch (e) {
       setError(String(e));
@@ -551,8 +586,10 @@ function PopupContent({
     try {
       const updates = await stopAllWorkingNow();
       const byId = new Map(updates.map((task) => [task.id, task]));
+      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
+        workStretches,
         tasks: loaded.tasks.map((task) => byId.get(task.id) ?? task),
       });
       await emit("data-changed");
@@ -691,6 +728,11 @@ function PopupContent({
             task={task}
             playPause
             nowMs={nowMs}
+            clockedSeconds={
+              task.workingNow
+                ? workedSecondsToday(loaded.workStretches, nowMs, task.id)
+                : undefined
+            }
             disabled={submitting}
             onToggle={(working) => updateTaskWorking(task, working)}
           />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dayLabel,
+  formatClockedTime,
   formatTimerCountdown,
   formatCompactDuration,
   formatDate,
@@ -99,6 +100,13 @@ describe("format helpers", () => {
 
 describe("minute helpers", () => {
   const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
+
+  it("formats elapsed clocked time with a minutes field", () => {
+    expect(formatClockedTime(0)).toBe("0:00");
+    expect(formatClockedTime(45)).toBe("0:45");
+    expect(formatClockedTime(90)).toBe("1:30");
+    expect(formatClockedTime(3661)).toBe("1:01:01");
+  });
 
   it("shows second-precision countdowns", () => {
     expect(

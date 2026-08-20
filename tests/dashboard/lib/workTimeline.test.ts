@@ -7,6 +7,8 @@ import {
   stretchEditorSide,
   timeOnColumn,
   workTotalsInSpan,
+  workedSecondsInSpan,
+  workedSecondsToday,
 } from "../../../src/dashboard/lib/workTimeline";
 import { phaseSessions } from "../../../src/dashboard/lib/timeline";
 import type { Task, TaskWorkStretch } from "../../../src/lib/types";
@@ -218,6 +220,41 @@ describe("workTotalsInSpan", () => {
     expect(workTotalsInSpan(blocks, 1400, 2000).map((row) => row.seconds)).toEqual([
       400,
     ]);
+  });
+});
+
+describe("workedSecondsInSpan", () => {
+  it("clips overnight work to local midnight and counts an open stretch to now", () => {
+    expect(
+      workedSecondsInSpan(
+        [stretch(1, 1, 800, 1200), stretch(2, 2, 1500, null)],
+        FROM,
+        TO,
+        NOW_MS,
+      ),
+    ).toBe(200 + 300);
+  });
+
+  it("adds concurrent stretches instead of taking the wall-clock union", () => {
+    expect(
+      workedSecondsInSpan(
+        [stretch(1, 1, 1000, 1300), stretch(2, 2, 1100, 1400)],
+        FROM,
+        TO,
+        NOW_MS,
+      ),
+    ).toBe(600);
+  });
+
+  it("can restrict today's total to one Task", () => {
+    const nowMs = new Date(2026, 5, 17, 12, 0, 0).getTime();
+    const midnight = Math.floor(new Date(2026, 5, 17).getTime() / 1000);
+    const stretches = [
+      stretch(1, 1, midnight + 100, midnight + 300),
+      stretch(2, 2, midnight + 200, midnight + 500),
+    ];
+    expect(workedSecondsToday(stretches, nowMs, 1)).toBe(200);
+    expect(workedSecondsToday(stretches, nowMs)).toBe(500);
   });
 });
 

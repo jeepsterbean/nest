@@ -127,6 +127,18 @@ export const formatWorkedTime = (seconds: number) => {
   return String(remainder);
 };
 
+/** Clock face / header elapsed time: always `m:ss`, then `h:mm:ss` after an hour. */
+export const formatClockedTime = (seconds: number) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const remainder = safe % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+};
+
 /** Compact play-button label: raw seconds below 1 minute, whole minutes after. */
 export const formatPlayButtonTime = (seconds: number) =>
   seconds < 60 ? String(seconds) : String(Math.floor(seconds / 60));
