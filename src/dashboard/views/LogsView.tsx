@@ -3,6 +3,7 @@ import { deleteMetricCheckIn } from "../../lib/commands";
 import type { Metric, Phase, PhaseCheckIn, Pulse } from "../../lib/types";
 import {
   collapsePhaseCheckIns,
+  buildRawLog,
   buildTimeline,
   groupByDay,
   type DayGroup,
@@ -11,6 +12,7 @@ import {
 import { useDashboardData } from "../context/DashboardDataContext";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
+import { LogsRawTable } from "./LogsRawTable";
 
 const LOGS_VIEWS = [
   { key: "raw", label: "Raw" },
@@ -32,7 +34,7 @@ const EMPTY_COPY: Record<
 > = {
   raw: {
     title: "Nothing here yet",
-    body: "Metric check-ins, brain dumps, and Phase changes will land here.",
+    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -87,16 +89,14 @@ function phaseEvents(checkIns: PhaseCheckIn[]): TimelineEvent[] {
   return buildTimeline([], checkIns, []);
 }
 
-function logsEvents(
-  view: LogsViewKey,
+function filteredEvents(
+  view: Exclude<LogsViewKey, "raw">,
   phaseMode: PhaseModeKey,
   checkIns: Parameters<typeof buildTimeline>[0],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: Parameters<typeof buildTimeline>[2],
 ): TimelineEvent[] {
   switch (view) {
-    case "raw":
-      return buildTimeline(checkIns, phaseCheckIns, brainDumps);
     case "dumps":
       return buildTimeline([], [], brainDumps);
     case "metrics":
@@ -115,9 +115,11 @@ export function LogsView() {
     metrics,
     pulses,
     phases,
+    tasks,
     checkIns,
     phaseCheckIns,
     brainDumps,
+    taskWorkStretches,
     loaded,
     mutate,
   } = useDashboardData();
@@ -127,17 +129,24 @@ export function LogsView() {
     () => new Set(),
   );
 
+  const rawEvents = useMemo(
+    () => buildRawLog(checkIns, phaseCheckIns, brainDumps, taskWorkStretches),
+    [checkIns, phaseCheckIns, brainDumps, taskWorkStretches],
+  );
+
   const days = useMemo(
     () =>
-      groupByDay(
-        logsEvents(
-          logsView,
-          phaseMode,
-          checkIns,
-          phaseCheckIns,
-          brainDumps,
-        ),
-      ),
+      logsView === "raw"
+        ? []
+        : groupByDay(
+            filteredEvents(
+              logsView,
+              phaseMode,
+              checkIns,
+              phaseCheckIns,
+              brainDumps,
+            ),
+          ),
     [logsView, phaseMode, checkIns, phaseCheckIns, brainDumps],
   );
 
@@ -154,6 +163,8 @@ export function LogsView() {
   };
 
   const empty = EMPTY_COPY[logsView];
+  const rawEmpty = logsView === "raw" && rawEvents.length === 0;
+  const filteredEmpty = logsView !== "raw" && days.length === 0;
 
   return (
     <section className="dash-section dash-section--logs">
@@ -174,11 +185,22 @@ export function LogsView() {
         ) : null}
       </div>
       <div className="dash-section__body">
-        {!loaded ? null : days.length === 0 ? (
+        {!loaded ? null : rawEmpty || filteredEmpty ? (
           <div className="dash-empty">
             <strong>{empty.title}</strong>
             <span>{empty.body}</span>
           </div>
+        ) : logsView === "raw" ? (
+          <LogsRawTable
+            events={rawEvents}
+            phases={phases}
+            metrics={metrics}
+            pulses={pulses}
+            tasks={tasks}
+            expandedDumpIds={expandedDumpIds}
+            onDeleteCheckIn={onDeleteCheckIn}
+            onToggleDump={toggleDumpExpanded}
+          />
         ) : (
           days.map((day) => (
             <DayArticle

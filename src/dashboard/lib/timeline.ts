@@ -2,6 +2,7 @@ import type {
   BrainDump,
   MetricCheckInWithRatings,
   PhaseCheckIn,
+  TaskWorkStretch,
 } from "../../lib/types";
 import { dayLabel, startOfDayMs } from "./time";
 
@@ -9,6 +10,13 @@ export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
   | { kind: "dump"; at: number; dump: BrainDump };
+
+/** Working-now boundaries derived from Work stretches (Raw table only). */
+export type WorkLogEvent =
+  | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
+  | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
+
+export type RawLogEvent = TimelineEvent | WorkLogEvent;
 
 export type DayGroup = { key: number; label: string; events: TimelineEvent[] };
 
@@ -57,6 +65,33 @@ export const buildTimeline = (
   ];
   return all.sort(
     (a, b) => b.at - a.at || KIND_RANK[a.kind] - KIND_RANK[b.kind],
+  );
+};
+
+const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
+  dump: 0,
+  metrics: 1,
+  phase: 2,
+  "work-start": 3,
+  "work-stop": 4,
+};
+
+/** Newest-first Raw feed: Metric / dump / Phase plus Work stretch start & stop. */
+export const buildRawLog = (
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  brainDumps: BrainDump[],
+  stretches: TaskWorkStretch[],
+): RawLogEvent[] => {
+  const work: WorkLogEvent[] = [];
+  for (const stretch of stretches) {
+    work.push({ kind: "work-start", at: stretch.startedAt, stretch });
+    if (stretch.endedAt !== null) {
+      work.push({ kind: "work-stop", at: stretch.endedAt, stretch });
+    }
+  }
+  return [...buildTimeline(checkIns, phaseCheckIns, brainDumps), ...work].sort(
+    (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind],
   );
 };
 

@@ -18,7 +18,7 @@ import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
-import { IconPicker, NestIcon } from "../components/PulseIcon";
+import { IconPicker, NestIcon, nestIconLabel } from "../components/PulseIcon";
 import { Sparkline } from "../components/Sparkline";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
@@ -287,7 +287,9 @@ export function MetricsView() {
                       </span>
                       {pulseRename.editingId === pulse.id ? (
                         <div className="pulse-list__rename">
-                          <NestIcon name={pulse.icon} />
+                          <span title={nestIconLabel(pulse.icon)}>
+                            <NestIcon name={pulse.icon} />
+                          </span>
                           <input
                             className="rename-input"
                             autoFocus
@@ -316,7 +318,9 @@ export function MetricsView() {
                             }
                           }}
                         >
-                          <NestIcon name={pulse.icon} />
+                          <span title={nestIconLabel(pulse.icon)}>
+                            <NestIcon name={pulse.icon} />
+                          </span>
                           <span>{pulse.name}</span>
                         </button>
                       )}
@@ -350,6 +354,7 @@ export function MetricsView() {
                       type="button"
                       className="pulse-icon-trigger"
                       aria-label={`Choose icon for ${selectedPulse.name}`}
+                      title={nestIconLabel(selectedPulse.icon)}
                       aria-expanded={iconPickerOpen}
                       onClick={() => setIconPickerOpen((open) => !open)}
                     >
@@ -397,10 +402,12 @@ export function MetricsView() {
                         {gripIcon}
                       </span>
                       <div className="metric-identity">
-                        <NestIcon
-                          name={metric.icon}
-                          color={resolveMetricColorFromList(metrics, metric.id)}
-                        />
+                        <span title={nestIconLabel(metric.icon)}>
+                          <NestIcon
+                            name={metric.icon}
+                            color={resolveMetricColorFromList(metrics, metric.id)}
+                          />
+                        </span>
                         <strong>{metric.name}</strong>
                       </div>
                       <MetricTrend values={pulseSeries.get(metric.id) ?? []} />
@@ -465,6 +472,7 @@ export function MetricsView() {
                           type="button"
                           className="metric-icon-trigger"
                           aria-label={`Choose icon for ${metric.name}`}
+                          title={nestIconLabel(metric.icon)}
                           aria-expanded={metricIconPickerId === metric.id}
                           onClick={() => setMetricIconPickerId((id) => id === metric.id ? null : metric.id)}
                         >

@@ -106,6 +106,10 @@ export const formatDate = (ts: number | null) =>
         day: "numeric",
       });
 
+/** Compact local date + time for continuous log tables. */
+export const formatDateTime = (ts: number) =>
+  `${formatDate(ts)} ${formatTime(ts)}`;
+
 export const taskWorkSessionSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),

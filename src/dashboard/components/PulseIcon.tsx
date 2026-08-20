@@ -111,6 +111,15 @@ const ICONS = Object.fromEntries(
   NEST_ICONS.map(({ key, Icon }) => [key, Icon]),
 ) as Record<string, LucideIcon>;
 
+const ICON_LABELS = Object.fromEntries(
+  NEST_ICONS.map(({ key, label }) => [key, label]),
+) as Record<string, string>;
+
+/** Friendly name for a Nest icon key (e.g. hover tooltips). */
+export function nestIconLabel(name: string) {
+  return ICON_LABELS[name] ?? "Activity";
+}
+
 export function NestIcon({ name, color }: { name: string; color?: string }) {
   const Icon = ICONS[name] ?? Activity;
   return (

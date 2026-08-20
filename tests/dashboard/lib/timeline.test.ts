@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMetricSeries,
+  buildRawLog,
   buildTimeline,
   collapsePhaseCheckIns,
   groupByDay,
@@ -13,6 +14,7 @@ import type {
   BrainDump,
   MetricCheckInWithRatings,
   PhaseCheckIn,
+  TaskWorkStretch,
 } from "../../../src/lib/types";
 
 const metricCheckIn = (
@@ -60,6 +62,39 @@ describe("buildTimeline", () => {
       [dump(1, 1000)],
     );
     expect(events.map((e) => e.kind)).toEqual(["dump", "metrics", "phase"]);
+  });
+});
+
+const stretch = (
+  id: number,
+  taskId: number,
+  startedAt: number,
+  endedAt: number | null,
+): TaskWorkStretch => ({ id, taskId, startedAt, endedAt });
+
+describe("buildRawLog", () => {
+  it("merges work start/stop with other events, newest-first", () => {
+    const events = buildRawLog(
+      [metricCheckIn(1, 150, [])],
+      [],
+      [dump(1, 300)],
+      [stretch(1, 9, 100, 200), stretch(2, 9, 250, null)],
+    );
+    expect(events.map((e) => e.kind)).toEqual([
+      "dump",
+      "work-start",
+      "work-stop",
+      "metrics",
+      "work-start",
+    ]);
+    expect(events.map((e) => e.at)).toEqual([300, 250, 200, 150, 100]);
+  });
+
+  it("omits stop for an open stretch", () => {
+    const events = buildRawLog([], [], [], [stretch(1, 1, 50, null)]);
+    expect(events).toEqual([
+      { kind: "work-start", at: 50, stretch: stretch(1, 1, 50, null) },
+    ]);
   });
 });
 

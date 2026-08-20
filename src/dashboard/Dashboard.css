@@ -3143,7 +3143,7 @@
   cursor: pointer;
 }
 
-.pulse-list__select > svg {
+.pulse-list__select > :first-child svg {
   width: 16px;
   height: 16px;
   stroke-width: 1.8;
@@ -3159,7 +3159,7 @@
   padding: 0 9px;
 }
 
-.pulse-list__rename > svg {
+.pulse-list__rename > :first-child svg {
   width: 16px;
   height: 16px;
   color: var(--accent);
@@ -3572,10 +3572,14 @@
   gap: 10px;
 }
 
-.metric-identity > svg {
+.metric-identity > :first-child {
+  display: inline-flex;
+  flex: none;
+}
+
+.metric-identity > :first-child svg {
   width: 18px;
   height: 18px;
-  flex: none;
   color: var(--accent);
   stroke-width: 1.8;
 }
@@ -4451,6 +4455,158 @@
 
 .dash-section--logs {
   animation-delay: 0.18s;
+}
+
+/* ---------- Logs raw table ---------- */
+
+.logs-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--surface);
+}
+
+.logs-table th,
+.logs-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.logs-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.logs-table tr:last-child td {
+  border-bottom: none;
+}
+
+.logs-table td {
+  font-size: 13px;
+}
+
+.logs-table__row:hover td {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+
+.logs-table__col--when {
+  width: 9.5rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.logs-table__col--type {
+  width: 7.5rem;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.logs-table__col--detail {
+  min-width: 0;
+}
+
+.logs-table__detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.logs-table__detail--metrics .event__delete {
+  opacity: 0;
+}
+
+.logs-table__row:hover .logs-table__detail--metrics .event__delete,
+.logs-table__detail--metrics .event__delete:focus-visible {
+  opacity: 0.55;
+}
+
+.logs-table__detail--dump {
+  display: block;
+}
+
+.logs-table__detail--dump .event-dump {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.logs-table__detail--dump .event-dump__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.logs-table__detail--dump .event-dump__edit-title {
+  width: 21px;
+  height: 21px;
+}
+
+.logs-table__detail--dump .event-dump__text {
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.logs-table__detail--work {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-table__row--work-start .logs-table__col--type,
+.logs-table__row--work-stop .logs-table__col--type {
+  color: var(--doing);
+}
+
+.logs-table__row--dump .logs-table__col--type {
+  color: var(--dump);
+}
+
+.logs-table__row--phase .logs-table__col--type {
+  color: var(--phase);
+}
+
+.logs-table__row--metrics .logs-table__col--type {
+  color: var(--accent);
+}
+
+.logs-table__row--metrics {
+  --event-color: var(--accent);
+}
+
+.logs-table__row--dump {
+  --event-color: var(--dump);
+}
+
+.logs-table__row--phase {
+  --event-color: var(--phase);
+}
+
+.logs-table__row--work-start,
+.logs-table__row--work-stop {
+  --event-color: var(--doing);
 }
 
 .dash-section--tasks {

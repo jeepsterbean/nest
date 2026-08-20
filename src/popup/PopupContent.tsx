@@ -600,18 +600,43 @@ function PopupContent({
     }
   };
 
-  const addTask = async () => {
+  const addTask = async (start = false) => {
     const title = taskTitle.trim();
     if (!loaded || submitting || !title) return;
     setSubmitting(true);
     setError(null);
     try {
-      const task = await createTask(title, "", "active");
+      let task = await createTask(title, "", "active");
+      // Reconcile as soon as create commits so a later start/stretch failure
+      // cannot hide the row and leave a retryable draft (duplicate tasks).
       setLoaded((current) =>
-        current ? { ...current, tasks: [...current.tasks, task] } : current,
+        current
+          ? { ...current, tasks: [...current.tasks, task] }
+          : current,
       );
       setTaskTitle("");
       setAddingTask(false);
+
+      if (start) {
+        try {
+          task = await setTaskWorking(task.id, true);
+          const workStretches = await loadTodayStretches();
+          setLoaded((current) =>
+            current
+              ? {
+                  ...current,
+                  workStretches,
+                  tasks: current.tasks.map((item) =>
+                    item.id === task.id ? task : item,
+                  ),
+                }
+              : current,
+          );
+        } catch (e) {
+          setError(String(e));
+        }
+      }
+
       await emit("data-changed");
     } catch (e) {
       setError(String(e));
@@ -866,7 +891,7 @@ function PopupContent({
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    void addTask();
+                    void addTask(event.metaKey || event.ctrlKey);
                   } else if (event.key === "Escape") {
                     event.preventDefault();
                     event.stopPropagation();
@@ -882,6 +907,15 @@ function PopupContent({
                 onClick={() => void addTask()}
               >
                 +
+              </button>
+              <button
+                type="button"
+                aria-label="Create and start task"
+                title="Create and start (⌘↵)"
+                disabled={submitting || !taskTitle.trim()}
+                onClick={() => void addTask(true)}
+              >
+                <PlayIcon />
               </button>
             </div>
           )}
