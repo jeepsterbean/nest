@@ -11,7 +11,7 @@ export type TimelineEvent =
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
   | { kind: "dump"; at: number; dump: BrainDump };
 
-/** Working-now boundaries derived from Work stretches (Raw table only). */
+/** Working-now boundaries derived from Work stretches (Raw + Timeline). */
 export type WorkLogEvent =
   | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };

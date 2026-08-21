@@ -1,13 +1,11 @@
 .popup-workspace {
-  --timer-collapse: 0;
-
   position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
   flex: 1;
   min-height: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .popup-workspace--loading {
@@ -16,50 +14,47 @@
   color: var(--muted);
 }
 
-.combined-sidebar {
-  display: flex;
+.popup-clock {
+  display: grid;
   min-width: 0;
   min-height: 0;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px 16px 16px;
+  place-items: center;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 46%, transparent);
 }
 
-.combined-workspace {
-  position: relative;
-  display: grid;
+.popup-tasks {
+  display: flex;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) auto;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 15px;
+  border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 62%, transparent);
 }
 
-.combined-sidebar .now-card {
-  flex: var(--timer-collapse) 1 187px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.combined-sidebar .now-card__tasks {
+.popup-tasks .now-card {
   min-height: 0;
   flex: 1;
+}
+
+.popup-dump {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
 }
 
 .combined-timer {
   position: relative;
   display: grid;
-  flex: calc(1 - var(--timer-collapse)) 1 72px;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   place-items: center;
   padding: 2px 8px 12px;
-  border-bottom: 1px solid var(--border);
   cursor: grab;
 }
 
@@ -101,7 +96,6 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: calc(1 - var(--timer-collapse));
 }
 
 .combined-timer__bezel {
@@ -186,7 +180,7 @@
 .combined-dashboard-link {
   position: absolute;
   top: 2px;
-  right: 0;
+  left: 0;
   display: inline-grid;
   width: 22px;
   height: 22px;
@@ -220,15 +214,15 @@
 
 /* ---------- "Now" hero ---------- */
 
+/* Rows and rating buttons already carry border + background — the "card"
+   look belongs to them, not to this wrapper. Just a hairline to separate
+   tasks from the metric check-in above. */
 .now-card {
   display: flex;
   flex-direction: column;
   gap: 11px;
-  padding: 14px 16px 15px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
-  box-shadow: var(--shadow);
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
   animation: popup-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -244,7 +238,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 0 6px 3px;
+  padding: 0 2px 3px;
   overflow-y: auto;
 }
 
@@ -590,13 +584,6 @@
 
 /* ---------- Brain dump ---------- */
 
-.combined-brain-dump {
-  position: relative;
-  min-height: 0;
-  border-bottom: 1px solid var(--border-strong);
-  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
-}
-
 .combined-input {
   width: 100%;
   height: 100%;
@@ -614,110 +601,48 @@
 
 /* ---------- Metric check-in ---------- */
 
+/* Rating buttons already carry the "card" look, so this wrapper stays flat
+   even when a check-in is due — the only due-state effect is the glow on
+   the current metric's title and icon, below. */
 .pulse-panel {
   position: relative;
   display: flex;
-  min-height: 0;
+  flex: none;
   flex-direction: column;
   justify-content: flex-end;
   gap: 6px;
-  padding: 8px 14px 10px;
+  padding: 2px 2px 8px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
 }
 
-@property --pulse-due-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@property --pulse-due-orbit {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: -90deg;
-}
-
-@keyframes pulse-due-draw {
-  to {
-    --pulse-due-angle: 360deg;
-  }
-}
-
-@keyframes pulse-due-orbit {
-  to {
-    --pulse-due-orbit: 270deg;
-  }
-}
-
-@keyframes pulse-due-breathe {
+@keyframes pulse-due-title-glow {
   0%,
   100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--rating-2) 40%, transparent));
+    text-shadow: 0 0 0 transparent;
   }
   50% {
-    transform: scale(1.1);
-    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--rating-2) 70%, transparent));
+    text-shadow: 0 0 9px color-mix(in srgb, var(--rating-2) 70%, transparent);
   }
 }
 
-.pulse-panel--due {
-  background: color-mix(in srgb, var(--rating-2) 10%, var(--surface));
-  box-shadow: inset 0 0 28px color-mix(in srgb, var(--rating-2) 14%, transparent);
+@keyframes pulse-due-icon-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rating-2) 75%, transparent));
+  }
 }
 
-.pulse-panel--due::before,
-.pulse-panel--due::after {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border-radius: 10px;
-  padding: 2px;
-  pointer-events: none;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-
-.pulse-panel--due::after {
-  background: conic-gradient(
-    from -90deg,
-    color-mix(in srgb, var(--rating-2) 88%, var(--border)) var(--pulse-due-angle),
-    transparent 0
-  );
-  animation: pulse-due-draw 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.pulse-panel--due::before {
-  z-index: 1;
-  background: conic-gradient(
-    from var(--pulse-due-orbit),
-    transparent 0%,
-    transparent 72%,
-    color-mix(in srgb, var(--rating-2) 22%, transparent) 82%,
-    color-mix(in srgb, var(--rating-2) 82%, white) 92%,
-    var(--rating-2) 96%,
-    transparent 100%
-  );
-  animation: pulse-due-orbit 5.5s linear infinite;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--rating-2) 70%, transparent));
-}
-
-.pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--rating-2) 70%, var(--border));
-  background: color-mix(in srgb, var(--rating-2) 18%, var(--surface));
+.pulse-panel--due .metric-step__title h2 {
   color: var(--rating-2);
+  animation: pulse-due-title-glow 2.4s ease-in-out infinite;
 }
 
-.pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] svg {
-  animation: pulse-due-breathe 2.4s ease-in-out infinite;
-}
-
-.pulse-panel--due .metric-rating {
-  border-color: color-mix(in srgb, var(--rating-2) 42%, var(--border));
+.pulse-panel--due .metric-step__title svg {
+  color: var(--rating-2);
+  animation: pulse-due-icon-glow 2.4s ease-in-out infinite;
 }
 
 .pulse-panel__header {
@@ -919,31 +844,13 @@
   font-size: 13px;
 }
 
-.combined-workspace > .popup-workspace__error {
+.popup-dump > .popup-workspace__error {
   position: absolute;
   z-index: 10;
   right: 12px;
   bottom: 12px;
   left: 12px;
   box-shadow: var(--shadow);
-}
-
-@media (max-width: 680px) {
-  .popup-workspace {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .combined-sidebar {
-    padding-inline: 12px;
-  }
-
-  .combined-input {
-    padding: 18px;
-  }
-
-  .pulse-panel {
-    padding-inline: 14px;
-  }
 }
 
 @keyframes popup-rise {
@@ -967,18 +874,12 @@
     transition: none;
   }
 
-  .pulse-panel--due::after {
+  .pulse-panel--due .metric-step__title h2 {
     animation: none;
-    --pulse-due-angle: 360deg;
+    text-shadow: none;
   }
 
-  .pulse-panel--due::before {
-    animation: none;
-    filter: none;
-    background: color-mix(in srgb, var(--rating-2) 55%, transparent);
-  }
-
-  .pulse-panel--due .popup-pulse-toggle button[aria-pressed="true"] svg {
+  .pulse-panel--due .metric-step__title svg {
     animation: none;
     filter: none;
   }

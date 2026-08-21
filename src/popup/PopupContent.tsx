@@ -140,18 +140,6 @@ function CancelledMark() {
   );
 }
 
-/** Wheel on the task list scrolls it; the timer collapse only takes leftover motion. */
-export function taskListOwnsWheel(
-  deltaY: number,
-  list: Pick<HTMLElement, "scrollTop" | "clientHeight" | "scrollHeight">,
-) {
-  if (deltaY < 0) return list.scrollTop > 0;
-  if (deltaY > 0) {
-    return list.scrollTop + list.clientHeight < list.scrollHeight - 1;
-  }
-  return false;
-}
-
 function ExpandIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -420,13 +408,15 @@ function PopupContent({
 
   useEffect(() => {
     const refreshLive = () => {
-      void Promise.all([listTasks(), loadTodayStretches(), getTimerState()]).then(
-        ([tasks, workStretches, timer]) => {
-          setLoaded((current) =>
-            current ? { ...current, tasks, workStretches, timer } : current,
-          );
-        },
-      );
+      void Promise.all([
+        listTasks(),
+        loadTodayStretches(),
+        getTimerState(),
+      ]).then(([tasks, workStretches, timer]) => {
+        setLoaded((current) =>
+          current ? { ...current, tasks, workStretches, timer } : current,
+        );
+      });
     };
     const stops = ["phase-changed", "data-changed"].map((event) =>
       subscribeTauriEvent(event, refreshLive),
@@ -999,24 +989,8 @@ function PopupContent({
           setTimerPickerOpen(false);
         }
       }}
-      onWheelCapture={(event) => {
-        const list = (event.target as Element).closest(".now-card__tasks");
-        if (
-          list instanceof HTMLElement &&
-          taskListOwnsWheel(event.deltaY, list)
-        ) {
-          return;
-        }
-        const current = Number(
-          event.currentTarget.style.getPropertyValue("--timer-collapse"),
-        );
-        event.currentTarget.style.setProperty(
-          "--timer-collapse",
-          String(Math.min(1, Math.max(0, current + event.deltaY / 300))),
-        );
-      }}
     >
-      <aside className="combined-sidebar">
+      <aside className="popup-clock">
         <PopupTopPanel
           timerDue={timerDue}
           countdown={countdown}
@@ -1030,40 +1004,9 @@ function PopupContent({
           onSelectInterval={(minutes) => void applyTimer(minutes)}
           onOpenDashboard={() => void openDashboard()}
         />
-        {taskView}
       </aside>
 
-      <main className="combined-workspace">
-        <section className="combined-brain-dump" aria-label="Brain dump">
-          <textarea
-            ref={brainDumpRef}
-            id="popup-brain-dump"
-            className="combined-input"
-            aria-label="Brain dump"
-            autoCapitalize="off"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={brainDumpText}
-            onChange={(event) =>
-              setBrainDumpDraft({ text: event.target.value })
-            }
-            onKeyDown={(event) => {
-              if (
-                isBrainDumpSubmitShortcut({
-                  key: event.key,
-                  metaKey: event.metaKey,
-                  ctrlKey: event.ctrlKey,
-                  isComposing: event.nativeEvent.isComposing,
-                })
-              ) {
-                event.preventDefault();
-                void submitBrainDumpDraft();
-              }
-            }}
-          />
-        </section>
-
+      <main className="popup-tasks">
         <section
           className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
           aria-label="Metrics"
@@ -1163,12 +1106,44 @@ function PopupContent({
           )}
         </section>
 
+        {taskView}
+      </main>
+
+      <section className="popup-dump" aria-label="Brain dump">
+        <textarea
+          ref={brainDumpRef}
+          id="popup-brain-dump"
+          className="combined-input"
+          aria-label="Brain dump"
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          value={brainDumpText}
+          onChange={(event) =>
+            setBrainDumpDraft({ text: event.target.value })
+          }
+          onKeyDown={(event) => {
+            if (
+              isBrainDumpSubmitShortcut({
+                key: event.key,
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                isComposing: event.nativeEvent.isComposing,
+              })
+            ) {
+              event.preventDefault();
+              void submitBrainDumpDraft();
+            }
+          }}
+        />
+
         {error && (
           <div className="popup-workspace__error" role="alert">
             {error}
           </div>
         )}
-      </main>
+      </section>
     </div>
   );
 }

@@ -27,8 +27,8 @@
       {
         "label": "popup",
         "title": "Nest",
-        "width": 760,
-        "height": 540,
+        "width": 1140,
+        "height": 380,
         "resizable": false,
         "decorations": false,
         "transparent": false,
