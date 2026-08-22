@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
+import { MenuSelect } from "../components/MenuSelect";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
@@ -20,12 +21,19 @@ import {
   type TaskTableColumnId,
 } from "../lib/taskTable";
 import {
+  matchingTaskStatusPreset,
   pinWorkingNowFirst,
+  sortTaskTable,
   TASK_STATUS_FILTERS,
   TASK_STATUS_LABEL,
+  TASK_STATUS_PRESETS,
+  TASK_STATUSES,
+  toggleTaskStatusFilter,
+  WORKING_STATUSES,
+  type TaskTableSort,
 } from "../lib/tasks";
 import { formatDate } from "../lib/time";
-import { chevronRightIcon } from "../components/icons";
+import { chevronDownIcon, chevronRightIcon } from "../components/icons";
 import { StatusTrigger } from "../task/StatusTrigger";
 import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
@@ -36,11 +44,19 @@ import {
   WorkingBadge,
 } from "../task/TaskWorkingControl";
 
+const TASK_TABLE_SORT_OPTIONS = [
+  { value: "updated", label: "Sort: Recently updated" },
+  { value: "status", label: "Sort: Status" },
+];
+
 export function TasksView() {
   const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
     useDashboardData();
   const [taskView, setTaskView] = useState(readTaskView);
-  const [statusFilter, setStatusFilter] = useState<TaskStatus>("active");
+  const [boardStatus, setBoardStatus] = useState<TaskStatus>("active");
+  const [tableStatuses, setTableStatuses] =
+    useState<TaskStatus[]>(WORKING_STATUSES);
+  const [tableSort, setTableSort] = useState<TaskTableSort>("updated");
   const tableColumns = useTaskTableColumns();
   const [composerTitle, setComposerTitle] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -52,6 +68,7 @@ export function TasksView() {
   );
   const [scopePanelCollapsed, setScopePanelCollapsed] = useState(true);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
+  const statusFilterRef = useRef<HTMLDetailsElement | null>(null);
   const { statusMenu, scopeMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
@@ -80,6 +97,7 @@ export function TasksView() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (statusMenu || scopeMenu) return;
+      if (statusFilterRef.current?.open) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) {
         return;
@@ -89,6 +107,30 @@ export function TasksView() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedTaskId, statusMenu, scopeMenu, closeDetail]);
+
+  useEffect(() => {
+    const closeStatusFilter = (restoreFocus: boolean) => {
+      const filter = statusFilterRef.current;
+      if (!filter?.open) return;
+      filter.open = false;
+      if (restoreFocus) filter.querySelector<HTMLElement>("summary")?.focus();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const filter = statusFilterRef.current;
+      if (filter?.open && !filter.contains(event.target as Node)) {
+        closeStatusFilter(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeStatusFilter(true);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   // Drop scope selection / collapse state for paths that no longer exist.
   useEffect(() => {
@@ -108,24 +150,39 @@ export function TasksView() {
     [tasks, selectedTaskScope],
   );
   const visibleTasks = useMemo(
-    () => scopedTasks.filter((task) => task.status === statusFilter),
-    [scopedTasks, statusFilter],
+    () =>
+      scopedTasks.filter((task) =>
+        taskView === "table"
+          ? tableStatuses.includes(task.status)
+          : task.status === boardStatus,
+      ),
+    [boardStatus, scopedTasks, tableStatuses, taskView],
   );
+  const tableStatusPreset = matchingTaskStatusPreset(tableStatuses);
   const emptyListCopy =
     tasks.length === 0
       ? "Nothing on the board yet — name the first task above."
       : scopedTasks.length === 0
         ? "No tasks in this scope yet."
-        : `No ${TASK_STATUS_LABEL[statusFilter].toLowerCase()} tasks.`;
+        : taskView === "table"
+          ? tableStatuses.length === 0
+            ? "Choose at least one status."
+            : "No tasks match these statuses."
+          : `No ${TASK_STATUS_LABEL[boardStatus].toLowerCase()} tasks.`;
 
-  // Creates in the status being viewed, inherits the active scope filter, and
-  // opens the detail panel so the description and scores are one step away.
+  // A table filter can represent several statuses, so table additions use the
+  // actionable Active state while board additions stay in the viewed lane.
   const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const title = composerTitle.trim();
     if (!title) return;
     try {
-      const created = await createTask(title, "", statusFilter, selectedTaskScope);
+      const created = await createTask(
+        title,
+        "",
+        taskView === "table" ? "active" : boardStatus,
+        selectedTaskScope,
+      );
       await reload();
       setComposerTitle("");
       selectTask(created.id);
@@ -219,7 +276,7 @@ export function TasksView() {
   const renderTaskColumn = () => (
     <section className="task-column">
       <header className="task-column__head">
-        <h3>{TASK_STATUS_LABEL[statusFilter]}</h3>
+        <h3>{TASK_STATUS_LABEL[boardStatus]}</h3>
         <span>{visibleTasks.length}</span>
       </header>
       {visibleTasks.length === 0 ? (
@@ -269,10 +326,16 @@ export function TasksView() {
             <StatusTrigger task={task} />
           </td>
         );
-      case "priority":
+      case "value":
         return (
-          <td key={id} className="task-table__col task-table__col--priority">
-            <TaskScoreControls task={task} />
+          <td key={id} className="task-table__col task-table__col--value">
+            <TaskScoreControls task={task} score="value" />
+          </td>
+        );
+      case "effort":
+        return (
+          <td key={id} className="task-table__col task-table__col--effort">
+            <TaskScoreControls task={task} score="effort" />
           </td>
         );
       case "workedTime":
@@ -303,12 +366,78 @@ export function TasksView() {
           <h2>Tasks</h2>
         </div>
         <div className="dash-toolbar">
-          <ViewToggle
-            value={statusFilter}
-            options={TASK_STATUS_FILTERS}
-            label="Task status"
-            onChange={setStatusFilter}
-          />
+          {taskView === "kanban" ? (
+            <ViewToggle
+              value={boardStatus}
+              options={TASK_STATUS_FILTERS}
+              label="Task status"
+              onChange={setBoardStatus}
+            />
+          ) : (
+            <>
+              <div
+                className="view-toggle"
+                role="group"
+                aria-label="Task status preset"
+              >
+                {TASK_STATUS_PRESETS.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    className={
+                      tableStatusPreset === preset.key
+                        ? "view-toggle__btn view-toggle__btn--active"
+                        : "view-toggle__btn"
+                    }
+                    aria-pressed={tableStatusPreset === preset.key}
+                    onClick={() => setTableStatuses([...preset.statuses])}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <details ref={statusFilterRef} className="task-status-filter">
+                <summary className="task-status-filter__trigger">
+                  Status{tableStatusPreset ? "" : ` (${tableStatuses.length})`}
+                  {chevronDownIcon}
+                </summary>
+                <div className="task-status-filter__menu">
+                  {TASK_STATUSES.map((status) => (
+                    <label className="task-status-filter__option" key={status}>
+                      <input
+                        type="checkbox"
+                        checked={tableStatuses.includes(status)}
+                        onChange={() =>
+                          setTableStatuses((selected) =>
+                            toggleTaskStatusFilter(selected, status),
+                          )
+                        }
+                      />
+                      <span
+                        className={`status-dot status-dot--${status}`}
+                        aria-hidden="true"
+                      />
+                      <span>{TASK_STATUS_LABEL[status]}</span>
+                      <span className="task-status-filter__count">
+                        {
+                          scopedTasks.filter((task) => task.status === status)
+                            .length
+                        }
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </details>
+              <MenuSelect
+                className="task-table-sort"
+                value={tableSort}
+                options={TASK_TABLE_SORT_OPTIONS}
+                placeholder="Sort"
+                ariaLabel="Sort tasks"
+                onChange={(value) => setTableSort(value as TaskTableSort)}
+              />
+            </>
+          )}
           <ViewToggle
             value={taskView}
             options={TASK_VIEWS}
@@ -392,10 +521,16 @@ export function TasksView() {
                 className="task-composer__title"
                 placeholder={
                   selectedTaskScope
-                    ? `Add a task in ${selectedTaskScope}…`
-                    : "Add a task…"
+                    ? `Add ${taskView === "table" ? "an active task" : "a task"} in ${selectedTaskScope}…`
+                    : taskView === "table"
+                      ? "Add an active task…"
+                      : "Add a task…"
                 }
-                aria-label="New task title"
+                aria-label={
+                  taskView === "table"
+                    ? "New active task title"
+                    : "New task title"
+                }
                 value={composerTitle}
                 onChange={(e) => setComposerTitle(e.target.value)}
               />
@@ -461,11 +596,7 @@ export function TasksView() {
                       </td>
                     </tr>
                   ) : (
-                    [...visibleTasks]
-                      .sort(
-                        (a, b) =>
-                          b.updatedAt - a.updatedAt || b.id - a.id,
-                      )
+                    sortTaskTable(visibleTasks, tableSort)
                       .map((task) => (
                         <tr
                           key={task.id}

@@ -1,4 +1,4 @@
-import { createElement, type ComponentProps } from "react";
+import { createElement, createRef, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,11 +7,14 @@ vi.mock("../../src/popup/windowDrag", () => ({
 }));
 
 import {
+  adjacentTimerInterval,
   firstScorablePulse,
   holdMetricDue,
   isPopupWindowDragTarget,
   nextMetricIndex,
   PopupTopPanel,
+  shouldCloseOverlayOnFocusLeave,
+  shouldDismissOnPointerDown,
 } from "../../src/popup/PopupContent";
 import type { Pulse } from "../../src/lib/types";
 
@@ -30,8 +33,12 @@ const props: ComponentProps<typeof PopupTopPanel> = {
   timerPickerOpen: true,
   schedulingTimer: false,
   selectedInterval: 15,
+  timerButtonRef: createRef(),
+  dashboardButtonRef: createRef(),
   onTimerPickerOpenChange: vi.fn(),
   onSelectInterval: vi.fn(),
+  onTimerPrevious: vi.fn(),
+  onDashboardNext: vi.fn(),
   onOpenDashboard: vi.fn(),
 };
 
@@ -43,6 +50,12 @@ describe("PopupTopPanel", () => {
     expect(html).toContain("0:00");
     expect(html).toContain('aria-label="Start timer"');
     expect(html).toContain("15 min");
+    expect(html).toContain('tabindex="-1"');
+    // Picker must sit inside the circle anchor, not under full-height __main
+    // (that places it below the popup viewport where overflow clips it).
+    expect(html).toMatch(
+      /combined-timer__anchor[\s\S]*combined-timer__picker[\s\S]*15 min/,
+    );
     expect(html).not.toContain("combined-timer__sweep");
   });
 
@@ -59,6 +72,71 @@ describe("PopupTopPanel", () => {
 
     expect(html).toContain("combined-timer__sweep");
     expect(html).toContain("7:30");
+  });
+});
+
+describe("shouldDismissOnPointerDown", () => {
+  const target = (matches: string | null) =>
+    ({
+      closest: (selector: string) =>
+        matches != null && selector.includes(matches) ? {} : null,
+    }) as unknown as EventTarget;
+
+  it("dismisses open overlays only when the pointer is outside their root", () => {
+    expect(
+      shouldDismissOnPointerDown(true, target(null), ".combined-timer__anchor"),
+    ).toBe(true);
+    expect(
+      shouldDismissOnPointerDown(
+        true,
+        target("combined-timer__anchor"),
+        ".combined-timer__anchor",
+      ),
+    ).toBe(false);
+    expect(
+      shouldDismissOnPointerDown(
+        true,
+        target(null),
+        ".now-task--composer, .now-group__add",
+      ),
+    ).toBe(true);
+    expect(
+      shouldDismissOnPointerDown(
+        true,
+        target("now-group__add"),
+        ".now-task--composer, .now-group__add",
+      ),
+    ).toBe(false);
+    expect(
+      shouldDismissOnPointerDown(false, target(null), ".combined-timer__anchor"),
+    ).toBe(false);
+  });
+});
+
+describe("shouldCloseOverlayOnFocusLeave", () => {
+  it("ignores empty relatedTarget so opening the picker does not flicker closed", () => {
+    const target = (contains: (node: unknown) => boolean) =>
+      ({ contains }) as unknown as EventTarget;
+    const current = target(() => false);
+    expect(shouldCloseOverlayOnFocusLeave(current, null)).toBe(false);
+    expect(shouldCloseOverlayOnFocusLeave(current, target(() => false))).toBe(
+      true,
+    );
+    expect(
+      shouldCloseOverlayOnFocusLeave(
+        target((node) => node === current),
+        current,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("adjacentTimerInterval", () => {
+  it("moves between timer values and stops at either end", () => {
+    expect(adjacentTimerInterval(15, 1)).toBe(20);
+    expect(adjacentTimerInterval(15, -1)).toBe(10);
+    expect(adjacentTimerInterval(30, 1)).toBe(30);
+    expect(adjacentTimerInterval(5, -1)).toBe(5);
   });
 });
 

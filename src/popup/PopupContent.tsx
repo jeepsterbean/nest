@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { emit } from "@tauri-apps/api/event";
 import {
   createTask,
@@ -168,6 +174,37 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** Close an open overlay when the pointer lands outside its keep-alive root. */
+export function shouldDismissOnPointerDown(
+  open: boolean,
+  target: EventTarget | null,
+  keepInsideSelector: string,
+): boolean {
+  if (
+    !open ||
+    target == null ||
+    typeof (target as { closest?: unknown }).closest !== "function"
+  ) {
+    return false;
+  }
+  return !(target as Element).closest(keepInsideSelector);
+}
+
+/** Ignore re-render blurs (relatedTarget is null); close when focus actually left. */
+export function shouldCloseOverlayOnFocusLeave(
+  currentTarget: EventTarget | null,
+  relatedTarget: EventTarget | null,
+): boolean {
+  if (relatedTarget == null) return false;
+  if (
+    currentTarget == null ||
+    typeof (currentTarget as { contains?: unknown }).contains !== "function"
+  ) {
+    return true;
+  }
+  return !(currentTarget as Node).contains(relatedTarget as Node);
+}
+
 export function PopupTopPanel({
   timerDue,
   countdown,
@@ -175,8 +212,12 @@ export function PopupTopPanel({
   timerPickerOpen,
   schedulingTimer,
   selectedInterval,
+  timerButtonRef,
+  dashboardButtonRef,
   onTimerPickerOpenChange,
   onSelectInterval,
+  onTimerPrevious,
+  onDashboardNext,
   onOpenDashboard,
 }: {
   timerDue: boolean;
@@ -186,10 +227,26 @@ export function PopupTopPanel({
   timerPickerOpen: boolean;
   schedulingTimer: boolean;
   selectedInterval: number;
+  timerButtonRef: RefObject<HTMLButtonElement | null>;
+  dashboardButtonRef: RefObject<HTMLButtonElement | null>;
   onTimerPickerOpenChange: (open: boolean) => void;
   onSelectInterval: (minutes: number) => void;
+  onTimerPrevious: () => void;
+  onDashboardNext: () => void;
   onOpenDashboard: () => void;
 }) {
+  const [pendingInterval, setPendingInterval] = useState<number | null>(null);
+  const displayedInterval = pendingInterval ?? selectedInterval;
+
+  useEffect(() => {
+    if (!timerPickerOpen) setPendingInterval(null);
+  }, [timerPickerOpen]);
+
+  const moveTimerSelection = (direction: -1 | 1) => {
+    setPendingInterval(adjacentTimerInterval(displayedInterval, direction));
+    onTimerPickerOpenChange(true);
+  };
+
   return (
     <header
       className="combined-timer"
@@ -203,71 +260,112 @@ export function PopupTopPanel({
       <div
         className="combined-timer__main"
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
+          if (
+            shouldCloseOverlayOnFocusLeave(
+              event.currentTarget,
+              event.relatedTarget,
+            )
+          ) {
+            setPendingInterval(null);
             onTimerPickerOpenChange(false);
           }
         }}
       >
-        <button
-          type="button"
-          className="combined-timer__trigger"
-          aria-haspopup="listbox"
-          aria-expanded={timerPickerOpen}
-          aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
-          disabled={schedulingTimer}
-          onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
-        >
-          <svg
-            className="combined-timer__face"
-            viewBox="0 0 100 100"
-            aria-hidden="true"
-            focusable="false"
+        {/* Anchor is circle-sized so the picker overlays the face. Positioning
+            against full-height __main puts it below the popup (clipped). */}
+        <div className="combined-timer__anchor">
+          <button
+            ref={timerButtonRef}
+            type="button"
+            className="combined-timer__trigger"
+            aria-haspopup="listbox"
+            aria-expanded={timerPickerOpen}
+            aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
+            disabled={schedulingTimer}
+            onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                moveTimerSelection(event.key === "ArrowDown" ? 1 : -1);
+              } else if (event.key === "Enter" && pendingInterval !== null) {
+                event.preventDefault();
+                onSelectInterval(pendingInterval);
+                setPendingInterval(null);
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setPendingInterval(null);
+                onTimerPickerOpenChange(false);
+              } else if (event.key === "Tab") {
+                if (event.shiftKey) {
+                  event.preventDefault();
+                  onTimerPrevious();
+                } else if (pendingInterval !== null) {
+                  onSelectInterval(pendingInterval);
+                  setPendingInterval(null);
+                }
+              }
+            }}
           >
-            <circle className="combined-timer__bezel" cx="50" cy="50" r="46" />
-            {remainingRatio > 0 && (
-              <circle
-                className="combined-timer__sweep"
-                cx="50"
-                cy="50"
-                r="46"
-                pathLength={1}
-                strokeDasharray={1}
-                strokeDashoffset={1 - remainingRatio}
-                transform="rotate(-90 50 50)"
-              />
-            )}
-          </svg>
-          <strong className="combined-timer__value" role="timer">
-            {countdown}
-          </strong>
-        </button>
-        {timerPickerOpen && (
-          <div
-            className="combined-timer__picker"
-            role="listbox"
-            aria-label="Start timer"
-          >
-            {TIMER_INTERVALS.map((minutes) => (
-              <button
-                key={minutes}
-                type="button"
-                role="option"
-                aria-selected={selectedInterval === minutes}
-                disabled={schedulingTimer}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onSelectInterval(minutes)}
-              >
-                {minutes} min
-              </button>
-            ))}
-          </div>
-        )}
+            <svg
+              className="combined-timer__face"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle className="combined-timer__bezel" cx="50" cy="50" r="46" />
+              {remainingRatio > 0 && (
+                <circle
+                  className="combined-timer__sweep"
+                  cx="50"
+                  cy="50"
+                  r="46"
+                  pathLength={1}
+                  strokeDasharray={1}
+                  strokeDashoffset={1 - remainingRatio}
+                  transform="rotate(-90 50 50)"
+                />
+              )}
+            </svg>
+            <strong className="combined-timer__value" role="timer">
+              {countdown}
+            </strong>
+          </button>
+          {timerPickerOpen && (
+            <div
+              className="combined-timer__picker"
+              role="listbox"
+              aria-label="Start timer"
+            >
+              {TIMER_INTERVALS.map((minutes) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  tabIndex={-1}
+                  role="option"
+                  aria-selected={displayedInterval === minutes}
+                  disabled={schedulingTimer}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => onSelectInterval(minutes)}
+                >
+                  {minutes} min
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <button
+        ref={dashboardButtonRef}
         type="button"
         className="combined-dashboard-link"
         aria-label="Open dashboard"
         title="Open dashboard"
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && !event.shiftKey) {
+            event.preventDefault();
+            onDashboardNext();
+          }
+        }}
         onClick={onOpenDashboard}
       >
         <ExpandIcon />
@@ -278,6 +376,20 @@ export function PopupTopPanel({
 
 export function nextMetricIndex(index: number, metricCount: number) {
   return index + 1 < metricCount ? index + 1 : null;
+}
+
+export function adjacentTimerInterval(current: number, direction: -1 | 1) {
+  const currentIndex = TIMER_INTERVALS.findIndex(
+    (interval) => interval === current,
+  );
+  const nextIndex = Math.max(
+    0,
+    Math.min(
+      TIMER_INTERVALS.length - 1,
+      (currentIndex < 0 ? 0 : currentIndex) + direction,
+    ),
+  );
+  return TIMER_INTERVALS[nextIndex];
 }
 
 export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
@@ -336,10 +448,19 @@ function PopupContent({
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const pulseButtonsRef = useRef<HTMLDivElement | null>(null);
+  const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const timerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dashboardButtonRef = useRef<HTMLButtonElement | null>(null);
   const taskListRef = useRef<HTMLDivElement | null>(null);
+  const taskScrollThumbRef = useRef<HTMLDivElement | null>(null);
   const liveTasksRef = useRef<HTMLDivElement | null>(null);
   const stickToLiveRef = useRef(true);
   const isLoaded = loaded !== null;
+  const enabledPulseButtons = () =>
+    pulseButtonsRef.current?.querySelectorAll<HTMLButtonElement>(
+      "button:not(:disabled)",
+    );
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses = loaded?.pulses.filter(
     (pulse) => !hiddenPulseIds.has(pulse.id),
@@ -357,15 +478,29 @@ function PopupContent({
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
+  // Working tasks lead the popup as hero rows; everything else recedes into
+  // the plain lane lists below, so the popup answers "what am I doing" at a
+  // glance instead of making that item look like every other row.
+  const workingTasks = activeTasks.filter((task) => task.workingNow);
+  const idleActiveTasks = activeTasks.filter((task) => !task.workingNow);
+  // Nobody's working: nudge the row that would start one, active first.
+  const nudgeTaskId =
+    workingTasks.length === 0
+      ? (idleActiveTasks[0] ?? upNextTasks[0])?.id ?? null
+      : null;
   const recentClosed = recentlyClosedTasks(loaded?.tasks ?? [], nowMs);
   const recentClosedKey = recentClosed.map((task) => task.id).join(",");
   // One drag list spanning both lanes: dropping on a row of the other lane is
   // what moves a task between Active and Up next. An empty lane still offers
   // its placeholder as a drop target.
+  // Hero rows (working tasks) aren't a drag source or target, so once idle
+  // active rows run out, the lane still needs a rendered placeholder id —
+  // otherwise nothing in the DOM carries EMPTY_ACTIVE_ROW to drop onto.
+  const activeLaneIds = idleActiveTasks.length
+    ? activeTasks.map((task) => task.id)
+    : [...workingTasks.map((task) => task.id), EMPTY_ACTIVE_ROW];
   const boardRowIds = [
-    ...(activeTasks.length
-      ? activeTasks.map((task) => task.id)
-      : [EMPTY_ACTIVE_ROW]),
+    ...activeLaneIds,
     ...(upNextTasks.length
       ? upNextTasks.map((task) => task.id)
       : [EMPTY_UP_NEXT_ROW]),
@@ -441,12 +576,38 @@ function PopupContent({
     });
   }, [isLoaded]);
 
-  useLayoutEffect(() => {
-    if (!stickToLiveRef.current) return;
+  const syncTaskListThumb = () => {
     const list = taskListRef.current;
-    const live = liveTasksRef.current;
-    if (list && live) list.scrollTop = live.offsetTop;
-  }, [isLoaded, recentClosedKey]);
+    const thumb = taskScrollThumbRef.current;
+    if (!list || !thumb) return;
+    const { scrollTop, scrollHeight, clientHeight } = list;
+    const overflow = scrollHeight - clientHeight;
+    if (overflow <= 1) {
+      thumb.style.opacity = "0";
+      return;
+    }
+    const size = Math.max(20, (clientHeight * clientHeight) / scrollHeight);
+    thumb.style.opacity = "1";
+    thumb.style.height = `${size}px`;
+    thumb.style.transform = `translateY(${(scrollTop / overflow) * (clientHeight - size)}px)`;
+  };
+
+  useLayoutEffect(() => {
+    if (stickToLiveRef.current) {
+      const list = taskListRef.current;
+      const live = liveTasksRef.current;
+      if (list && live) list.scrollTop = live.offsetTop;
+    }
+    syncTaskListThumb();
+  }, [isLoaded, recentClosedKey, loaded?.tasks]);
+
+  useEffect(() => {
+    const list = taskListRef.current;
+    if (!list) return;
+    const observer = new ResizeObserver(() => syncTaskListThumb());
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [isLoaded]);
 
   const openDashboard = async () => {
     await showDashboard();
@@ -748,14 +909,62 @@ function PopupContent({
     );
   }
 
-  const workingCount = loaded.tasks.filter((task) => task.workingNow).length;
-  // Live lanes share a row: lead play control, title, trailing status
+  const workingCount = workingTasks.length;
+  // Working tasks lead as hero rows: the one thing the popup wants you to
+  // see first, so it reads at a glance instead of blending into the list.
+  const renderHeroRow = (task: Task) => (
+    <li className="now-hero" key={task.id}>
+      <div className="now-hero__lead">
+        <WorkingToggle
+          task={task}
+          playPause
+          nowMs={nowMs}
+          clockedSeconds={workedSecondsToday(
+            loaded.workStretches,
+            nowMs,
+            task.id,
+          )}
+          tabIndex={-1}
+          disabled={submitting}
+          onToggle={(working) => updateTaskWorking(task, working)}
+        />
+      </div>
+      <div className="now-hero__body">
+        <span className="now-hero__title">{task.title}</span>
+      </div>
+      <div className="now-task__actions">
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Move ${task.title} to Up next`}
+          title="Up next"
+          onClick={() => updateTaskStatus(task, "up_next")}
+          disabled={submitting}
+        >
+          <QueueIcon />
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Complete ${task.title}`}
+          title="Complete"
+          onClick={() => updateTaskStatus(task, "completed")}
+          disabled={submitting}
+        >
+          <CheckIcon />
+        </button>
+      </div>
+    </li>
+  );
+  // Idle lanes share a row: lead play control, title, trailing status
   // actions. Closed history is a quieter restore row, not in the drag list.
   const renderTaskRow = (task: Task) => (
     <li
-      className={`now-task${task.workingNow ? " now-task--working" : ""}${
-        boardSort.draggingId === task.id ? " is-dragging" : ""
-      }${boardSort.overId === task.id ? " is-drop-target" : ""}`}
+      className={`now-task${
+        task.id === nudgeTaskId ? " now-task--nudge" : ""
+      }${boardSort.draggingId === task.id ? " is-dragging" : ""}${
+        boardSort.overId === task.id ? " is-drop-target" : ""
+      }`}
       key={task.id}
       {...boardSort.rowProps(task.id)}
     >
@@ -765,17 +974,14 @@ function PopupContent({
             task={task}
             playPause
             nowMs={nowMs}
-            clockedSeconds={
-              task.workingNow
-                ? workedSecondsToday(loaded.workStretches, nowMs, task.id)
-                : undefined
-            }
+            tabIndex={-1}
             disabled={submitting}
             onToggle={(working) => updateTaskWorking(task, working)}
           />
         ) : (
           <button
             type="button"
+            tabIndex={-1}
             className="working-toggle working-toggle--play-pause"
             aria-label={`Start working on ${task.title}`}
             title="Move to Active and start working"
@@ -791,6 +997,7 @@ function PopupContent({
         {task.status === "active" && (
           <button
             type="button"
+            tabIndex={-1}
             aria-label={`Move ${task.title} to Up next`}
             title="Up next"
             onClick={() => updateTaskStatus(task, "up_next")}
@@ -801,6 +1008,7 @@ function PopupContent({
         )}
         <button
           type="button"
+          tabIndex={-1}
           aria-label={`Complete ${task.title}`}
           title="Complete"
           onClick={() => updateTaskStatus(task, "completed")}
@@ -823,6 +1031,7 @@ function PopupContent({
       <div className="now-task__actions">
         <button
           type="button"
+          tabIndex={-1}
           aria-label={`Return ${task.title} to Active`}
           title="Return to Active"
           onClick={() => updateTaskStatus(task, "active")}
@@ -835,14 +1044,20 @@ function PopupContent({
   );
   const taskView = (
     <section className="now-card" aria-label="Tasks">
+      {workingTasks.length > 0 && (
+        <ul className="now-hero-list">{workingTasks.map(renderHeroRow)}</ul>
+      )}
+      <div className="now-card__scroller">
       <div
         className="now-card__tasks"
         ref={taskListRef}
         onScroll={() => {
           const list = taskListRef.current;
           const live = liveTasksRef.current;
-          if (!list || !live) return;
-          stickToLiveRef.current = list.scrollTop >= live.offsetTop - 2;
+          if (list && live) {
+            stickToLiveRef.current = list.scrollTop >= live.offsetTop - 2;
+          }
+          syncTaskListThumb();
         }}
       >
         {recentClosed.length > 0 && (
@@ -865,6 +1080,7 @@ function PopupContent({
             {workingCount > 0 && (
               <button
                 type="button"
+                tabIndex={-1}
                 className="now-group__rest"
                 aria-label={`Rest — stop ${workingCount} working ${workingCount === 1 ? "task" : "tasks"}`}
                 title="Rest — stop all working tasks"
@@ -876,6 +1092,7 @@ function PopupContent({
             )}
             <button
               type="button"
+              tabIndex={-1}
               className="now-group__add"
               aria-label="Add active task"
               aria-expanded={addingTask}
@@ -894,6 +1111,7 @@ function PopupContent({
             <div className="now-task now-task--composer">
               <input
                 ref={taskInputRef}
+                tabIndex={-1}
                 aria-label="New active task"
                 autoComplete="off"
                 disabled={submitting}
@@ -913,6 +1131,7 @@ function PopupContent({
               />
               <button
                 type="button"
+                tabIndex={-1}
                 aria-label="Create task"
                 title="Create task"
                 disabled={submitting || !taskTitle.trim()}
@@ -922,6 +1141,7 @@ function PopupContent({
               </button>
               <button
                 type="button"
+                tabIndex={-1}
                 aria-label="Create and start task"
                 title="Create and start (⌘↵)"
                 disabled={submitting || !taskTitle.trim()}
@@ -931,17 +1151,19 @@ function PopupContent({
               </button>
             </div>
           )}
-          {activeTasks.length === 0 ? (
+          {idleActiveTasks.length === 0 ? (
             <p
               className={`now-card__empty${
                 boardSort.overId === EMPTY_ACTIVE_ROW ? " is-drop-target" : ""
               }`}
               {...boardSort.rowProps(EMPTY_ACTIVE_ROW)}
             >
-              Nothing active right now.
+              {workingTasks.length > 0
+                ? "Nothing else active right now."
+                : "Nothing active right now."}
             </p>
           ) : (
-            <ul className="now-list">{activeTasks.map(renderTaskRow)}</ul>
+            <ul className="now-list">{idleActiveTasks.map(renderTaskRow)}</ul>
           )}
         </section>
         <section
@@ -967,6 +1189,12 @@ function PopupContent({
         </section>
         </div>
       </div>
+      <div
+        className="now-card__scroll-thumb"
+        ref={taskScrollThumbRef}
+        aria-hidden="true"
+      />
+      </div>
     </section>
   );
 
@@ -984,9 +1212,25 @@ function PopupContent({
     <div
       className="popup-workspace"
       onPointerDownCapture={(event) => {
-        const target = event.target as Element;
-        if (timerPickerOpen && !target.closest(".combined-timer__main")) {
+        const target = event.target;
+        // Anchor (circle + list), not full-height __main — clock chrome counts as away.
+        if (
+          shouldDismissOnPointerDown(
+            timerPickerOpen,
+            target,
+            ".combined-timer__anchor",
+          )
+        ) {
           setTimerPickerOpen(false);
+        }
+        if (
+          shouldDismissOnPointerDown(
+            addingTask,
+            target,
+            ".now-task--composer, .now-group__add",
+          )
+        ) {
+          setAddingTask(false);
         }
       }}
     >
@@ -1000,8 +1244,16 @@ function PopupContent({
           selectedInterval={
             nextTimerMinutes ?? loaded.timer.intervalMinutes
           }
+          timerButtonRef={timerButtonRef}
+          dashboardButtonRef={dashboardButtonRef}
           onTimerPickerOpenChange={setTimerPickerOpen}
           onSelectInterval={(minutes) => void applyTimer(minutes)}
+          onTimerPrevious={() => {
+            const buttons = enabledPulseButtons();
+            const previous = buttons?.item((buttons?.length ?? 0) - 1);
+            (previous ?? brainDumpRef.current)?.focus();
+          }}
+          onDashboardNext={() => brainDumpRef.current?.focus()}
           onOpenDashboard={() => void openDashboard()}
         />
       </aside>
@@ -1036,13 +1288,32 @@ function PopupContent({
             )}
             {visiblePulses.length > 0 && (
               <div
+                ref={pulseButtonsRef}
                 className="popup-pulse-toggle"
                 role="group"
                 aria-label="Pulses"
+                onKeyDown={(event) => {
+                  if (event.key !== "Tab") return;
+                  const buttons = event.currentTarget.querySelectorAll(
+                    "button:not(:disabled)",
+                  );
+                  const boundary = buttons.item(
+                    event.shiftKey ? 0 : buttons.length - 1,
+                  );
+                  if (boundary !== event.target) return;
+                  event.preventDefault();
+                  if (event.shiftKey) brainDumpRef.current?.focus();
+                  else timerButtonRef.current?.focus();
+                }}
               >
                 {visiblePulses.map((pulse) => (
                   <button
                     key={pulse.id}
+                    ref={
+                      pulse.id === selectedPulseId
+                        ? selectedPulseButtonRef
+                        : undefined
+                    }
                     type="button"
                     aria-label={pulse.name}
                     title={pulse.name}
@@ -1124,6 +1395,16 @@ function PopupContent({
             setBrainDumpDraft({ text: event.target.value })
           }
           onKeyDown={(event) => {
+            if (event.key === "Tab") {
+              event.preventDefault();
+              if (event.shiftKey) dashboardButtonRef.current?.focus();
+              else {
+                (
+                  selectedPulseButtonRef.current ?? timerButtonRef.current
+                )?.focus();
+              }
+              return;
+            }
             if (
               isBrainDumpSubmitShortcut({
                 key: event.key,

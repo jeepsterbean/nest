@@ -76,6 +76,7 @@ function Popup() {
     <div className="popup">
       <button
         type="button"
+        tabIndex={-1}
         className="popup__drag"
         aria-label="Move window"
         title="Drag to move"

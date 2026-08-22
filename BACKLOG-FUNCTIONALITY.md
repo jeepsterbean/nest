@@ -9,6 +9,13 @@ APIs, schema, or code structure.
 ## Brain dump
 show a nice, clean view of brain dumps on overview page
 
+## Task section
+show priotiy as 2 columns
+have a all tasks view.
+
+## overview page
+Redesign task card to be more lean
+
 ## Dashboard sections
 - Let every section except Overview use the full dashboard window for its own content; hide Reminders on Calendar, Insights, Log, and other non-overview sections.
 - Move task toggles to the left side of each task.

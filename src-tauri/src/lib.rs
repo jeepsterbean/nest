@@ -1290,6 +1290,7 @@ pub fn run() {
             commands::update_task_work_stretch,
             commands::delete_task_work_stretch,
             commands::set_task_score,
+            commands::set_task_score_field,
             commands::reorder_tasks,
             commands::create_metric,
             commands::rename_metric,

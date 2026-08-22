@@ -12,7 +12,8 @@ export const TASK_TABLE_COLUMNS = [
   { id: "scope", label: "Scope", width: 140, minWidth: 88 },
   { id: "parent", label: "Parent", width: 140, minWidth: 72 },
   { id: "status", label: "Status", width: 128, minWidth: 96 },
-  { id: "priority", label: "Priority", width: 200, minWidth: 140 },
+  { id: "value", label: "Value", width: 72, minWidth: 56 },
+  { id: "effort", label: "Effort", width: 72, minWidth: 56 },
   { id: "workedTime", label: "Worked time", width: 100, minWidth: 72 },
   { id: "created", label: "Created", width: 100, minWidth: 72 },
   { id: "updated", label: "Updated", width: 100, minWidth: 72 },
@@ -65,10 +66,13 @@ export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => 
 
   const seen = new Set<TaskTableColumnId>();
   const order: TaskTableColumnId[] = [];
-  for (const id of storedOrder) {
-    if (!isColumnId(id) || seen.has(id)) continue;
-    seen.add(id);
-    order.push(id);
+  for (const storedId of storedOrder) {
+    const ids = storedId === "priority" ? ["value", "effort"] : [storedId];
+    for (const id of ids) {
+      if (!isColumnId(id) || seen.has(id)) continue;
+      seen.add(id);
+      order.push(id);
+    }
   }
   for (const column of TASK_TABLE_COLUMNS) {
     if (seen.has(column.id)) continue;

@@ -56,6 +56,7 @@ export function WorkingToggle({
   compact = false,
   playPause = false,
   disabled = false,
+  tabIndex,
   nowMs,
   clockedSeconds,
 }: {
@@ -64,6 +65,7 @@ export function WorkingToggle({
   compact?: boolean;
   playPause?: boolean;
   disabled?: boolean;
+  tabIndex?: number;
   nowMs?: number;
   /** When set, the play control shows this elapsed total instead of the open stretch. */
   clockedSeconds?: number;
@@ -90,6 +92,7 @@ export function WorkingToggle({
       aria-label={`${label} on ${task.title}${sessionHint}`}
       aria-pressed={task.workingNow}
       title={`${label} on this task${sessionHint}`}
+      tabIndex={tabIndex}
       disabled={disabled || pending}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={async (event) => {

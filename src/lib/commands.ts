@@ -204,6 +204,14 @@ export function setTaskScore(
   return invoke("set_task_score", { id, value, effort });
 }
 
+export function setTaskScoreField(
+  id: number,
+  field: "value" | "effort",
+  score: RatingValue | null,
+): Promise<Task> {
+  return invoke("set_task_score_field", { id, field, score });
+}
+
 export function submitMetricCheckIn(
   pulseId: number,
   ratings: MetricRatingInput[],

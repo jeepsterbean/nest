@@ -49,7 +49,63 @@ export const TASK_STATUS_FILTERS = TASK_STATUSES.map((status) => ({
   label: TASK_STATUS_LABEL[status],
 }));
 
+export type TaskTableSort = "updated" | "status";
+
+const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
+  active: 0,
+  up_next: 1,
+  backlog: 2,
+  completed: 3,
+  cancelled: 4,
+};
+
+export const sortTaskTable = (
+  taskList: Task[],
+  sort: TaskTableSort,
+): Task[] =>
+  [...taskList].sort(
+    (a, b) =>
+      (sort === "status"
+        ? TASK_STATUS_SORT_ORDER[a.status] - TASK_STATUS_SORT_ORDER[b.status]
+        : 0) ||
+      b.updatedAt - a.updatedAt ||
+      b.id - a.id,
+  );
+
+export const TASK_STATUS_PRESETS = [
+  { key: "open", label: "Open", statuses: WORKING_STATUSES },
+  { key: "closed", label: "Closed", statuses: CLOSED_STATUSES },
+  { key: "all", label: "All", statuses: TASK_STATUSES },
+] as const;
+
+export const matchingTaskStatusPreset = (selected: TaskStatus[]) =>
+  TASK_STATUS_PRESETS.find(
+    ({ statuses }) =>
+      statuses.length === selected.length &&
+      statuses.every((status) => selected.includes(status)),
+  )?.key ?? null;
+
+export const toggleTaskStatusFilter = (
+  selected: TaskStatus[],
+  status: TaskStatus,
+): TaskStatus[] =>
+  selected.includes(status)
+    ? selected.filter((candidate) => candidate !== status)
+    : TASK_STATUSES.filter(
+        (candidate) => candidate === status || selected.includes(candidate),
+      );
+
 export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
+
+export const parseRatingValue = (
+  value: string,
+): RatingValue | null | undefined => {
+  if (value === "") return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5
+    ? (number as RatingValue)
+    : undefined;
+};
 
 // Working now outranks manual order, always: a working task sits above every
 // idle one and no drag can push it below. Sort is stable, so the manual

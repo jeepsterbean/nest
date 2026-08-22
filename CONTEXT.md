@@ -224,6 +224,10 @@ _Avoid_: Journal
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
+- Tab intentionally cycles through Brain dump, visible Pulses, Timer, and
+  Dashboard. Task controls are pointer-only; Metric ratings use the 1–5 number
+  shortcuts. This compact focus loop intentionally does not provide keyboard
+  access to task actions.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

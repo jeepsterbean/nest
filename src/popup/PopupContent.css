@@ -78,11 +78,21 @@
   container-type: size;
 }
 
-.combined-timer__trigger {
+/* Circle-sized positioning context: the picker must anchor here, not to
+   full-height __main, or it opens below the popup and gets clipped. */
+.combined-timer__anchor {
   position: relative;
   display: grid;
   width: min(100cqi, 100cqh);
   aspect-ratio: 1;
+  place-items: center;
+}
+
+.combined-timer__trigger {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
   place-items: center;
   padding: 0;
   border: none;
@@ -142,7 +152,7 @@
 .combined-timer__picker {
   position: absolute;
   z-index: 30;
-  top: calc(100% + 7px);
+  top: 50%;
   left: 50%;
   display: grid;
   width: 122px;
@@ -151,7 +161,7 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
   box-shadow: var(--shadow);
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .combined-timer__picker button {
@@ -226,6 +236,64 @@
   animation: popup-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* The one task in play: the single loudest element in the popup, so
+   opening it answers "what am I doing" before anything else is read. */
+.now-hero-list {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: 8px;
+  margin: 0 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.now-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.now-hero__lead {
+  flex: none;
+}
+
+.now-hero .working-toggle--play-pause {
+  width: 34px;
+  height: 34px;
+  opacity: 1;
+}
+
+.now-hero__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.now-hero__title {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-hero .now-task__actions button {
+  opacity: 0.75;
+}
+
 .now-card__empty {
   margin: 0;
   padding: 3px 2px;
@@ -234,12 +302,40 @@
   line-height: 1.45;
 }
 
+.now-card__scroller {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
 .now-card__tasks {
   display: flex;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
   gap: 14px;
   padding: 0 2px 3px;
   overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.now-card__tasks::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.now-card__scroll-thumb {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .now-card__live {
@@ -335,9 +431,16 @@
   outline: none;
 }
 
-/* Queued, not in play — fade until the user actually looks at it. */
+/* Queued, not in play — fade and shrink until the user actually looks at
+   it, so hierarchy reads from size and weight, not just a squint at
+   opacity. */
 .now-group--up-next .now-task {
   opacity: 0.55;
+}
+
+.now-group--up-next .now-task__title {
+  font-size: 0.92rem;
+  font-weight: 550;
 }
 
 .now-group--up-next .now-task:hover,
@@ -367,24 +470,46 @@
   list-style: none;
 }
 
+/* Idle rows stay flat by default — the boxed "card" look is reserved for
+   the hero above, so it isn't fighting these for attention. A box only
+   shows up here on hover/focus/drag, i.e. while the row is actually in
+   play. */
 .now-task {
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 9px;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  padding: 7px 9px;
+  border: 1px solid transparent;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  background: transparent;
   transition:
     border-color 0.18s cubic-bezier(0.25, 1, 0.5, 1),
     background 0.18s cubic-bezier(0.25, 1, 0.5, 1),
     opacity 0.18s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.now-task--working {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface));
+.now-task:hover,
+.now-task:focus-within {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+@keyframes now-task-nudge-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+
+/* Nobody's working: pulse the row that would start one, same glow
+   language as the metric check-in's due state. */
+.now-task--nudge .working-toggle--play-pause {
+  border-radius: 999px;
+  animation: now-task-nudge-glow 2.4s ease-in-out infinite;
 }
 
 .now-task__title,
@@ -882,5 +1007,10 @@
   .pulse-panel--due .metric-step__title svg {
     animation: none;
     filter: none;
+  }
+
+  .now-task--nudge .working-toggle--play-pause {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 }

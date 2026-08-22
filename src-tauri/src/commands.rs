@@ -829,6 +829,40 @@ pub fn set_task_score(
     fetch_task(&conn, id)
 }
 
+fn update_task_score_field(
+    conn: &Connection,
+    id: i64,
+    field: &str,
+    score: Option<i64>,
+) -> Result<Task> {
+    let score = validate_task_score(score, field)?;
+    let sql = match field {
+        "value" => "UPDATE tasks SET value = ?1, updated_at = ?2 WHERE id = ?3",
+        "effort" => "UPDATE tasks SET effort = ?1, updated_at = ?2 WHERE id = ?3",
+        _ => {
+            return Err(AppError::InvalidInput(
+                "task score field must be value or effort".into(),
+            ));
+        }
+    };
+    let updated = conn.execute(sql, params![score, now_unix_secs(), id])?;
+    if updated == 0 {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    fetch_task(conn, id)
+}
+
+#[tauri::command]
+pub fn set_task_score_field(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    field: String,
+    score: Option<i64>,
+) -> Result<Task> {
+    let conn = state.lock().unwrap();
+    update_task_score_field(&conn, id, &field, score)
+}
+
 /// Reorders one lane of the board: the listed tasks take over the sort_order
 /// slots they already occupy, in the new order, leaving every other task put.
 fn set_task_order(conn: &Connection, ids: &[i64]) -> Result<()> {
@@ -1437,7 +1471,7 @@ mod tests {
         bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
         change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
         normalize_task_scope, record_metric_check_in, recover_open_stretches, resolve_due_timer,
-        valid_icon, validate_task_status,
+        update_task_score_field, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
@@ -1500,6 +1534,20 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn updating_one_task_score_preserves_the_other() {
+        let conn = task_database();
+        conn.execute("UPDATE tasks SET value = 2, effort = 3 WHERE id = 1", [])
+            .unwrap();
+
+        let task = update_task_score_field(&conn, 1, "value", Some(5)).unwrap();
+        assert_eq!((task.value, task.effort), (Some(5), Some(3)));
+
+        let task = update_task_score_field(&conn, 1, "effort", Some(4)).unwrap();
+        assert_eq!((task.value, task.effort), (Some(5), Some(4)));
+        assert!(update_task_score_field(&conn, 1, "priority", Some(1)).is_err());
     }
 
     fn stretches(conn: &Connection, task_id: i64) -> Vec<(i64, i64, Option<i64>)> {

@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   CLOSED_STATUSES,
   groupTasksByStatus,
+  matchingTaskStatusPreset,
+  parseRatingValue,
   pinnedIdOrder,
   recentlyClosedTasks,
   RECENT_CLOSED_WINDOW_SECONDS,
+  sortTaskTable,
   TASK_STATUS_FILTERS,
   TASK_STATUS_LABEL,
+  toggleTaskStatusFilter,
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
@@ -49,6 +53,53 @@ describe("board status groups", () => {
     const combined = [...WORKING_STATUSES, ...CLOSED_STATUSES];
     expect([...combined].sort()).toEqual([...TASK_STATUSES].sort());
     expect(new Set(combined).size).toBe(combined.length);
+  });
+});
+
+describe("table status filters", () => {
+  it("recognizes presets and keeps custom selections in status order", () => {
+    expect(matchingTaskStatusPreset(["active", "backlog", "up_next"])).toBe(
+      "open",
+    );
+    expect(matchingTaskStatusPreset(["active", "completed"])).toBeNull();
+    expect(toggleTaskStatusFilter(["active"], "backlog")).toEqual([
+      "backlog",
+      "active",
+    ]);
+    expect(toggleTaskStatusFilter(["backlog", "active"], "active")).toEqual([
+      "backlog",
+    ]);
+  });
+});
+
+describe("sortTaskTable", () => {
+  const tasks = [
+    task(1, "cancelled", 1, 80),
+    task(2, "backlog", 2, 70),
+    task(3, "active", 3, 60),
+    task(4, "completed", 4, 50),
+    task(5, "up_next", 5, 40),
+    task(6, "active", 6, 90),
+  ];
+
+  it("sorts by recency or workflow status with recency inside each status", () => {
+    expect(sortTaskTable(tasks, "updated").map(({ id }) => id)).toEqual([
+      6, 1, 2, 3, 4, 5,
+    ]);
+    expect(sortTaskTable(tasks, "status").map(({ id }) => id)).toEqual([
+      6, 3, 5, 2, 4, 1,
+    ]);
+  });
+});
+
+describe("parseRatingValue", () => {
+  it("accepts ratings from 1 to 5 and an empty value", () => {
+    expect(parseRatingValue("1")).toBe(1);
+    expect(parseRatingValue("5")).toBe(5);
+    expect(parseRatingValue("")).toBeNull();
+    expect(parseRatingValue("0")).toBeUndefined();
+    expect(parseRatingValue("6")).toBeUndefined();
+    expect(parseRatingValue("2.5")).toBeUndefined();
   });
 });
 

@@ -56,6 +56,18 @@ describe("task table layout", () => {
     expect(layout[1]?.width).toBe(180);
   });
 
+  it("replaces a remembered Priority column with Value and Effort", () => {
+    const layout = normalizeTaskTableLayout({
+      order: ["title", "priority", "status"],
+    });
+    expect(layout.map((column) => column.id).slice(0, 4)).toEqual([
+      "title",
+      "value",
+      "effort",
+      "status",
+    ]);
+  });
+
   it("clamps a resize to the column's min and max", () => {
     const columns = normalizeTaskTableLayout(null);
     expect(resizeTaskTableColumn(columns, "title", 10)[0]?.width).toBe(120);
@@ -66,7 +78,17 @@ describe("task table layout", () => {
     const columns = normalizeTaskTableLayout(null);
     expect(
       moveTaskTableColumn(columns, "title", "status").map((column) => column.id),
-    ).toEqual(["scope", "parent", "status", "title", "priority", "workedTime", "created", "updated"]);
+    ).toEqual([
+      "scope",
+      "parent",
+      "status",
+      "title",
+      "value",
+      "effort",
+      "workedTime",
+      "created",
+      "updated",
+    ]);
   });
 
   it("round-trips order and widths through storage", () => {
