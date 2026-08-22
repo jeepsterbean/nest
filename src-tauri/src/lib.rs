@@ -719,16 +719,6 @@ fn summon_popup_with_route(app: &tauri::AppHandle, label: &str, route: &str) {
     summon_popup(app, label);
 }
 
-/// Place the popup: last user-dragged origin if still on a screen, else center
-/// on the screen under the mouse pointer.
-#[cfg(target_os = "macos")]
-fn place_popup(window: &tauri::WebviewWindow) {
-    if restore_saved_popup_origin(window) {
-        return;
-    }
-    center_on_cursor_screen(window);
-}
-
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
 unsafe fn for_each_ns_screen(mut body: impl FnMut(cocoa::base::id)) {
@@ -742,105 +732,135 @@ unsafe fn for_each_ns_screen(mut body: impl FnMut(cocoa::base::id)) {
     }
 }
 
-/// Center the popup on the screen the mouse pointer is on. Uses macOS's own
-/// screen coordinates so the pointer and the screens are measured with the
-/// same "ruler" — Tauri's cross-platform cursor/monitor values disagree on
-/// mixed-DPI Retina + external-monitor setups. Best-effort: on any failure
-/// the popup just keeps its previous position.
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
-fn center_on_cursor_screen(window: &tauri::WebviewWindow) {
-    use cocoa::appkit::{NSEvent, NSScreen, NSWindow};
+unsafe fn screen_containing(point: cocoa::foundation::NSPoint) -> cocoa::base::id {
+    use cocoa::appkit::NSScreen;
     use cocoa::base::{id, nil};
-    use cocoa::foundation::{NSPoint, NSRect};
+    use cocoa::foundation::NSRect;
+
+    let mut target: id = nil;
+    for_each_ns_screen(|screen| {
+        let frame: NSRect = NSScreen::frame(screen);
+        if target == nil
+            && point.x >= frame.origin.x
+            && point.x <= frame.origin.x + frame.size.width
+            && point.y >= frame.origin.y
+            && point.y <= frame.origin.y + frame.size.height
+        {
+            target = screen;
+        }
+    });
+    target
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+unsafe fn screen_for_point_or_window(
+    point: cocoa::foundation::NSPoint,
+    window: cocoa::base::id,
+) -> Option<cocoa::base::id> {
+    use cocoa::appkit::NSWindow;
+    use cocoa::base::nil;
+
+    let screen = screen_containing(point);
+    let screen = if screen == nil {
+        NSWindow::screen(window)
+    } else {
+        screen
+    };
+    (screen != nil).then_some(screen)
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+unsafe fn display_id(screen: cocoa::base::id) -> Option<popup_placement::DisplayId> {
+    use cocoa::appkit::NSScreen;
+    use cocoa::base::nil;
+    use cocoa::foundation::{NSDictionary, NSString};
+    use tauri_nspanel::objc2::{msg_send, runtime::AnyObject};
+
+    let description = NSScreen::deviceDescription(screen);
+    let key = NSString::alloc(nil).init_str("NSScreenNumber");
+    let number = NSDictionary::objectForKey_(description, key);
+    let _: () = msg_send![&*(key as *mut AnyObject), release];
+    if number == nil {
+        return None;
+    }
+    let value: usize = msg_send![&*(number as *mut AnyObject), unsignedIntegerValue];
+    // ponytail: CGDirectDisplayID may change or be reused after display
+    // reconfiguration; adopt persistent display fingerprints if that causes
+    // positions to restore on the wrong physical monitor.
+    value.try_into().ok()
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+unsafe fn visible_frame(screen: cocoa::base::id) -> popup_placement::VisibleFrame {
+    use cocoa::appkit::NSScreen;
+    use cocoa::foundation::NSRect;
+
+    let frame: NSRect = NSScreen::visibleFrame(screen);
+    popup_placement::VisibleFrame {
+        x: frame.origin.x,
+        y: frame.origin.y,
+        width: frame.size.width,
+        height: frame.size.height,
+    }
+}
+
+/// The mouse always chooses the display; its saved position only chooses where
+/// within that display the popup appears.
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn place_popup(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::{NSEvent, NSWindow};
+    use cocoa::base::{id, nil};
+    use cocoa::foundation::NSPoint;
 
     let Ok(ns_window_ptr) = window.ns_window() else {
-        append_diagnostic_log("popup_center_failed reason=missing_ns_window");
+        append_diagnostic_log("popup_place_failed reason=missing_ns_window");
         return;
     };
     let ns_window = ns_window_ptr as id;
 
     unsafe {
-        let mouse: NSPoint = NSEvent::mouseLocation(nil);
-
-        // Screen whose frame contains the pointer; fall back to the screen the
-        // window is currently on.
-        let mut target: id = nil;
-        for_each_ns_screen(|screen| {
-            if target != nil {
-                return;
-            }
-            let f: NSRect = NSScreen::frame(screen);
-            let inside = mouse.x >= f.origin.x
-                && mouse.x <= f.origin.x + f.size.width
-                && mouse.y >= f.origin.y
-                && mouse.y <= f.origin.y + f.size.height;
-            if inside {
-                target = screen;
-            }
-        });
-        if target == nil {
-            target = NSWindow::screen(ns_window);
-        }
-        if target == nil {
-            append_diagnostic_log("popup_center_failed reason=missing_target_screen");
+        let mouse = NSEvent::mouseLocation(nil);
+        let Some(target) = screen_for_point_or_window(mouse, ns_window) else {
+            append_diagnostic_log("popup_place_failed reason=missing_target_screen");
             return;
-        }
-
-        // visibleFrame excludes the menu bar / Dock so the popup is centered
-        // in the usable area, not behind the menu bar.
-        let area: NSRect = NSScreen::visibleFrame(target);
-        let win: NSRect = NSWindow::frame(ns_window);
-        let x = area.origin.x + (area.size.width - win.size.width) / 2.0;
-        let y = area.origin.y + (area.size.height - win.size.height) / 2.0;
+        };
+        let display_id = display_id(target);
+        let area = visible_frame(target);
+        let window_frame = NSWindow::frame(ns_window);
+        let saved = display_id
+            .and_then(popup_placement::load)
+            .and_then(|origin| {
+                popup_placement::restored_origin(
+                    origin,
+                    window_frame.size.width,
+                    window_frame.size.height,
+                    area,
+                )
+            });
+        let (origin, source) = match saved {
+            Some(origin) => (origin, "saved"),
+            None => (
+                popup_placement::Origin {
+                    x: area.x + (area.width - window_frame.size.width) / 2.0,
+                    y: area.y + (area.height - window_frame.size.height) / 2.0,
+                },
+                "center",
+            ),
+        };
+        let display_label = display_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "unknown".into());
         append_diagnostic_log(format!(
-            "popup_center mouse=({:.0},{:.0}) origin=({:.0},{:.0})",
-            mouse.x, mouse.y, x, y
-        ));
-        NSWindow::setFrameOrigin_(ns_window, NSPoint::new(x, y));
-    }
-}
-
-#[cfg(target_os = "macos")]
-#[allow(deprecated)]
-fn restore_saved_popup_origin(window: &tauri::WebviewWindow) -> bool {
-    use cocoa::appkit::{NSScreen, NSWindow};
-    use cocoa::base::id;
-    use cocoa::foundation::{NSPoint, NSRect};
-
-    let Some(origin) = popup_placement::load() else {
-        return false;
-    };
-    let Ok(ns_window_ptr) = window.ns_window() else {
-        return false;
-    };
-    let ns_window = ns_window_ptr as id;
-
-    unsafe {
-        let win: NSRect = NSWindow::frame(ns_window);
-        let mut frames = Vec::new();
-        for_each_ns_screen(|screen| {
-            let f: NSRect = NSScreen::visibleFrame(screen);
-            frames.push((f.origin.x, f.origin.y, f.size.width, f.size.height));
-        });
-        if !popup_placement::origin_is_usable(
-            origin,
-            win.size.width,
-            win.size.height,
-            &frames,
-        ) {
-            append_diagnostic_log(format!(
-                "popup_restore_skipped origin=({:.0},{:.0}) reason=off_screen",
-                origin.x, origin.y
-            ));
-            return false;
-        }
-        append_diagnostic_log(format!(
-            "popup_restore origin=({:.0},{:.0})",
-            origin.x, origin.y
+            "popup_place display={display_label} source={source} mouse=({:.0},{:.0}) origin=({:.0},{:.0})",
+            mouse.x, mouse.y, origin.x, origin.y
         ));
         NSWindow::setFrameOrigin_(ns_window, NSPoint::new(origin.x, origin.y));
-        true
     }
 }
 
@@ -849,6 +869,7 @@ fn restore_saved_popup_origin(window: &tauri::WebviewWindow) -> bool {
 fn persist_popup_origin_if_user_dragged(window: &tauri::WebviewWindow) {
     use cocoa::appkit::NSWindow;
     use cocoa::base::id;
+    use cocoa::foundation::NSPoint;
 
     if !popup_placement::user_dragged() {
         return;
@@ -860,15 +881,31 @@ fn persist_popup_origin_if_user_dragged(window: &tauri::WebviewWindow) {
     let ns_window = ns_window_ptr as id;
     unsafe {
         let frame = NSWindow::frame(ns_window);
-        let origin = popup_placement::Origin {
-            x: frame.origin.x,
-            y: frame.origin.y,
-        };
-        popup_placement::save(origin);
-        append_diagnostic_log(format!(
-            "popup_origin_saved origin=({:.0},{:.0})",
-            origin.x, origin.y
-        ));
+        let center = NSPoint::new(
+            frame.origin.x + frame.size.width / 2.0,
+            frame.origin.y + frame.size.height / 2.0,
+        );
+        if let Some(screen) = screen_for_point_or_window(center, ns_window) {
+            let Some(display_id) = display_id(screen) else {
+                append_diagnostic_log("popup_origin_save_skipped reason=missing_display");
+                popup_placement::clear_user_drag();
+                return;
+            };
+            let origin = popup_placement::relative_origin(
+                popup_placement::Origin {
+                    x: frame.origin.x,
+                    y: frame.origin.y,
+                },
+                visible_frame(screen),
+            );
+            popup_placement::save(display_id, origin);
+            append_diagnostic_log(format!(
+                "popup_origin_saved display={display_id} offset=({:.0},{:.0})",
+                origin.x, origin.y
+            ));
+        } else {
+            append_diagnostic_log("popup_origin_save_skipped reason=missing_screen");
+        }
     }
     popup_placement::clear_user_drag();
 }
