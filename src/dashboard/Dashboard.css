@@ -540,6 +540,7 @@
 }
 
 .overview-panel--dumps {
+  position: relative;
   min-height: 240px;
   background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
 }

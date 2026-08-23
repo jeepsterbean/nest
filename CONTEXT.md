@@ -81,7 +81,8 @@ shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
 0, not as missing. The right Overview panel is a brain dump composer that
-matches the popup (shared draft, Cmd/Ctrl+Enter to save). Dump
+matches the popup (shared draft, Cmd/Ctrl+Enter to save). Both capture surfaces
+can independently browse the five most recent dumps as read-only text. Full dump
 history lives in Logs. Insights is the longer look: a Phase mix for the
 range, Tasks with Worked time that day grouped by status as of that day's end
 (Active, Up next, Backlog, Completed, Cancelled), plus Completions and
@@ -139,7 +140,8 @@ _Avoid_: Check-in popup
 
 **Brain dump**:
 An unstructured captured thought stored on its own. Overview and the popup
-capture text only (shared draft, Cmd/Ctrl+Enter). Logs can still
+capture text only and independently browse the five most recent saved dumps
+(shared draft, Cmd/Ctrl+Enter). Logs can still
 attach an optional title to a saved dump.
 _Avoid_: note, journal entry
 

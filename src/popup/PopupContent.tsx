@@ -49,6 +49,7 @@ import {
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
   useBrainDumpDraft,
+  useRecentBrainDumpHistory,
 } from "../lib/brainDumpDraft";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
@@ -442,6 +443,7 @@ function PopupContent({
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
@@ -844,6 +846,7 @@ function PopupContent({
     if (!text) return;
     await submitBrainDump(text, null);
     setBrainDumpDraft({ text: "" });
+    await brainDumpHistory.refresh();
     await emit("data-changed");
   };
 
@@ -1381,16 +1384,43 @@ function PopupContent({
       </main>
 
       <section className="popup-dump" aria-label="Brain dump">
+        <div className="brain-dump-history-controls">
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="View previous brain dump"
+            title="Previous brain dump (Cmd/Ctrl+[)"
+            disabled={!brainDumpHistory.canViewPrevious}
+            onClick={brainDumpHistory.showPrevious}
+          >
+            <span aria-hidden="true">&#8249;</span>
+          </button>
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="View next brain dump"
+            title="Next brain dump (Cmd/Ctrl+])"
+            disabled={!brainDumpHistory.canViewNext}
+            onClick={brainDumpHistory.showNext}
+          >
+            <span aria-hidden="true">&#8250;</span>
+          </button>
+        </div>
         <textarea
           ref={brainDumpRef}
           id="popup-brain-dump"
           className="combined-input"
-          aria-label="Brain dump"
+          aria-label={
+            brainDumpHistory.viewingHistory
+              ? "Saved brain dump, read only"
+              : "Brain dump"
+          }
           autoCapitalize="off"
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
-          value={brainDumpText}
+          value={brainDumpHistory.text}
+          readOnly={brainDumpHistory.viewingHistory}
           onChange={(event) =>
             setBrainDumpDraft({ text: event.target.value })
           }
@@ -1406,6 +1436,7 @@ function PopupContent({
               return;
             }
             if (
+              !brainDumpHistory.viewingHistory &&
               isBrainDumpSubmitShortcut({
                 key: event.key,
                 metaKey: event.metaKey,

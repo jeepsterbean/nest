@@ -14,6 +14,7 @@ import {
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
   useBrainDumpDraft,
+  useRecentBrainDumpHistory,
 } from "../../lib/brainDumpDraft";
 import {
   DayStats,
@@ -40,6 +41,7 @@ export function OverviewView() {
     phaseCheckIns,
     phases,
     mutate,
+    setError,
   } = useDashboardData();
   const [backlogCollapsed, setBacklogCollapsed] = useState(false);
   const [quickAddStatus, setQuickAddStatus] =
@@ -49,6 +51,7 @@ export function OverviewView() {
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
 
   useEffect(() => {
     if (quickAddStatus) quickAddRef.current?.focus();
@@ -100,7 +103,10 @@ export function OverviewView() {
     if (!text || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
     const ok = await mutate(() => submitBrainDump(text, null));
-    if (ok) setBrainDumpDraft({ text: "" });
+    if (ok) {
+      setBrainDumpDraft({ text: "" });
+      await brainDumpHistory.refresh();
+    }
     setBrainDumpSubmitting(false);
   };
 
@@ -268,18 +274,42 @@ export function OverviewView() {
           className="overview-panel overview-panel--dumps"
           aria-label="Brain dump"
         >
+          <div className="brain-dump-history-controls">
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="View previous brain dump"
+              title="Previous brain dump (Cmd/Ctrl+[)"
+              disabled={!brainDumpHistory.canViewPrevious}
+              onClick={brainDumpHistory.showPrevious}
+            >
+              <span aria-hidden="true">&#8249;</span>
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="View next brain dump"
+              title="Next brain dump (Cmd/Ctrl+])"
+              disabled={!brainDumpHistory.canViewNext}
+              onClick={brainDumpHistory.showNext}
+            >
+              <span aria-hidden="true">&#8250;</span>
+            </button>
+          </div>
           <textarea
             className="overview-dump-input"
             autoCapitalize="off"
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            value={brainDumpText}
+            value={brainDumpHistory.text}
+            readOnly={brainDumpHistory.viewingHistory}
             onChange={(e) =>
               setBrainDumpDraft({ text: e.target.value })
             }
             onKeyDown={(e) => {
               if (
+                !brainDumpHistory.viewingHistory &&
                 isBrainDumpSubmitShortcut({
                   ...e,
                   isComposing: e.nativeEvent.isComposing,
@@ -289,7 +319,11 @@ export function OverviewView() {
                 void submitOverviewDump();
               }
             }}
-            aria-label="Brain dump"
+            aria-label={
+              brainDumpHistory.viewingHistory
+                ? "Saved brain dump, read only"
+                : "Brain dump"
+            }
           />
         </section>
       </section>

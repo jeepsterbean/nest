@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { listBrainDumps } from "./commands";
+import { subscribeTauriEvent } from "./tauriListen";
+import type { BrainDump } from "./types";
 
 const TEXT_STORAGE_KEY = "nest.brain-dump-draft";
 const CHANNEL_NAME = "nest.brain-dump-draft";
+const HISTORY_LIMIT = 5;
 export type BrainDumpDraft = { text: string };
 const EMPTY_DRAFT: BrainDumpDraft = { text: "" };
 const subscribers = new Set<(draft: BrainDumpDraft) => void>();
@@ -78,6 +82,84 @@ export function isBrainDumpSubmitShortcut(event: {
     !event.isComposing &&
     (event.metaKey || event.ctrlKey)
   );
+}
+
+export function adjacentBrainDumpIndex(
+  index: number,
+  direction: -1 | 1,
+  historyLength: number,
+) {
+  return Math.max(-1, Math.min(index + direction, historyLength - 1));
+}
+
+export function brainDumpHistoryDirection(event: {
+  key: string;
+  metaKey: boolean;
+  ctrlKey: boolean;
+}): -1 | 1 | null {
+  if (!event.metaKey && !event.ctrlKey) return null;
+  if (event.key === "[") return 1;
+  if (event.key === "]") return -1;
+  return null;
+}
+
+export function useRecentBrainDumpHistory(
+  draftText: string,
+  onError: (error: string) => void,
+) {
+  const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  const refresh = useCallback(async () => {
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const dumps = await listBrainDumps(0, now + 1);
+      setBrainDumps(dumps.slice(0, HISTORY_LIMIT));
+    } catch (error) {
+      onError(String(error));
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    void refresh();
+    return subscribeTauriEvent("data-changed", refresh);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (historyIndex >= brainDumps.length) setHistoryIndex(-1);
+  }, [brainDumps.length, historyIndex]);
+
+  useEffect(() => {
+    const navigateHistory = (event: KeyboardEvent) => {
+      const direction = brainDumpHistoryDirection(event);
+      if (direction === null) return;
+      event.preventDefault();
+      setHistoryIndex((index) =>
+        adjacentBrainDumpIndex(index, direction, brainDumps.length),
+      );
+    };
+    window.addEventListener("keydown", navigateHistory);
+    return () => window.removeEventListener("keydown", navigateHistory);
+  }, [brainDumps.length]);
+
+  const viewingHistory = historyIndex >= 0;
+  return {
+    text: viewingHistory
+      ? (brainDumps[historyIndex]?.text ?? draftText)
+      : draftText,
+    viewingHistory,
+    canViewPrevious: historyIndex < brainDumps.length - 1,
+    canViewNext: viewingHistory,
+    showPrevious: () =>
+      setHistoryIndex((index) =>
+        adjacentBrainDumpIndex(index, 1, brainDumps.length),
+      ),
+    showNext: () =>
+      setHistoryIndex((index) =>
+        adjacentBrainDumpIndex(index, -1, brainDumps.length),
+      ),
+    refresh,
+  };
 }
 
 export function useBrainDumpDraft() {
