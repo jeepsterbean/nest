@@ -45,8 +45,8 @@ import {
 } from "../task/TaskWorkingControl";
 
 const TASK_TABLE_SORT_OPTIONS = [
-  { value: "updated", label: "Sort: Recently updated" },
   { value: "status", label: "Sort: Status" },
+  { value: "updated", label: "Sort: Recently updated" },
 ];
 
 export function TasksView() {
@@ -56,7 +56,7 @@ export function TasksView() {
   const [boardStatus, setBoardStatus] = useState<TaskStatus>("active");
   const [tableStatuses, setTableStatuses] =
     useState<TaskStatus[]>(WORKING_STATUSES);
-  const [tableSort, setTableSort] = useState<TaskTableSort>("updated");
+  const [tableSort, setTableSort] = useState<TaskTableSort>("status");
   const tableColumns = useTaskTableColumns();
   const [composerTitle, setComposerTitle] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
