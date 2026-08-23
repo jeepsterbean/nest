@@ -278,7 +278,11 @@ export function PopupTopPanel({
           <button
             ref={timerButtonRef}
             type="button"
-            className="combined-timer__trigger"
+            className={
+              timerDue
+                ? "combined-timer__trigger combined-timer__trigger--due"
+                : "combined-timer__trigger"
+            }
             aria-haspopup="listbox"
             aria-expanded={timerPickerOpen}
             aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}

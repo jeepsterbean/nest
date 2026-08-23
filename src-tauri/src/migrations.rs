@@ -842,6 +842,11 @@ INSERT INTO app_heartbeat (id, beat_at) VALUES (1, 0);
 "#,
         ),
         M::up("ALTER TABLE metrics ADD COLUMN color TEXT;"),
+        // Closing the popup leaves the timer paused at zero; persist that so
+        // a restart does not treat an overdue next_due_at as a fresh due.
+        M::up(
+            "ALTER TABLE timer_schedule ADD COLUMN waiting_for_response INTEGER NOT NULL DEFAULT 0;",
+        ),
     ])
 }
 

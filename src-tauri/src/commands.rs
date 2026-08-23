@@ -85,34 +85,12 @@ fn validate_timer_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
-pub(crate) fn resolve_due_timer(
-    conn: &Connection,
-    timer: &mut Timer,
-    dismissed: bool,
-    minutes: Option<i64>,
-    now: i64,
-) -> Result<bool> {
-    let minutes = if dismissed {
-        crate::timer::MIN_MINUTES
-    } else {
-        minutes
-            .map(validate_timer_interval)
-            .transpose()?
-            .unwrap_or(timer.interval_minutes)
-    };
-    if !timer.waiting_for_response {
-        return Ok(false);
-    }
-
-    let next_due_at = now + minutes * 60;
+pub(crate) fn persist_timer_waiting(conn: &Connection, waiting: bool) -> Result<()> {
     conn.execute(
-        "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
-        params![minutes, next_due_at],
+        "UPDATE timer_schedule SET waiting_for_response = ?1 WHERE id = 1",
+        params![if waiting { 1 } else { 0 }],
     )?;
-    timer.interval_minutes = minutes;
-    timer.next_due_at = next_due_at;
-    timer.waiting_for_response = false;
-    Ok(true)
+    Ok(())
 }
 
 /// Working now, Worked time and the live start are derived from
@@ -1379,19 +1357,16 @@ pub fn start_timer(
     let now = now_unix_secs();
     let next_due_at = now + minutes * 60;
 
-    {
-        let conn = state.lock().unwrap();
-        conn.execute(
-            "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2 WHERE id = 1",
-            params![minutes, next_due_at],
-        )?;
-    }
-    {
-        let mut timer = timer.lock().unwrap();
-        timer.interval_minutes = minutes;
-        timer.next_due_at = next_due_at;
-        timer.waiting_for_response = false;
-    }
+    let conn = state.lock().unwrap();
+    let mut timer = timer.lock().unwrap();
+    conn.execute(
+        "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2, \
+         waiting_for_response = 0 WHERE id = 1",
+        params![minutes, next_due_at],
+    )?;
+    timer.interval_minutes = minutes;
+    timer.next_due_at = next_due_at;
+    timer.waiting_for_response = false;
 
     Ok(TimerState {
         interval_minutes: minutes,
@@ -1470,12 +1445,11 @@ mod tests {
     use super::{
         bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
         change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
-        normalize_task_scope, record_metric_check_in, recover_open_stretches, resolve_due_timer,
+        normalize_task_scope, persist_timer_waiting, record_metric_check_in, recover_open_stretches,
         update_task_score_field, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
-    use crate::Timer;
     use rusqlite::Connection;
 
     /// Replace a task's stretches with `banked` seconds of finished work plus,
@@ -1773,35 +1747,27 @@ mod tests {
     }
 
     #[test]
-    fn closing_a_due_popup_resolves_once_by_outcome() {
+    fn timer_waiting_flag_round_trips() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
-        let mut timer = Timer {
-            interval_minutes: 20,
-            next_due_at: 900,
-            waiting_for_response: true,
-        };
-
-        assert!(resolve_due_timer(&conn, &mut timer, true, None, 1_000,).unwrap());
-        assert_eq!(timer.interval_minutes, 5);
-        assert_eq!(timer.next_due_at, 1_300);
-        assert!(!timer.waiting_for_response);
-
-        assert!(!resolve_due_timer(&conn, &mut timer, false, Some(30), 1_001,).unwrap());
-        assert_eq!(timer.next_due_at, 1_300);
-
-        timer.interval_minutes = 20;
-        timer.waiting_for_response = true;
-        assert!(resolve_due_timer(&conn, &mut timer, false, Some(30), 2_000,).unwrap());
-        assert_eq!(timer.interval_minutes, 30);
-        assert_eq!(timer.next_due_at, 3_800);
-
-        timer.interval_minutes = 20;
-        timer.waiting_for_response = true;
-        assert!(resolve_due_timer(&conn, &mut timer, false, None, 4_000,).unwrap());
-        assert_eq!(timer.interval_minutes, 20);
-        assert_eq!(timer.next_due_at, 5_200);
-        assert!(!timer.waiting_for_response);
+        persist_timer_waiting(&conn, true).unwrap();
+        let waiting: i64 = conn
+            .query_row(
+                "SELECT waiting_for_response FROM timer_schedule WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(waiting, 1);
+        persist_timer_waiting(&conn, false).unwrap();
+        let waiting: i64 = conn
+            .query_row(
+                "SELECT waiting_for_response FROM timer_schedule WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(waiting, 0);
     }
 
     #[test]

@@ -48,7 +48,7 @@ function Popup() {
     [],
   );
 
-  // Escape dismisses a due popup onto the five-minute fallback cadence.
+  // Escape dismisses a due popup; the timer stays at zero until started.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

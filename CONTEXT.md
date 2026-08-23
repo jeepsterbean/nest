@@ -130,7 +130,8 @@ _Avoid_: Pulse check-in
 
 **Timer**:
 The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
-opens the Popup. Picking an interval starts that cycle from now.
+opens the Popup. Closing the Popup leaves it paused; picking an interval
+starts that cycle from now.
 _Avoid_: Check-in, schedule
 
 **Popup**:
@@ -206,13 +207,10 @@ _Avoid_: Journal
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
   When due it shows "time to check in!"; the Popup clock stays on the countdown.
 - At zero, the timer pauses, plays the system alert sound, and opens the
-  popup. It stays at `0:00` until a new interval is picked or the
-  popup is resolved.
+  popup. It stays at `0:00` (glowing) until a new interval is picked.
+  Closing the popup does not start the next cycle.
 - Picking an interval on the clock starts that cycle immediately, including
   when the timer is due.
-- Completing an automatic popup starts the current interval if the timer is
-  still paused. Dismissing it starts a five-minute interval if the timer is
-  still paused.
 - When the timer runs out, the Metric scoring panel holds a gold due treatment
   until a Metric check-in is saved. Restarting the clock or submitting a brain
   dump does not clear it.

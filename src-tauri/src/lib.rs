@@ -143,18 +143,16 @@ fn show_popup(app: tauri::AppHandle) {
 fn close_popup(
     app: tauri::AppHandle,
     dismissed: bool,
-    minutes: Option<i64>,
+    _minutes: Option<i64>,
 ) -> error::Result<()> {
     resolve_and_hide_popup(
         &app,
-        dismissed,
-        minutes,
         if dismissed { "dismissed" } else { "completed" },
     )
 }
 
-// Cadence of the recurring popup. At zero it pauses until the popup
-// is completed or dismissed; start_timer starts the next cycle.
+// Cadence of the recurring popup. At zero it pauses until start_timer
+// starts the next cycle. Closing the popup does not reschedule.
 pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
@@ -173,33 +171,37 @@ impl Timer {
 
 fn load_timer(conn: &rusqlite::Connection) -> Timer {
     let now = now_unix_secs();
-    let persisted = conn
+            let persisted = conn
         .query_row(
-            "SELECT interval_minutes, next_due_at FROM timer_schedule WHERE id = 1",
+            "SELECT interval_minutes, next_due_at, waiting_for_response FROM timer_schedule WHERE id = 1",
             [],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
         )
         .ok();
 
-    let (interval_minutes, next_due_at) = match persisted {
-        Some((minutes, due_at)) if timer::is_valid_interval(minutes) => (minutes, due_at),
+    let (interval_minutes, next_due_at, waiting_for_response) = match persisted {
+        Some((minutes, due_at, waiting)) if timer::is_valid_interval(minutes) => {
+            (minutes, due_at, waiting != 0)
+        }
         // Missing row or a bad interval (corrupt/hand-edited db): fall back to
         // the default cadence starting now.
         _ => (
             timer::DEFAULT_MINUTES,
             now + timer::DEFAULT_MINUTES * 60,
+            false,
         ),
     };
 
     append_diagnostic_log(format!(
-        "timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={}",
-        next_due_at <= now
+        "timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={} waiting_for_response={}",
+        next_due_at <= now,
+        waiting_for_response
     ));
 
     Timer {
         interval_minutes,
         next_due_at,
-        waiting_for_response: false,
+        waiting_for_response,
     }
 }
 
@@ -317,6 +319,8 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
             }
 
             let due = {
+                let db = app.state::<Mutex<rusqlite::Connection>>();
+                let conn = db.lock().unwrap();
                 let timer = app.state::<Mutex<Timer>>();
                 let mut timer = timer.lock().unwrap();
                 if timer.pause_if_due(now) {
@@ -324,6 +328,9 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                         "timer_due now={now} next_due_at={} waiting_for_response=true",
                         timer.next_due_at
                     ));
+                    if let Err(e) = commands::persist_timer_waiting(&conn, true) {
+                        append_diagnostic_log(format!("timer_waiting_persist_failed error={e}"));
+                    }
                     true
                 } else {
                     false
@@ -331,6 +338,7 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
             };
 
             if due {
+                let _ = app.emit("data-changed", ());
                 let app_for_ui = app.clone();
                 if let Err(e) = app.run_on_main_thread(move || {
                     #[cfg(target_os = "macos")]
@@ -987,25 +995,9 @@ fn summon_popup(app: &tauri::AppHandle, label: &str) {
     phase::update_signals_and_sync(app, |signals| signals.popup_visible = true);
 }
 
-fn resolve_and_hide_popup(
-    app: &tauri::AppHandle,
-    dismissed: bool,
-    minutes: Option<i64>,
-    reason: &str,
-) -> error::Result<()> {
-    let timer_changed = {
-        let state = app.state::<Mutex<rusqlite::Connection>>();
-        let timer_state = app.state::<Mutex<Timer>>();
-        let conn = state.lock().unwrap();
-        let mut timer = timer_state.lock().unwrap();
-        commands::resolve_due_timer(&conn, &mut timer, dismissed, minutes, now_unix_secs())?
-    };
-
+fn resolve_and_hide_popup(app: &tauri::AppHandle, reason: &str) -> error::Result<()> {
     hide_popup(app, reason);
     phase::update_signals_and_sync(app, |signals| signals.popup_visible = false);
-    if timer_changed {
-        let _ = app.emit("data-changed", ());
-    }
     Ok(())
 }
 

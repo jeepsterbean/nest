@@ -266,6 +266,7 @@
     text-shadow:
       0 0 6px rgba(206, 153, 74, 0.35),
       0 0 14px rgba(206, 153, 74, 0.15);
+    filter: drop-shadow(0 0 0 transparent);
   }
 
   50% {
@@ -275,6 +276,7 @@
       0 0 10px rgba(206, 153, 74, 0.55),
       0 0 22px rgba(206, 153, 74, 0.28),
       0 0 32px rgba(214, 164, 88, 0.16);
+    filter: drop-shadow(0 0 8px rgba(206, 153, 74, 0.45));
   }
 }
 
@@ -284,6 +286,7 @@
 
 .dash-header__timer--due .dash-header__timer-icon {
   color: var(--rating-2);
+  animation: timer-due-breathe 2.4s ease-in-out infinite;
 }
 
 .dash-header__timer-label--due {
@@ -3494,7 +3497,7 @@
 
 .icon-picker__grid {
   display: grid;
-  max-height: 200px;
+  max-height: 260px;
   grid-template-columns: repeat(6, 36px);
   gap: 4px;
   overflow-y: auto;

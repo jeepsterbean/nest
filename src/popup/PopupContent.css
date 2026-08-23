@@ -138,6 +138,40 @@
   transform: translate(-50%, -50%);
 }
 
+@keyframes timer-zero-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(
+      0 0 10px color-mix(in srgb, var(--rating-2) 80%, transparent)
+    );
+  }
+}
+
+@keyframes timer-zero-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    text-shadow:
+      0 0 12px color-mix(in srgb, var(--rating-2) 75%, transparent),
+      0 0 28px color-mix(in srgb, var(--rating-2) 35%, transparent);
+  }
+}
+
+.combined-timer__trigger--due .combined-timer__bezel {
+  stroke: var(--rating-2);
+  animation: timer-zero-pulse 2.4s ease-in-out infinite;
+}
+
+.combined-timer__trigger--due .combined-timer__value {
+  color: var(--rating-2);
+  animation: timer-zero-glow 2.4s ease-in-out infinite;
+}
+
 .combined-timer__trigger:hover .combined-timer__bezel,
 .combined-timer__trigger:focus-visible .combined-timer__bezel {
   stroke: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
@@ -997,6 +1031,18 @@
 
   .combined-timer__sweep {
     transition: none;
+  }
+
+  .combined-timer__trigger--due .combined-timer__bezel {
+    animation: none;
+    filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--rating-2) 55%, transparent)
+    );
+  }
+
+  .combined-timer__trigger--due .combined-timer__value {
+    animation: none;
+    text-shadow: 0 0 9px color-mix(in srgb, var(--rating-2) 60%, transparent);
   }
 
   .pulse-panel--due .metric-step__title h2 {
