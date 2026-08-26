@@ -400,6 +400,7 @@ describe("insightCheckIns", () => {
     name,
     icon: "heart",
     createdAt: 0,
+    color: null,
   });
   const pulse = (id: number, name: string, metricIds: number[]): Pulse => ({
     id,

@@ -14,6 +14,7 @@ import type {
   TaskStatusEvent,
   TaskWorkStretch,
   TaskStatus,
+  Tag,
   TimerState,
 } from "./types";
 
@@ -269,8 +270,9 @@ export function showDashboard(): Promise<void> {
 export function submitBrainDump(
   text: string,
   title: string | null = null,
+  tagIds: number[] = [],
 ): Promise<BrainDump> {
-  return invoke("submit_brain_dump", { text, title });
+  return invoke("submit_brain_dump", { text, title, tagIds });
 }
 
 export function updateBrainDumpTitle(
@@ -282,6 +284,29 @@ export function updateBrainDumpTitle(
 
 export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
   return invoke("list_brain_dumps", { from, to });
+}
+
+export function listTags(): Promise<Tag[]> {
+  return invoke("list_tags");
+}
+
+export function createTag(name: string): Promise<Tag> {
+  return invoke("create_tag", { name });
+}
+
+export function renameTag(id: number, name: string): Promise<Tag> {
+  return invoke("rename_tag", { id, name });
+}
+
+export function deleteTag(id: number): Promise<void> {
+  return invoke("delete_tag", { id });
+}
+
+export function updateBrainDumpTags(
+  id: number,
+  tagIds: number[],
+): Promise<BrainDump> {
+  return invoke("update_brain_dump_tags", { id, tagIds });
 }
 
 export function logClientEvent(message: string): Promise<void> {

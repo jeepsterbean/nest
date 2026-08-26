@@ -71,6 +71,126 @@ button {
   opacity: 0.3;
 }
 
+.brain-dump-tags {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  height: 30px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.brain-dump-tags__scroll {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.brain-dump-tags__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.brain-dump-tag,
+.brain-dump-tags__more {
+  flex: none;
+  height: 23px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brain-dump-tag {
+  max-width: 130px;
+  padding: 1px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brain-dump-tag.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.brain-dump-tags__more {
+  width: 31px;
+  margin: 3px 4px 3px 0;
+  padding: 0;
+  border-radius: 7px;
+  font-weight: 800;
+}
+
+.brain-dump-tag:disabled,
+.brain-dump-tags__more:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.brain-dump-tags__menu {
+  position: absolute;
+  z-index: 30;
+  right: 3px;
+  bottom: calc(100% + 5px);
+  width: min(240px, calc(100vw - 24px));
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px color-mix(in srgb, #000 18%, transparent);
+}
+
+.brain-dump-tags__menu input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  outline: none;
+  background: var(--surface-2);
+}
+
+.brain-dump-tags__menu input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.brain-dump-tags__options {
+  display: grid;
+  max-height: 190px;
+  margin-top: 5px;
+  overflow-y: auto;
+}
+
+.brain-dump-tags__options button {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+
+.brain-dump-tags__options button:hover,
+.brain-dump-tags__options button:focus-visible,
+.brain-dump-tags__options button.is-selected {
+  outline: none;
+  background: var(--accent-soft);
+}
+
+.brain-dump-tags__options p {
+  margin: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* Working-now clock: a quiet lub-dub plus a spark that travels the rim. */
 @property --working-glow-angle {
   syntax: "<angle>";

@@ -18,6 +18,7 @@ import {
   metricsIcon,
   overviewIcon,
   tasksIcon,
+  tagsIcon,
 } from "./icons";
 
 export type DashboardView =
@@ -26,7 +27,8 @@ export type DashboardView =
   | "insights"
   | "logs"
   | "tasks"
-  | "metrics";
+  | "metrics"
+  | "tags";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
@@ -35,6 +37,7 @@ const VIEWS = [
   { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
+  { key: "tags", label: "Tags", icon: tagsIcon },
 ] as const;
 
 export function DashboardSidebar({

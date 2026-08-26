@@ -1,11 +1,12 @@
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    BrainDump, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Task, TaskDependency, TaskStatusEvent,
+    BrainDump, BrainDumpTag, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
+    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Tag, Task, TaskDependency, TaskStatusEvent,
     TaskWorkStretch, TimerState,
 };
 use crate::phase;
@@ -55,6 +56,14 @@ fn normalize_optional_title(title: Option<String>) -> Option<String> {
     title
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
+}
+
+fn normalize_tag_name(name: String) -> Result<String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("tag name cannot be empty".into()));
+    }
+    Ok(name)
 }
 
 fn validate_task_status(status: &str) -> Result<&str> {
@@ -152,7 +161,135 @@ fn map_brain_dump(row: &Row<'_>) -> rusqlite::Result<BrainDump> {
         created_at: row.get(1)?,
         title: row.get(2)?,
         text: row.get(3)?,
+        tags: Vec::new(),
     })
+}
+
+fn load_brain_dump_tags(
+    conn: &Connection,
+    dumps: &mut [BrainDump],
+    from: i64,
+    to: i64,
+) -> Result<()> {
+    let positions: HashMap<i64, usize> = dumps
+        .iter()
+        .enumerate()
+        .map(|(index, dump)| (dump.id, index))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT bdt.brain_dump_id, t.id, t.name FROM brain_dump_tags bdt \
+         JOIN tags t ON t.id = bdt.tag_id \
+         JOIN brain_dumps bd ON bd.id = bdt.brain_dump_id \
+         WHERE bd.created_at >= ?1 AND bd.created_at < ?2 \
+         ORDER BY t.name COLLATE NOCASE, t.id",
+    )?;
+    let rows = stmt.query_map(params![from, to], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            BrainDumpTag {
+                id: row.get(1)?,
+                name: row.get(2)?,
+            },
+        ))
+    })?;
+    for row in rows {
+        let (dump_id, tag) = row?;
+        if let Some(index) = positions.get(&dump_id) {
+            dumps[*index].tags.push(tag);
+        }
+    }
+    Ok(())
+}
+
+const TAG_COLUMNS_WITH_LAST_USED: &str = "t.id, t.name, t.created_at, MAX(bd.created_at) \
+     FROM tags t \
+     LEFT JOIN brain_dump_tags bdt ON bdt.tag_id = t.id \
+     LEFT JOIN brain_dumps bd ON bd.id = bdt.brain_dump_id";
+
+fn map_tag(row: &Row<'_>) -> rusqlite::Result<Tag> {
+    Ok(Tag {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        created_at: row.get(2)?,
+        last_used_at: row.get(3)?,
+    })
+}
+
+fn fetch_tag(conn: &Connection, id: i64) -> Result<Tag> {
+    conn.query_row(
+        &format!("SELECT {TAG_COLUMNS_WITH_LAST_USED} WHERE t.id = ?1 GROUP BY t.id"),
+        params![id],
+        map_tag,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("tag {id}")))
+}
+
+fn fetch_brain_dump(conn: &Connection, id: i64) -> Result<BrainDump> {
+    let mut dump = conn
+        .query_row(
+            &format!("SELECT {BRAIN_DUMP_COLUMNS} FROM brain_dumps WHERE id = ?1"),
+            params![id],
+            map_brain_dump,
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("brain dump {id}")))?;
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name FROM brain_dump_tags bdt \
+         JOIN tags t ON t.id = bdt.tag_id \
+         WHERE bdt.brain_dump_id = ?1 \
+         ORDER BY t.name COLLATE NOCASE, t.id",
+    )?;
+    dump.tags = stmt
+        .query_map(params![id], |row| {
+            Ok(BrainDumpTag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(dump)
+}
+
+fn validate_tag_ids(conn: &Connection, tag_ids: &[i64]) -> Result<()> {
+    if tag_ids.iter().copied().collect::<HashSet<_>>().len() != tag_ids.len() {
+        return Err(AppError::InvalidInput("tag ids must be unique".into()));
+    }
+    for id in tag_ids {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tags WHERE id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Err(AppError::NotFound(format!("tag {id}")));
+        }
+    }
+    Ok(())
+}
+
+fn record_brain_dump(
+    conn: &mut Connection,
+    text: String,
+    title: Option<String>,
+    tag_ids: &[i64],
+    created_at: i64,
+) -> Result<BrainDump> {
+    let tx = conn.transaction()?;
+    validate_tag_ids(&tx, tag_ids)?;
+    tx.execute(
+        "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, ?2, ?3)",
+        params![created_at, title, text],
+    )?;
+    let id = tx.last_insert_rowid();
+    for tag_id in tag_ids {
+        tx.execute(
+            "INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (?1, ?2)",
+            params![id, tag_id],
+        )?;
+    }
+    tx.commit()?;
+    fetch_brain_dump(conn, id)
 }
 
 /// Task mutations that can change Working now must sync Phase in the same
@@ -1376,28 +1513,114 @@ pub fn start_timer(
 }
 
 #[tauri::command]
+pub fn list_tags(state: State<'_, Mutex<Connection>>) -> Result<Vec<Tag>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {TAG_COLUMNS_WITH_LAST_USED} \
+         GROUP BY t.id \
+         ORDER BY MAX(bd.created_at) IS NULL, MAX(bd.created_at) DESC, \
+                  t.name COLLATE NOCASE, t.id",
+    ))?;
+    let rows = stmt
+        .query_map([], map_tag)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn create_tag(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    name: String,
+) -> Result<Tag> {
+    let name = normalize_tag_name(name)?;
+    let tag = {
+        let conn = state.lock().unwrap();
+        let duplicate: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tags WHERE name = ?1 COLLATE NOCASE)",
+            params![name],
+            |row| row.get(0),
+        )?;
+        if duplicate {
+            return Err(AppError::InvalidInput("tag name already exists".into()));
+        }
+        let created_at = now_unix_secs();
+        conn.execute(
+            "INSERT INTO tags (name, created_at) VALUES (?1, ?2)",
+            params![name, created_at],
+        )?;
+        Tag {
+            id: conn.last_insert_rowid(),
+            name,
+            created_at,
+            last_used_at: None,
+        }
+    };
+    let _ = app.emit("data-changed", ());
+    Ok(tag)
+}
+
+#[tauri::command]
+pub fn rename_tag(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    name: String,
+) -> Result<Tag> {
+    let name = normalize_tag_name(name)?;
+    let tag = {
+        let conn = state.lock().unwrap();
+        let duplicate: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tags WHERE name = ?1 COLLATE NOCASE AND id != ?2)",
+            params![name, id],
+            |row| row.get(0),
+        )?;
+        if duplicate {
+            return Err(AppError::InvalidInput("tag name already exists".into()));
+        }
+        let updated = conn.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![name, id])?;
+        if updated == 0 {
+            return Err(AppError::NotFound(format!("tag {id}")));
+        }
+        fetch_tag(&conn, id)?
+    };
+    let _ = app.emit("data-changed", ());
+    Ok(tag)
+}
+
+#[tauri::command]
+pub fn delete_tag(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
+    let deleted = {
+        let conn = state.lock().unwrap();
+        conn.execute("DELETE FROM tags WHERE id = ?1", params![id])?
+    };
+    if deleted == 0 {
+        return Err(AppError::NotFound(format!("tag {id}")));
+    }
+    let _ = app.emit("data-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
 pub fn submit_brain_dump(
     state: State<'_, Mutex<Connection>>,
     text: String,
     title: Option<String>,
+    tag_ids: Vec<i64>,
 ) -> Result<BrainDump> {
     let text_clean = text.trim().to_string();
     if text_clean.is_empty() {
         return Err(AppError::InvalidInput("brain dump cannot be empty".into()));
     }
     let title_clean = normalize_optional_title(title);
-    let conn = state.lock().unwrap();
-    let now = now_unix_secs();
-    conn.execute(
-        "INSERT INTO brain_dumps (created_at, title, text) VALUES (?1, ?2, ?3)",
-        params![now, title_clean, text_clean],
-    )?;
-    Ok(BrainDump {
-        id: conn.last_insert_rowid(),
-        created_at: now,
-        title: title_clean,
-        text: text_clean,
-    })
+    let mut conn = state.lock().unwrap();
+    record_brain_dump(
+        &mut conn,
+        text_clean,
+        title_clean,
+        &tag_ids,
+        now_unix_secs(),
+    )
 }
 
 #[tauri::command]
@@ -1415,12 +1638,43 @@ pub fn update_brain_dump_title(
     if updated == 0 {
         return Err(AppError::NotFound(format!("brain dump {id}")));
     }
-    conn.query_row(
-        &format!("SELECT {BRAIN_DUMP_COLUMNS} FROM brain_dumps WHERE id = ?1"),
-        params![id],
-        map_brain_dump,
-    )
-    .map_err(Into::into)
+    fetch_brain_dump(&conn, id)
+}
+
+#[tauri::command]
+pub fn update_brain_dump_tags(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    tag_ids: Vec<i64>,
+) -> Result<BrainDump> {
+    let dump = {
+        let mut conn = state.lock().unwrap();
+        let tx = conn.transaction()?;
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM brain_dumps WHERE id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Err(AppError::NotFound(format!("brain dump {id}")));
+        }
+        validate_tag_ids(&tx, &tag_ids)?;
+        tx.execute(
+            "DELETE FROM brain_dump_tags WHERE brain_dump_id = ?1",
+            params![id],
+        )?;
+        for tag_id in tag_ids {
+            tx.execute(
+                "INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (?1, ?2)",
+                params![id, tag_id],
+            )?;
+        }
+        tx.commit()?;
+        fetch_brain_dump(&conn, id)?
+    };
+    let _ = app.emit("data-changed", ());
+    Ok(dump)
 }
 
 #[tauri::command]
@@ -1434,9 +1688,10 @@ pub fn list_brain_dumps(
         "SELECT {BRAIN_DUMP_COLUMNS} FROM brain_dumps \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC"
     ))?;
-    let rows = stmt
+    let mut rows = stmt
         .query_map(params![from, to], map_brain_dump)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    load_brain_dump_tags(&conn, &mut rows, from, to)?;
     Ok(rows)
 }
 
@@ -1445,8 +1700,8 @@ mod tests {
     use super::{
         bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
         change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
-        normalize_task_scope, persist_timer_waiting, record_metric_check_in, recover_open_stretches,
-        update_task_score_field, valid_icon, validate_task_status,
+        normalize_task_scope, persist_timer_waiting, record_brain_dump, record_metric_check_in,
+        recover_open_stretches, update_task_score_field, valid_icon, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
@@ -1496,6 +1751,32 @@ mod tests {
         );
         assert_eq!(normalize_optional_title(Some("   ".into())), None);
         assert_eq!(normalize_optional_title(None), None);
+    }
+
+    #[test]
+    fn records_brain_dump_tags_atomically() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 1), (2, 'Idea', 2)",
+            [],
+        )
+        .unwrap();
+
+        let dump = record_brain_dump(&mut conn, "Thought".into(), None, &[2, 1], 10).unwrap();
+        assert_eq!(
+            dump.tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Idea", "Work"]
+        );
+        assert!(record_brain_dump(&mut conn, "Bad".into(), None, &[1, 99], 11).is_err());
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
     }
 
     fn task_database() -> Connection {

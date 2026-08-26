@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -29,6 +30,7 @@ import {
   TASK_STATUS_LABEL,
 } from "../lib/tasks";
 import { TaskCard } from "../task/TaskCard";
+import { BrainDumpTags, useComposerTagProps } from "../components/BrainDumpTags";
 
 const OVERVIEW_WINDOW_SECONDS = 60 * 60;
 type OverviewTaskStatus = "active" | "up_next" | "backlog";
@@ -40,6 +42,8 @@ export function OverviewView() {
     checkIns,
     phaseCheckIns,
     phases,
+    tags,
+    loaded,
     mutate,
     setError,
   } = useDashboardData();
@@ -49,9 +53,19 @@ export function OverviewView() {
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText } = brainDumpDraft;
+  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
   const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
+  const composerTagProps = useComposerTagProps(
+    tags,
+    brainDumpTagIds,
+    brainDumpHistory.viewingDump,
+  );
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) =>
+      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
+    [setBrainDumpDraft],
+  );
 
   useEffect(() => {
     if (quickAddStatus) quickAddRef.current?.focus();
@@ -102,9 +116,9 @@ export function OverviewView() {
     const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
-    const ok = await mutate(() => submitBrainDump(text, null));
+    const ok = await mutate(() => submitBrainDump(text, null, brainDumpTagIds));
     if (ok) {
-      setBrainDumpDraft({ text: "" });
+      setBrainDumpDraft({ text: "", tagIds: [] });
       await brainDumpHistory.refresh();
     }
     setBrainDumpSubmitting(false);
@@ -305,7 +319,7 @@ export function OverviewView() {
             value={brainDumpHistory.text}
             readOnly={brainDumpHistory.viewingHistory}
             onChange={(e) =>
-              setBrainDumpDraft({ text: e.target.value })
+              setBrainDumpDraft((draft) => ({ ...draft, text: e.target.value }))
             }
             onKeyDown={(e) => {
               if (
@@ -325,6 +339,12 @@ export function OverviewView() {
                 : "Brain dump"
             }
           />
+          {loaded && <BrainDumpTags
+            tags={composerTagProps.tags}
+            selectedIds={composerTagProps.selectedIds}
+            disabled={brainDumpHistory.viewingHistory}
+            onChange={handleTagsChange}
+          />}
         </section>
       </section>
     </div>

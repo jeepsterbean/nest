@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -13,6 +14,7 @@ import {
   listPulses,
   listTaskWorkStretches,
   listTasks,
+  listTags,
   reorderTasks,
   startTimer,
   setTaskStatus,
@@ -31,6 +33,7 @@ import type {
   RatingValue,
   Task,
   TaskWorkStretch,
+  Tag,
 } from "../lib/types";
 import {
   formatTimerCountdown,
@@ -55,6 +58,10 @@ import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
+import {
+  BrainDumpTags,
+  useComposerTagProps,
+} from "../dashboard/components/BrainDumpTags";
 import { resolveMetricColorFromList } from "../lib/metricColors";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
@@ -70,6 +77,7 @@ type LoadState = {
   tasks: Task[];
   workStretches: TaskWorkStretch[];
   timer: TimerState;
+  tags: Tag[];
 };
 
 const loadTodayStretches = (nowMs: number = Date.now()) => {
@@ -442,12 +450,22 @@ function PopupContent({
   const [metricIndex, setMetricIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText } = brainDumpDraft;
+  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
+  const composerTagProps = useComposerTagProps(
+    loaded?.tags ?? [],
+    brainDumpTagIds,
+    brainDumpHistory.viewingDump,
+  );
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) =>
+      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
+    [setBrainDumpDraft],
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
@@ -530,11 +548,12 @@ function PopupContent({
       listTasks(),
       loadTodayStretches(),
       getTimerState(),
+      listTags(),
     ])
-      .then(([metrics, pulses, tasks, workStretches, timer]) => {
+      .then(([metrics, pulses, tasks, workStretches, timer, tags]) => {
         if (cancelled) return;
         const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
-        setLoaded({ metrics, pulses, tasks, workStretches, timer });
+        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags });
         setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
         setNextTimerMinutes(timer.intervalMinutes);
         setError(null);
@@ -553,9 +572,10 @@ function PopupContent({
         listTasks(),
         loadTodayStretches(),
         getTimerState(),
-      ]).then(([tasks, workStretches, timer]) => {
+        listTags(),
+      ]).then(([tasks, workStretches, timer, tags]) => {
         setLoaded((current) =>
-          current ? { ...current, tasks, workStretches, timer } : current,
+          current ? { ...current, tasks, workStretches, timer, tags } : current,
         );
       });
     };
@@ -848,8 +868,8 @@ function PopupContent({
   const saveBrainDump = async () => {
     const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text) return;
-    await submitBrainDump(text, null);
-    setBrainDumpDraft({ text: "" });
+    await submitBrainDump(text, null, brainDumpTagIds);
+    setBrainDumpDraft({ text: "", tagIds: [] });
     await brainDumpHistory.refresh();
     await emit("data-changed");
   };
@@ -1426,7 +1446,7 @@ function PopupContent({
           value={brainDumpHistory.text}
           readOnly={brainDumpHistory.viewingHistory}
           onChange={(event) =>
-            setBrainDumpDraft({ text: event.target.value })
+            setBrainDumpDraft((draft) => ({ ...draft, text: event.target.value }))
           }
           onKeyDown={(event) => {
             if (event.key === "Tab") {
@@ -1452,6 +1472,13 @@ function PopupContent({
               void submitBrainDumpDraft();
             }
           }}
+        />
+
+        <BrainDumpTags
+          tags={composerTagProps.tags}
+          selectedIds={composerTagProps.selectedIds}
+          disabled={brainDumpHistory.viewingHistory}
+          onChange={handleTagsChange}
         />
 
         {error && (

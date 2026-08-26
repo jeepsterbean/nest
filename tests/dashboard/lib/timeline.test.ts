@@ -47,6 +47,7 @@ const dump = (id: number, createdAt: number): BrainDump => ({
   createdAt,
   title: null,
   text: `dump ${id}`,
+  tags: [],
 });
 
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);

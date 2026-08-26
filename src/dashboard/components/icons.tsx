@@ -114,6 +114,13 @@ export const metricsIcon = (
   </svg>
 );
 
+export const tagsIcon = (
+  <svg {...iconProps}>
+    <path d="M20 13 13 20 4 11V4h7z" />
+    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const gripIcon = (
   <svg {...iconProps}>
     <circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none" />

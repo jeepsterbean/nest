@@ -847,6 +847,23 @@ INSERT INTO app_heartbeat (id, beat_at) VALUES (1, 0);
         M::up(
             "ALTER TABLE timer_schedule ADD COLUMN waiting_for_response INTEGER NOT NULL DEFAULT 0;",
         ),
+        M::up(
+            r#"
+CREATE TABLE tags (
+  id         INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE brain_dump_tags (
+  brain_dump_id INTEGER NOT NULL REFERENCES brain_dumps(id) ON DELETE CASCADE,
+  tag_id        INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (brain_dump_id, tag_id)
+);
+
+CREATE INDEX idx_brain_dump_tags_tag_id ON brain_dump_tags(tag_id);
+"#,
+        ),
     ])
 }
 
@@ -859,6 +876,44 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn tag_deletion_removes_associations_and_keeps_brain_dumps() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO brain_dumps (id, created_at, text) VALUES (1, 10, 'Keep me')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 10)",
+            [],
+        )
+        .unwrap();
+        assert!(conn
+            .execute(
+                "INSERT INTO tags (id, name, created_at) VALUES (2, 'work', 11)",
+                [],
+            )
+            .is_err());
+        conn.execute(
+            "INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (1, 1)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM tags WHERE id = 1", []).unwrap();
+
+        let dump_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+            .unwrap();
+        let association_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dump_tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!((dump_count, association_count), (1, 0));
+    }
 
     #[test]
     fn repairs_a_database_that_burned_a_version_on_the_sort_order_migration() {

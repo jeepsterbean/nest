@@ -544,6 +544,8 @@
 
 .overview-panel--dumps {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 240px;
   background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
 }
@@ -561,6 +563,10 @@
   line-height: 1.55;
   outline: none;
   resize: none;
+}
+
+.overview-panel--dumps > .brain-dump-tags {
+  flex: none;
 }
 
 .overview-panel__scroll {
@@ -777,7 +783,7 @@
 
 .event-dump__head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
 }
 
@@ -881,6 +887,46 @@
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.event-dump__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.event-dump__tags span {
+  max-width: 130px;
+  padding: 2px 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-dump__tag-editor {
+  margin-top: 6px;
+}
+
+.event-dump__tag-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.event-dump__tag-actions button {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 11px;
 }
 
 .event-dump {
@@ -3178,6 +3224,99 @@
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   padding: 0;
+}
+
+.dash-section--tags {
+  min-height: 0;
+}
+
+.tags-view {
+  max-width: 680px;
+}
+
+.tags-view__create {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tags-view__create input,
+.tags-view__list input {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+}
+
+.tags-view__create input:focus,
+.tags-view__list input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.tags-view__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.tags-view__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 9px 7px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tags-view__list li:last-child {
+  border-bottom: 0;
+}
+
+.tags-view__name {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tags-view__list li > span,
+.tags-view__empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tags-view__delete {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tags-view__delete:hover {
+  background: color-mix(in srgb, #d64545 10%, transparent);
+  color: #b93434;
+}
+
+.tags-view__delete svg {
+  width: 16px;
+  height: 16px;
 }
 
 .dash-section--metrics > .dash-section__head {

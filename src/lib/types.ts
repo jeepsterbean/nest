@@ -111,4 +111,17 @@ export type BrainDump = {
   createdAt: number;
   title: string | null;
   text: string;
+  tags: BrainDumpTag[];
+};
+
+export type BrainDumpTag = {
+  id: number;
+  name: string;
+};
+
+export type Tag = {
+  id: number;
+  name: string;
+  createdAt: number;
+  lastUsedAt: number | null;
 };

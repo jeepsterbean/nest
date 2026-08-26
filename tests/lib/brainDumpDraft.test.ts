@@ -49,6 +49,6 @@ describe("isBrainDumpSubmitShortcut", () => {
 
 describe("trimBrainDumpDraft", () => {
   it("trims the shared body", () => {
-    expect(trimBrainDumpDraft({ text: "  Details  " })).toBe("Details");
+    expect(trimBrainDumpDraft({ text: "  Details  ", tagIds: [] })).toBe("Details");
   });
 });

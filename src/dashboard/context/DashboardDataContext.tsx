@@ -19,6 +19,7 @@ import {
   listPhaseCheckIns,
   listPhases,
   listTasks,
+  listTags,
   listTaskDependencies,
   listTaskStatusEvents,
   listTaskWorkStretches,
@@ -35,6 +36,7 @@ import type {
   TaskStatusEvent,
   TaskWorkStretch,
   TimerState,
+  Tag,
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
@@ -55,6 +57,7 @@ type DashboardData = {
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
   brainDumps: BrainDump[];
+  tags: Tag[];
   latestPhase: PhaseCheckIn | null;
   timerState: TimerState | null;
   scopeTree: ScopeTree;
@@ -81,6 +84,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
   const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [timerState, setTimerState] =
     useState<TimerState | null>(null);
@@ -94,7 +98,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = now - HISTORY_WINDOW_SECONDS;
       const to = now + 1;
-      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, lp, timer] = await Promise.all([
+      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] = await Promise.all([
         listTasks(),
         listTaskDependencies(),
         listTaskStatusEvents(from, to),
@@ -105,6 +109,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         listMetricCheckIns(from, to),
         listPhaseCheckIns(from, to),
         listBrainDumps(from, to),
+        listTags(),
         latestPhaseCheckIn(),
         getTimerState(),
       ]);
@@ -119,6 +124,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setCheckIns(ci);
       setPhaseCheckIns(pci);
       setBrainDumps(bd);
+      setTags(tags);
       setLatestPhase(lp);
       setTimerState(timer);
     } catch (e) {
@@ -172,6 +178,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       checkIns,
       phaseCheckIns,
       brainDumps,
+      tags,
       latestPhase,
       timerState,
       scopeTree,
@@ -193,6 +200,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       checkIns,
       phaseCheckIns,
       brainDumps,
+      tags,
       latestPhase,
       timerState,
       scopeTree,
