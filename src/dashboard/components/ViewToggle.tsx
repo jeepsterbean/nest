@@ -1,4 +1,4 @@
-/** Shared segmented control. One size — see ui-standards. */
+/** Shared segmented control. One size — see ui-standards UI implementation. */
 export function ViewToggle<T extends string>({
   value,
   options,

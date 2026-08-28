@@ -10,12 +10,15 @@ preserves calm, private, flow-friendly behavior.
 
 - Every code change must include a corresponding documentation update in the
   same change and commit.
+- See `.agents/README.md` for the documentation map and which layer each file
+  owns.
 - Update the closest authoritative documentation:
   - `CONTEXT.md` for product language and lifecycle invariants;
   - `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` when closing, parking, or adding durable open work;
   - `.impeccable.md` for design context that assistants should follow;
-  - `.agents/standards/ui-standards.md` for frontend and UI conventions
-    (keep `.claude/standards/` and `.codex/standards/` copies identical);
+  - `.agents/standards/ui-standards.md` for frontend UI implementation hooks
+    and layout conventions (product behavior stays in `CONTEXT.md`; keep
+    `.claude/standards/` and `.codex/standards/` copies identical);
   - `README.md` for product status, setup, or repository-wide guidance;
   - code comments for non-obvious implementation constraints that cannot be
     expressed more clearly through code.

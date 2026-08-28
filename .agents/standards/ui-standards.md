@@ -37,76 +37,49 @@ private, journal-like. Preserve light and dark system themes.
 
 ## Interaction
 
-- Keep reflection and capture actions immediately available.
-- Prefer quiet progressive disclosure over modal or oversized controls.
-- Preserve drafts when switching views or collapsing detail.
-- Interactive controls need accessible names and visible focus states.
-- Compact targets are fine when clearly labeled; don't crowd the workspace
-  with decorative chrome.
-- Logs has Raw and Timeline layouts. Raw contains All / Brain dumps / Phases /
-  Metrics filters; Phases adds a Raw | Aggregated sub-toggle (60s settle
-  collapse). Timeline pairs the active Phase rail with Metric, brain dump, and
-  Working now events. No heading, day strip, or outcome stats — the view
-  filters are the only chrome.
-- Every segmented control uses the shared `ViewToggle` (`.view-toggle`) at one
-  size. No per-section size overrides; don't reinvent it per view.
-- Tasks defaults to Table (`.task-table`). A status `ViewToggle` filters Table
-  and Kanban to one persisted status (Backlog, Up next, Active, Completed,
-  Cancelled); first visit is Active. Kanban is a single-status card list. The
-  Scopes sidebar starts collapsed. Drag a header to reorder columns;
-  drag the header's trailing edge to resize. Order and widths persist. There is
-  no Working now play control or Readiness column in the table — start work
-  from the detail panel or Kanban; Ready/Blocked still live on cards and in
-  detail. The add-task composer sits above both layouts and creates in the
-  status being viewed.
-- Overview’s last-hour band (`.overview-day`) is lean: outcome stats and Phase
-  duration totals only — no strip. Always show Completed / Value / Effort /
-  Check-ins and Doing / Scoping / Resting / Offline for the selected window,
-  using 0 when nothing happened. The dump panel (`.overview-panel--dumps`)
-  matches the popup composer: one textarea, shared draft,
-  Cmd/Ctrl+Enter. Dump history is Logs-only; there is no dashboard dump
-  modal or sidebar dump button.
-- Calendar owns the timetable (`.tl`) under `.dash-section--calendar`. Insights
-  is the ranged scoreboard under `.dash-section--insights`: Phase mix
-  (`.insight-mix`), Tasks with Worked time grouped by status as of that day's
-  end (`.insight-ledger`), including Completions and Cancellations with no
-  Working now that day, and Pulse Metric scores (`.insight-pulses`) for the
-  range — the column stays when there are no Metric check-ins. Outcome
-  counts stay on Overview. Both share Day / Week
-  and Earlier / Later / Today. Remember the last range (`nest:insights-range`);
-  Day only when nothing is stored. Compact range toggle matches Logs.
-- Drag a closed `.tl-block` body to move the Work stretch; drag a start or end
-  edge to resize. Times snap to 15-minute marks. Resize will not shrink below
-  15 minutes unless now is closer. That floor is calendar-drag only. An open
-  stretch's live end stays pinned to now. It is not draggable or
-  resizable on the grid — Working now is cleared from the Task — and its bottom
-  edge is an unfinished dotted line (`.tl-block--open`). Click still opens the
-  editor if the pointer barely moves; start and end stay locked while it is
-  open. The editor sits beside the selected stretch, left or right of that
-  block — toward its outer edge when two share the hour, otherwise toward
-  whichever side has room. It
-  flips if the preferred side would leave the window. It closes once its
-  stretch has scrolled out of the grid, so a card fixed to the viewport never
-  outlives the block it edits. The Task title is editable. Start and end each
-  have a date and a time, locked while the stretch is still open; the times
-  save before the rename, since only the times can be refused.
-- The grid is a linear clock running down the page: place every span with
-  percentage `top`/`height` from `placeOnWindow`, never `flex-grow`, so a Work
-  stretch and the Phase wash behind it agree. Percentages are of the column's
-  own real span, so a DST day still lands correctly.
-- Phase is ground: a continuous `.tl__wash` tint behind the lane, no border, no
-  radius, no label, never clickable. Day adds a `.tl__rail` of Phase icons left
-  of the hours; Week is wash only. Concurrent Work stretches sit side by side
-  (`col` / `cols` on each `.tl-block`) because multiple Tasks may be Working
-  now. A stretch is figure: a `.tl-block` card above the wash, tinted by
-  `taskHue(task.id)` through `--task-hue`, the same hue its swatch carries in
-  the Insights Worked time list.
-- `HOUR_PX` in `TimelineGrid.tsx` is the one density knob — it sets `--tl-hour`
-  inline and decides which blocks are tall enough to carry a label. Change it
-  there, not in CSS.
-- A draggable surface drags from its own body. Never start a drag from a
-  control nested inside it — pointer capture eats the control's click, so the
-  press lands as a move instead of the action the user aimed at.
+- Follow `.impeccable.md` Design Principles (capture availability, progressive
+  disclosure, draft preservation, accessible labels and focus, compact layout).
+- Dashboard view behavior — Logs, Tasks, Overview, Calendar, Insights — lives
+  in `CONTEXT.md`. This file holds implementation hooks only; don't restate
+  product rules here.
+
+## UI implementation
+
+Shared controls and section anchors:
+
+- Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
+  No per-section size overrides.
+- Tasks: `.task-table`. No Working now play control or Readiness column in the
+  table — start work from the detail panel or Kanban.
+- Overview: last-hour band `.overview-day`; dump composer
+  `.overview-panel--dumps`. No dashboard dump modal or sidebar dump button.
+- Calendar: timetable `.tl` under `.dash-section--calendar`.
+- Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
+  `.insight-ledger`, and `.insight-pulses`. Range remembered in
+  `nest:insights-range` (Day when unset).
+
+Timeline grid (`TimelineGrid.tsx`):
+
+- Place every span with percentage `top`/`height` from `placeOnWindow`, never
+  `flex-grow`, so Work stretches and the Phase wash behind them align.
+  Percentages are of the column's real span (DST-safe).
+- Phase ground: continuous `.tl__wash` tint — no border, radius, label, or
+  click target. Day adds `.tl__rail` of Phase icons left of hours; Week is wash
+  only.
+- Work stretch figure: `.tl-block` card above the wash, tinted via
+  `taskHue(task.id)` / `--task-hue` (same hue as its Insights Worked time
+  swatch). Open stretch: `.tl-block--open` (unfinished bottom edge). Concurrent
+  stretches: `col` / `cols` on each `.tl-block`.
+- `HOUR_PX` is the sole density knob — sets `--tl-hour` inline and label
+  thresholds. Change it there, not in CSS.
+
+Pointer and drag:
+
+- Draggable surfaces drag from their body only. Never start a drag from a
+  nested control — pointer capture steals the click.
+- Calendar drag, resize, snap, open-stretch lock, and inline editor placement
+  are defined in `CONTEXT.md` under Phase; hook classes are `.tl-block` and
+  `.tl-block--open`.
 
 ## Cleanup passes
 
