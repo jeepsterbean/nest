@@ -121,6 +121,13 @@ export const tagsIcon = (
   </svg>
 );
 
+export const promoteIcon = (
+  <svg {...iconProps}>
+    <path d="M12 19V5" />
+    <path d="m5 12 7-7 7 7" />
+  </svg>
+);
+
 export const gripIcon = (
   <svg {...iconProps}>
     <circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none" />

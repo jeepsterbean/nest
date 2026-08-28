@@ -101,6 +101,22 @@ export function isBrainDumpSubmitShortcut(event: {
   );
 }
 
+export function isBrainDumpPeelShortcut(event: {
+  key: string;
+  shiftKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  isComposing?: boolean;
+}) {
+  return (
+    event.key === "Enter" &&
+    event.shiftKey &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.isComposing
+  );
+}
+
 export function adjacentBrainDumpIndex(
   index: number,
   direction: -1 | 1,

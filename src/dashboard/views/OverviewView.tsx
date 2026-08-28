@@ -6,21 +6,30 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   createTask,
   reorderTasks,
   submitBrainDump,
 } from "../../lib/commands";
 import {
+  isBrainDumpPeelShortcut,
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
   useBrainDumpDraft,
   useRecentBrainDumpHistory,
 } from "../../lib/brainDumpDraft";
 import {
+  createFloatingFromDraft,
+  useFloatingBrainDumps,
+  type FloatingBrainDump,
+} from "../../lib/floatingBrainDumps";
+import {
   DayStats,
   PhaseTotals,
 } from "../components/DayReflection";
+import { BrainDumpSurface } from "../components/BrainDumpSurface";
+import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { CARD_CONTROLS, useListSort } from "../hooks/useListSort";
 import { windowInsight } from "../lib/insights";
@@ -30,7 +39,7 @@ import {
   TASK_STATUS_LABEL,
 } from "../lib/tasks";
 import { TaskCard } from "../task/TaskCard";
-import { BrainDumpTags, useComposerTagProps } from "../components/BrainDumpTags";
+import { useComposerTagProps } from "../components/BrainDumpTags";
 
 const OVERVIEW_WINDOW_SECONDS = 60 * 60;
 type OverviewTaskStatus = "active" | "up_next" | "backlog";
@@ -52,6 +61,8 @@ export function OverviewView() {
     useState<OverviewTaskStatus | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const quickAddRef = useRef<HTMLInputElement | null>(null);
+  const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const [portalRoot, setPortalRoot] = useState<Element | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
@@ -61,19 +72,37 @@ export function OverviewView() {
     brainDumpTagIds,
     brainDumpHistory.viewingDump,
   );
+  const {
+    dumps: floatingDumps,
+    addDump,
+    updateDump,
+    removeDump,
+    bringToFront,
+    reclampToBoard,
+  } = useFloatingBrainDumps();
+
   const handleTagsChange = useCallback(
     (tagIds: number[]) =>
       setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
     [setBrainDumpDraft],
   );
 
+  const handleViewportResize = useCallback(
+    (width: number, height: number) => {
+      reclampToBoard(width, height);
+    },
+    [reclampToBoard],
+  );
+
+  useEffect(() => {
+    setPortalRoot(document.querySelector(".dashboard"));
+  }, []);
+
   useEffect(() => {
     if (quickAddStatus) quickAddRef.current?.focus();
   }, [quickAddStatus]);
 
   const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
-  // One sort per lane, keyed by its own drag kind so a card can only be
-  // dropped among its own status — moving lanes stays the status pill's job.
   const laneIds = (status: OverviewTaskStatus) =>
     tasksByStatus[status].map((task) => task.id);
   const onReorderLane = (ids: number[]) => {
@@ -122,6 +151,81 @@ export function OverviewView() {
       await brainDumpHistory.refresh();
     }
     setBrainDumpSubmitting(false);
+  };
+
+  const peelToFloating = useCallback(() => {
+    if (brainDumpHistory.viewingHistory) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const next = createFloatingFromDraft(
+      brainDumpDraft,
+      floatingDumps,
+      width,
+      height,
+    );
+    if (!next) return;
+    addDump(next);
+    setBrainDumpDraft({ text: "", tagIds: [] });
+  }, [
+    addDump,
+    brainDumpDraft,
+    brainDumpHistory.viewingHistory,
+    floatingDumps,
+    setBrainDumpDraft,
+  ]);
+
+  const promoteFloatingDump = useCallback(
+    (dump: FloatingBrainDump) => {
+      const mainDraft = brainDumpDraft;
+      const mainEmpty = !trimBrainDumpDraft(mainDraft);
+      setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
+      if (mainEmpty) removeDump(dump.id);
+      else updateDump(dump.id, { text: mainDraft.text, tagIds: mainDraft.tagIds });
+      mainDumpRef.current?.focus();
+    },
+    [brainDumpDraft, removeDump, setBrainDumpDraft, updateDump],
+  );
+
+  const submitFloatingDump = async (dump: FloatingBrainDump) => {
+    const text = dump.text.trim();
+    if (!text || brainDumpSubmitting) return;
+    setBrainDumpSubmitting(true);
+    const ok = await mutate(() => submitBrainDump(text, null, dump.tagIds));
+    if (ok) {
+      removeDump(dump.id);
+      await brainDumpHistory.refresh();
+    }
+    setBrainDumpSubmitting(false);
+  };
+
+  const onMainDumpKeyDown = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (brainDumpHistory.viewingHistory) return;
+    if (
+      isBrainDumpPeelShortcut({
+        key: event.key,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        isComposing: event.nativeEvent.isComposing,
+      })
+    ) {
+      event.preventDefault();
+      peelToFloating();
+      return;
+    }
+    if (
+      isBrainDumpSubmitShortcut({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        isComposing: event.nativeEvent.isComposing,
+      })
+    ) {
+      event.preventDefault();
+      void submitOverviewDump();
+    }
   };
 
   const openQuickAdd = (status: OverviewTaskStatus) => {
@@ -288,65 +392,71 @@ export function OverviewView() {
           className="overview-panel overview-panel--dumps"
           aria-label="Brain dump"
         >
-          <div className="brain-dump-history-controls">
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="View previous brain dump"
-              title="Previous brain dump (Cmd/Ctrl+[)"
-              disabled={!brainDumpHistory.canViewPrevious}
-              onClick={brainDumpHistory.showPrevious}
-            >
-              <span aria-hidden="true">&#8249;</span>
-            </button>
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="View next brain dump"
-              title="Next brain dump (Cmd/Ctrl+])"
-              disabled={!brainDumpHistory.canViewNext}
-              onClick={brainDumpHistory.showNext}
-            >
-              <span aria-hidden="true">&#8250;</span>
-            </button>
-          </div>
-          <textarea
-            className="overview-dump-input"
-            autoCapitalize="off"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={brainDumpHistory.text}
-            readOnly={brainDumpHistory.viewingHistory}
-            onChange={(e) =>
-              setBrainDumpDraft((draft) => ({ ...draft, text: e.target.value }))
-            }
-            onKeyDown={(e) => {
-              if (
-                !brainDumpHistory.viewingHistory &&
-                isBrainDumpSubmitShortcut({
-                  ...e,
-                  isComposing: e.nativeEvent.isComposing,
-                })
-              ) {
-                e.preventDefault();
-                void submitOverviewDump();
+          {loaded && (
+            <BrainDumpSurface
+              className="brain-dump-surface--anchored"
+              text={brainDumpHistory.text}
+              tagIds={composerTagProps.selectedIds}
+              tags={composerTagProps.tags}
+              readOnly={brainDumpHistory.viewingHistory}
+              tagsDisabled={brainDumpHistory.viewingHistory}
+              textareaLabel={
+                brainDumpHistory.viewingHistory
+                  ? "Saved brain dump, read only"
+                  : "Brain dump"
               }
-            }}
-            aria-label={
-              brainDumpHistory.viewingHistory
-                ? "Saved brain dump, read only"
-                : "Brain dump"
-            }
-          />
-          {loaded && <BrainDumpTags
-            tags={composerTagProps.tags}
-            selectedIds={composerTagProps.selectedIds}
-            disabled={brainDumpHistory.viewingHistory}
-            onChange={handleTagsChange}
-          />}
+              headerEnd={
+                <div className="brain-dump-history-controls">
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label="View previous brain dump"
+                    title="Previous brain dump (Cmd/Ctrl+[)"
+                    disabled={!brainDumpHistory.canViewPrevious}
+                    onClick={brainDumpHistory.showPrevious}
+                  >
+                    <span aria-hidden="true">&#8249;</span>
+                  </button>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label="View next brain dump"
+                    title="Next brain dump (Cmd/Ctrl+])"
+                    disabled={!brainDumpHistory.canViewNext}
+                    onClick={brainDumpHistory.showNext}
+                  >
+                    <span aria-hidden="true">&#8250;</span>
+                  </button>
+                </div>
+              }
+              onTextChange={(text) =>
+                setBrainDumpDraft((draft) => ({ ...draft, text }))
+              }
+              onTagsChange={handleTagsChange}
+              onKeyDown={onMainDumpKeyDown}
+              textareaRef={mainDumpRef}
+            />
+          )}
         </section>
       </section>
+
+      {loaded &&
+        portalRoot &&
+        createPortal(
+          <FloatingBrainDumpsBoard
+            dumps={floatingDumps}
+            tags={tags}
+            onTextChange={(id, text) => updateDump(id, { text })}
+            onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
+            onPositionChange={(id, x, y) => updateDump(id, { x, y })}
+            onPromote={promoteFloatingDump}
+            onRemove={removeDump}
+            onSubmit={(dump) => void submitFloatingDump(dump)}
+            onBringToFront={bringToFront}
+            onViewportResize={handleViewportResize}
+          />,
+          portalRoot,
+        )}
     </div>
   );
 }

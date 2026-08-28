@@ -37,10 +37,6 @@ button {
 }
 
 .brain-dump-history-controls {
-  position: absolute;
-  z-index: 1;
-  top: 8px;
-  right: 8px;
   display: flex;
   gap: 3px;
 }

@@ -7,11 +7,12 @@ APIs, schema, or code structure.
 - rearrange elements to look more aesthetic
 
 ## Brain dump
-show a nice, clean view of brain dumps on overview page
+- i want to be able to look at the past brain dumps at a glance, at least the previous one
+- does it make sense to promote a brain dump to a sticky note, we have a board and some brain dumps can be attached an removed from the board
+- overview page needs to see this view of sticky notes 
 
 ## Task section
 show priotiy as 2 columns
-have a all tasks view.
 
 ## overview page
 Redesign task card to be more lean

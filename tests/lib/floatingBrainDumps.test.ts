@@ -1,0 +1,153 @@
+import { describe, expect, it } from "vitest";
+import {
+  isBrainDumpPeelShortcut,
+  isBrainDumpSubmitShortcut,
+} from "../../src/lib/brainDumpDraft";
+import {
+  clampFloatingPosition,
+  createFloatingFromDraft,
+  FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+  FLOATING_BRAIN_DUMP_WIDTH,
+  nextCascadePosition,
+  nextZIndex,
+  parseFloatingBrainDump,
+  reclampFloatingDumps,
+} from "../../src/lib/floatingBrainDumps";
+
+const enter = {
+  key: "Enter",
+  shiftKey: false,
+  metaKey: false,
+  ctrlKey: false,
+  isComposing: false,
+};
+
+describe("isBrainDumpPeelShortcut", () => {
+  it("peels only on unmodified Shift+Enter", () => {
+    expect(isBrainDumpPeelShortcut(enter)).toBe(false);
+    expect(isBrainDumpSubmitShortcut(enter)).toBe(false);
+    expect(isBrainDumpPeelShortcut({ ...enter, shiftKey: true })).toBe(true);
+    expect(
+      isBrainDumpPeelShortcut({ ...enter, shiftKey: true, metaKey: true }),
+    ).toBe(false);
+    expect(
+      isBrainDumpPeelShortcut({
+        ...enter,
+        shiftKey: true,
+        isComposing: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("clampFloatingPosition", () => {
+  it("allows notes to extend past the content column while keeping a sliver visible", () => {
+    expect(clampFloatingPosition(0, 0, 400, 300)).toEqual({ x: 0, y: 16 });
+    expect(clampFloatingPosition(999, 999, 400, 300)).toEqual({
+      x: 400 - FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+      y: 300 - FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+    });
+    expect(clampFloatingPosition(-999, 16, 400, 300)).toEqual({
+      x: -FLOATING_BRAIN_DUMP_WIDTH + FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+      y: 16,
+    });
+  });
+});
+
+describe("nextCascadePosition", () => {
+  it("offsets each new note and wraps near the viewport edge", () => {
+    const first = nextCascadePosition([], 400, 300);
+    expect(first).toEqual({ x: 96, y: 120 });
+
+    const second = nextCascadePosition(
+      [
+        {
+          id: "a",
+          text: "one",
+          tagIds: [],
+          x: first.x,
+          y: first.y,
+          zIndex: 1,
+        },
+      ],
+      400,
+      300,
+    );
+    expect(second).toEqual({ x: 120, y: 144 });
+  });
+});
+
+describe("nextZIndex", () => {
+  it("returns one above the current top note", () => {
+    expect(nextZIndex([])).toBe(1);
+    expect(
+      nextZIndex([
+        {
+          id: "a",
+          text: "",
+          tagIds: [],
+          x: 0,
+          y: 0,
+          zIndex: 2,
+        },
+        {
+          id: "b",
+          text: "",
+          tagIds: [],
+          x: 0,
+          y: 0,
+          zIndex: 5,
+        },
+      ]),
+    ).toBe(6);
+  });
+});
+
+describe("createFloatingFromDraft", () => {
+  it("creates a note from trimmed draft text", () => {
+    const dump = createFloatingFromDraft(
+      { text: "  Ideas  ", tagIds: [2] },
+      [],
+      400,
+      300,
+    );
+    expect(dump).toMatchObject({
+      text: "  Ideas  ",
+      tagIds: [2],
+      x: 96,
+      y: 120,
+      zIndex: 1,
+    });
+    expect(dump?.id).toBeTruthy();
+  });
+
+  it("returns null for blank drafts", () => {
+    expect(createFloatingFromDraft({ text: "   ", tagIds: [] }, [], 400, 300)).toBeNull();
+  });
+});
+
+describe("reclampFloatingDumps", () => {
+  it("pulls notes that fell fully off-screen back into view", () => {
+    const dumps = [
+      {
+        id: "a",
+        text: "note",
+        tagIds: [],
+        x: 999,
+        y: 999,
+        zIndex: 1,
+      },
+    ];
+    expect(reclampFloatingDumps(dumps, 400, 300)[0]).toMatchObject({
+      x: 352,
+      y: 252,
+    });
+  });
+});
+
+describe("parseFloatingBrainDump", () => {
+  it("rejects malformed stored notes", () => {
+    expect(parseFloatingBrainDump(null)).toBeNull();
+    expect(parseFloatingBrainDump({ id: 1 })).toBeNull();
+  });
+});
