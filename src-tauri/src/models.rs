@@ -57,6 +57,8 @@ pub struct MetricCheckInWithRatings {
 pub struct Phase {
     pub id: i64,
     pub name: String,
+    pub icon: String,
+    pub color: Option<String>,
     pub created_at: i64,
     pub inactive_since: Option<i64>,
 }

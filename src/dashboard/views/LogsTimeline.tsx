@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
-import { isQuietPhase, phaseIconName, phaseName, phaseTone } from "../lib/period";
+import { isQuietPhase } from "../lib/period";
 import { formatTime, shiftDayMs } from "../lib/time";
 import {
   groupByDay,
@@ -122,12 +122,13 @@ export function LogsTimeline({
     [events, phaseCheckIns],
   );
   const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
+  const now = Math.floor(Date.now() / 1000);
 
   return days.map((day) => {
     const daySessions = phaseSessionsInWindow(
       phaseCheckIns,
       day.key / 1000,
-      shiftDayMs(day.key, 1) / 1000,
+      Math.min(shiftDayMs(day.key, 1) / 1000, now),
       isQuiet,
       false,
     );
@@ -141,16 +142,9 @@ export function LogsTimeline({
           <PhaseTotals sessions={daySessions} phases={phases} />
         </header>
         <ol className="logs-chrono">
-          {day.events.map((row, index) => {
+          {day.events.map((row) => {
             const { event, phaseCheckIn: checkpoint } = row;
-            const name = phaseName(
-              checkpoint?.phaseId ?? null,
-              phases,
-              checkpoint?.phaseLabel,
-            );
-            const previousCheckpoint = day.events[index - 1]?.phaseCheckIn;
-            const showPhase =
-              index === 0 || previousCheckpoint?.phaseId !== checkpoint?.phaseId;
+            const phase = phases.find((item) => item.id === checkpoint?.phaseId);
 
             const wasStretchOpen = openStretchIds.size > 0;
             if (event.kind === "work-start") openStretchIds.add(event.stretch.id);
@@ -162,25 +156,22 @@ export function LogsTimeline({
               <li
                 key={eventKey(event)}
                 className={`logs-chrono__row logs-chrono__row--${event.kind}${
+                  phase?.color ? " logs-chrono__row--colored" : ""
+                }${
                   inStretch ? " logs-chrono__row--in-stretch" : ""
                 }`}
+                style={
+                  phase?.color
+                    ? ({ "--phase-color": phase.color } as CSSProperties)
+                    : undefined
+                }
               >
-                <div
-                  className={`logs-chrono__phase logs-chrono__phase--${phaseTone(name)}`}
-                  title={`${name} phase`}
-                  aria-label={`${name} phase`}
-                >
-                  {showPhase ? (
-                    <>
-                      <NestIcon name={phaseIconName(name)} />
-                      <span>{name}</span>
-                    </>
-                  ) : null}
-                </div>
-                <div className="logs-chrono__event">
+                <div className="logs-chrono__when">
                   <time dateTime={new Date(event.at * 1000).toISOString()}>
                     {formatTime(event.at)}
                   </time>
+                </div>
+                <div className="logs-chrono__event">
                   <TimelineMark event={event} pulses={pulses} tasks={tasks} />
                   <LogEventDetail
                     event={event}

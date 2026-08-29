@@ -31,6 +31,6 @@ describe("resolveMetricColor", () => {
   });
 
   it("exposes enough preset colors for manual selection", () => {
-    expect(METRIC_COLOR_PRESETS.length).toBeGreaterThanOrEqual(8);
+    expect(METRIC_COLOR_PRESETS.length).toBeGreaterThanOrEqual(36);
   });
 });

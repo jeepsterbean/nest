@@ -41,6 +41,8 @@ export type RatingValue = 1 | 2 | 3 | 4 | 5;
 export type Phase = {
   id: number;
   name: string;
+  icon: string;
+  color: string | null;
   createdAt: number;
   inactiveSince: number | null;
 };

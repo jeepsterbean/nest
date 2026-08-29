@@ -24,8 +24,8 @@ import type {
 } from "../../../src/lib/types";
 
 const phases: Phase[] = [
-  { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
-  { id: 2, name: "Resting", createdAt: 0, inactiveSince: null },
+  { id: 1, name: "Doing", icon: "target", color: null, createdAt: 0, inactiveSince: null },
+  { id: 2, name: "Resting", icon: "coffee", color: null, createdAt: 0, inactiveSince: null },
 ];
 
 const phaseCheckIn = (

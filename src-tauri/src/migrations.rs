@@ -870,6 +870,29 @@ CREATE TABLE brain_dump_tags (
 CREATE INDEX idx_brain_dump_tags_tag_id ON brain_dump_tags(tag_id);
 "#,
         ),
+        // Phase appearance is user-owned. Seed the existing four-Phase visual
+        // language so upgrading keeps its meaning, then let settings replace it.
+        M::up(
+            r#"
+ALTER TABLE phases ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';
+ALTER TABLE phases ADD COLUMN color TEXT;
+
+UPDATE phases SET icon = CASE name
+  WHEN 'Doing' THEN 'target'
+  WHEN 'Scoping' THEN 'idea'
+  WHEN 'Resting' THEN 'coffee'
+  WHEN 'Offline' THEN 'moon'
+  ELSE 'activity'
+END;
+
+UPDATE phases SET color = CASE name
+  WHEN 'Doing' THEN '#5f8fb8'
+  WHEN 'Scoping' THEN '#c18e43'
+  WHEN 'Resting' THEN '#35764e'
+  ELSE NULL
+END;
+"#,
+        ),
     ])
 }
 
@@ -882,6 +905,32 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn adds_configurable_phase_appearance() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+
+        let phases: Vec<(String, String, Option<String>)> = conn
+            .prepare(
+                "SELECT name, icon, color FROM phases WHERE inactive_since IS NULL ORDER BY name",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+
+        assert_eq!(
+            phases,
+            vec![
+                ("Doing".into(), "target".into(), Some("#5f8fb8".into())),
+                ("Offline".into(), "moon".into(), None),
+                ("Resting".into(), "coffee".into(), Some("#35764e".into())),
+                ("Scoping".into(), "idea".into(), Some("#c18e43".into())),
+            ]
+        );
+    }
 
     #[test]
     fn tag_deletion_removes_associations_and_keeps_brain_dumps() {

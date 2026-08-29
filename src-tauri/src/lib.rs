@@ -1337,6 +1337,8 @@ pub fn run() {
             commands::reorder_pulses,
             commands::reorder_pulse_metrics,
             commands::list_phases,
+            commands::set_phase_icon,
+            commands::set_phase_color,
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,

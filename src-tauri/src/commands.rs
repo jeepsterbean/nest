@@ -115,6 +115,7 @@ const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
      WHERE s.task_id = t.id AND s.ended_at IS NULL), \
     t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at";
 const METRIC_COLUMNS: &str = "id, name, icon, created_at, color";
+const PHASE_COLUMNS: &str = "id, name, icon, color, created_at, inactive_since";
 const PHASE_CHECK_IN_COLUMNS: &str = "id, created_at, phase_id, phase_label";
 const BRAIN_DUMP_COLUMNS: &str = "id, created_at, title, text";
 
@@ -143,6 +144,17 @@ fn map_metric(row: &Row<'_>) -> rusqlite::Result<Metric> {
         icon: row.get(2)?,
         created_at: row.get(3)?,
         color: row.get(4)?,
+    })
+}
+
+fn map_phase(row: &Row<'_>) -> rusqlite::Result<Phase> {
+    Ok(Phase {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        icon: row.get(2)?,
+        color: row.get(3)?,
+        created_at: row.get(4)?,
+        inactive_since: row.get(5)?,
     })
 }
 
@@ -356,7 +368,16 @@ fn fetch_metric(conn: &Connection, id: i64) -> Result<Metric> {
     .map_err(Into::into)
 }
 
-fn valid_metric_color(color: &str) -> bool {
+fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
+    conn.query_row(
+        &format!("SELECT {PHASE_COLUMNS} FROM phases WHERE id = ?1"),
+        params![id],
+        map_phase,
+    )
+    .map_err(Into::into)
+}
+
+fn valid_color(color: &str) -> bool {
     let bytes = color.as_bytes();
     if bytes.first() != Some(&b'#') {
         return false;
@@ -1110,7 +1131,7 @@ pub fn set_metric_color(
     color: Option<String>,
 ) -> Result<Metric> {
     if let Some(ref value) = color {
-        if !valid_metric_color(value) {
+        if !valid_color(value) {
             return Err(AppError::InvalidInput("invalid metric color".into()));
         }
     }
@@ -1309,23 +1330,56 @@ pub fn list_phases(
 ) -> Result<Vec<Phase>> {
     let conn = state.lock().unwrap();
     let sql = if include_inactive {
-        "SELECT id, name, created_at, inactive_since FROM phases ORDER BY created_at ASC, id ASC"
+        format!("SELECT {PHASE_COLUMNS} FROM phases ORDER BY created_at ASC, id ASC")
     } else {
-        "SELECT id, name, created_at, inactive_since FROM phases \
-         WHERE inactive_since IS NULL ORDER BY created_at ASC, id ASC"
+        format!(
+            "SELECT {PHASE_COLUMNS} FROM phases \
+             WHERE inactive_since IS NULL ORDER BY created_at ASC, id ASC"
+        )
     };
-    let mut stmt = conn.prepare(sql)?;
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(Phase {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                created_at: row.get(2)?,
-                inactive_since: row.get(3)?,
-            })
-        })?
+        .query_map([], map_phase)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
+}
+
+#[tauri::command]
+pub fn set_phase_icon(state: State<'_, Mutex<Connection>>, id: i64, icon: String) -> Result<Phase> {
+    if !valid_icon(&icon) {
+        return Err(AppError::InvalidInput("invalid Phase icon".into()));
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE phases SET icon = ?1 WHERE id = ?2",
+        params![icon, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("Phase {id}")));
+    }
+    fetch_phase(&conn, id)
+}
+
+#[tauri::command]
+pub fn set_phase_color(
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    color: Option<String>,
+) -> Result<Phase> {
+    if let Some(ref value) = color {
+        if !valid_color(value) {
+            return Err(AppError::InvalidInput("invalid Phase color".into()));
+        }
+    }
+    let conn = state.lock().unwrap();
+    if conn.execute(
+        "UPDATE phases SET color = ?1 WHERE id = ?2",
+        params![color, id],
+    )? == 0
+    {
+        return Err(AppError::NotFound(format!("Phase {id}")));
+    }
+    fetch_phase(&conn, id)
 }
 
 /// Writes the check-in row and one row per rating, so it takes the transaction
@@ -1727,7 +1781,7 @@ mod tests {
         bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
         change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
         normalize_task_scope, persist_timer_waiting, record_brain_dump, record_metric_check_in,
-        recover_open_stretches, schedule_timer, update_task_score_field, valid_icon,
+        recover_open_stretches, schedule_timer, update_task_score_field, valid_color, valid_icon,
         validate_task_status,
     };
     use crate::migrations::migrations;
@@ -1958,6 +2012,14 @@ mod tests {
         assert!(valid_icon("book-heart"));
         assert!(!valid_icon(""));
         assert!(!valid_icon("<svg>"));
+    }
+
+    #[test]
+    fn accepts_hex_colors() {
+        assert!(valid_color("#abc"));
+        assert!(valid_color("#1A2b3C"));
+        assert!(!valid_color("blue"));
+        assert!(!valid_color("#abcd"));
     }
 
     #[test]

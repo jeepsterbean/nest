@@ -17,6 +17,7 @@ import {
   logsIcon,
   metricsIcon,
   overviewIcon,
+  phasesIcon,
   tasksIcon,
   tagsIcon,
 } from "./icons";
@@ -28,6 +29,7 @@ export type DashboardView =
   | "logs"
   | "tasks"
   | "metrics"
+  | "phases"
   | "tags";
 
 const VIEWS = [
@@ -37,6 +39,7 @@ const VIEWS = [
   { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
   { key: "metrics", label: "Metrics", icon: metricsIcon },
+  { key: "phases", label: "Phases", icon: phasesIcon },
   { key: "tags", label: "Tags", icon: tagsIcon },
 ] as const;
 

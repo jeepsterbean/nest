@@ -111,8 +111,8 @@ describe("completedInPeriod", () => {
 
 describe("foldIdleIntoOffline", () => {
   const phases: Phase[] = [
-    { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
-    { id: 4, name: "Offline", createdAt: 0, inactiveSince: null },
+    { id: 1, name: "Doing", icon: "target", color: null, createdAt: 0, inactiveSince: null },
+    { id: 4, name: "Offline", icon: "moon", color: null, createdAt: 0, inactiveSince: null },
   ];
 
   it("adds Idle seconds to Offline", () => {
@@ -134,10 +134,10 @@ describe("foldIdleIntoOffline", () => {
 
 describe("filledPhaseTotals", () => {
   const phases: Phase[] = [
-    { id: 1, name: "Doing", createdAt: 0, inactiveSince: null },
-    { id: 2, name: "Scoping", createdAt: 0, inactiveSince: null },
-    { id: 3, name: "Resting", createdAt: 0, inactiveSince: null },
-    { id: 4, name: "Offline", createdAt: 0, inactiveSince: null },
+    { id: 1, name: "Doing", icon: "target", color: null, createdAt: 0, inactiveSince: null },
+    { id: 2, name: "Scoping", icon: "idea", color: null, createdAt: 0, inactiveSince: null },
+    { id: 3, name: "Resting", icon: "coffee", color: null, createdAt: 0, inactiveSince: null },
+    { id: 4, name: "Offline", icon: "moon", color: null, createdAt: 0, inactiveSince: null },
   ];
 
   it("keeps missing live Phases as zero", () => {

@@ -5,11 +5,13 @@ export function MetricColorPicker({
   label,
   onChange,
   embedded = false,
+  emptyLabel = "Auto",
 }: {
   value: string | null;
   label: string;
   onChange: (color: string | null) => void;
   embedded?: boolean;
+  emptyLabel?: string;
 }) {
   return (
     <div
@@ -23,7 +25,7 @@ export function MetricColorPicker({
         aria-pressed={value === null}
         onClick={() => onChange(null)}
       >
-        Auto
+        {emptyLabel}
       </button>
       <div className="metric-color-picker__grid">
         {METRIC_COLOR_PRESETS.map((color) => (
@@ -38,6 +40,15 @@ export function MetricColorPicker({
           />
         ))}
       </div>
+      <label className="metric-color-picker__custom">
+        <span>Custom</span>
+        <input
+          type="color"
+          value={value?.length === 7 ? value : "#4a7dd1"}
+          aria-label={`Custom ${label}`}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
     </div>
   );
 }

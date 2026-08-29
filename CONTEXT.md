@@ -162,9 +162,13 @@ Phase checkpoints each stand on their own. Raw shows the full table and holds
 the All, Brain dumps, Phases, and Metrics filters. Phases has Raw and
 Aggregated modes — Aggregated applies the 60-second settle collapse (a burst
 lands on the Phase it settled on; if that equals the Phase before the burst,
-it is omitted). Timeline places the Phase active at each event on a left rail
-and Metric check-ins, brain dumps, and Working now starts/stops on the right.
-Logs does not show the day strip or outcome stats. Events are grouped by day.
+it is omitted). Each Phase has separate icon and color controls in the Phases
+section, with a broad preset palette and custom color picker. Timeline marks the Phase
+active at each event with a solid shade on the time gutter (or a quiet surface
+tone when uncolored); the event body stays on the base surface. Metric check-in, brain dump,
+and Working now start/stop icons sit directly on the timeline line.
+Logs does not show the day strip or outcome stats. Events are grouped by day;
+Phase totals end at midnight for past days and at the current time for Today.
 Metric check-ins show the Pulse icon and Metric scores on one row. Brain dumps
 match that row height until expanded. Pulse, Metric, and brain dump icons stand
 in for names. The Logs heading is omitted; the view filters are the only chrome.
