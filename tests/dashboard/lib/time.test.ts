@@ -20,6 +20,8 @@ import {
   fromDateAndTime,
 } from "../../../src/dashboard/lib/time";
 
+declare const process: { env: Record<string, string | undefined> };
+
 // All day-boundary math is in local time (setHours), so expectations are built
 // with the local Date constructor to stay timezone-independent.
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);
@@ -150,6 +152,20 @@ describe("snapToQuarterHour", () => {
 
   it("rolls midnight when rounding up past 23:52", () => {
     expect(snapToQuarterHour(at(23, 53))).toBe(sec(new Date(2026, 5, 18)));
+  });
+
+  it("snaps by wall-clock fields on an offset-transition day", () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = "Africa/Monrovia";
+    try {
+      const transitionMorning = sec(new Date(1972, 0, 7, 0, 44, 30));
+      expect(snapToQuarterHour(transitionMorning)).toBe(
+        sec(new Date(1972, 0, 7, 0, 45)),
+      );
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
   });
 });
 

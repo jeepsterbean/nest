@@ -7,18 +7,9 @@ import {
   type TaskTableColumn,
   type TaskTableColumnId,
 } from "../lib/taskTable";
-
-const DRAG_START_DISTANCE = 6;
+import { startPointerDrag } from "../lib/pointerDrag";
 
 type Session = {
-  pointerId: number;
-  kind: "move" | "resize";
-  id: TaskTableColumnId;
-  startX: number;
-  startY: number;
-  origin: TaskTableColumn[];
-  dragging: boolean;
-  handle: HTMLElement;
   removeListeners: () => void;
 };
 
@@ -39,9 +30,6 @@ export function useTaskTableColumns() {
   const clear = useCallback(() => {
     const session = sessionRef.current;
     session?.removeListeners();
-    if (session?.handle.hasPointerCapture(session.pointerId)) {
-      session.handle.releasePointerCapture(session.pointerId);
-    }
     document.documentElement.classList.remove(
       "task-table-move-in-progress",
       "task-table-resize-in-progress",
@@ -72,92 +60,54 @@ export function useTaskTableColumns() {
     event.preventDefault();
     event.stopPropagation();
 
-    const onPointerMove = (move: globalThis.PointerEvent) => {
-      const session = sessionRef.current;
-      if (!session || session.pointerId !== move.pointerId) return;
-      if (!session.dragging) {
-        if (
-          session.kind === "move" &&
-          Math.hypot(move.clientX - session.startX, move.clientY - session.startY) <
-            DRAG_START_DISTANCE
-        ) {
-          return;
-        }
-        session.dragging = true;
-        if (session.kind === "resize") {
-          session.handle.setPointerCapture(session.pointerId);
-        }
+    const origin = columnsRef.current;
+    const startX = event.clientX;
+    const session: Session = { removeListeners: () => undefined };
+    sessionRef.current = session;
+    session.removeListeners = startPointerDrag(event, {
+      startImmediately: kind === "resize",
+      onStart: () => {
         document.documentElement.classList.add(
-          session.kind === "move"
+          kind === "move"
             ? "task-table-move-in-progress"
             : "task-table-resize-in-progress",
         );
-        setDraggingId(session.id);
-      }
-      move.preventDefault();
-      if (session.kind === "resize") {
-        const origin = session.origin.find((column) => column.id === session.id);
-        if (!origin) return;
-        setColumns(
-          resizeTaskTableColumn(
-            session.origin,
-            session.id,
-            origin.width + (move.clientX - session.startX),
-          ),
-        );
-        return;
-      }
-      const over = columnAtPoint(move.clientX, move.clientY);
-      setOverId(over !== null && over !== session.id ? over : null);
-    };
-
-    const onPointerUp = (up: globalThis.PointerEvent) => {
-      const session = sessionRef.current;
-      if (!session || session.pointerId !== up.pointerId) return;
-      if (session.dragging) {
-        if (session.kind === "resize") {
-          writeTaskTableLayout(columnsRef.current);
-        } else {
-          const targetId = columnAtPoint(up.clientX, up.clientY);
-          if (targetId !== null) {
-            persist(moveTaskTableColumn(session.origin, session.id, targetId));
+        setDraggingId(id);
+      },
+      onMove: (move) => {
+        if (kind === "resize") {
+          const column = origin.find((candidate) => candidate.id === id);
+          if (!column) return;
+          setColumns(
+            resizeTaskTableColumn(
+              origin,
+              id,
+              column.width + (move.clientX - startX),
+            ),
+          );
+          return;
+        }
+        const over = columnAtPoint(move.clientX, move.clientY);
+        setOverId(over !== null && over !== id ? over : null);
+      },
+      onEnd: (up, dragged) => {
+        if (dragged) {
+          if (kind === "resize") {
+            writeTaskTableLayout(columnsRef.current);
+          } else {
+            const targetId = columnAtPoint(up.clientX, up.clientY);
+            if (targetId !== null) {
+              persist(moveTaskTableColumn(origin, id, targetId));
+            }
           }
         }
-      }
-      clear();
-    };
-
-    const onPointerCancel = () => {
-      const session = sessionRef.current;
-      if (session?.kind === "resize") setColumns(session.origin);
-      clear();
-    };
-
-    const removeListeners = () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-    };
-
-    sessionRef.current = {
-      pointerId: event.pointerId,
-      kind,
-      id,
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: columnsRef.current,
-      dragging: kind === "resize",
-      handle: event.currentTarget,
-      removeListeners,
-    };
-    if (kind === "resize") {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      document.documentElement.classList.add("task-table-resize-in-progress");
-      setDraggingId(id);
-    }
-    window.addEventListener("pointermove", onPointerMove, { passive: false });
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
+        clear();
+      },
+      onCancel: () => {
+        if (kind === "resize") setColumns(origin);
+        clear();
+      },
+    });
   };
 
   return {

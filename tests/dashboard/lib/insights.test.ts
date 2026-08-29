@@ -343,6 +343,35 @@ describe("insightDays", () => {
     expect(days[0].groups.map((group) => group.status)).toEqual(["completed"]);
   });
 
+  it("uses the last same-day closed status when events arrive out of order", () => {
+    const tasks = [task(1, "Write", "cancelled")];
+    const events: TaskStatusEvent[] = [
+      {
+        id: 2,
+        taskId: 1,
+        fromStatus: "completed",
+        toStatus: "cancelled",
+        createdAt: monday + 2000,
+      },
+      {
+        id: 1,
+        taskId: 1,
+        fromStatus: "active",
+        toStatus: "completed",
+        createdAt: monday + 1000,
+      },
+    ];
+    const days = insightDays(
+      columns,
+      layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
+      tasks,
+      events,
+      wednesday,
+    );
+
+    expect(days[0].groups.map((group) => group.status)).toEqual(["cancelled"]);
+  });
+
   it("lists Completions and Cancellations with no Worked time that day", () => {
     const tasks = [
       task(1, "Ship", "completed"),

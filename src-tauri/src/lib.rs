@@ -140,19 +140,21 @@ fn show_popup(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn close_popup(
-    app: tauri::AppHandle,
-    dismissed: bool,
-    _minutes: Option<i64>,
-) -> error::Result<()> {
-    resolve_and_hide_popup(
-        &app,
-        if dismissed { "dismissed" } else { "completed" },
-    )
+fn close_popup(app: tauri::AppHandle, dismissed: bool, minutes: Option<i64>) -> error::Result<()> {
+    if !dismissed {
+        if let Some(minutes) = minutes {
+            let db = app.state::<Mutex<rusqlite::Connection>>();
+            let conn = db.lock().unwrap();
+            let timer = app.state::<Mutex<Timer>>();
+            let mut timer = timer.lock().unwrap();
+            commands::schedule_timer(&conn, &mut timer, minutes, now_unix_secs())?;
+        }
+    }
+    resolve_and_hide_popup(&app, if dismissed { "dismissed" } else { "completed" })
 }
 
-// Cadence of the recurring popup. At zero it pauses until start_timer
-// starts the next cycle. Closing the popup does not reschedule.
+// Cadence of the recurring popup. At zero it pauses until an interval pick or
+// a completed due Metric check-in starts the next cycle. Dismissal stays paused.
 pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,

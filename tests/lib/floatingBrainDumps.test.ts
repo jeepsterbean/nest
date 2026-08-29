@@ -1,13 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isBrainDumpPeelShortcut,
   isBrainDumpSubmitShortcut,
 } from "../../src/lib/brainDumpDraft";
 import {
   clampFloatingPosition,
+  createFloatingDumpWriter,
   createFloatingFromDraft,
   FLOATING_BRAIN_DUMP_MIN_VISIBLE,
   FLOATING_BRAIN_DUMP_WIDTH,
+  type FloatingBrainDump,
   nextCascadePosition,
   nextZIndex,
   parseFloatingBrainDump,
@@ -142,6 +144,76 @@ describe("reclampFloatingDumps", () => {
       x: 352,
       y: 252,
     });
+  });
+});
+
+describe("createFloatingDumpWriter", () => {
+  let listeners: Map<string, Set<() => void>>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    listeners = new Map();
+    vi.stubGlobal("window", {
+      setTimeout,
+      clearTimeout,
+      addEventListener: (type: string, listener: () => void) => {
+        const handlers = listeners.get(type) ?? new Set();
+        handlers.add(listener);
+        listeners.set(type, handlers);
+      },
+      removeEventListener: (type: string, listener: () => void) => {
+        listeners.get(type)?.delete(listener);
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const note = (id: string): FloatingBrainDump => ({
+    id,
+    text: "note",
+    tagIds: [],
+    x: 0,
+    y: 0,
+    zIndex: 1,
+  });
+
+  const firePagehide = () => listeners.get("pagehide")?.forEach((fn) => fn());
+
+  it("debounces rapid updates into one write", () => {
+    const write = vi.fn();
+    createFloatingDumpWriter(write, 200).update([note("a")]);
+    vi.advanceTimersByTime(199);
+
+    expect(write).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith([note("a")]);
+  });
+
+  it("flushes the latest update synchronously on pagehide", () => {
+    const write = vi.fn();
+    createFloatingDumpWriter(write, 200).update([note("a")]);
+    firePagehide();
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith([note("a")]);
+
+    vi.advanceTimersByTime(200);
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushes on dispose and stops listening for pagehide", () => {
+    const write = vi.fn();
+    const writer = createFloatingDumpWriter(write, 200);
+    writer.update([note("a")]);
+    writer.dispose();
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(listeners.get("pagehide")?.size).toBe(0);
   });
 });
 

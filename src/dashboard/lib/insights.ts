@@ -224,7 +224,10 @@ const closedStatusInPeriod = (
   period: Period,
 ): "completed" | "cancelled" | null => {
   let last: "completed" | "cancelled" | null = null;
-  for (const event of events) {
+  const ordered = [...events].sort(
+    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
+  );
+  for (const event of ordered) {
     if (event.taskId !== taskId) continue;
     if (event.createdAt < period.from || event.createdAt >= period.to) continue;
     if (event.toStatus === "completed" || event.toStatus === "cancelled") {

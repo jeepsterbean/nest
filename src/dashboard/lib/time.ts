@@ -49,9 +49,14 @@ export const QUARTER_HOUR_SECONDS = 15 * 60;
  * stretch lands on a clock time, not a unix-epoch multiple of 900. */
 export const snapToQuarterHour = (ts: number) => {
   const d = new Date(ts * 1000);
-  const midnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const step = QUARTER_HOUR_SECONDS * 1000;
-  return Math.floor((midnight + Math.round((d.getTime() - midnight) / step) * step) / 1000);
+  const secondsIntoHour =
+    d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
+  d.setMinutes(
+    Math.round(secondsIntoHour / QUARTER_HOUR_SECONDS) * 15,
+    0,
+    0,
+  );
+  return Math.floor(d.getTime() / 1000);
 };
 
 const pad2 = (n: number) => String(n).padStart(2, "0");

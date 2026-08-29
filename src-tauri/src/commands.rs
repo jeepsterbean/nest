@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Row, Transaction};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -981,30 +981,48 @@ pub fn set_task_score_field(
 /// Reorders one lane of the board: the listed tasks take over the sort_order
 /// slots they already occupy, in the new order, leaving every other task put.
 fn set_task_order(conn: &Connection, ids: &[i64]) -> Result<()> {
-    let unique: std::collections::HashSet<_> = ids.iter().copied().collect();
+    let unique: HashSet<_> = ids.iter().copied().collect();
     if unique.len() != ids.len() {
         return Err(AppError::InvalidInput(
             "task order must list each task once".into(),
         ));
     }
-    let mut slots = Vec::with_capacity(ids.len());
-    for id in ids {
-        slots.push(
-            conn.query_row(
-                "SELECT sort_order FROM tasks WHERE id = ?1",
-                params![id],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(|_| AppError::NotFound(format!("task {id}")))?,
-        );
+    if ids.is_empty() {
+        return Ok(());
     }
+
+    let placeholders = std::iter::repeat_n("?", ids.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, sort_order FROM tasks WHERE id IN ({placeholders})"
+    ))?;
+    let found = stmt
+        .query_map(params_from_iter(ids.iter()), |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<rusqlite::Result<HashMap<_, _>>>()?;
+    if let Some(id) = ids.iter().find(|id| !found.contains_key(id)) {
+        return Err(AppError::NotFound(format!("task {id}")));
+    }
+    let mut slots: Vec<_> = found.into_values().collect();
     slots.sort_unstable();
+
+    let cases = std::iter::repeat_n("WHEN ? THEN ?", ids.len())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut values = Vec::with_capacity(ids.len() * 3);
     for (id, slot) in ids.iter().zip(slots) {
-        conn.execute(
-            "UPDATE tasks SET sort_order = ?1 WHERE id = ?2",
-            params![slot, id],
-        )?;
+        values.extend([*id, slot]);
     }
+    values.extend_from_slice(ids);
+    conn.execute(
+        &format!(
+            "UPDATE tasks SET sort_order = CASE id {cases} END \
+             WHERE id IN ({placeholders})"
+        ),
+        params_from_iter(values),
+    )?;
     Ok(())
 }
 
@@ -1490,12 +1508,20 @@ pub fn start_timer(
     timer: State<'_, Mutex<Timer>>,
     minutes: i64,
 ) -> Result<TimerState> {
-    let minutes = validate_timer_interval(minutes)?;
-    let now = now_unix_secs();
-    let next_due_at = now + minutes * 60;
-
     let conn = state.lock().unwrap();
     let mut timer = timer.lock().unwrap();
+    schedule_timer(&conn, &mut timer, minutes, now_unix_secs())
+}
+
+pub(crate) fn schedule_timer(
+    conn: &Connection,
+    timer: &mut Timer,
+    minutes: i64,
+    now: i64,
+) -> Result<TimerState> {
+    let minutes = validate_timer_interval(minutes)?;
+    let next_due_at = now + minutes * 60;
+
     conn.execute(
         "UPDATE timer_schedule SET interval_minutes = ?1, next_due_at = ?2, \
          waiting_for_response = 0 WHERE id = 1",
@@ -1701,10 +1727,12 @@ mod tests {
         bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
         change_task_work_stretch, change_task_working, fetch_task, normalize_optional_title,
         normalize_task_scope, persist_timer_waiting, record_brain_dump, record_metric_check_in,
-        recover_open_stretches, update_task_score_field, valid_icon, validate_task_status,
+        recover_open_stretches, schedule_timer, update_task_score_field, valid_icon,
+        validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
+    use crate::Timer;
     use rusqlite::Connection;
 
     /// Replace a task's stretches with `banked` seconds of finished work plus,
@@ -2049,6 +2077,35 @@ mod tests {
             )
             .unwrap();
         assert_eq!(waiting, 0);
+    }
+
+    #[test]
+    fn scheduling_a_timer_updates_memory_and_persistence() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let mut timer = Timer {
+            interval_minutes: 15,
+            next_due_at: 100,
+            waiting_for_response: true,
+        };
+
+        let scheduled = schedule_timer(&conn, &mut timer, 20, 1_000).unwrap();
+
+        assert_eq!(scheduled.interval_minutes, 20);
+        assert_eq!(scheduled.next_due_at, 2_200);
+        assert!(!scheduled.waiting_for_response);
+        assert_eq!(timer.interval_minutes, 20);
+        assert_eq!(timer.next_due_at, 2_200);
+        assert!(!timer.waiting_for_response);
+        let persisted: (i64, i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at, waiting_for_response \
+                 FROM timer_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(persisted, (20, 2_200, 0));
     }
 
     #[test]

@@ -217,10 +217,13 @@ _Avoid_: Journal
 - The dashboard header shows the countdown and controls its 5–30 minute interval.
   When due it shows "time to check in!"; the Popup clock stays on the countdown.
 - At zero, the timer pauses, plays the system alert sound, and opens the
-  popup. It stays at `0:00` (glowing) until a new interval is picked.
-  Closing the popup does not start the next cycle.
+  popup. It stays at `0:00` (glowing) until a new interval is picked or the
+  due Metric check-in is completed. Dismissing the popup does not start the
+  next cycle.
 - Picking an interval on the clock starts that cycle immediately, including
   when the timer is due.
+- Completing a due Metric check-in starts the next cycle with the current
+  interval. Completing a manually shown popup leaves its live Timer unchanged.
 - When the timer runs out, the Metric scoring panel holds a gold due treatment
   until a Metric check-in is saved. Restarting the clock or submitting a brain
   dump does not clear it.

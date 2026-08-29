@@ -75,6 +75,9 @@ Timeline grid (`TimelineGrid.tsx`):
 
 Pointer and drag:
 
+- List sorting and Task table columns share `startPointerDrag` for threshold,
+  pointer capture, and listener cleanup; their ordering and resize rules stay
+  in their own hooks.
 - Draggable surfaces drag from their body only. Never start a drag from a
   nested control — pointer capture steals the click.
 - Calendar drag, resize, snap, open-stretch lock, and inline editor placement

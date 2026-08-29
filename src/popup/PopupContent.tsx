@@ -45,6 +45,7 @@ import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
+  RATING_VALUES,
   recentlyClosedTasks,
 } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
@@ -444,9 +445,6 @@ function PopupContent({
   onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
-  const [nextTimerMinutes, setNextTimerMinutes] = useState<number | null>(
-    null,
-  );
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [metricIndex, setMetricIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
@@ -556,7 +554,6 @@ function PopupContent({
         const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
         setLoaded({ metrics, pulses, tasks, workStretches, timer, tags });
         setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
-        setNextTimerMinutes(timer.intervalMinutes);
         setError(null);
       })
       .catch((e) => {
@@ -648,7 +645,6 @@ function PopupContent({
     try {
       const timer = await startTimer(minutes);
       setLoaded((current) => (current ? { ...current, timer } : current));
-      setNextTimerMinutes(minutes);
       setNowMs(Date.now());
       setTimerPickerOpen(false);
       await emit("data-changed");
@@ -898,9 +894,7 @@ function PopupContent({
     try {
       await onComplete(async () => {
         await saveMetrics(pulse, checkInRatings);
-        return timerDue
-          ? (nextTimerMinutes ?? loaded.timer.intervalMinutes)
-          : null;
+        return timerDue ? loaded.timer.intervalMinutes : null;
       });
     } catch (e) {
       setError(String(e));
@@ -1269,9 +1263,7 @@ function PopupContent({
           remainingRatio={remainingRatio}
           timerPickerOpen={timerPickerOpen}
           schedulingTimer={schedulingTimer}
-          selectedInterval={
-            nextTimerMinutes ?? loaded.timer.intervalMinutes
-          }
+          selectedInterval={loaded.timer.intervalMinutes}
           timerButtonRef={timerButtonRef}
           dashboardButtonRef={dashboardButtonRef}
           onTimerPickerOpenChange={setTimerPickerOpen}
@@ -1373,7 +1365,7 @@ function PopupContent({
                 role="group"
                 aria-label={activeMetric.name}
               >
-                {([1, 2, 3, 4, 5] as RatingValue[]).map((value) => {
+                {RATING_VALUES.map((value) => {
                   const selected = ratings[ratingKey(activeMetric.id)] === value;
                   return (
                     <button

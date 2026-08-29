@@ -792,12 +792,11 @@ UPDATE tasks SET sort_order = (
             Ok(())
         }),
         // Each stretch of Working now becomes a row with a start and an end,
-        // replacing the three timer columns on tasks. Worked time, Working now,
-        // and the live start are derived from this table instead of stored, so
-        // a corrected stretch moves the total. Only live work carries over;
-        // banked totals start fresh. No table rebuild: SQLite drops a
-        // column-level CHECK along with its column, so sort_order and the
-        // parent self-FK are never at risk.
+        // replacing the three timer columns on tasks. Legacy totals have no
+        // timestamps, so preserve each as one closed stretch ending at the
+        // current live start or the Task's last update. No table rebuild:
+        // SQLite drops a column-level CHECK along with its column, so
+        // sort_order and the parent self-FK are never at risk.
         M::up(
             r#"
 CREATE TABLE task_work_stretches (
@@ -814,6 +813,13 @@ CREATE INDEX idx_task_work_stretches_started_at
   ON task_work_stretches(started_at);
 CREATE UNIQUE INDEX idx_task_work_stretches_open
   ON task_work_stretches(task_id) WHERE ended_at IS NULL;
+
+INSERT INTO task_work_stretches (task_id, started_at, ended_at)
+SELECT id,
+       COALESCE(work_started_at, updated_at) - worked_seconds,
+       COALESCE(work_started_at, updated_at)
+FROM tasks
+WHERE worked_seconds > 0;
 
 INSERT INTO task_work_stretches (task_id, started_at, ended_at)
 SELECT id, work_started_at, NULL FROM tasks
@@ -939,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn work_stretches_carry_live_work_and_start_banked_time_fresh() {
+    fn work_stretches_preserve_banked_and_live_work() {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations().to_version(&mut conn, 35).unwrap();
@@ -947,23 +953,41 @@ mod tests {
             "INSERT INTO tasks \
              (id, title, status, working_now, worked_seconds, work_started_at, \
               sort_order, created_at, updated_at) \
-             VALUES (1, 'Working', 'active', 1, 300, 900, 7, 1, 1), \
-                    (2, 'Banked only', 'active', 0, 500, NULL, 8, 1, 1)",
+             VALUES (1, 'Working', 'active', 1, 300, 900, 7, 1, 1000), \
+                    (2, 'Banked only', 'active', 0, 500, NULL, 8, 1, 1000)",
             [],
         )
         .unwrap();
 
         migrations().to_latest(&mut conn).unwrap();
 
-        let live: Vec<(i64, i64, Option<i64>)> = conn
-            .prepare("SELECT task_id, started_at, ended_at FROM task_work_stretches")
+        let stretches: Vec<(i64, i64, Option<i64>)> = conn
+            .prepare(
+                "SELECT task_id, started_at, ended_at FROM task_work_stretches \
+                 ORDER BY task_id, id",
+            )
             .unwrap()
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-        // Only the in-flight timer carries over; old banked totals are dropped.
-        assert_eq!(live, vec![(1, 900, None)]);
+        assert_eq!(
+            stretches,
+            vec![(1, 600, Some(900)), (1, 900, None), (2, 500, Some(1000)),]
+        );
+
+        let worked: Vec<(i64, i64)> = conn
+            .prepare(
+                "SELECT task_id, SUM(ended_at - started_at) \
+                 FROM task_work_stretches WHERE ended_at IS NOT NULL \
+                 GROUP BY task_id ORDER BY task_id",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(worked, vec![(1, 300), (2, 500)]);
 
         let sort_order: i64 = conn
             .query_row("SELECT sort_order FROM tasks WHERE id = 2", [], |row| {

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { BrainDumpDraft } from "./brainDumpDraft";
@@ -148,6 +149,36 @@ export function writeFloatingBrainDumps(dumps: FloatingBrainDump[]) {
   }
 }
 
+/** Debounces localStorage writes but flushes synchronously on pagehide/unmount,
+ * since a clean dashboard close hides the webview without unmounting it. */
+export function createFloatingDumpWriter(
+  write: (dumps: FloatingBrainDump[]) => void,
+  delayMs = 200,
+) {
+  let latest: FloatingBrainDump[] = [];
+  let timeout: ReturnType<typeof window.setTimeout> | undefined;
+
+  const flush = () => {
+    if (timeout !== undefined) window.clearTimeout(timeout);
+    timeout = undefined;
+    write(latest);
+  };
+
+  window.addEventListener("pagehide", flush);
+
+  return {
+    update(dumps: FloatingBrainDump[]) {
+      latest = dumps;
+      if (timeout !== undefined) window.clearTimeout(timeout);
+      timeout = window.setTimeout(flush, delayMs);
+    },
+    dispose() {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    },
+  };
+}
+
 export function createFloatingBrainDumpId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -178,44 +209,44 @@ export function useFloatingBrainDumps() {
   const [dumps, setDumps] = useState<FloatingBrainDump[]>(() =>
     readFloatingBrainDumps(),
   );
+  const writerRef = useRef<ReturnType<typeof createFloatingDumpWriter> | null>(
+    null,
+  );
+  if (!writerRef.current) {
+    writerRef.current = createFloatingDumpWriter(writeFloatingBrainDumps);
+  }
+
+  useEffect(() => {
+    writerRef.current!.update(dumps);
+  }, [dumps]);
+
+  useEffect(() => () => writerRef.current!.dispose(), []);
 
   const updateDump = useCallback(
     (id: string, patch: Partial<Omit<FloatingBrainDump, "id">>) => {
-      setDumps((current) => {
-        const next = current.map((dump) =>
+      setDumps((current) =>
+        current.map((dump) =>
           dump.id === id ? { ...dump, ...patch } : dump,
-        );
-        writeFloatingBrainDumps(next);
-        return next;
-      });
+        ),
+      );
     },
     [],
   );
 
   const removeDump = useCallback((id: string) => {
-    setDumps((current) => {
-      const next = current.filter((dump) => dump.id !== id);
-      writeFloatingBrainDumps(next);
-      return next;
-    });
+    setDumps((current) => current.filter((dump) => dump.id !== id));
   }, []);
 
   const addDump = useCallback((dump: FloatingBrainDump) => {
-    setDumps((current) => {
-      const next = [...current, dump];
-      writeFloatingBrainDumps(next);
-      return next;
-    });
+    setDumps((current) => [...current, dump]);
   }, []);
 
   const bringToFront = useCallback((id: string) => {
     setDumps((current) => {
       const zIndex = nextZIndex(current);
-      const next = current.map((dump) =>
+      return current.map((dump) =>
         dump.id === id ? { ...dump, zIndex } : dump,
       );
-      writeFloatingBrainDumps(next);
-      return next;
     });
   }, []);
 
@@ -229,7 +260,6 @@ export function useFloatingBrainDumps() {
           viewportHeight,
         );
         if (!positionsChanged(current, next)) return current;
-        writeFloatingBrainDumps(next);
         return next;
       });
     },
