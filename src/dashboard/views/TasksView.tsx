@@ -375,27 +375,15 @@ export function TasksView() {
             />
           ) : (
             <>
-              <div
-                className="view-toggle"
-                role="group"
-                aria-label="Task status preset"
-              >
-                {TASK_STATUS_PRESETS.map((preset) => (
-                  <button
-                    key={preset.key}
-                    type="button"
-                    className={
-                      tableStatusPreset === preset.key
-                        ? "view-toggle__btn view-toggle__btn--active"
-                        : "view-toggle__btn"
-                    }
-                    aria-pressed={tableStatusPreset === preset.key}
-                    onClick={() => setTableStatuses([...preset.statuses])}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+              <ViewToggle
+                value={tableStatusPreset}
+                options={TASK_STATUS_PRESETS}
+                label="Task status preset"
+                onChange={(key) => {
+                  const preset = TASK_STATUS_PRESETS.find((item) => item.key === key);
+                  if (preset) setTableStatuses([...preset.statuses]);
+                }}
+              />
               <details ref={statusFilterRef} className="task-status-filter">
                 <summary className="task-status-filter__trigger">
                   Status{tableStatusPreset ? "" : ` (${tableStatuses.length})`}

@@ -15,7 +15,11 @@ APIs, schema, or code structure.
 show priotiy as 2 columns
 
 ## overview page
-Redesign task card to be more lean
+replace the current task view to be the same view as the task open view, and it has a button that redirects to the tasks section
+
+also add a small logs section
+
+and add a metrics view
 
 ## Dashboard sections
 - Let every section except Overview use the full dashboard window for its own content; hide Reminders on Calendar, Insights, Log, and other non-overview sections.

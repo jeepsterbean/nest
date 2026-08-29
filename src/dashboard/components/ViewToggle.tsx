@@ -5,7 +5,7 @@ export function ViewToggle<T extends string>({
   label,
   onChange,
 }: {
-  value: T;
+  value: T | null;
   options: readonly { key: T; label: string; aria?: string }[];
   label: string;
   onChange: (key: T) => void;

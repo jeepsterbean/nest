@@ -62,6 +62,7 @@ import {
   BrainDumpTags,
   useComposerTagProps,
 } from "../dashboard/components/BrainDumpTags";
+import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { resolveMetricColorFromList } from "../lib/metricColors";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
@@ -1408,28 +1409,12 @@ function PopupContent({
       </main>
 
       <section className="popup-dump" aria-label="Brain dump">
-        <div className="brain-dump-history-controls">
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label="View previous brain dump"
-            title="Previous brain dump (Cmd/Ctrl+[)"
-            disabled={!brainDumpHistory.canViewPrevious}
-            onClick={brainDumpHistory.showPrevious}
-          >
-            <span aria-hidden="true">&#8249;</span>
-          </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label="View next brain dump"
-            title="Next brain dump (Cmd/Ctrl+])"
-            disabled={!brainDumpHistory.canViewNext}
-            onClick={brainDumpHistory.showNext}
-          >
-            <span aria-hidden="true">&#8250;</span>
-          </button>
-        </div>
+        <BrainDumpHistoryControls
+          canViewPrevious={brainDumpHistory.canViewPrevious}
+          canViewNext={brainDumpHistory.canViewNext}
+          onPrevious={brainDumpHistory.showPrevious}
+          onNext={brainDumpHistory.showNext}
+        />
         <textarea
           ref={brainDumpRef}
           id="popup-brain-dump"

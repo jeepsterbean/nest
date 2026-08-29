@@ -6,9 +6,9 @@ import {
   openAtPct,
   stepColumns,
   outcomeStats,
-  readInsightMode,
+  readRangeMode,
   windowInsight,
-  writeInsightMode,
+  writeRangeMode,
 } from "../../../src/dashboard/lib/insights";
 import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
 import type {
@@ -182,26 +182,35 @@ describe("stepColumns", () => {
 
 describe("insight range memory", () => {
   const memory = () => {
-    let value: string | null = null;
+    const values = new Map<string, string>();
     return {
-      getItem: () => value,
-      setItem: (_key: string, next: string) => {
-        value = next;
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, next: string) => {
+        values.set(key, next);
       },
     };
   };
 
   it("defaults to Day and restores the last saved mode", () => {
     const storage = memory();
-    expect(readInsightMode(storage)).toBe("day");
-    writeInsightMode("week", storage);
-    expect(readInsightMode(storage)).toBe("week");
+    expect(readRangeMode(storage)).toBe("day");
+    writeRangeMode("week", storage);
+    expect(readRangeMode(storage)).toBe("week");
   });
 
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
-    expect(readInsightMode(storage)).toBe("day");
+    expect(readRangeMode(storage)).toBe("day");
+  });
+
+  it("reads the legacy storage key until the new key is set", () => {
+    const storage = memory();
+    storage.setItem("nest:insights-range", "week");
+    expect(readRangeMode(storage)).toBe("week");
+    writeRangeMode("day", storage);
+    expect(storage.getItem("nest:date-range")).toBe("day");
+    expect(readRangeMode(storage)).toBe("day");
   });
 });
 

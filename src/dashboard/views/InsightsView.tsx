@@ -4,10 +4,8 @@ import {
   InsightCheckIns,
   InsightLedger,
 } from "../components/InsightBoard";
-import {
-  InsightRangeBar,
-  useInsightRange,
-} from "../components/InsightRangeBar";
+import { RangeToolbar } from "../components/RangeToolbar";
+import { useDateRange } from "../hooks/useDateRange";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { insightCheckIns, insightDays, windowInsight } from "../lib/insights";
 import { layoutWorkBlocks } from "../lib/workTimeline";
@@ -24,7 +22,7 @@ export function InsightsView() {
     phases,
     loaded,
   } = useDashboardData();
-  const range = useInsightRange();
+  const range = useDateRange();
 
   const insight = useMemo(() => {
     const nowSec = range.nowSec;
@@ -82,7 +80,7 @@ export function InsightsView() {
           <h2>Insights</h2>
         </div>
       </header>
-      <InsightRangeBar
+      <RangeToolbar
         label="Insights range"
         mode={range.mode}
         title={range.title}

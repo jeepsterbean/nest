@@ -56,7 +56,7 @@ Shared controls and section anchors:
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range remembered in
-  `nest:insights-range` (Day when unset).
+  `nest:date-range` (Day when unset; reads legacy `nest:insights-range`).
 
 Timeline grid (`TimelineGrid.tsx`):
 

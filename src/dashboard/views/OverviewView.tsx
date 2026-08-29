@@ -28,6 +28,7 @@ import {
   DayStats,
   PhaseTotals,
 } from "../components/DayReflection";
+import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
 import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
@@ -406,28 +407,12 @@ export function OverviewView() {
                   : "Brain dump"
               }
               headerEnd={
-                <div className="brain-dump-history-controls">
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-label="View previous brain dump"
-                    title="Previous brain dump (Cmd/Ctrl+[)"
-                    disabled={!brainDumpHistory.canViewPrevious}
-                    onClick={brainDumpHistory.showPrevious}
-                  >
-                    <span aria-hidden="true">&#8249;</span>
-                  </button>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-label="View next brain dump"
-                    title="Next brain dump (Cmd/Ctrl+])"
-                    disabled={!brainDumpHistory.canViewNext}
-                    onClick={brainDumpHistory.showNext}
-                  >
-                    <span aria-hidden="true">&#8250;</span>
-                  </button>
-                </div>
+                <BrainDumpHistoryControls
+                  canViewPrevious={brainDumpHistory.canViewPrevious}
+                  canViewNext={brainDumpHistory.canViewNext}
+                  onPrevious={brainDumpHistory.showPrevious}
+                  onNext={brainDumpHistory.showNext}
+                />
               }
               onTextChange={(text) =>
                 setBrainDumpDraft((draft) => ({ ...draft, text }))

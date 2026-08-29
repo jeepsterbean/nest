@@ -5765,13 +5765,15 @@
   background: var(--accent);
 }
 
-.insights-nav {
+.insights-nav,
+.range-nav {
   display: flex;
   gap: 4px;
   align-items: center;
 }
 
-.insights-nav button {
+.insights-nav button,
+.range-nav button {
   padding: 3px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -5782,13 +5784,15 @@
   cursor: pointer;
 }
 
-.insights-nav button:disabled {
+.insights-nav button:disabled,
+.range-nav button:disabled {
   color: var(--muted);
   cursor: default;
   opacity: 0.5;
 }
 
-.insights-nav__title {
+.insights-nav__title,
+.range-nav__title {
   min-width: 8.5rem;
   color: var(--ink);
   font-size: 12px;

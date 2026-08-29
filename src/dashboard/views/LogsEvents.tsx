@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { resolveMetricColorFromList } from "../../lib/metricColors";
 import type { Metric, Phase, Pulse } from "../../lib/types";
 import { NestIcon } from "../components/PulseIcon";
-import { phaseIconName, phaseName, phaseTone } from "../lib/period";
 import { formatTime } from "../lib/time";
 import type { TimelineEvent } from "../lib/timeline";
-import { BrainDumpEntry } from "./BrainDumpEntry";
+import { BrainDumpEntry } from "../components/logs/BrainDumpEntry";
+import { MetricCheckInDetail } from "../components/logs/MetricCheckInDetail";
+import { PhaseEventDetail } from "../components/logs/PhaseEventDetail";
 
 function LogsRow({
   kind,
@@ -46,48 +46,14 @@ function MetricCheckInRow({
   pulses: Pulse[];
   onDelete: (id: number) => void;
 }) {
-  const pulse =
-    event.checkIn.pulseId === null
-      ? undefined
-      : pulses.find((item) => item.id === event.checkIn.pulseId);
-  const pulseLabel = pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
-
   return (
     <LogsRow kind="metrics" at={event.at}>
-      <EventIcon name={pulse?.icon ?? "activity"} label={pulseLabel} />
-      <ul className="event__ratings">
-        {event.checkIn.ratings.map((rating) => {
-          const metric = metrics.find((item) => item.id === rating.metricId);
-          const metricLabel = metric?.name ?? `Metric ${rating.metricId}`;
-          return (
-            <li key={rating.metricId} className="event__rating">
-              <span
-                className="event__rating-icon"
-                title={metricLabel}
-                role="img"
-                aria-label={metricLabel}
-              >
-                <NestIcon
-                  name={metric?.icon ?? "activity"}
-                  color={metric ? resolveMetricColorFromList(metrics, metric.id) : undefined}
-                />
-              </span>
-              <span className={`rating-pill rating-pill--v${rating.value}`}>
-                {rating.value}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <button
-        type="button"
-        className="event__delete"
-        onClick={() => onDelete(event.checkIn.id)}
-        aria-label="Delete metric check-in"
-        title="Delete metric check-in"
-      >
-        ×
-      </button>
+      <MetricCheckInDetail
+        checkIn={event.checkIn}
+        metrics={metrics}
+        pulses={pulses}
+        onDelete={onDelete}
+      />
     </LogsRow>
   );
 }
@@ -120,17 +86,13 @@ function PhaseRow({
   event: Extract<TimelineEvent, { kind: "phase" }>;
   phases: Phase[];
 }) {
-  const name = phaseName(
-    event.checkIn.phaseId,
-    phases,
-    event.checkIn.phaseLabel,
-  );
   return (
     <LogsRow kind="phase" at={event.at}>
-      <EventIcon name={phaseIconName(name)} label={`${name} phase`} />
-      <span className={`event__phase event__phase--${phaseTone(name)}`}>
-        {name}
-      </span>
+      <PhaseEventDetail
+        phaseId={event.checkIn.phaseId}
+        phaseLabel={event.checkIn.phaseLabel}
+        phases={phases}
+      />
     </LogsRow>
   );
 }

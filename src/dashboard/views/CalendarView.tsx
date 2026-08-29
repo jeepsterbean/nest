@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
-import {
-  InsightRangeBar,
-  useInsightRange,
-} from "../components/InsightRangeBar";
+import { RangeToolbar } from "../components/RangeToolbar";
+import { useDateRange } from "../hooks/useDateRange";
 import {
   TimelineGrid,
   type GridColumn,
@@ -22,7 +20,7 @@ import { layoutWorkBlocks } from "../lib/workTimeline";
 export function CalendarView() {
   const { tasks, taskWorkStretches, phaseCheckIns, phases, loaded, mutate } =
     useDashboardData();
-  const range = useInsightRange();
+  const range = useDateRange();
   const [selected, setSelected] = useState<StretchEdit | null>(null);
 
   const grid = useMemo(() => {
@@ -77,7 +75,7 @@ export function CalendarView() {
           <h2>Calendar</h2>
         </div>
       </header>
-      <InsightRangeBar
+      <RangeToolbar
         label="Calendar range"
         mode={range.mode}
         title={range.title}

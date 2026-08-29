@@ -8,7 +8,7 @@ import {
   mergePhaseCheckInsIntoEvents,
   type TimelineLogEvent,
 } from "../lib/timeline";
-import { LogEventDetail } from "./LogsRawTable";
+import { LogEventDetail } from "../components/logs/LogEventDetail";
 
 function taskTitle(tasks: Task[], taskId: number) {
   return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;

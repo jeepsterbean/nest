@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { updateBrainDumpTags, updateBrainDumpTitle } from "../../lib/commands";
-import type { BrainDump } from "../../lib/types";
-import { pencilIcon, tagsIcon } from "../components/icons";
-import { BrainDumpTags } from "../components/BrainDumpTags";
-import { useDashboardData } from "../context/DashboardDataContext";
+import { updateBrainDumpTags, updateBrainDumpTitle } from "../../../lib/commands";
+import type { BrainDump } from "../../../lib/types";
+import { pencilIcon, tagsIcon } from "../icons";
+import { BrainDumpTags } from "../BrainDumpTags";
+import { useDashboardData } from "../../context/DashboardDataContext";
 
 export function BrainDumpEntry({
   dump,

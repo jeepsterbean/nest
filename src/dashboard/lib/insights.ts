@@ -25,30 +25,32 @@ import {
 import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
 import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
 
-export const INSIGHT_MODES = [
+export const RANGE_MODES = [
   { key: "day", label: "Day" },
   { key: "week", label: "Week" },
 ] as const;
 
-export type InsightModeKey = (typeof INSIGHT_MODES)[number]["key"];
+export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
-const INSIGHT_RANGE_KEY = "nest:insights-range";
-const MODE_KEYS = new Set<string>(INSIGHT_MODES.map((item) => item.key));
+const RANGE_MODE_KEY = "nest:date-range";
+const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
+const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
 
-type InsightStorage = Pick<Storage, "getItem" | "setItem">;
+type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const readInsightMode = (
-  storage: InsightStorage = localStorage,
-): InsightModeKey => {
-  const stored = storage.getItem(INSIGHT_RANGE_KEY);
-  return MODE_KEYS.has(stored ?? "") ? (stored as InsightModeKey) : "day";
+export const readRangeMode = (
+  storage: RangeStorage = localStorage,
+): RangeModeKey => {
+  const stored =
+    storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
+  return MODE_KEYS.has(stored ?? "") ? (stored as RangeModeKey) : "day";
 };
 
-export const writeInsightMode = (
-  key: InsightModeKey,
-  storage: InsightStorage = localStorage,
+export const writeRangeMode = (
+  key: RangeModeKey,
+  storage: RangeStorage = localStorage,
 ) => {
-  storage.setItem(INSIGHT_RANGE_KEY, key);
+  storage.setItem(RANGE_MODE_KEY, key);
 };
 
 /** One calendar day of the grid: real local midnight to real local midnight,
@@ -60,12 +62,12 @@ const startOfWeekMs = (dayMs: number) =>
   shiftDayMs(dayMs, -((new Date(dayMs).getDay() + 6) % 7));
 
 /** How far the anchor moves per step, and how many columns it shows. */
-export const MODE_DAYS: Record<InsightModeKey, number> = { day: 1, week: 7 };
+export const MODE_DAYS: Record<RangeModeKey, number> = { day: 1, week: 7 };
 
 /** The columns the grid draws for `mode` around `anchorMs` (any instant in the
  * focused day). Week snaps to Monday so paging lands on whole weeks. */
 export const insightColumns = (
-  mode: InsightModeKey,
+  mode: RangeModeKey,
   anchorMs: number,
   nowMs: number = Date.now(),
 ): InsightColumn[] => {
@@ -93,7 +95,7 @@ export const insightColumns = (
  * lives, so the Earlier guard and the Earlier button cannot disagree — both
  * move by calendar days, which a fixed 86400 would get wrong across DST. */
 export const stepColumns = (
-  mode: InsightModeKey,
+  mode: RangeModeKey,
   anchorMs: number,
   steps: number,
   nowMs: number = Date.now(),
