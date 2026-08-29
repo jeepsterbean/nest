@@ -1,21 +1,15 @@
+import type { ReactNode } from "react";
 import type { Metric, Phase, Pulse, Task } from "../../../lib/types";
 import type { RawLogEvent } from "../../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 import { MetricCheckInDetail } from "./MetricCheckInDetail";
 import { PhaseEventDetail } from "./PhaseEventDetail";
 
-export const LOG_TYPE_LABEL: Record<RawLogEvent["kind"], string> = {
-  metrics: "Metric",
-  dump: "Brain dump",
-  phase: "Phase",
-  "work-start": "Started",
-  "work-stop": "Stopped",
-};
-
 function taskTitle(tasks: Task[], taskId: number) {
   return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
 }
 
+/** Shared event body for Timeline (and any surface that already owns time/type chrome). */
 export function LogEventDetail({
   event,
   phases,
@@ -34,11 +28,11 @@ export function LogEventDetail({
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
-}) {
+}): ReactNode {
   switch (event.kind) {
     case "metrics":
       return (
-        <div className="logs-table__detail logs-table__detail--metrics">
+        <div className="log-detail log-detail--metrics">
           <MetricCheckInDetail
             checkIn={event.checkIn}
             metrics={metrics}
@@ -49,7 +43,7 @@ export function LogEventDetail({
       );
     case "dump":
       return (
-        <div className="logs-table__detail logs-table__detail--dump">
+        <div className="log-detail log-detail--dump">
           <BrainDumpEntry
             dump={event.dump}
             expanded={expandedDumpIds.has(event.dump.id)}
@@ -59,7 +53,7 @@ export function LogEventDetail({
       );
     case "phase":
       return (
-        <div className="logs-table__detail logs-table__detail--phase">
+        <div className="log-detail log-detail--phase">
           <PhaseEventDetail
             phaseId={event.checkIn.phaseId}
             phaseLabel={event.checkIn.phaseLabel}
@@ -70,7 +64,7 @@ export function LogEventDetail({
     case "work-start":
     case "work-stop":
       return (
-        <div className="logs-table__detail logs-table__detail--work">
+        <div className="log-detail log-detail--work">
           {taskTitle(tasks, event.stretch.taskId)}
         </div>
       );

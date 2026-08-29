@@ -38,7 +38,17 @@ button {
 
 .brain-dump-history-controls {
   display: flex;
+  align-items: center;
   gap: 3px;
+}
+
+.brain-dump-history-controls__submitted {
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .brain-dump-history-controls button {

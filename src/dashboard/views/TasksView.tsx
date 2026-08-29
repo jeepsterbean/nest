@@ -18,7 +18,6 @@ import {
   readTaskView,
   TASK_VIEWS,
   writeTaskView,
-  type TaskTableColumnId,
 } from "../lib/taskTable";
 import {
   matchingTaskStatusPreset,
@@ -32,17 +31,10 @@ import {
   WORKING_STATUSES,
   type TaskTableSort,
 } from "../lib/tasks";
-import { formatDate } from "../lib/time";
 import { chevronDownIcon, chevronRightIcon } from "../components/icons";
-import { StatusTrigger } from "../task/StatusTrigger";
 import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
-import { TaskScopeButton } from "../task/TaskScopeButton";
-import { TaskScoreControls } from "../task/TaskScoreControls";
-import {
-  WorkedTime,
-  WorkingBadge,
-} from "../task/TaskWorkingControl";
+import { TaskTable } from "../task/TaskTable";
 
 const TASK_TABLE_SORT_OPTIONS = [
   { value: "status", label: "Sort: Status" },
@@ -297,68 +289,6 @@ export function TasksView() {
     </section>
   );
 
-  const renderTableCell = (id: TaskTableColumnId, task: (typeof tasks)[number]) => {
-    switch (id) {
-      case "title":
-        return (
-          <td key={id} className="task-table__col task-table__col--title task-table__title">
-            <span>{task.title}</span>
-            {task.workingNow && <WorkingBadge />}
-          </td>
-        );
-      case "scope":
-        return (
-          <td key={id} className="task-table__col task-table__col--scope">
-            <TaskScopeButton task={task} />
-          </td>
-        );
-      case "parent":
-        return (
-          <td key={id} className="task-table__col task-table__col--parent">
-            {task.parentTaskId === null
-              ? "—"
-              : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
-          </td>
-        );
-      case "status":
-        return (
-          <td key={id} className="task-table__col task-table__col--status">
-            <StatusTrigger task={task} />
-          </td>
-        );
-      case "value":
-        return (
-          <td key={id} className="task-table__col task-table__col--value">
-            <TaskScoreControls task={task} score="value" />
-          </td>
-        );
-      case "effort":
-        return (
-          <td key={id} className="task-table__col task-table__col--effort">
-            <TaskScoreControls task={task} score="effort" />
-          </td>
-        );
-      case "workedTime":
-        return (
-          <td key={id} className="task-table__col task-table__col--workedTime">
-            <WorkedTime task={task} />
-          </td>
-        );
-      case "created":
-        return (
-          <td key={id} className="task-table__col task-table__col--created">
-            {formatDate(task.createdAt)}
-          </td>
-        );
-      case "updated":
-        return (
-          <td key={id} className="task-table__col task-table__col--updated">
-            {formatDate(task.updatedAt)}
-          </td>
-        );
-    }
-  };
-
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
@@ -530,93 +460,20 @@ export function TasksView() {
             <div className="task-board">{renderTaskColumn()}</div>
           )}
           {taskView === "table" && (
-            <div className="task-table-wrap">
-              <table
-                className="task-table"
-                style={{ width: tableColumns.tableWidth }}
-              >
-                <colgroup>
-                  {tableColumns.columns.map((column) => (
-                    <col key={column.id} style={{ width: column.width }} />
-                  ))}
-                </colgroup>
-                <thead>
-                  <tr>
-                    {tableColumns.columns.map((column) => (
-                      <th
-                        key={column.id}
-                        className={`task-table__col task-table__col--${column.id}${
-                          tableColumns.draggingId === column.id
-                            ? " task-table__col--dragging"
-                            : ""
-                        }${
-                          tableColumns.overId === column.id
-                            ? " task-table__col--over"
-                            : ""
-                        }`}
-                        data-task-col={column.id}
-                        onPointerDown={(event) =>
-                          tableColumns.onMovePointerDown(event, column.id)
-                        }
-                      >
-                        {column.label}
-                        <span
-                          className="task-table__resize"
-                          role="separator"
-                          aria-orientation="vertical"
-                          aria-label={`Resize ${column.label}`}
-                          onPointerDown={(event) =>
-                            tableColumns.onResizePointerDown(event, column.id)
-                          }
-                        />
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleTasks.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={tableColumns.columns.length}
-                        className="task-table__empty"
-                      >
-                        {emptyListCopy}
-                      </td>
-                    </tr>
-                  ) : (
-                    sortTaskTable(visibleTasks, tableSort)
-                      .map((task) => (
-                        <tr
-                          key={task.id}
-                          className={`task-table__row${
-                            selectedTaskId === task.id
-                              ? " task-table__row--selected"
-                              : ""
-                          }`}
-                          tabIndex={0}
-                          onClick={(e) => {
-                            const target = e.target as HTMLElement;
-                            if (target.closest("button, input, select, a, [role]")) {
-                              return;
-                            }
-                            selectTask(task.id, e.currentTarget);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key !== "Enter" || e.target !== e.currentTarget) {
-                              return;
-                            }
-                            selectTask(task.id, e.currentTarget);
-                          }}
-                        >
-                          {tableColumns.columns.map((column) =>
-                            renderTableCell(column.id, task),
-                          )}
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <TaskTable
+              columns={tableColumns.columns}
+              tasks={sortTaskTable(visibleTasks, tableSort)}
+              taskGraph={taskGraph}
+              selectedTaskId={selectedTaskId}
+              emptyCopy={emptyListCopy}
+              onSelect={selectTask}
+              columnInteraction={{
+                draggingId: tableColumns.draggingId,
+                overId: tableColumns.overId,
+                onMovePointerDown: tableColumns.onMovePointerDown,
+                onResizePointerDown: tableColumns.onResizePointerDown,
+              }}
+            />
           )}
           </div>
           {selectedTask && (

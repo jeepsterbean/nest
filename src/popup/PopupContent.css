@@ -48,6 +48,13 @@
   background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
 }
 
+.popup-dump > .brain-dump-history-controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 1;
+}
+
 .combined-timer {
   position: relative;
   display: grid;

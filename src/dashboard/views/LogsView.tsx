@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { deleteMetricCheckIn } from "../../lib/commands";
-import type { Metric, Phase, PhaseCheckIn, Pulse } from "../../lib/types";
+import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import {
   collapsePhaseCheckIns,
   buildRawLog,
@@ -8,6 +8,7 @@ import {
   groupByDay,
   phaseCheckInsInRange,
   type DayGroup,
+  type RawLogEvent,
   type TimelineEvent,
 } from "../lib/timeline";
 import {
@@ -26,7 +27,6 @@ import { useCurrentTime } from "../hooks/useCurrentTime";
 import { historyStartSec } from "../lib/time";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
-import { LogsRawTable } from "./LogsRawTable";
 import { LogsTimeline } from "./LogsTimeline";
 
 const EMPTY_COPY: Record<LogsViewKey, { title: string; body: string }> = {
@@ -57,14 +57,16 @@ function DayArticle({
   phases,
   metrics,
   pulses,
+  tasks,
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
 }: {
-  day: DayGroup;
+  day: DayGroup<RawLogEvent>;
   phases: Phase[];
   metrics: Metric[];
   pulses: Pulse[];
+  tasks: Task[];
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
@@ -79,6 +81,7 @@ function DayArticle({
         phases={phases}
         metrics={metrics}
         pulses={pulses}
+        tasks={tasks}
         expandedDumpIds={expandedDumpIds}
         onDeleteCheckIn={onDeleteCheckIn}
         onToggleDump={onToggleDump}
@@ -156,35 +159,36 @@ export function LogsView() {
     [rawEvents],
   );
 
-  const filteredRawEvents = useMemo(
-    () =>
-      view === "raw" || view === "timeline"
-        ? []
-        : filteredEvents(
-            view,
-            checkIns,
-            phaseCheckIns,
-            brainDumps,
-            historyFromSec,
-          ),
-    [view, checkIns, phaseCheckIns, brainDumps, historyFromSec],
-  );
+  const listEvents = useMemo((): RawLogEvent[] => {
+    if (view === "timeline") return [];
+    if (view === "raw") return rawEvents;
+    return filteredEvents(
+      view,
+      checkIns,
+      phaseCheckIns,
+      brainDumps,
+      historyFromSec,
+    );
+  }, [
+    view,
+    rawEvents,
+    checkIns,
+    phaseCheckIns,
+    brainDumps,
+    historyFromSec,
+  ]);
 
-  const visibleRawEvents = useMemo(
-    () => rawEvents.slice(0, visibleEventCount),
-    [rawEvents, visibleEventCount],
-  );
   const visibleTimelineEvents = useMemo(
     () => timelineEvents.slice(0, visibleEventCount),
     [timelineEvents, visibleEventCount],
   );
-  const visibleFilteredEvents = useMemo(
-    () => filteredRawEvents.slice(0, visibleEventCount),
-    [filteredRawEvents, visibleEventCount],
+  const visibleListEvents = useMemo(
+    () => listEvents.slice(0, visibleEventCount),
+    [listEvents, visibleEventCount],
   );
   const days = useMemo(
-    () => groupByDay(visibleFilteredEvents, nowMs),
-    [nowMs, visibleFilteredEvents],
+    () => groupByDay(visibleListEvents, nowMs),
+    [nowMs, visibleListEvents],
   );
 
   const updatePreferences = (changes: Partial<LogsPreferences>) => {
@@ -208,11 +212,7 @@ export function LogsView() {
 
   const empty = EMPTY_COPY[view];
   const eventCount =
-    view === "timeline"
-      ? timelineEvents.length
-      : view === "raw"
-        ? rawEvents.length
-        : filteredRawEvents.length;
+    view === "timeline" ? timelineEvents.length : listEvents.length;
   const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
 
@@ -245,17 +245,6 @@ export function LogsView() {
             onToggleDump={toggleDumpExpanded}
             nowMs={nowMs}
           />
-        ) : view === "raw" ? (
-          <LogsRawTable
-            events={visibleRawEvents}
-            phases={phases}
-            metrics={metrics}
-            pulses={pulses}
-            tasks={tasks}
-            expandedDumpIds={expandedDumpIds}
-            onDeleteCheckIn={onDeleteCheckIn}
-            onToggleDump={toggleDumpExpanded}
-          />
         ) : (
           days.map((day) => (
             <DayArticle
@@ -264,6 +253,7 @@ export function LogsView() {
               phases={phases}
               metrics={metrics}
               pulses={pulses}
+              tasks={tasks}
               expandedDumpIds={expandedDumpIds}
               onDeleteCheckIn={onDeleteCheckIn}
               onToggleDump={toggleDumpExpanded}

@@ -11,25 +11,10 @@ import {
   type TimelineLogEvent,
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
+import { PlayMarkIcon, StopMarkIcon } from "../components/logs/workMarks";
 
 function taskTitle(tasks: Task[], taskId: number) {
   return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
-}
-
-function PlayMarkIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function StopMarkIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <rect x="6" y="6" width="8" height="8" rx="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
 }
 
 function timelineMarkLabel(
@@ -107,6 +92,7 @@ export function LogsTimeline({
   onDeleteCheckIn,
   onToggleDump,
   nowMs,
+  dayChrome = true,
 }: {
   events: TimelineLogEvent[];
   phaseCheckIns: PhaseCheckIn[];
@@ -118,6 +104,8 @@ export function LogsTimeline({
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
   nowMs: number;
+  /** Overview today-only rail hides the day label and Phase totals. */
+  dayChrome?: boolean;
 }) {
   const days = useMemo(
     () =>
@@ -128,22 +116,26 @@ export function LogsTimeline({
   const now = Math.floor(nowMs / 1000);
 
   return days.map((day) => {
-    const daySessions = phaseSessionsInWindow(
-      phaseCheckIns,
-      day.key / 1000,
-      Math.min(shiftDayMs(day.key, 1) / 1000, now),
-      isQuiet,
-      false,
-    );
+    const daySessions = dayChrome
+      ? phaseSessionsInWindow(
+          phaseCheckIns,
+          day.key / 1000,
+          Math.min(shiftDayMs(day.key, 1) / 1000, now),
+          isQuiet,
+          false,
+        )
+      : [];
     // Rows between a work-start and its matching work-stop light up the rail as one stretch.
     const openStretchIds = new Set<number>();
 
     return (
       <article key={day.key} className="day-group logs-chrono-day">
-        <header className="day-group__head">
-          <h3 className="day-group__label">{day.label}</h3>
-          <PhaseTotals sessions={daySessions} phases={phases} />
-        </header>
+        {dayChrome ? (
+          <header className="day-group__head">
+            <h3 className="day-group__label">{day.label}</h3>
+            <PhaseTotals sessions={daySessions} phases={phases} />
+          </header>
+        ) : null}
         <ol className="logs-chrono">
           {day.events.map((row) => {
             const { event, phaseCheckIn: checkpoint } = row;

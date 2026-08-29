@@ -4,12 +4,10 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  createTask,
-  reorderTasks,
+  deleteMetricCheckIn,
   submitBrainDump,
 } from "../../lib/commands";
 import {
@@ -31,38 +29,75 @@ import {
 import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
 import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
+import { OverviewTasksPanel } from "../components/OverviewTasksPanel";
+import { ViewToggle } from "../components/ViewToggle";
+import { useComposerTagProps } from "../components/BrainDumpTags";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { CARD_CONTROLS, useListSort } from "../hooks/useListSort";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { windowInsight } from "../lib/insights";
+import { LOG_EVENT_BATCH_SIZE } from "../lib/logs";
 import {
-  groupTasksByStatus,
-  pinnedIdOrder,
-  TASK_STATUS_LABEL,
-} from "../lib/tasks";
-import { TaskCard } from "../task/TaskCard";
-import { useComposerTagProps } from "../components/BrainDumpTags";
+  buildRawLog,
+  phaseCheckInsInRange,
+  type TimelineLogEvent,
+} from "../lib/timeline";
+import { startOfDayMs } from "../lib/time";
+import { LogsTimeline } from "./LogsTimeline";
 
 const OVERVIEW_WINDOW_SECONDS = 60 * 60;
-type OverviewTaskStatus = "active" | "up_next" | "backlog";
 
-export function OverviewView() {
+const OVERVIEW_TIMELINE_FILTERS = [
+  { key: "timeline", label: "Timeline" },
+  { key: "dumps", label: "Brain dumps" },
+  { key: "metrics", label: "Metrics" },
+] as const;
+
+type OverviewTimelineFilter =
+  (typeof OVERVIEW_TIMELINE_FILTERS)[number]["key"];
+
+const EMPTY_COPY: Record<
+  OverviewTimelineFilter,
+  { title: string; body: string }
+> = {
+  timeline: {
+    title: "Nothing on the timeline yet",
+    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
+  },
+  dumps: {
+    title: "No brain dumps yet",
+    body: "Capture a thought from this panel or the popup.",
+  },
+  metrics: {
+    title: "No Metric check-ins yet",
+    body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
+  },
+};
+
+const matchesTimelineFilter = (
+  event: TimelineLogEvent,
+  filter: OverviewTimelineFilter,
+) => {
+  if (filter === "timeline") return true;
+  if (filter === "dumps") return event.kind === "dump";
+  return event.kind === "metrics";
+};
+
+export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
   const {
     tasks,
     taskStatusEvents,
     checkIns,
     phaseCheckIns,
     phases,
+    metrics,
+    pulses,
+    brainDumps,
+    taskWorkStretches,
     tags,
     loaded,
     mutate,
     setError,
   } = useDashboardData();
-  const [backlogCollapsed, setBacklogCollapsed] = useState(false);
-  const [quickAddStatus, setQuickAddStatus] =
-    useState<OverviewTaskStatus | null>(null);
-  const [quickAddTitle, setQuickAddTitle] = useState("");
-  const quickAddRef = useRef<HTMLInputElement | null>(null);
   const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const [portalRoot, setPortalRoot] = useState<Element | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
@@ -82,7 +117,17 @@ export function OverviewView() {
     bringToFront,
     reclampToBoard,
   } = useFloatingBrainDumps();
+
   const nowMs = useCurrentTime();
+  const dayFromSec = Math.floor(startOfDayMs(nowMs / 1000) / 1000);
+  const [timelineFilter, setTimelineFilter] =
+    useState<OverviewTimelineFilter>("timeline");
+  const [visibleEventCount, setVisibleEventCount] = useState(
+    LOG_EVENT_BATCH_SIZE,
+  );
+  const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const handleTagsChange = useCallback(
     (tagIds: number[]) =>
@@ -101,38 +146,8 @@ export function OverviewView() {
     setPortalRoot(document.querySelector(".dashboard"));
   }, []);
 
-  useEffect(() => {
-    if (quickAddStatus) quickAddRef.current?.focus();
-  }, [quickAddStatus]);
-
-  const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
-  const laneIds = (status: OverviewTaskStatus) =>
-    tasksByStatus[status].map((task) => task.id);
-  const onReorderLane = (ids: number[]) => {
-    void mutate(() => reorderTasks(pinnedIdOrder(ids, tasks)));
-  };
-  const laneSorts = {
-    active: useListSort(
-      "overview-active",
-      laneIds("active"),
-      onReorderLane,
-      CARD_CONTROLS,
-    ),
-    up_next: useListSort(
-      "overview-up-next",
-      laneIds("up_next"),
-      onReorderLane,
-      CARD_CONTROLS,
-    ),
-    backlog: useListSort(
-      "overview-backlog",
-      laneIds("backlog"),
-      onReorderLane,
-      CARD_CONTROLS,
-    ),
-  };
   const dayReflection = useMemo(() => {
-    const to = Math.floor(nowMs / 1000);
+    const to = Math.floor(Date.now() / 1000);
     return windowInsight(
       tasks,
       taskStatusEvents,
@@ -142,7 +157,56 @@ export function OverviewView() {
       to - OVERVIEW_WINDOW_SECONDS,
       to,
     );
-  }, [nowMs, phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
+  }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
+
+  const timelineEvents = useMemo(() => {
+    const eventPhaseCheckIns = phaseCheckInsInRange(
+      phaseCheckIns,
+      dayFromSec,
+    );
+    const raw = buildRawLog(
+      checkIns,
+      eventPhaseCheckIns,
+      brainDumps,
+      taskWorkStretches,
+    );
+    return raw.filter(
+      (event): event is TimelineLogEvent =>
+        event.kind !== "phase" &&
+        event.at >= dayFromSec &&
+        matchesTimelineFilter(event, timelineFilter),
+    );
+  }, [
+    brainDumps,
+    checkIns,
+    dayFromSec,
+    phaseCheckIns,
+    taskWorkStretches,
+    timelineFilter,
+  ]);
+
+  const visibleTimelineEvents = useMemo(
+    () => timelineEvents.slice(0, visibleEventCount),
+    [timelineEvents, visibleEventCount],
+  );
+  const remainingEventCount = Math.max(
+    0,
+    timelineEvents.length - visibleEventCount,
+  );
+  const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
+  const empty = EMPTY_COPY[timelineFilter];
+
+  const onDeleteCheckIn = (id: number) =>
+    void mutate(() => deleteMetricCheckIn(id));
+
+  const toggleDumpExpanded = (id: number) => {
+    setExpandedDumpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const submitOverviewDump = async () => {
     const text = trimBrainDumpDraft(brainDumpDraft);
@@ -231,147 +295,6 @@ export function OverviewView() {
     }
   };
 
-  const openQuickAdd = (status: OverviewTaskStatus) => {
-    if (status === "backlog") setBacklogCollapsed(false);
-    setQuickAddTitle("");
-    setQuickAddStatus(status);
-  };
-
-  const submitQuickAdd = async (e: FormEvent, status: OverviewTaskStatus) => {
-    e.preventDefault();
-    const title = quickAddTitle.trim();
-    if (!title) return;
-    if (await mutate(() => createTask(title, "", status))) {
-      setQuickAddTitle("");
-      quickAddRef.current?.focus();
-    }
-  };
-
-  const renderQuickAdd = (status: OverviewTaskStatus) =>
-    quickAddStatus === status ? (
-      <form
-        className="overview-quick-add"
-        onSubmit={(e) => submitQuickAdd(e, status)}
-      >
-        <input
-          ref={quickAddRef}
-          type="text"
-          value={quickAddTitle}
-          placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
-          aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
-          onChange={(e) => setQuickAddTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setQuickAddStatus(null);
-          }}
-          onBlur={() => {
-            if (!quickAddTitle.trim()) setQuickAddStatus(null);
-          }}
-        />
-        <button type="submit" className="btn-accent" disabled={!quickAddTitle.trim()}>
-          Add
-        </button>
-      </form>
-    ) : null;
-
-  const renderAddButton = (status: OverviewTaskStatus) => (
-    <button
-      type="button"
-      className="overview-group__add"
-      aria-label={`Add task to ${TASK_STATUS_LABEL[status].toLowerCase()}`}
-      title={`Add ${TASK_STATUS_LABEL[status].toLowerCase()} task`}
-      onClick={() => openQuickAdd(status)}
-    >
-      +
-    </button>
-  );
-
-  const renderTaskList = (status: OverviewTaskStatus) => {
-    const sort = laneSorts[status];
-    return tasksByStatus[status].length === 0 ? (
-      <div className="overview-task-group__empty">
-        No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
-      </div>
-    ) : (
-      <ol className="overview-task-list">
-        {tasksByStatus[status].map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            focusLayout
-            draggable
-            dragging={sort.draggingId === task.id}
-            dropTarget={sort.overId === task.id}
-            rowProps={sort.rowProps(task.id)}
-          />
-        ))}
-      </ol>
-    );
-  };
-
-  const renderOverviewGroup = (status: OverviewTaskStatus) => {
-    const collapsible = status === "backlog";
-    const collapsed = collapsible && backlogCollapsed;
-    const headingInner = (
-      <>
-        <span
-          className={`status-dot status-dot--${status}`}
-          aria-hidden="true"
-        />
-        <span className="overview-group__name">
-          {TASK_STATUS_LABEL[status]}
-        </span>
-        <span
-          className={`overview-group__count${
-            status === "active" ? " overview-group__count--accent" : ""
-          }`}
-        >
-          {tasksByStatus[status].length}
-        </span>
-      </>
-    );
-    const body = (
-      <div className="overview-group__reveal-body">
-        {renderQuickAdd(status)}
-        {renderTaskList(status)}
-      </div>
-    );
-    return (
-      <section className="overview-group">
-        <header className="overview-group__head">
-          <h3 className="overview-group__heading">
-            {collapsible ? (
-              <button
-                type="button"
-                className="overview-group__toggle"
-                aria-expanded={!collapsed}
-                onClick={() => setBacklogCollapsed((c) => !c)}
-              >
-                <span className="overview-group__chevron" aria-hidden="true">
-                  ▾
-                </span>
-                {headingInner}
-              </button>
-            ) : (
-              <span className="overview-group__static">{headingInner}</span>
-            )}
-          </h3>
-          {renderAddButton(status)}
-        </header>
-        {collapsible ? (
-          <div
-            className={`overview-group__reveal${
-              collapsed ? " is-collapsed" : ""
-            }`}
-          >
-            <div className="overview-group__reveal-inner">{body}</div>
-          </div>
-        ) : (
-          body
-        )}
-      </section>
-    );
-  };
-
   return (
     <div className="overview-stack">
       <section className="overview-day" aria-label="Last hour">
@@ -382,12 +305,69 @@ export function OverviewView() {
       <section className="overview-panels" aria-label="Overview">
         <section
           className="overview-panel overview-panel--tasks"
-          aria-label="Task focus"
+          aria-label="Tasks"
         >
+          <OverviewTasksPanel onOpenTasks={onOpenTasks} />
+        </section>
+
+        <section
+          className="overview-panel overview-panel--timeline"
+          aria-label="Timeline"
+        >
+          <header className="overview-panel__head">
+            <ViewToggle
+              value={timelineFilter}
+              options={OVERVIEW_TIMELINE_FILTERS}
+              label="Timeline filter"
+              onChange={(next) => {
+                setTimelineFilter(next);
+                setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+              }}
+            />
+          </header>
           <div className="overview-panel__scroll">
-            {renderOverviewGroup("active")}
-            {renderOverviewGroup("up_next")}
-            {renderOverviewGroup("backlog")}
+            {!loaded ? null : timelineEvents.length === 0 ? (
+              <div className="dash-empty">
+                <strong>{empty.title}</strong>
+                <span>{empty.body}</span>
+              </div>
+            ) : (
+              <>
+                <LogsTimeline
+                  events={visibleTimelineEvents}
+                  phaseCheckIns={phaseCheckIns}
+                  phases={phases}
+                  metrics={metrics}
+                  pulses={pulses}
+                  tasks={tasks}
+                  expandedDumpIds={expandedDumpIds}
+                  onDeleteCheckIn={onDeleteCheckIn}
+                  onToggleDump={toggleDumpExpanded}
+                  nowMs={nowMs}
+                  dayChrome={false}
+                />
+                {remainingEventCount > 0 ? (
+                  <div className="logs-load-older">
+                    <button
+                      type="button"
+                      className="btn-accent"
+                      onClick={() =>
+                        setVisibleEventCount(
+                          (count) => count + LOG_EVENT_BATCH_SIZE,
+                        )
+                      }
+                    >
+                      Load {nextBatchSize} older
+                    </button>
+                    <span>
+                      Showing{" "}
+                      {Math.min(visibleEventCount, timelineEvents.length)} of{" "}
+                      {timelineEvents.length}
+                    </span>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </section>
 
@@ -414,6 +394,7 @@ export function OverviewView() {
                   canViewNext={brainDumpHistory.canViewNext}
                   onPrevious={brainDumpHistory.showPrevious}
                   onNext={brainDumpHistory.showNext}
+                  submittedAt={brainDumpHistory.viewingDump?.createdAt}
                 />
               }
               onTextChange={(text) =>

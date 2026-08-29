@@ -13,13 +13,7 @@ i want brain dump section, purpose is to at a glance, see all the brain dumps. b
 same comment for brain dump. 
 
 ## Task section
-
-## overview page
-replace the current task view to be the same view as the task open view, and it has a button that redirects to the tasks section
-
-also add a small logs section
-
-and add a metrics view
+the task section isnt great for brainstorming, we need a better support for hierachy. its just a place to track, not a place to organize
 
 ## Dashboard sections
 - Let every section except Overview use the full dashboard window for its own content; hide Reminders on Calendar, Insights, Log, and other non-overview sections.

@@ -54,7 +54,9 @@ function DashboardInner() {
 
         <ErrorBanner />
 
-        {view === "overview" && <OverviewView />}
+        {view === "overview" && (
+          <OverviewView onOpenTasks={() => setView("tasks")} />
+        )}
         {view === "calendar" && <CalendarView />}
         {view === "insights" && <InsightsView />}
         {view === "logs" && <LogsView />}

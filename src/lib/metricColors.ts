@@ -60,7 +60,3 @@ export function resolveMetricColorFromList(metrics: Metric[], metricId: number):
   if (index < 0) return METRIC_COLOR_FALLBACKS[0];
   return resolveMetricColor(metrics[index], index);
 }
-
-export function isMetricColorPreset(color: string): boolean {
-  return METRIC_COLOR_PRESETS.includes(color as (typeof METRIC_COLOR_PRESETS)[number]);
-}

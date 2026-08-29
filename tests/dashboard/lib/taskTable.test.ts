@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   moveTaskTableColumn,
   normalizeTaskTableLayout,
+  overviewTaskColumns,
   readTaskTableLayout,
   readTaskView,
   resizeTaskTableColumn,
@@ -106,5 +107,14 @@ describe("task table layout", () => {
     const storage = memory();
     storage.setItem("nest:task-table", "{");
     expect(readTaskTableLayout(storage).map((column) => column.id)).toEqual(defaultIds);
+  });
+
+  it("builds Overview columns in status · title · value · effort order", () => {
+    expect(overviewTaskColumns().map((column) => column.id)).toEqual([
+      "status",
+      "title",
+      "value",
+      "effort",
+    ]);
   });
 });

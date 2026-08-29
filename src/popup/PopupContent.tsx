@@ -1406,6 +1406,7 @@ function PopupContent({
           canViewNext={brainDumpHistory.canViewNext}
           onPrevious={brainDumpHistory.showPrevious}
           onNext={brainDumpHistory.showNext}
+          submittedAt={brainDumpHistory.viewingDump?.createdAt}
         />
         <textarea
           ref={brainDumpRef}

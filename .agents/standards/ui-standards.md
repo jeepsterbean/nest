@@ -51,15 +51,22 @@ Shared controls and section anchors:
   No per-section size overrides.
 - Tasks: `.task-table`. No Working now play control or Readiness column in the
   table — start work from the detail panel or Kanban.
-- Overview: last-hour band `.overview-day`; dump composer
-  `.overview-panel--dumps`. No dashboard dump modal or sidebar dump button.
+- Overview: last-hour band `.overview-day`; three panels in `.overview-panels`
+  (read-only Tasks `.overview-panel--tasks` with Open/Closed + Tasks jump;
+  Timeline `.overview-panel--timeline` spanning the right column with
+  Timeline / Brain dumps / Metrics filter via `ViewToggle`; dump composer
+  `.overview-panel--dumps`). Shared table is `TaskTable` (`readOnly`);
+  Overview columns from `overviewTaskColumns()`. Timeline today-only with
+  `dayChrome={false}`. No dashboard dump modal or sidebar dump button.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range remembered in
   `nest:date-range` (Day when unset; reads legacy `nest:insights-range`).
 - Logs: `.dash-section--logs` with one `ViewToggle` (Timeline / Brain dumps /
   Phases / Metrics / Raw). Last view in `nest:logs-preferences` (Raw when unset;
-  migrates legacy `layout` + `rawFilter`). Phases is always aggregated.
+  migrates legacy `layout` + `rawFilter`). Phases is always aggregated. Raw and
+  filtered panes share day-grouped `.timeline` / `.event` rows (`LogsEvents`);
+  Timeline keeps `.logs-chrono`.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags panes via
   shared `ViewToggle`. Last pane in `nest:settings-pane` (Metrics when unset).
   Panes stay mounted in `.settings-slot` (via `hidden`) so Metrics sub-state

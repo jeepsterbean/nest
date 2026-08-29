@@ -1,18 +1,23 @@
 import type { ReactNode } from "react";
-import type { Metric, Phase, Pulse } from "../../lib/types";
+import type { Metric, Phase, Pulse, Task } from "../../lib/types";
 import { NestIcon } from "../components/PulseIcon";
 import { formatTime } from "../lib/time";
-import type { TimelineEvent } from "../lib/timeline";
+import type { RawLogEvent } from "../lib/timeline";
 import { BrainDumpEntry } from "../components/logs/BrainDumpEntry";
 import { MetricCheckInDetail } from "../components/logs/MetricCheckInDetail";
 import { PhaseEventDetail } from "../components/logs/PhaseEventDetail";
+import { PlayMarkIcon, StopMarkIcon } from "../components/logs/workMarks";
+
+function taskTitle(tasks: Task[], taskId: number) {
+  return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
+}
 
 function LogsRow({
   kind,
   at,
   children,
 }: {
-  kind: TimelineEvent["kind"];
+  kind: RawLogEvent["kind"];
   at: number;
   children: ReactNode;
 }) {
@@ -41,7 +46,7 @@ function MetricCheckInRow({
   pulses,
   onDelete,
 }: {
-  event: Extract<TimelineEvent, { kind: "metrics" }>;
+  event: Extract<RawLogEvent, { kind: "metrics" }>;
   metrics: Metric[];
   pulses: Pulse[];
   onDelete: (id: number) => void;
@@ -63,7 +68,7 @@ function BrainDumpRow({
   expanded,
   onToggle,
 }: {
-  event: Extract<TimelineEvent, { kind: "dump" }>;
+  event: Extract<RawLogEvent, { kind: "dump" }>;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -83,7 +88,7 @@ function PhaseRow({
   event,
   phases,
 }: {
-  event: Extract<TimelineEvent, { kind: "phase" }>;
+  event: Extract<RawLogEvent, { kind: "phase" }>;
   phases: Phase[];
 }) {
   return (
@@ -97,19 +102,46 @@ function PhaseRow({
   );
 }
 
+function WorkRow({
+  event,
+  tasks,
+}: {
+  event: Extract<RawLogEvent, { kind: "work-start" | "work-stop" }>;
+  tasks: Task[];
+}) {
+  const started = event.kind === "work-start";
+  const label = started ? "Started working" : "Stopped working";
+  const title = taskTitle(tasks, event.stretch.taskId);
+  return (
+    <LogsRow kind={event.kind} at={event.at}>
+      <span
+        className="event__icon"
+        title={`${label} on ${title}`}
+        role="img"
+        aria-label={`${label} on ${title}`}
+      >
+        {started ? <PlayMarkIcon /> : <StopMarkIcon />}
+      </span>
+      <span className="event__work">{title}</span>
+    </LogsRow>
+  );
+}
+
 export function LogsEvents({
   events,
   phases,
   metrics,
   pulses,
+  tasks = [],
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
 }: {
-  events: TimelineEvent[];
+  events: RawLogEvent[];
   phases: Phase[];
   metrics: Metric[];
   pulses: Pulse[];
+  tasks?: Task[];
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
@@ -143,6 +175,15 @@ export function LogsEvents({
                 key={`phase-${event.checkIn.id}`}
                 event={event}
                 phases={phases}
+              />
+            );
+          case "work-start":
+          case "work-stop":
+            return (
+              <WorkRow
+                key={`${event.kind}-${event.stretch.id}`}
+                event={event}
+                tasks={tasks}
               />
             );
         }

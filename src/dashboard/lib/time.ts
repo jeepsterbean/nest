@@ -114,10 +114,6 @@ export const formatDate = (ts: number | null) =>
         day: "numeric",
       });
 
-/** Compact local date + time for continuous log tables. */
-export const formatDateTime = (ts: number) =>
-  `${formatDate(ts)} ${formatTime(ts)}`;
-
 export const taskWorkSessionSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),
@@ -150,10 +146,6 @@ export const formatClockedTime = (seconds: number) => {
   }
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 };
-
-/** Compact play-button label: raw seconds below 1 minute, whole minutes after. */
-export const formatPlayButtonTime = (seconds: number) =>
-  seconds < 60 ? String(seconds) : String(Math.floor(seconds / 60));
 
 export const timerRemainingSeconds = (
   nextDueAt: number,
