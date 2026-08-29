@@ -8,7 +8,86 @@ import {
   mergePhaseCheckInsIntoEvents,
   type TimelineLogEvent,
 } from "../lib/timeline";
-import { LOG_TYPE_LABEL, LogEventDetail } from "./LogsRawTable";
+import { LogEventDetail } from "./LogsRawTable";
+
+function taskTitle(tasks: Task[], taskId: number) {
+  return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
+}
+
+function PlayMarkIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="m7 5 7.5 5L7 15Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function StopMarkIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <rect x="6" y="6" width="8" height="8" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function timelineMarkLabel(
+  event: TimelineLogEvent,
+  pulses: Pulse[],
+  tasks: Task[],
+) {
+  switch (event.kind) {
+    case "metrics": {
+      const pulse =
+        event.checkIn.pulseId === null
+          ? undefined
+          : pulses.find((item) => item.id === event.checkIn.pulseId);
+      return pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
+    }
+    case "dump":
+      return "Brain dump";
+    case "work-start":
+      return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
+    case "work-stop":
+      return `Stopped working on ${taskTitle(tasks, event.stretch.taskId)}`;
+  }
+}
+
+function TimelineMark({
+  event,
+  pulses,
+  tasks,
+}: {
+  event: TimelineLogEvent;
+  pulses: Pulse[];
+  tasks: Task[];
+}) {
+  const label = timelineMarkLabel(event, pulses, tasks);
+  const pulse =
+    event.kind === "metrics" && event.checkIn.pulseId !== null
+      ? pulses.find((item) => item.id === event.checkIn.pulseId)
+      : undefined;
+
+  const isWork = event.kind === "work-start" || event.kind === "work-stop";
+
+  return (
+    <span
+      className={`logs-chrono__mark${isWork ? " logs-chrono__mark--badge" : ""}`}
+      title={label}
+      role="img"
+      aria-label={label}
+    >
+      {event.kind === "metrics" ? (
+        <NestIcon name={pulse?.icon ?? "activity"} />
+      ) : event.kind === "dump" ? (
+        <NestIcon name="notes" />
+      ) : event.kind === "work-start" ? (
+        <PlayMarkIcon />
+      ) : (
+        <StopMarkIcon />
+      )}
+    </span>
+  );
+}
 
 const eventKey = (event: TimelineLogEvent) =>
   event.kind === "metrics"
@@ -78,8 +157,7 @@ export function LogsTimeline({
                 <time dateTime={new Date(event.at * 1000).toISOString()}>
                   {formatTime(event.at)}
                 </time>
-                <span className="logs-chrono__mark" aria-hidden="true" />
-                <span className="logs-chrono__type">{LOG_TYPE_LABEL[event.kind]}</span>
+                <TimelineMark event={event} pulses={pulses} tasks={tasks} />
                 <LogEventDetail
                   event={event}
                   phases={phases}

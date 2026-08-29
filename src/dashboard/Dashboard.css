@@ -5139,7 +5139,7 @@
 .logs-chrono__event {
   display: grid;
   position: relative;
-  grid-template-columns: 4.5rem 12px 6.25rem minmax(0, 1fr);
+  grid-template-columns: 4.5rem 22px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
   padding: 10px 12px;
@@ -5150,13 +5150,16 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(4.5rem + 27px);
+  left: calc(4.5rem + 20px);
   width: 2px;
   background: var(--border);
 }
 
 .logs-chrono__event time {
-  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 22px;
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -5165,20 +5168,38 @@
 
 .logs-chrono__mark {
   z-index: 1;
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   justify-self: center;
-  border-radius: 50%;
-  background: var(--event-color, var(--accent));
-  box-shadow: 0 0 0 3px var(--surface);
+  color: var(--event-color, var(--accent));
+  background: var(--surface);
 }
 
-.logs-chrono__type {
+.logs-chrono__mark svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+
+.logs-chrono__mark--badge {
+  width: 18px;
+  height: 18px;
   margin-top: 2px;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 650;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--event-color, var(--accent));
+}
+
+.logs-chrono__mark--badge svg {
+  width: 10px;
+  height: 10px;
+}
+
+.logs-chrono__row--work-start .logs-chrono__mark--badge svg {
+  /* Play triangle reads left-heavy; nudge so it sits optically centered. */
+  transform: translateX(0.5px);
 }
 
 .logs-chrono__row--metrics {
@@ -5194,17 +5215,25 @@
   --event-color: var(--doing);
 }
 
-.logs-chrono__row--metrics .logs-chrono__type {
-  color: var(--accent);
+.logs-chrono__event .logs-table__detail--metrics .event__icon {
+  display: none;
 }
 
-.logs-chrono__row--dump .logs-chrono__type {
-  color: var(--dump);
+.logs-chrono__event .logs-table__detail--dump .event-dump__chevron {
+  display: none;
 }
 
-.logs-chrono__row--work-start .logs-chrono__type,
-.logs-chrono__row--work-stop .logs-chrono__type {
-  color: var(--doing);
+.logs-chrono__event .logs-table__detail--dump .event-dump__toggle {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.logs-chrono__event > .logs-table__detail {
+  min-height: 22px;
+}
+
+.logs-chrono__event .logs-table__detail--dump .event-dump__head {
+  min-height: 22px;
 }
 
 .logs-chrono__event .logs-table__detail--metrics .event__delete {
@@ -5231,16 +5260,11 @@
   }
 
   .logs-chrono__event {
-    grid-template-columns: 3.5rem 12px minmax(0, 1fr);
+    grid-template-columns: 3.5rem 22px minmax(0, 1fr);
   }
 
   .logs-chrono__event::before {
-    left: calc(3.5rem + 27px);
-  }
-
-  .logs-chrono__event > .logs-table__detail {
-    grid-row: 2;
-    grid-column: 3;
+    left: calc(3.5rem + 20px);
   }
 }
 
