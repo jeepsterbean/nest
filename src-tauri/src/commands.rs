@@ -1536,9 +1536,14 @@ pub fn list_phase_check_ins(
     to: i64,
 ) -> Result<Vec<PhaseCheckIn>> {
     let conn = state.lock().unwrap();
+    // Include the checkpoint immediately before the range so an ongoing Phase
+    // can be carried into the first visible calendar interval.
     let mut stmt = conn.prepare(&format!(
         "SELECT {PHASE_CHECK_IN_COLUMNS} FROM phase_check_ins \
-         WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC"
+         WHERE (created_at >= ?1 AND created_at < ?2) \
+            OR id = (SELECT id FROM phase_check_ins \
+                    WHERE created_at < ?1 ORDER BY created_at DESC, id DESC LIMIT 1) \
+         ORDER BY created_at DESC, id DESC"
     ))?;
     let rows = stmt
         .query_map(params![from, to], map_phase_check_in)?

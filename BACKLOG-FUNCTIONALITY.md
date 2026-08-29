@@ -7,12 +7,12 @@ APIs, schema, or code structure.
 - rearrange elements to look more aesthetic
 
 ## Brain dump
-- i want to be able to look at the past brain dumps at a glance, at least the previous one
-- does it make sense to promote a brain dump to a sticky note, we have a board and some brain dumps can be attached an removed from the board
-- overview page needs to see this view of sticky notes 
+i want brain dump section, purpose is to at a glance, see all the brain dumps. but thats kind of covereed under logs. so its fine
+
+## Metrics
+same comment for brain dump. 
 
 ## Task section
-show priotiy as 2 columns
 
 ## overview page
 replace the current task view to be the same view as the task open view, and it has a button that redirects to the tasks section

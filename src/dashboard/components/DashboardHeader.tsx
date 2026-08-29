@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { listReminders, startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
@@ -7,7 +13,7 @@ import {
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
 import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
-import { phaseIconName, phaseName } from "../lib/period";
+import { phaseColor, phaseIcon, phaseName } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import {
   calendarIcon,
@@ -15,11 +21,9 @@ import {
   clockIcon,
   insightsIcon,
   logsIcon,
-  metricsIcon,
   overviewIcon,
-  phasesIcon,
+  settingsIcon,
   tasksIcon,
-  tagsIcon,
 } from "./icons";
 
 export type DashboardView =
@@ -28,9 +32,7 @@ export type DashboardView =
   | "insights"
   | "logs"
   | "tasks"
-  | "metrics"
-  | "phases"
-  | "tags";
+  | "settings";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
@@ -38,9 +40,7 @@ const VIEWS = [
   { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
-  { key: "metrics", label: "Metrics", icon: metricsIcon },
-  { key: "phases", label: "Phases", icon: phasesIcon },
-  { key: "tags", label: "Tags", icon: tagsIcon },
+  { key: "settings", label: "Settings", icon: settingsIcon },
 ] as const;
 
 export function DashboardSidebar({
@@ -112,6 +112,8 @@ export function DashboardHeader() {
   const currentPhaseName = latestPhase
     ? phaseName(latestPhase.phaseId, phases, latestPhase.phaseLabel)
     : null;
+  const currentPhaseId = latestPhase?.phaseId ?? null;
+  const currentPhaseColor = phaseColor(currentPhaseId, phases);
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -215,9 +217,21 @@ export function DashboardHeader() {
           )}
         </h1>
         <div className="dash-header__meta">
-          <p className="dash-header__phase" aria-label={`Current phase: ${phaseLabel}`}>
+          <p
+            className={`dash-header__phase${
+              currentPhaseColor ? " dash-header__phase--colored" : ""
+            }`}
+            aria-label={`Current phase: ${phaseLabel}`}
+            style={
+              currentPhaseColor
+                ? ({ "--phase-color": currentPhaseColor } as CSSProperties)
+                : undefined
+            }
+          >
             <span className="dash-header__phase-icon" aria-hidden="true">
-              <NestIcon name={phaseIconName(phaseLabel)} />
+              <NestIcon
+                name={phaseIcon(currentPhaseId, phases, phaseLabel)}
+              />
             </span>
             <span className="dash-header__phase-name">{phaseLabel}</span>
           </p>

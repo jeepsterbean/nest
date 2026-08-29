@@ -106,6 +106,7 @@ export function LogsTimeline({
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
+  nowMs,
 }: {
   events: TimelineLogEvent[];
   phaseCheckIns: PhaseCheckIn[];
@@ -116,13 +117,15 @@ export function LogsTimeline({
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
+  nowMs: number;
 }) {
   const days = useMemo(
-    () => groupByDay(mergePhaseCheckInsIntoEvents(events, phaseCheckIns)),
-    [events, phaseCheckIns],
+    () =>
+      groupByDay(mergePhaseCheckInsIntoEvents(events, phaseCheckIns), nowMs),
+    [events, nowMs, phaseCheckIns],
   );
   const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(nowMs / 1000);
 
   return days.map((day) => {
     const daySessions = phaseSessionsInWindow(

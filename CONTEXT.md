@@ -85,7 +85,8 @@ leaves dashboard attention even if the Nest window is still key. Overview
 shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
-0, not as missing. The right Overview panel is a brain dump composer that
+0, not as missing; live rolling summaries refresh as time passes. The right
+Overview panel is a brain dump composer that
 matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to save). Both capture
 surfaces can independently browse the five most recent dumps as read-only text
 with their tags. Full dump history lives in Logs. Insights is the longer look: a Phase mix for the
@@ -156,16 +157,24 @@ A reusable label for brain dumps. The composer shows selected Tags followed by
 the five most recently used unselected Tags; its overflow menu lists every Tag.
 Deleting a Tag removes it from every historical brain dump.
 
+**Settings**:
+Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
+icons and colors, and Tags. One sidebar entry; a segmented control switches
+panes. The last pane is remembered (Metrics when unset).
+_Avoid_: Preferences, admin
+
 **Logs**:
 The history screen. Not a stored record: Metric check-ins, brain dumps, and
-Phase checkpoints each stand on their own. Raw shows the full table and holds
-the All, Brain dumps, Phases, and Metrics filters. Phases has Raw and
-Aggregated modes — Aggregated applies the 60-second settle collapse (a burst
-lands on the Phase it settled on; if that equals the Phase before the burst,
-it is omitted). Each Phase has separate icon and color controls in the Phases
-section, with a broad preset palette and custom color picker. Timeline marks the Phase
-active at each event with a solid shade on the time gutter (or a quiet surface
-tone when uncolored); the event body stays on the base surface. Metric check-in, brain dump,
+Phase checkpoints each stand on their own. One segmented control switches
+Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks events on a
+day rail (Phase changes stay off the line; the gutter shows the active Phase).
+Brain dumps, Phases, and Metrics are day-grouped lists. Phases always uses the
+60-second settle collapse (a burst lands on the Phase it settled on; if that
+equals the Phase before the burst, it is omitted). Raw is the full mixed
+table. Each Phase has separate icon and color controls in Settings,
+with a broad preset palette and custom color picker; those choices drive the
+header, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
+and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,
 and Working now start/stop icons sit directly on the timeline line.
 Logs does not show the day strip or outcome stats. Events are grouped by day;
 Phase totals end at midnight for past days and at the current time for Today.

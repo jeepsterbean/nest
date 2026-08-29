@@ -17,6 +17,9 @@ export const shiftDayMs = (dayMs: number, days: number) => {
   return d.getTime();
 };
 
+export const historyStartSec = (nowMs: number, days: number) =>
+  Math.floor(shiftDayMs(startOfDayMs(nowMs / 1000), -days) / 1000);
+
 export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
   const day = startOfDayMs(tsSecs);
   const today = startOfDayMs(nowMs / 1000);

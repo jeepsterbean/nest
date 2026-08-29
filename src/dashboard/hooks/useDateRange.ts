@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { HISTORY_WINDOW_SECONDS } from "../context/DashboardDataContext";
+import { useMemo, useState } from "react";
+import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
   insightColumns,
   MODE_DAYS,
@@ -8,19 +8,15 @@ import {
   writeRangeMode,
   type RangeModeKey,
 } from "../lib/insights";
-import { shiftDayMs } from "../lib/time";
+import { historyStartSec, shiftDayMs } from "../lib/time";
+import { useCurrentTime } from "./useCurrentTime";
 
 /** Day / Week range state plus Earlier / Later / Today paging. Shared by Calendar
  * and Insights so the stored range and paging guards cannot drift. */
 export function useDateRange() {
   const [mode, setMode] = useState(readRangeMode);
   const [anchorMs, setAnchorMs] = useState(() => Date.now());
-  const [nowMs, setNowMs] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  const nowMs = useCurrentTime();
 
   const columns = useMemo(
     () => insightColumns(mode, anchorMs, nowMs),
@@ -31,7 +27,7 @@ export function useDateRange() {
   const nowSec = Math.floor(nowMs / 1000);
   const canGoBack =
     stepColumns(mode, anchorMs, -1, nowMs)[0].from >=
-    nowSec - HISTORY_WINDOW_SECONDS;
+    historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const isNow = nowSec >= from && nowSec < to;
   const title =
     columns.length === 1

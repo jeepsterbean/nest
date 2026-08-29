@@ -33,6 +33,7 @@ import { BrainDumpSurface } from "../components/BrainDumpSurface";
 import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { CARD_CONTROLS, useListSort } from "../hooks/useListSort";
+import { useCurrentTime } from "../hooks/useCurrentTime";
 import { windowInsight } from "../lib/insights";
 import {
   groupTasksByStatus,
@@ -81,6 +82,7 @@ export function OverviewView() {
     bringToFront,
     reclampToBoard,
   } = useFloatingBrainDumps();
+  const nowMs = useCurrentTime();
 
   const handleTagsChange = useCallback(
     (tagIds: number[]) =>
@@ -130,7 +132,7 @@ export function OverviewView() {
     ),
   };
   const dayReflection = useMemo(() => {
-    const to = Math.floor(Date.now() / 1000);
+    const to = Math.floor(nowMs / 1000);
     return windowInsight(
       tasks,
       taskStatusEvents,
@@ -140,7 +142,7 @@ export function OverviewView() {
       to - OVERVIEW_WINDOW_SECONDS,
       to,
     );
-  }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
+  }, [nowMs, phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
   const submitOverviewDump = async () => {
     const text = trimBrainDumpDraft(brainDumpDraft);

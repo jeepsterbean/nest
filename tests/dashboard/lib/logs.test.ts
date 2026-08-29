@@ -15,49 +15,61 @@ const memory = () => {
 };
 
 describe("Logs preferences", () => {
-  it("defaults to Raw, All, and Aggregated", () => {
-    expect(readLogsPreferences(memory())).toEqual({
-      layout: "raw",
-      rawFilter: "all",
-      phaseMode: "aggregated",
-    });
+  it("defaults to Raw", () => {
+    expect(readLogsPreferences(memory())).toEqual({ view: "raw" });
   });
 
-  it("round-trips the selected Logs controls", () => {
+  it("round-trips the selected Logs view", () => {
     const storage = memory();
-    const preferences = {
-      layout: "timeline" as const,
-      rawFilter: "phases" as const,
-      phaseMode: "raw" as const,
-    };
-    writeLogsPreferences(preferences, storage);
-    expect(readLogsPreferences(storage)).toEqual(preferences);
+    writeLogsPreferences({ view: "timeline" }, storage);
+    expect(readLogsPreferences(storage)).toEqual({ view: "timeline" });
   });
 
-  it("falls back field-by-field when stored values are invalid", () => {
+  it("migrates legacy layout and filter onto a single view", () => {
     const storage = memory();
     storage.setItem(
       "nest:logs-preferences",
       JSON.stringify({
-        layout: "cards",
-        rawFilter: "metrics",
-        phaseMode: "settled",
+        layout: "timeline",
+        rawFilter: "phases",
+        phaseMode: "raw",
       }),
     );
-    expect(readLogsPreferences(storage)).toEqual({
-      layout: "raw",
-      rawFilter: "metrics",
-      phaseMode: "aggregated",
-    });
+    expect(readLogsPreferences(storage)).toEqual({ view: "timeline" });
+
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({
+        layout: "raw",
+        rawFilter: "dumps",
+        phaseMode: "aggregated",
+      }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({ view: "dumps" });
+
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({
+        layout: "raw",
+        rawFilter: "all",
+        phaseMode: "aggregated",
+      }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
+  });
+
+  it("falls back when the stored view is invalid", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({ view: "cards" }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
   });
 
   it("recovers from malformed storage", () => {
     const storage = memory();
     storage.setItem("nest:logs-preferences", "{");
-    expect(readLogsPreferences(storage)).toEqual({
-      layout: "raw",
-      rawFilter: "all",
-      phaseMode: "aggregated",
-    });
+    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
   });
 });

@@ -105,19 +105,14 @@ export const tasksIcon = (
   </svg>
 );
 
-export const metricsIcon = (
+export const settingsIcon = (
   <svg {...iconProps}>
-    <path d="M4 20V10" />
-    <path d="M10 20V4" />
-    <path d="M16 20v-7" />
-    <path d="M22 20V7" />
-  </svg>
-);
-
-export const phasesIcon = (
-  <svg {...iconProps}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 3v18M3 12h18" />
+    <line x1="4" x2="20" y1="7" y2="7" />
+    <line x1="4" x2="20" y1="12" y2="12" />
+    <line x1="4" x2="20" y1="17" y2="17" />
+    <circle cx="8" cy="7" r="2" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+    <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
   </svg>
 );
 

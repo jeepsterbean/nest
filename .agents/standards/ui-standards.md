@@ -57,6 +57,16 @@ Shared controls and section anchors:
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range remembered in
   `nest:date-range` (Day when unset; reads legacy `nest:insights-range`).
+- Logs: `.dash-section--logs` with one `ViewToggle` (Timeline / Brain dumps /
+  Phases / Metrics / Raw). Last view in `nest:logs-preferences` (Raw when unset;
+  migrates legacy `layout` + `rawFilter`). Phases is always aggregated.
+- Settings: `.dash-section--settings` with Metrics / Phases / Tags panes via
+  shared `ViewToggle`. Last pane in `nest:settings-pane` (Metrics when unset).
+  Panes stay mounted in `.settings-slot` (via `hidden`) so Metrics sub-state
+  survives switches.
+  Metrics pane: `.settings-pane--metrics` (Pulses / Metrics sub-toggle).
+  Phase appearance uses `--phase-color` / `--colored` on header, Calendar rail
+  and wash, Insights mix and totals, and Logs Phase rows.
 
 Timeline grid (`TimelineGrid.tsx`):
 

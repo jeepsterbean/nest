@@ -172,6 +172,11 @@
   color: var(--phase);
 }
 
+.dash-header__phase--colored .dash-header__phase-icon,
+.dash-header__phase--colored .dash-header__phase-name {
+  color: var(--phase-color);
+}
+
 .dash-header__phase-icon svg {
   display: block;
   width: 15px;
@@ -3351,15 +3356,15 @@
   }
 }
 
-/* ---------- Metrics ---------- */
+/* ---------- Settings ---------- */
 
-.dashboard__inner--metrics {
+.dashboard__inner--settings {
   height: 100vh;
   min-height: 0;
   overflow: hidden;
 }
 
-.dash-section--metrics {
+.dash-section--settings {
   display: grid;
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -3367,8 +3372,40 @@
   padding: 0;
 }
 
-.dash-section--tags {
+.dash-section--settings > .dash-section__head {
+  margin: 0;
+  padding: 22px 24px 16px;
+}
+
+.settings-pane {
   min-height: 0;
+  overflow: auto;
+  padding: 0 24px 24px;
+}
+
+.settings-slot:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-slot > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.settings-pane--metrics {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.settings-pane__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 12px;
 }
 
 .tags-view {
@@ -3548,11 +3585,6 @@
   font-family: var(--serif);
   font-size: 17px;
   font-weight: 600;
-}
-
-.dash-section--metrics > .dash-section__head {
-  margin: 0;
-  padding: 22px 24px 16px;
 }
 
 .pulse-sidebar button:focus-visible,
@@ -4492,6 +4524,10 @@
   background: color-mix(in srgb, var(--queue) 42%, var(--surface));
 }
 
+.insight-mix__seg--colored {
+  background: var(--phase-color);
+}
+
 .insight-ledger--day {
   min-width: 0;
 }
@@ -4815,6 +4851,10 @@
   color: var(--muted);
 }
 
+.day-group__total--colored {
+  color: var(--phase-color);
+}
+
 .day-stats {
   display: flex;
   flex-wrap: wrap;
@@ -4950,6 +4990,10 @@
   color: var(--muted);
 }
 
+.event__phase--colored {
+  color: var(--phase-color);
+}
+
 .event__delete {
   margin-left: auto;
   padding: 0 6px;
@@ -5029,14 +5073,6 @@
 }
 
 /* ---------- Logs raw table ---------- */
-
-.logs-raw-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  margin: 0 0 14px;
-}
 
 .logs-load-older {
   display: flex;
@@ -5252,7 +5288,7 @@
   display: block;
   line-height: 22px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -5460,12 +5496,24 @@
     padding: 18px;
   }
 
-  .dash-section--metrics {
+  .dash-section--settings {
     padding: 0;
   }
 
-  .dash-section--metrics > .dash-section__head {
+  .dash-section--settings > .dash-section__head {
     padding: 18px 18px 16px;
+  }
+
+  .settings-pane {
+    padding: 0 18px 18px;
+  }
+
+  .settings-pane--metrics {
+    padding: 0;
+  }
+
+  .settings-pane__toolbar {
+    padding: 0 18px 12px;
   }
 
   .pulse-workspace {
@@ -5646,6 +5694,11 @@
   color: var(--muted);
 }
 
+.tl__rail-seg--colored {
+  background: color-mix(in srgb, var(--phase-color) 22%, transparent);
+  color: var(--phase-color);
+}
+
 /* One row per hour, so each label sits on its own hour rule without 24 rules
    of nth-child arithmetic. */
 .tl__gutter {
@@ -5718,6 +5771,10 @@
 .tl__wash--idle,
 .tl__wash--unknown {
   background: transparent;
+}
+
+.tl__wash--colored {
+  background: color-mix(in srgb, var(--phase-color) 12%, transparent);
 }
 
 /* A card resting on the wash: opaque enough to lift off it, tinted by its own

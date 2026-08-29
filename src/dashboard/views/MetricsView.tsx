@@ -24,6 +24,7 @@ import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
+import { useCurrentTime } from "../hooks/useCurrentTime";
 import { buildMetricSeries } from "../lib/timeline";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
@@ -84,6 +85,7 @@ export function MetricsView() {
   const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [metricIconPickerId, setMetricIconPickerId] = useState<number | null>(null);
+  const nowMs = useCurrentTime();
 
   const metricRename = useInlineRename({
     rename: renameMetric,
@@ -147,11 +149,11 @@ export function MetricsView() {
           ? checkIns.filter(
               (checkIn) =>
                 checkIn.pulseId === selectedPulse.id &&
-                checkIn.createdAt >= Date.now() / 1000 - rangeSeconds,
+                checkIn.createdAt >= nowMs / 1000 - rangeSeconds,
             )
           : [],
       ),
-    [checkIns, rangeSeconds, selectedPulse],
+    [checkIns, nowMs, rangeSeconds, selectedPulse],
   );
 
   const onCreatePulse = async (event: FormEvent) => {
@@ -217,11 +219,8 @@ export function MetricsView() {
   );
 
   return (
-    <section className="dash-section dash-section--metrics">
-      <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Metrics</h2>
-        </div>
+    <div className="settings-pane settings-pane--metrics">
+      <header className="settings-pane__toolbar">
         <ViewToggle
           value={view}
           options={METRIC_VIEWS}
@@ -551,6 +550,6 @@ export function MetricsView() {
           </ul>
         </div>
       )}
-    </section>
+    </div>
   );
 }

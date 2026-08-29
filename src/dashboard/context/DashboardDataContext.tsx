@@ -40,10 +40,10 @@ import type {
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
+import { historyStartSec } from "../lib/time";
 
-/** How far back metric check-ins, phase checkpoints, dumps and status events are loaded.
- * Calendar and Insights' longest range (30 days) must stay inside this window. */
-export const HISTORY_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+/** How many calendar days of history Calendar and Insights can page through. */
+export const HISTORY_WINDOW_DAYS = 30;
 
 type DashboardData = {
   tasks: Task[];
@@ -96,7 +96,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     const request = ++reloadRequest.current;
     try {
       const now = Math.floor(Date.now() / 1000);
-      const from = now - HISTORY_WINDOW_SECONDS;
+      const from = historyStartSec(now * 1000, HISTORY_WINDOW_DAYS);
       const to = now + 1;
       const [t, td, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] = await Promise.all([
         listTasks(),

@@ -4,6 +4,8 @@ import {
   completionTotals,
   filledPhaseTotals,
   foldIdleIntoOffline,
+  phaseColor,
+  phaseIcon,
 } from "../../../src/dashboard/lib/period";
 import type { Phase, Task, TaskStatusEvent } from "../../../src/lib/types";
 
@@ -147,5 +149,52 @@ describe("filledPhaseTotals", () => {
       { phaseId: 3, seconds: 0 },
       { phaseId: 4, seconds: 0 },
     ]);
+  });
+});
+
+describe("phase appearance", () => {
+  const phases: Phase[] = [
+    {
+      id: 1,
+      name: "Doing",
+      icon: "zap",
+      color: "#5f8fb8",
+      createdAt: 0,
+      inactiveSince: null,
+    },
+    {
+      id: 4,
+      name: "Offline",
+      icon: "moon",
+      color: null,
+      createdAt: 0,
+      inactiveSince: null,
+    },
+  ];
+
+  it("prefers the stored icon and color", () => {
+    expect(phaseIcon(1, phases)).toBe("zap");
+    expect(phaseColor(1, phases)).toBe("#5f8fb8");
+  });
+
+  it("keeps a stored icon when color is unset", () => {
+    expect(phaseIcon(4, phases)).toBe("moon");
+    expect(phaseColor(4, phases)).toBeNull();
+  });
+
+  it("falls back to name defaults when icon is empty or phase id is null", () => {
+    const bare: Phase[] = [
+      {
+        id: 1,
+        name: "Doing",
+        icon: "",
+        color: null,
+        createdAt: 0,
+        inactiveSince: null,
+      },
+    ];
+    expect(phaseIcon(1, bare)).toBe("target");
+    expect(phaseIcon(null, phases)).toBe("moon");
+    expect(phaseColor(null, phases)).toBeNull();
   });
 });

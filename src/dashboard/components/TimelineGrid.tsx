@@ -4,11 +4,12 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import type { Phase } from "../../lib/types";
-import { phaseIconName, phaseName, phaseTone, taskHue } from "../lib/period";
+import { phaseColor, phaseIcon, phaseName, phaseTone, taskHue } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import { formatHourTick, formatTime, fromDateAndTime, toDateInput, toTimeInput } from "../lib/time";
 import type { PhaseSession } from "../lib/timeline";
@@ -65,11 +66,16 @@ const pxOf = (sizePct: number) => (sizePct / 100) * DAY_PX;
 /** Sessions with their column placement and display name — the rail and the
  * wash draw the same list, so they can never disagree. */
 const placeSessions = (column: GridColumn, phases: Phase[]) =>
-  column.sessions.map((session) => ({
-    session,
-    name: phaseName(session.phaseId, phases),
-    ...placeOnWindow(session.from, session.to, column.from, column.to),
-  }));
+  column.sessions.map((session) => {
+    const name = phaseName(session.phaseId, phases);
+    return {
+      session,
+      name,
+      icon: phaseIcon(session.phaseId, phases, name),
+      color: phaseColor(session.phaseId, phases),
+      ...placeOnWindow(session.from, session.to, column.from, column.to),
+    };
+  });
 
 const locateTime = (
   colsEl: HTMLElement | null,
@@ -352,7 +358,7 @@ export function TimelineGrid({
   };
 
   return (
-    <div className={`tl tl--${mode}`} style={{ "--tl-hour": `${HOUR_PX}px` } as React.CSSProperties}>
+    <div className={`tl tl--${mode}`} style={{ "--tl-hour": `${HOUR_PX}px` } as CSSProperties}>
       {columns.length > 1 ? (
         <div className="tl__heads">
           {columns.map((column) => (
@@ -366,15 +372,23 @@ export function TimelineGrid({
         {mode === "day" && columns[0] ? (
           <div className="tl__rail" aria-hidden="true">
             {placeSessions(columns[0], phases).map(
-              ({ session, name, startPct, sizePct }) => (
+              ({ session, name, icon, color, startPct, sizePct }) => (
                 <div
                   key={`${session.from}-${session.phaseId}`}
-                  className={`tl__rail-seg tl__rail-seg--${phaseTone(name)}`}
-                  style={{ top: `${startPct}%`, height: `${sizePct}%` }}
+                  className={`tl__rail-seg tl__rail-seg--${phaseTone(name)}${
+                    color ? " tl__rail-seg--colored" : ""
+                  }`}
+                  style={{
+                    top: `${startPct}%`,
+                    height: `${sizePct}%`,
+                    ...(color
+                      ? ({ "--phase-color": color } as CSSProperties)
+                      : null),
+                  }}
                   title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
                 >
                   {pxOf(sizePct) >= RAIL_ICON_PX ? (
-                    <NestIcon name={phaseIconName(name)} />
+                    <NestIcon name={icon} />
                   ) : null}
                 </div>
               ),
@@ -461,11 +475,19 @@ function Column({
 
   return (
     <div className="tl__lane">
-      {sessions.map(({ session, name, startPct, sizePct }) => (
+      {sessions.map(({ session, name, color, startPct, sizePct }) => (
         <div
           key={`${session.from}-${session.phaseId}`}
-          className={`tl__wash tl__wash--${phaseTone(name)}`}
-          style={{ top: `${startPct}%`, height: `${sizePct}%` }}
+          className={`tl__wash tl__wash--${phaseTone(name)}${
+            color ? " tl__wash--colored" : ""
+          }`}
+          style={{
+            top: `${startPct}%`,
+            height: `${sizePct}%`,
+            ...(color
+              ? ({ "--phase-color": color } as CSSProperties)
+              : null),
+          }}
           title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
         />
       ))}
@@ -490,7 +512,7 @@ function Column({
               left: `${(block.col / block.cols) * 100}%`,
               width: `${100 / block.cols}%`,
               "--task-hue": taskHue(block.task.id),
-            } as React.CSSProperties}
+            } as CSSProperties}
             title={isOpen ? `${when} · Working now` : when}
             aria-label={
               isOpen

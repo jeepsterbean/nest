@@ -6,31 +6,31 @@ import {
   buildRawLog,
   buildTimeline,
   groupByDay,
+  phaseCheckInsInRange,
   type DayGroup,
   type TimelineEvent,
 } from "../lib/timeline";
 import {
   LOG_EVENT_BATCH_SIZE,
-  LOG_LAYOUTS,
-  PHASE_LOG_MODES,
-  RAW_LOG_FILTERS,
+  LOG_VIEWS,
   readLogsPreferences,
   writeLogsPreferences,
   type LogsPreferences,
-  type PhaseLogModeKey,
-  type RawLogFilterKey,
+  type LogsViewKey,
 } from "../lib/logs";
-import { useDashboardData } from "../context/DashboardDataContext";
+import {
+  HISTORY_WINDOW_DAYS,
+  useDashboardData,
+} from "../context/DashboardDataContext";
+import { useCurrentTime } from "../hooks/useCurrentTime";
+import { historyStartSec } from "../lib/time";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
 import { LogsRawTable } from "./LogsRawTable";
 import { LogsTimeline } from "./LogsTimeline";
 
-const EMPTY_COPY: Record<
-  RawLogFilterKey | "timeline",
-  { title: string; body: string }
-> = {
-  all: {
+const EMPTY_COPY: Record<LogsViewKey, { title: string; body: string }> = {
+  raw: {
     title: "Nothing here yet",
     body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
@@ -92,23 +92,28 @@ function phaseEvents(checkIns: PhaseCheckIn[]): TimelineEvent[] {
 }
 
 function filteredEvents(
-  view: Exclude<RawLogFilterKey, "all">,
-  phaseMode: PhaseLogModeKey,
+  view: Exclude<LogsViewKey, "raw" | "timeline">,
   checkIns: Parameters<typeof buildTimeline>[0],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: Parameters<typeof buildTimeline>[2],
+  historyFromSec: number,
 ): TimelineEvent[] {
   switch (view) {
     case "dumps":
       return buildTimeline([], [], brainDumps);
     case "metrics":
       return buildTimeline(checkIns, [], []);
-    case "phases":
+    case "phases": {
+      // Always aggregate: collapse with the carry-in still present so a settle
+      // that matches the Phase already active at the window start is omitted;
+      // then drop the carry-in from the event list.
       return phaseEvents(
-        phaseMode === "aggregated"
-          ? collapsePhaseCheckIns(phaseCheckIns)
-          : phaseCheckIns,
+        phaseCheckInsInRange(
+          collapsePhaseCheckIns(phaseCheckIns),
+          historyFromSec,
+        ),
       );
+    }
   }
 }
 
@@ -132,11 +137,18 @@ export function LogsView() {
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
-  const { layout: logsLayout, rawFilter, phaseMode } = preferences;
+  const { view } = preferences;
+  const nowMs = useCurrentTime();
+  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
+  const eventPhaseCheckIns = useMemo(
+    () => phaseCheckInsInRange(phaseCheckIns, historyFromSec),
+    [historyFromSec, phaseCheckIns],
+  );
 
   const rawEvents = useMemo(
-    () => buildRawLog(checkIns, phaseCheckIns, brainDumps, taskWorkStretches),
-    [checkIns, phaseCheckIns, brainDumps, taskWorkStretches],
+    () =>
+      buildRawLog(checkIns, eventPhaseCheckIns, brainDumps, taskWorkStretches),
+    [checkIns, eventPhaseCheckIns, brainDumps, taskWorkStretches],
   );
 
   const timelineEvents = useMemo(
@@ -146,16 +158,16 @@ export function LogsView() {
 
   const filteredRawEvents = useMemo(
     () =>
-      rawFilter === "all"
+      view === "raw" || view === "timeline"
         ? []
         : filteredEvents(
-            rawFilter,
-            phaseMode,
+            view,
             checkIns,
             phaseCheckIns,
             brainDumps,
+            historyFromSec,
           ),
-    [rawFilter, phaseMode, checkIns, phaseCheckIns, brainDumps],
+    [view, checkIns, phaseCheckIns, brainDumps, historyFromSec],
   );
 
   const visibleRawEvents = useMemo(
@@ -171,8 +183,8 @@ export function LogsView() {
     [filteredRawEvents, visibleEventCount],
   );
   const days = useMemo(
-    () => groupByDay(visibleFilteredEvents),
-    [visibleFilteredEvents],
+    () => groupByDay(visibleFilteredEvents, nowMs),
+    [nowMs, visibleFilteredEvents],
   );
 
   const updatePreferences = (changes: Partial<LogsPreferences>) => {
@@ -194,11 +206,11 @@ export function LogsView() {
     });
   };
 
-  const empty = EMPTY_COPY[logsLayout === "timeline" ? "timeline" : rawFilter];
+  const empty = EMPTY_COPY[view];
   const eventCount =
-    logsLayout === "timeline"
+    view === "timeline"
       ? timelineEvents.length
-      : rawFilter === "all"
+      : view === "raw"
         ? rawEvents.length
         : filteredRawEvents.length;
   const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
@@ -208,41 +220,19 @@ export function LogsView() {
     <section className="dash-section dash-section--logs">
       <div className="dash-toolbar">
         <ViewToggle
-          value={logsLayout}
-          options={LOG_LAYOUTS}
-          label="Logs layout"
-          onChange={(layout) => updatePreferences({ layout })}
+          value={view}
+          options={LOG_VIEWS}
+          label="Logs view"
+          onChange={(nextView) => updatePreferences({ view: nextView })}
         />
       </div>
       <div className="dash-section__body">
-        {logsLayout === "raw" ? (
-          <div className="logs-raw-controls">
-            <ViewToggle
-              value={rawFilter}
-              options={RAW_LOG_FILTERS}
-              label="Raw log filter"
-              onChange={(nextRawFilter) =>
-                updatePreferences({ rawFilter: nextRawFilter })
-              }
-            />
-            {rawFilter === "phases" ? (
-              <ViewToggle
-                value={phaseMode}
-                options={PHASE_LOG_MODES}
-                label="Phase history mode"
-                onChange={(nextPhaseMode) =>
-                  updatePreferences({ phaseMode: nextPhaseMode })
-                }
-              />
-            ) : null}
-          </div>
-        ) : null}
         {!loaded ? null : eventCount === 0 ? (
           <div className="dash-empty">
             <strong>{empty.title}</strong>
             <span>{empty.body}</span>
           </div>
-        ) : logsLayout === "timeline" ? (
+        ) : view === "timeline" ? (
           <LogsTimeline
             events={visibleTimelineEvents}
             phaseCheckIns={phaseCheckIns}
@@ -253,8 +243,9 @@ export function LogsView() {
             expandedDumpIds={expandedDumpIds}
             onDeleteCheckIn={onDeleteCheckIn}
             onToggleDump={toggleDumpExpanded}
+            nowMs={nowMs}
           />
-        ) : rawFilter === "all" ? (
+        ) : view === "raw" ? (
           <LogsRawTable
             events={visibleRawEvents}
             phases={phases}

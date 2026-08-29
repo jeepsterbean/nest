@@ -215,8 +215,8 @@ const HEARTBEAT_SECONDS: u64 = 60;
 /// the tick loop can build a title without touching the database.
 pub struct CurrentPhase(pub Mutex<String>);
 
-/// Menu bar glyphs, mirroring the dashboard's icon language
-/// (`phaseIconName` in `src/dashboard/lib/period.ts`).
+/// Menu bar glyphs for the four live Phase names. Dashboard icons come from
+/// each Phase's stored `icon` (see `phaseIcon` in `src/dashboard/lib/period.ts`).
 fn phase_emoji(name: &str) -> &'static str {
     match name {
         phase::PHASE_DOING => "🎯",

@@ -143,6 +143,13 @@ export type EventWithPhaseCheckIn<T extends { at: number }> = {
   phaseCheckIn: PhaseCheckIn | null;
 };
 
+/** Drop the pre-range carry-in from event feeds. Session helpers still use the
+ * full list so an ongoing Phase can cover the start of the window. */
+export const phaseCheckInsInRange = (
+  checkIns: PhaseCheckIn[],
+  fromSec: number,
+) => checkIns.filter((checkIn) => checkIn.createdAt >= fromSec);
+
 /** Pair newest-first events with their active Phase in one pass. */
 export function mergePhaseCheckInsIntoEvents<T extends { at: number }>(
   events: T[],

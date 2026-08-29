@@ -7,6 +7,7 @@ import {
   groupByDay,
   mergePhaseCheckInsIntoEvents,
   phaseCheckInAt,
+  phaseCheckInsInRange,
   phaseSessions,
   phaseSessionsInWindow,
   phaseSessionTotals,
@@ -215,6 +216,26 @@ describe("collapsePhaseCheckIns", () => {
       { at: 100, phaseId: SCOPING },
       { at: 161, phaseId: DOING },
     ]);
+  });
+});
+
+describe("phaseCheckInsInRange", () => {
+  it("drops the pre-range carry-in from event feeds", () => {
+    const carryIn = phaseCheckIn(1, 40, SCOPING);
+    const inRange = phaseCheckIn(2, 100, DOING);
+    expect(phaseCheckInsInRange([carryIn, inRange], 50)).toEqual([inRange]);
+  });
+
+  it("keeps aggregated omit of a same-phase return after filtering the carry-in", () => {
+    const carryIn = phaseCheckIn(1, 40, DOING);
+    const settle = phaseCheckIn(2, 120, DOING);
+    const later = phaseCheckIn(3, 200, SCOPING);
+    expect(
+      phaseCheckInsInRange(
+        collapsePhaseCheckIns([carryIn, settle, later]),
+        50,
+      ).map((checkIn) => checkIn.phaseId),
+    ).toEqual([SCOPING]);
   });
 });
 

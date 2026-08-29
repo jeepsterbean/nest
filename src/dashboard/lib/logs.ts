@@ -1,48 +1,37 @@
-export const LOG_LAYOUTS = [
-  { key: "raw", label: "Raw" },
+export const LOG_VIEWS = [
   { key: "timeline", label: "Timeline" },
-] as const;
-export type LogsLayoutKey = (typeof LOG_LAYOUTS)[number]["key"];
-
-export const RAW_LOG_FILTERS = [
-  { key: "all", label: "All" },
   { key: "dumps", label: "Brain dumps" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
-] as const;
-export type RawLogFilterKey = (typeof RAW_LOG_FILTERS)[number]["key"];
-
-export const PHASE_LOG_MODES = [
   { key: "raw", label: "Raw" },
-  { key: "aggregated", label: "Aggregated" },
 ] as const;
-export type PhaseLogModeKey = (typeof PHASE_LOG_MODES)[number]["key"];
+export type LogsViewKey = (typeof LOG_VIEWS)[number]["key"];
 
 export type LogsPreferences = {
-  layout: LogsLayoutKey;
-  rawFilter: RawLogFilterKey;
-  phaseMode: PhaseLogModeKey;
+  view: LogsViewKey;
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
 
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
 const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
-  layout: "raw",
-  rawFilter: "all",
-  phaseMode: "aggregated",
+  view: "raw",
 };
-const LAYOUT_KEYS: ReadonlySet<string> = new Set(
-  LOG_LAYOUTS.map(({ key }) => key),
-);
-const FILTER_KEYS: ReadonlySet<string> = new Set(
-  RAW_LOG_FILTERS.map(({ key }) => key),
-);
-const PHASE_MODE_KEYS: ReadonlySet<string> = new Set(
-  PHASE_LOG_MODES.map(({ key }) => key),
+const VIEW_KEYS: ReadonlySet<string> = new Set(
+  LOG_VIEWS.map(({ key }) => key),
 );
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
+
+/** Map legacy layout + rawFilter storage onto the single Logs view key. */
+const migrateLegacyView = (value: Record<string, unknown>): LogsViewKey | null => {
+  if (value.layout === "timeline") return "timeline";
+  if (value.rawFilter === "dumps") return "dumps";
+  if (value.rawFilter === "phases") return "phases";
+  if (value.rawFilter === "metrics") return "metrics";
+  if (value.layout === "raw" || value.rawFilter === "all") return "raw";
+  return null;
+};
 
 export function readLogsPreferences(
   storage: LogsStorage = localStorage,
@@ -51,20 +40,11 @@ export function readLogsPreferences(
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
     const value: Record<string, unknown> =
       stored && typeof stored === "object" ? stored : {};
+    if (typeof value.view === "string" && VIEW_KEYS.has(value.view)) {
+      return { view: value.view as LogsViewKey };
+    }
     return {
-      layout:
-        typeof value.layout === "string" && LAYOUT_KEYS.has(value.layout)
-        ? (value.layout as LogsLayoutKey)
-        : DEFAULT_LOGS_PREFERENCES.layout,
-      rawFilter:
-        typeof value.rawFilter === "string" && FILTER_KEYS.has(value.rawFilter)
-        ? (value.rawFilter as RawLogFilterKey)
-        : DEFAULT_LOGS_PREFERENCES.rawFilter,
-      phaseMode:
-        typeof value.phaseMode === "string" &&
-        PHASE_MODE_KEYS.has(value.phaseMode)
-        ? (value.phaseMode as PhaseLogModeKey)
-        : DEFAULT_LOGS_PREFERENCES.phaseMode,
+      view: migrateLegacyView(value) ?? DEFAULT_LOGS_PREFERENCES.view,
     };
   } catch {
     return DEFAULT_LOGS_PREFERENCES;

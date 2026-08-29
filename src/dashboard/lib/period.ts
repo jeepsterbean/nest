@@ -119,7 +119,7 @@ export const phaseTone = (name: string) => {
   return "unknown";
 };
 
-/** Shared icon language for phase labels across header, Logs, and totals. */
+/** Name-based defaults when a Phase has no stored icon (or Idle has no row). */
 export const phaseIconName = (name: string) => {
   switch (phaseTone(name)) {
     case "doing":
@@ -134,6 +134,26 @@ export const phaseIconName = (name: string) => {
     default:
       return "activity";
   }
+};
+
+/** Prefer the Phase's stored icon; fall back to the name-based defaults. */
+export const phaseIcon = (
+  phaseId: number | null,
+  phases: Phase[],
+  fallbackLabel?: string | null,
+) => {
+  if (phaseId !== null) {
+    const phase = phases.find((item) => item.id === phaseId);
+    if (phase?.icon) return phase.icon;
+    return phaseIconName(phase?.name ?? fallbackLabel ?? "");
+  }
+  return phaseIconName(fallbackLabel ?? "Idle");
+};
+
+/** User-owned Phase color, or null for the quiet / default tone. */
+export const phaseColor = (phaseId: number | null, phases: Phase[]) => {
+  if (phaseId === null) return null;
+  return phases.find((phase) => phase.id === phaseId)?.color ?? null;
 };
 
 /** Stable hue per Task, so a block and its total carry the same colour.

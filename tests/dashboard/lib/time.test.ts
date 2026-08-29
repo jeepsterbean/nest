@@ -10,6 +10,7 @@ import {
   formatPlayButtonTime,
   formatWorkedTime,
   greetingForHour,
+  historyStartSec,
   isTimerDue,
   shiftDayMs,
   snapToQuarterHour,
@@ -48,6 +49,15 @@ describe("shiftDayMs", () => {
   it("crosses a month boundary (Mar 1 -> Feb 28 in a non-leap year)", () => {
     const mar1 = new Date(2026, 2, 1, 0, 0, 0, 0).getTime();
     expect(shiftDayMs(mar1, -1)).toBe(new Date(2026, 1, 28).getTime());
+  });
+});
+
+describe("historyStartSec", () => {
+  it("starts at local midnight the requested number of calendar days back", () => {
+    const now = new Date(2026, 5, 17, 14, 30).getTime();
+    expect(historyStartSec(now, 30)).toBe(
+      Math.floor(new Date(2026, 4, 18).getTime() / 1000),
+    );
   });
 });
 

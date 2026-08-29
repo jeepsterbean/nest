@@ -1,6 +1,7 @@
+import type { CSSProperties } from "react";
 import type { Phase } from "../../../lib/types";
 import { NestIcon } from "../PulseIcon";
-import { phaseIconName, phaseName, phaseTone } from "../../lib/period";
+import { phaseColor, phaseIcon, phaseName, phaseTone } from "../../lib/period";
 
 /** Phase icon and label — shared by Logs timeline and table. */
 export function PhaseEventDetail({
@@ -13,12 +14,30 @@ export function PhaseEventDetail({
   phases: Phase[];
 }) {
   const name = phaseName(phaseId, phases, phaseLabel);
+  const color = phaseColor(phaseId, phases);
   return (
     <>
-      <span className="event__icon" title={`${name} phase`} role="img" aria-label={`${name} phase`}>
-        <NestIcon name={phaseIconName(name)} />
+      <span
+        className="event__icon"
+        title={`${name} phase`}
+        role="img"
+        aria-label={`${name} phase`}
+        style={
+          color ? ({ color } as CSSProperties) : undefined
+        }
+      >
+        <NestIcon name={phaseIcon(phaseId, phases, phaseLabel)} />
       </span>
-      <span className={`event__phase event__phase--${phaseTone(name)}`}>
+      <span
+        className={`event__phase event__phase--${phaseTone(name)}${
+          color ? " event__phase--colored" : ""
+        }`}
+        style={
+          color
+            ? ({ "--phase-color": color } as CSSProperties)
+            : undefined
+        }
+      >
         {name}
       </span>
     </>
