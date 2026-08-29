@@ -3030,6 +3030,10 @@
 }
 
 .task-table {
+  /* Three type roles only — half-steps between these feel muddy. */
+  --task-row-head: 11px;
+  --task-row-cell: 12.5px;
+  --task-row-title: 13.5px;
   table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
@@ -3049,9 +3053,9 @@
   z-index: 1;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: var(--task-row-head);
+  font-weight: 650;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
   cursor: grab;
@@ -3098,9 +3102,12 @@
 }
 
 .task-table td {
-  padding: 4px 12px;
+  padding: 7px 12px;
   overflow: hidden;
-  font-size: 13.5px;
+  color: var(--muted);
+  font-size: var(--task-row-cell);
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .task-table__col--value,
@@ -3116,8 +3123,8 @@
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: inherit;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   text-align: center;
   appearance: textfield;
@@ -3146,13 +3153,15 @@
 
 .task-table .task-status-trigger {
   gap: 5px;
-  padding: 3px 4px;
+  max-width: 100%;
+  padding: 2px 4px;
   border: 0;
   border-radius: 4px;
   background: transparent;
-  font-size: 13px;
+  color: var(--ink);
+  font-size: inherit;
   font-weight: 550;
-  line-height: 1.2;
+  line-height: 1.35;
 }
 
 .task-table .task-status-trigger:hover,
@@ -3166,9 +3175,56 @@
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
+.task-table .task-card__scope {
+  max-width: 100%;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.task-table .task-card__scope:hover {
+  color: var(--accent);
+}
+
+.task-table .task-card__scope--empty {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--muted) 34%, var(--border));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 18%, var(--surface-2));
+}
+
+.task-table .task-card__scope-segment:not(:last-child) {
+  font-weight: 500;
+}
+
+.task-table .task-card__scope-segment:not(:last-child)::after {
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+.task-table .worked-time {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.task-table .task-score-input {
+  color: var(--ink);
+}
+
 .task-table__title {
   color: var(--ink);
-  font-weight: 650;
+  font-size: var(--task-row-title);
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .task-table__title > span:first-child {
@@ -3181,7 +3237,6 @@
 }
 
 .task-table__col--parent {
-  color: var(--muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
