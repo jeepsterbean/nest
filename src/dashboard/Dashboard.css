@@ -5094,7 +5094,9 @@
   min-height: 42px;
 }
 
-.logs-chrono__row + .logs-chrono__row {
+/* Border stays off the phase column so a run of same-phase rows reads as one
+   unbroken colored spine instead of a stack of separate chips. */
+.logs-chrono__row + .logs-chrono__row .logs-chrono__event {
   border-top: 1px solid var(--border);
 }
 
@@ -5171,33 +5173,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  justify-self: center;
-  color: var(--event-color, var(--accent));
-  background: var(--surface);
-}
-
-.logs-chrono__mark svg {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2;
-}
-
-.logs-chrono__mark--badge {
   width: 18px;
   height: 18px;
   margin-top: 2px;
+  justify-self: center;
+  color: var(--event-color, var(--accent));
+  background: var(--surface);
   border-radius: 50%;
   box-shadow: 0 0 0 1.5px var(--event-color, var(--accent));
 }
 
-.logs-chrono__mark--badge svg {
+.logs-chrono__mark svg {
   width: 10px;
   height: 10px;
+  stroke-width: 2;
 }
 
-.logs-chrono__row--work-start .logs-chrono__mark--badge svg {
+.logs-chrono__row--work-start .logs-chrono__mark svg {
   /* Play triangle reads left-heavy; nudge so it sits optically centered. */
   transform: translateX(0.5px);
 }
@@ -5213,6 +5205,18 @@
 .logs-chrono__row--work-start,
 .logs-chrono__row--work-stop {
   --event-color: var(--doing);
+}
+
+.logs-chrono__row:hover .logs-chrono__event {
+  background: color-mix(in srgb, var(--muted) 6%, transparent);
+}
+
+/* Rows spanning an open work stretch share a colored rail, so the
+   start/stop pair reads as one block instead of two loose marks. */
+.logs-chrono__row--in-stretch .logs-chrono__event::before {
+  width: 3px;
+  background: var(--doing);
+  opacity: 0.4;
 }
 
 .logs-chrono__event .logs-table__detail--metrics .event__icon {

@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
+import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
-import { phaseIconName, phaseName, phaseTone } from "../lib/period";
-import { formatTime } from "../lib/time";
+import { isQuietPhase, phaseIconName, phaseName, phaseTone } from "../lib/period";
+import { formatTime, shiftDayMs } from "../lib/time";
 import {
   groupByDay,
   mergePhaseCheckInsIntoEvents,
+  phaseSessionsInWindow,
   type TimelineLogEvent,
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
@@ -67,11 +69,9 @@ function TimelineMark({
       ? pulses.find((item) => item.id === event.checkIn.pulseId)
       : undefined;
 
-  const isWork = event.kind === "work-start" || event.kind === "work-stop";
-
   return (
     <span
-      className={`logs-chrono__mark${isWork ? " logs-chrono__mark--badge" : ""}`}
+      className="logs-chrono__mark"
       title={label}
       role="img"
       aria-label={label}
@@ -121,58 +121,83 @@ export function LogsTimeline({
     () => groupByDay(mergePhaseCheckInsIntoEvents(events, phaseCheckIns)),
     [events, phaseCheckIns],
   );
+  const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
 
-  return days.map((day) => (
-    <article key={day.key} className="day-group logs-chrono-day">
-      <header className="day-group__head">
-        <h3 className="day-group__label">{day.label}</h3>
-      </header>
-      <ol className="logs-chrono">
-        {day.events.map((row, index) => {
-          const { event, phaseCheckIn: checkpoint } = row;
-          const name = phaseName(
-            checkpoint?.phaseId ?? null,
-            phases,
-            checkpoint?.phaseLabel,
-          );
-          const previousCheckpoint = day.events[index - 1]?.phaseCheckIn;
-          const showPhase =
-            index === 0 || previousCheckpoint?.phaseId !== checkpoint?.phaseId;
+  return days.map((day) => {
+    const daySessions = phaseSessionsInWindow(
+      phaseCheckIns,
+      day.key / 1000,
+      shiftDayMs(day.key, 1) / 1000,
+      isQuiet,
+      false,
+    );
+    // Rows between a work-start and its matching work-stop light up the rail as one stretch.
+    const openStretchIds = new Set<number>();
 
-          return (
-            <li key={eventKey(event)} className={`logs-chrono__row logs-chrono__row--${event.kind}`}>
-              <div
-                className={`logs-chrono__phase logs-chrono__phase--${phaseTone(name)}`}
-                title={`${name} phase`}
-                aria-label={`${name} phase`}
+    return (
+      <article key={day.key} className="day-group logs-chrono-day">
+        <header className="day-group__head">
+          <h3 className="day-group__label">{day.label}</h3>
+          <PhaseTotals sessions={daySessions} phases={phases} />
+        </header>
+        <ol className="logs-chrono">
+          {day.events.map((row, index) => {
+            const { event, phaseCheckIn: checkpoint } = row;
+            const name = phaseName(
+              checkpoint?.phaseId ?? null,
+              phases,
+              checkpoint?.phaseLabel,
+            );
+            const previousCheckpoint = day.events[index - 1]?.phaseCheckIn;
+            const showPhase =
+              index === 0 || previousCheckpoint?.phaseId !== checkpoint?.phaseId;
+
+            const wasStretchOpen = openStretchIds.size > 0;
+            if (event.kind === "work-start") openStretchIds.add(event.stretch.id);
+            const isStretchOpen = openStretchIds.size > 0;
+            if (event.kind === "work-stop") openStretchIds.delete(event.stretch.id);
+            const inStretch = wasStretchOpen || isStretchOpen;
+
+            return (
+              <li
+                key={eventKey(event)}
+                className={`logs-chrono__row logs-chrono__row--${event.kind}${
+                  inStretch ? " logs-chrono__row--in-stretch" : ""
+                }`}
               >
-                {showPhase ? (
-                  <>
-                    <NestIcon name={phaseIconName(name)} />
-                    <span>{name}</span>
-                  </>
-                ) : null}
-              </div>
-              <div className="logs-chrono__event">
-                <time dateTime={new Date(event.at * 1000).toISOString()}>
-                  {formatTime(event.at)}
-                </time>
-                <TimelineMark event={event} pulses={pulses} tasks={tasks} />
-                <LogEventDetail
-                  event={event}
-                  phases={phases}
-                  metrics={metrics}
-                  pulses={pulses}
-                  tasks={tasks}
-                  expandedDumpIds={expandedDumpIds}
-                  onDeleteCheckIn={onDeleteCheckIn}
-                  onToggleDump={onToggleDump}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </article>
-  ));
+                <div
+                  className={`logs-chrono__phase logs-chrono__phase--${phaseTone(name)}`}
+                  title={`${name} phase`}
+                  aria-label={`${name} phase`}
+                >
+                  {showPhase ? (
+                    <>
+                      <NestIcon name={phaseIconName(name)} />
+                      <span>{name}</span>
+                    </>
+                  ) : null}
+                </div>
+                <div className="logs-chrono__event">
+                  <time dateTime={new Date(event.at * 1000).toISOString()}>
+                    {formatTime(event.at)}
+                  </time>
+                  <TimelineMark event={event} pulses={pulses} tasks={tasks} />
+                  <LogEventDetail
+                    event={event}
+                    phases={phases}
+                    metrics={metrics}
+                    pulses={pulses}
+                    tasks={tasks}
+                    expandedDumpIds={expandedDumpIds}
+                    onDeleteCheckIn={onDeleteCheckIn}
+                    onToggleDump={onToggleDump}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </article>
+    );
+  });
 }
