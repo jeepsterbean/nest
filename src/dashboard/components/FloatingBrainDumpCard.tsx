@@ -1,5 +1,4 @@
 import {
-  useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -10,6 +9,7 @@ import {
   type FloatingBrainDump,
 } from "../../lib/floatingBrainDumps";
 import type { Tag } from "../../lib/types";
+import { startPointerDrag } from "../lib/pointerDrag";
 import { BrainDumpSurface } from "./BrainDumpSurface";
 import { promoteIcon, trashIcon } from "./icons";
 
@@ -41,68 +41,43 @@ export function FloatingBrainDumpCard({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null,
   );
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    originX: number;
-    originY: number;
-    header: HTMLElement;
-  } | null>(null);
 
   const displayX = dragOffset?.x ?? dump.x;
   const displayY = dragOffset?.y ?? dump.y;
-
-  const finishDrag = (clientX: number, clientY: number) => {
-    const session = dragRef.current;
-    if (!session) return;
-    dragRef.current = null;
-    setDragOffset(null);
-    const nextX = session.originX + (clientX - session.startX);
-    const nextY = session.originY + (clientY - session.startY);
-    const width = viewportWidth || window.innerWidth;
-    const height = viewportHeight || window.innerHeight;
-    const clamped = clampFloatingPosition(nextX, nextY, width, height);
-    onPositionChange(clamped.x, clamped.y);
-  };
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
     if ((event.target as HTMLElement).closest("button")) return;
     event.preventDefault();
     onFocus();
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: dump.x,
-      originY: dump.y,
-      header: event.currentTarget,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
 
-    const onMove = (moveEvent: PointerEvent) => {
-      const session = dragRef.current;
-      if (!session || moveEvent.pointerId !== session.pointerId) return;
-      setDragOffset({
-        x: session.originX + (moveEvent.clientX - session.startX),
-        y: session.originY + (moveEvent.clientY - session.startY),
-      });
+    const originX = dump.x;
+    const originY = dump.y;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let offset = { x: originX, y: originY };
+
+    const commit = () => {
+      const width = viewportWidth || window.innerWidth;
+      const height = viewportHeight || window.innerHeight;
+      const clamped = clampFloatingPosition(offset.x, offset.y, width, height);
+      setDragOffset(null);
+      onPositionChange(clamped.x, clamped.y);
     };
 
-    const onUp = (upEvent: PointerEvent) => {
-      const session = dragRef.current;
-      if (!session || upEvent.pointerId !== session.pointerId) return;
-      finishDrag(upEvent.clientX, upEvent.clientY);
-      session.header.releasePointerCapture(upEvent.pointerId);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    startPointerDrag(event, {
+      startImmediately: true,
+      onStart: () => undefined,
+      onMove: (move) => {
+        offset = {
+          x: originX + (move.clientX - startX),
+          y: originY + (move.clientY - startY),
+        };
+        setDragOffset(offset);
+      },
+      onEnd: commit,
+      onCancel: commit,
+    });
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
