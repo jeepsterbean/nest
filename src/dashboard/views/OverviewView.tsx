@@ -241,6 +241,21 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
     setBrainDumpDraft,
   ]);
 
+  const peelViewedDumpToFloating = useCallback(() => {
+    const viewedDump = brainDumpHistory.viewingDump;
+    if (!viewedDump) return;
+    const next = createFloatingFromDraft(
+      {
+        text: viewedDump.text,
+        tagIds: viewedDump.tags.map((tag) => tag.id),
+      },
+      floatingDumps,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    if (next) addDump(next);
+  }, [addDump, brainDumpHistory.viewingDump, floatingDumps]);
+
   const promoteFloatingDump = useCallback(
     (dump: FloatingBrainDump) => {
       const mainDraft = brainDumpDraft;
@@ -394,6 +409,7 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
                   canViewNext={brainDumpHistory.canViewNext}
                   onPrevious={brainDumpHistory.showPrevious}
                   onNext={brainDumpHistory.showNext}
+                  onPeel={peelViewedDumpToFloating}
                   submittedAt={brainDumpHistory.viewingDump?.createdAt}
                 />
               }
@@ -417,6 +433,7 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
             onTextChange={(id, text) => updateDump(id, { text })}
             onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
             onPositionChange={(id, x, y) => updateDump(id, { x, y })}
+            onSizeChange={(id, width, height) => updateDump(id, { width, height })}
             onPromote={promoteFloatingDump}
             onRemove={removeDump}
             onSubmit={(dump) => void submitFloatingDump(dump)}

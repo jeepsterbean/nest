@@ -154,7 +154,9 @@ _Avoid_: Check-in popup
 An unstructured captured thought stored on its own, with zero or more Tags.
 Overview and the popup share the text and selected-tag draft, and independently
 browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can attach
-an optional title and edit a saved dump's Tags.
+an optional title and edit a saved dump's Tags. Overview drafts can be peeled
+into movable floating drafts and resized from their lower-right corner. A saved
+brain dump being browsed in Overview can be copied into a new floating draft.
 _Avoid_: note, journal entry
 
 **Tag**:

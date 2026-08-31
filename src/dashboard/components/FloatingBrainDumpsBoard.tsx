@@ -12,6 +12,7 @@ export function FloatingBrainDumpsBoard({
   onTextChange,
   onTagsChange,
   onPositionChange,
+  onSizeChange,
   onPromote,
   onRemove,
   onSubmit,
@@ -23,6 +24,7 @@ export function FloatingBrainDumpsBoard({
   onTextChange: (id: string, text: string) => void;
   onTagsChange: (id: string, tagIds: number[]) => void;
   onPositionChange: (id: string, x: number, y: number) => void;
+  onSizeChange: (id: string, width: number, height: number) => void;
   onPromote: (dump: FloatingBrainDump) => void;
   onRemove: (id: string) => void;
   onSubmit: (dump: FloatingBrainDump) => void;
@@ -56,6 +58,7 @@ export function FloatingBrainDumpsBoard({
           onTextChange={(text) => onTextChange(dump.id, text)}
           onTagsChange={(tagIds) => onTagsChange(dump.id, tagIds)}
           onPositionChange={(x, y) => onPositionChange(dump.id, x, y)}
+          onSizeChange={(width, height) => onSizeChange(dump.id, width, height)}
           onPromote={() => onPromote(dump)}
           onRemove={() => onRemove(dump.id)}
           onSubmit={() => onSubmit(dump)}

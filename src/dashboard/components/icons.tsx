@@ -130,6 +130,13 @@ export const promoteIcon = (
   </svg>
 );
 
+export const floatingDraftIcon = (
+  <svg {...iconProps}>
+    <path d="M6 3h12a3 3 0 0 1 3 3v9l-6 6H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z" />
+    <path d="M15 21v-4a2 2 0 0 1 2-2h4" />
+  </svg>
+);
+
 export const gripIcon = (
   <svg {...iconProps}>
     <circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none" />

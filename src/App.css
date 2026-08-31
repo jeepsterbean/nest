@@ -77,6 +77,11 @@ button {
   opacity: 0.3;
 }
 
+.brain-dump-history-controls button svg {
+  width: 13px;
+  height: 13px;
+}
+
 .brain-dump-tags {
   position: relative;
   display: flex;

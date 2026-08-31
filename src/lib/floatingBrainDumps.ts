@@ -13,6 +13,8 @@ export type FloatingBrainDump = {
   x: number;
   y: number;
   zIndex: number;
+  width?: number;
+  height?: number;
 };
 
 export const FLOATING_BRAIN_DUMP_STORAGE_KEY = "nest.floating-brain-dumps";
@@ -33,8 +35,9 @@ export function clampFloatingPosition(
   y: number,
   viewportWidth: number,
   viewportHeight: number,
+  noteWidth = FLOATING_BRAIN_DUMP_WIDTH,
 ): { x: number; y: number } {
-  const minX = -FLOATING_BRAIN_DUMP_WIDTH + FLOATING_BRAIN_DUMP_MIN_VISIBLE;
+  const minX = -noteWidth + FLOATING_BRAIN_DUMP_MIN_VISIBLE;
   const maxX = viewportWidth - FLOATING_BRAIN_DUMP_MIN_VISIBLE;
   const minY = FLOATING_BRAIN_DUMP_PADDING;
   const maxY = Math.max(
@@ -78,7 +81,13 @@ export function reclampFloatingDumps(
 ): FloatingBrainDump[] {
   return dumps.map((dump) => ({
     ...dump,
-    ...clampFloatingPosition(dump.x, dump.y, viewportWidth, viewportHeight),
+    ...clampFloatingPosition(
+      dump.x,
+      dump.y,
+      viewportWidth,
+      viewportHeight,
+      dump.width ?? FLOATING_BRAIN_DUMP_WIDTH,
+    ),
   }));
 }
 
@@ -123,7 +132,7 @@ export function parseFloatingBrainDump(value: unknown): FloatingBrainDump | null
   ) {
     return null;
   }
-  return {
+  const dump: FloatingBrainDump = {
     id: record.id,
     text: record.text,
     tagIds,
@@ -131,6 +140,9 @@ export function parseFloatingBrainDump(value: unknown): FloatingBrainDump | null
     y: record.y,
     zIndex: record.zIndex,
   };
+  if (typeof record.width === "number") dump.width = record.width;
+  if (typeof record.height === "number") dump.height = record.height;
+  return dump;
 }
 
 export function writeFloatingBrainDumps(dumps: FloatingBrainDump[]) {

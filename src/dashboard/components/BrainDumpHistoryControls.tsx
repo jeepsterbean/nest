@@ -1,4 +1,5 @@
 import { formatTime } from "../lib/time";
+import { floatingDraftIcon } from "./icons";
 
 /** Prev/next controls for browsing recent saved brain dumps. */
 export function BrainDumpHistoryControls({
@@ -6,12 +7,14 @@ export function BrainDumpHistoryControls({
   canViewNext,
   onPrevious,
   onNext,
+  onPeel,
   submittedAt = null,
 }: {
   canViewPrevious: boolean;
   canViewNext: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  onPeel?: () => void;
   /** Unix seconds; shown when viewing a saved dump. */
   submittedAt?: number | null;
 }) {
@@ -24,6 +27,18 @@ export function BrainDumpHistoryControls({
         >
           {formatTime(submittedAt)}
         </time>
+      )}
+      {onPeel && (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Make saved brain dump a floating draft"
+          title="Make floating draft"
+          disabled={submittedAt == null}
+          onClick={onPeel}
+        >
+          {floatingDraftIcon}
+        </button>
       )}
       <button
         type="button"

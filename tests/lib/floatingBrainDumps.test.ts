@@ -53,6 +53,10 @@ describe("clampFloatingPosition", () => {
       x: -FLOATING_BRAIN_DUMP_WIDTH + FLOATING_BRAIN_DUMP_MIN_VISIBLE,
       y: 16,
     });
+    expect(clampFloatingPosition(-999, 16, 400, 300, 200)).toEqual({
+      x: -200 + FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+      y: 16,
+    });
   });
 });
 

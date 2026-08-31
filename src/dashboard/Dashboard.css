@@ -764,6 +764,37 @@
   overflow: hidden;
 }
 
+.floating-brain-dump__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.floating-brain-dump__resize::after {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+}
+
+.floating-brain-dump__resize:hover,
+.floating-brain-dump__resize:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
 .floating-brain-dump .brain-dump-surface {
   min-height: 0;
   flex: 1;
