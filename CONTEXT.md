@@ -3,10 +3,8 @@
 Nest is a private self-care workspace for checking in, organizing personal work,
 and capturing thoughts without interrupting flow.
 
-Documentation map: `.agents/README.md`. Dashboard CSS classes, component hooks,
-and layout constraints: `.agents/standards/ui-standards.md` (keep
-`.claude/standards/` and `.codex/standards/` copies identical). Design feel:
-`.impeccable.md`.
+Documentation map: `AGENTS.md`. Dashboard CSS classes, component hooks, and
+layout constraints: `UI.md`. Design feel: `.impeccable.md`.
 
 ## Language
 
