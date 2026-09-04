@@ -85,6 +85,12 @@
   padding: 36px 32px 64px;
 }
 
+/* Non-Overview Sections: no Greetings board — reclaim the top for content. */
+.dashboard__inner:not(.dashboard__inner--overview) {
+  gap: 16px;
+  padding-top: 24px;
+}
+
 .dashboard__inner > .overview-stack,
 .dashboard__inner > .dash-section {
   min-height: 0;
@@ -102,10 +108,10 @@
   font-weight: 600;
 }
 
-/* ---------- Header ---------- */
+/* ---------- Greetings board (Overview only) ---------- */
 
 .dash-header {
-  /* Keep timer/phase pickers above following sections; those are later
+  /* Keep Timer/Phase pickers above following panels; those are later
      siblings and would otherwise paint over the absolute menus. */
   position: relative;
   z-index: 10;
@@ -1074,23 +1080,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px 16px;
   margin-bottom: 16px;
 }
 
-/* Scrollable body under a fixed section header — see .dashboard__inner--{view}. */
+/* Scrollable body under fixed Section top controls — see .dashboard__inner--{view}. */
 .dash-section__body {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-}
-
-.dash-section__title h2 {
-  margin: 0;
-  font-family: var(--serif);
-  font-size: 21px;
-  font-weight: 600;
 }
 
 /* ---------- Shared bits ---------- */

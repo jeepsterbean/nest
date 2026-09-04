@@ -66,7 +66,8 @@ whatever its status — unlike the control, which is only on Active Tasks.
 Table is the default Tasks layout (Kanban is the other); last choice is
 remembered. Both layouts show one persisted status at a time — Backlog, Up next,
 Active, Completed, Cancelled — via a toggle; first visit is Active. New tasks
-are created in the status being viewed. The Scopes sidebar starts collapsed.
+are created in the status being viewed. The **Tasks scope sidebar** starts
+collapsed.
 Table columns can be reordered and resized. Working now is started
 from the detail panel or Kanban, not from the table.
 _Avoid_: Session, stopwatch, in progress
@@ -89,7 +90,7 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 Overview is three panels: a read-only Tasks peek (Status, Title, Value, Effort)
 with Open / Closed and a button that opens the Tasks section; a today-only
 Logs Timeline (same marks and Phase gutter coloring as Logs, without day
-labels, Phase totals, or Logs view chrome) filtered by Timeline / Brain dumps /
+labels, Phase totals, or Logs chrome) filtered by Timeline / Brain dumps /
 Metrics, with load-older batching when needed; and a brain dump composer that
 matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to save). Both
 capture surfaces can independently
@@ -164,14 +165,38 @@ A reusable label for brain dumps. The composer shows selected Tags followed by
 the five most recently used unselected Tags; its overflow menu lists every Tag.
 Deleting a Tag removes it from every historical brain dump.
 
+**Section**:
+One primary destination in the dashboard, chosen from the **Sidebar**. The six
+are Overview, Calendar, Insights, Logs, Tasks, and Settings. Overview is the
+only Section that shows the **Greetings board**; every other Section gives its
+content the full content area beside the Sidebar. No Section shows a title —
+the Sidebar already names where you are. Top-of-Section controls (range,
+filters, layout toggles, and so on) stay; each Section keeps its own, with no
+shared product name for that row.
+_Avoid_: View, screen (for these six)
+
+**Sidebar**:
+The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
+Tasks, Settings).
+_Avoid_: Nav, rail (for this strip)
+
+**Greetings board**:
+The Overview-only strip with the typewriter greeting, live Phase, and Timer
+(countdown and interval control).
+_Avoid_: Header, masthead, status bar (for this strip)
+
+**Tasks scope sidebar**:
+The Scopes filter panel inside the Tasks Section. It starts collapsed.
+_Avoid_: Sidebar (alone — that word means the Section switcher)
+
 **Settings**:
 Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
-icons and colors, and Tags. One sidebar entry; a segmented control switches
+icons and colors, and Tags. One Sidebar entry; a segmented control switches
 panes. The last pane is remembered (Metrics when unset).
 _Avoid_: Preferences, admin
 
 **Logs**:
-The history screen. Not a stored record: Metric check-ins, brain dumps, and
+The history Section. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. One segmented control switches
 Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks events on a
 day rail (Phase changes stay off the line; the gutter shows the active Phase).
@@ -184,7 +209,7 @@ type for that calendar day, regardless of the active Logs filter; exported
 Phase changes use the same settled aggregation rather than raw checkpoints.
 Each Phase has separate icon and color controls in Settings,
 with a broad preset palette and custom color picker; those choices drive the
-header, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
+Greetings board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
 and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,
 and Working now start/stop icons sit directly on the timeline line.
 Logs does not show the day strip or outcome stats. Events are grouped by day;
@@ -192,7 +217,7 @@ Phase totals end at midnight for past days and at the current time for Today.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same
 height as brain dumps and Working now marks. Brain dumps
 match that row height until expanded. Pulse, Metric, and brain dump icons stand
-in for names. The Logs heading is omitted; the view filters are the only chrome.
+in for names. The filters are the only chrome at the top of Logs.
 _Avoid_: Journal
 
 ## Relationships
@@ -219,6 +244,9 @@ _Avoid_: Journal
 > **Dev:** "If I leave Working now on overnight, should we subtract that from Worked time?"
 > **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
+> **Dev:** "Is the Timer part of every Section header?"
+> **Domain expert:** "No. The Timer sits on the **Greetings board**, and that board only appears on the Overview **Section**. Other Sections have no title — the **Sidebar** already says where you are."
+
 ## Flagged ambiguities
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
@@ -231,16 +259,22 @@ _Avoid_: Journal
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch, though quitting still stops Working now.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
-  Timer/Popup aria, class names, and chrome never say check-in. The dashboard
-  header due phrase "time to check in!" is the exception. The Popup clock shows
+  Timer/Popup aria, class names, and chrome never say check-in. The Greetings
+  board due phrase "time to check in!" is the exception. The Popup clock shows
   the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
-- "journal" was the history screen — resolved: that screen is **Logs**. A brain dump is not a journal entry.
+- "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
+- "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, Overview-only.
+- "sidebar" for two panels — resolved: **Sidebar** is the Section switcher; the Scopes filter in Tasks is the **Tasks scope sidebar**.
+- "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags destinations.
 
 ## Timer
 
-- The dashboard header shows the countdown and controls its 5–30 minute interval.
-  When due it shows "time to check in!"; the Popup clock stays on the countdown.
+- The **Greetings board** shows the countdown and controls its 5–30 minute
+  interval. When due it shows "time to check in!"; the Popup clock stays on
+  the countdown.
 - At zero, the timer pauses, plays the system alert sound, and opens the
   popup. It stays at `0:00` (glowing) until a new interval is picked or the
   due Metric check-in is completed. Dismissing the popup does not start the

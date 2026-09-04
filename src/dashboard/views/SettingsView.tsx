@@ -21,9 +21,6 @@ export function SettingsView() {
   return (
     <section className="dash-section dash-section--settings">
       <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Settings</h2>
-        </div>
         <ViewToggle
           value={pane}
           options={SETTINGS_PANES}

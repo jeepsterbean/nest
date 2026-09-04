@@ -292,9 +292,6 @@ export function TasksView() {
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Tasks</h2>
-        </div>
         <div className="dash-toolbar">
           {taskView === "kanban" ? (
             <ViewToggle

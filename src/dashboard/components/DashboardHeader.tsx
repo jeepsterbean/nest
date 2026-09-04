@@ -205,7 +205,7 @@ export function DashboardHeader() {
   const phaseLabel = currentPhaseName ?? "No phase yet";
 
   return (
-    <header className="dash-header">
+    <header className="dash-header" aria-label="Greetings board">
       <div className="dash-header__intro">
         <h1 className="dash-header__greeting" aria-label={message}>
           <span aria-hidden="true">{visibleMessage}</span>

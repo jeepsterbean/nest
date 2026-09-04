@@ -8,14 +8,17 @@ private, journal-like. Preserve light and dark system themes.
 
 ## Copy: say it once
 
-- One heading per section. No eyebrow label or subtitle that just restates
-  the title in other words.
+- Sections have no title — the Sidebar names where you are. Don't add an H2
+  that restates the Sidebar label. The Greetings board greeting (Overview) is
+  the exception, not a Section title.
+- No eyebrow label or subtitle that just restates a heading in other words.
 - Remove descriptions that only enumerate content or states already visible
-  in the section below. Keep unique context such as time ranges or caveats.
+  in the Section below. Keep unique context such as time ranges or caveats.
 - Don't caption self-explanatory controls (a labeled field, a dropdown with
   clear options) with extra headings or helper text.
 - Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,
-  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Logs). Avoid todo/subitem jargon.
+  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Logs, Section,
+  Sidebar, Greetings board). Avoid todo/subitem jargon.
 
 ## Components: no speculative flexibility
 
@@ -39,16 +42,21 @@ private, journal-like. Preserve light and dark system themes.
 
 - Follow `.impeccable.md` Design Principles (capture availability, progressive
   disclosure, draft preservation, accessible labels and focus, compact layout).
-- Dashboard view behavior — Logs, Tasks, Overview, Calendar, Insights — lives
-  in `CONTEXT.md`. This file holds implementation hooks only; don't restate
-  product rules here.
+- Dashboard Section behavior — Logs, Tasks, Overview, Calendar, Insights —
+  lives in `CONTEXT.md`. This file holds implementation hooks only; don't
+  restate product rules here.
 
 ## UI implementation
 
-Shared controls and section anchors:
+Shared controls and Section anchors:
 
+- Greetings board: `DashboardHeader` (`.dash-header`) — Overview only
+  (typewriter greeting, live Phase, Timer). Other Sections omit it so content
+  fills the area beside the Sidebar.
+- Sections show no title. Top controls stay in `.dash-section__head` or a
+  sibling toolbar (e.g. `RangeToolbar`); each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
-  No per-section size overrides.
+  No per-Section size overrides.
 - Tasks: `.task-table`. No Working now play control or Readiness column in the
   table — start work from the detail panel or Kanban.
 - Overview: last-hour band `.overview-day`; three panels in `.overview-panels`
@@ -57,7 +65,7 @@ Shared controls and section anchors:
   Timeline / Brain dumps / Metrics filter via `ViewToggle`; dump composer
   `.overview-panel--dumps`). Shared table is `TaskTable` (`readOnly`);
   Overview columns from `overviewTaskColumns()`. Timeline today-only with
-  `dayChrome={false}`. No dashboard dump modal or sidebar dump button.
+  `dayChrome={false}`. No dashboard dump modal or Sidebar dump button.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range remembered in
@@ -72,8 +80,8 @@ Shared controls and section anchors:
   Panes stay mounted in `.settings-slot` (via `hidden`) so Metrics sub-state
   survives switches.
   Metrics pane: `.settings-pane--metrics` (Pulses / Metrics sub-toggle).
-  Phase appearance uses `--phase-color` / `--colored` on header, Calendar rail
-  and wash, Insights mix and totals, and Logs Phase rows.
+  Phase appearance uses `--phase-color` / `--colored` on the Greetings board,
+  Calendar rail and wash, Insights mix and totals, and Logs Phase rows.
 
 Timeline grid (`TimelineGrid.tsx`):
 

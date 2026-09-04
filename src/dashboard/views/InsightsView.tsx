@@ -75,11 +75,6 @@ export function InsightsView() {
 
   return (
     <section className="dash-section dash-section--insights">
-      <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Insights</h2>
-        </div>
-      </header>
       <RangeToolbar
         label="Insights range"
         mode={range.mode}

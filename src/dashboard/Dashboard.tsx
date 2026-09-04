@@ -50,7 +50,7 @@ function DashboardInner() {
     <main className="dashboard">
       <DashboardSidebar view={view} onSelectView={setView} />
       <div className={`dashboard__inner dashboard__inner--${view}`}>
-        <DashboardHeader />
+        {view === "overview" && <DashboardHeader />}
 
         <ErrorBanner />
 

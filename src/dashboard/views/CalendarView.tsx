@@ -70,11 +70,6 @@ export function CalendarView() {
 
   return (
     <section className="dash-section dash-section--calendar">
-      <header className="dash-section__head">
-        <div className="dash-section__title">
-          <h2>Calendar</h2>
-        </div>
-      </header>
       <RangeToolbar
         label="Calendar range"
         mode={range.mode}
