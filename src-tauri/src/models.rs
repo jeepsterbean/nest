@@ -143,6 +143,15 @@ pub struct Tag {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Reminder {
+    pub id: i64,
+    pub text: String,
+    pub active: bool,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskWorkStretch {
     pub id: i64,
     pub task_id: i64,

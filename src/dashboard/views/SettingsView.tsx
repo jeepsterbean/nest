@@ -8,6 +8,7 @@ import {
 } from "../lib/settings";
 import { MetricsView } from "./MetricsView";
 import { PhasesView } from "./PhasesView";
+import { RemindersView } from "./RemindersView";
 import { TagsView } from "./TagsView";
 
 export function SettingsView() {
@@ -37,6 +38,9 @@ export function SettingsView() {
       </div>
       <div className="settings-slot" hidden={pane !== "tags"}>
         <TagsView />
+      </div>
+      <div className="settings-slot" hidden={pane !== "reminders"}>
+        <RemindersView />
       </div>
     </section>
   );

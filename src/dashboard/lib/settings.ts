@@ -2,6 +2,7 @@ export const SETTINGS_PANES = [
   { key: "metrics", label: "Metrics" },
   { key: "phases", label: "Phases" },
   { key: "tags", label: "Tags" },
+  { key: "reminders", label: "Reminders" },
 ] as const;
 
 export type SettingsPane = (typeof SETTINGS_PANES)[number]["key"];
@@ -15,7 +16,10 @@ export const readSettingsPane = (
   storage: SettingsStorage = localStorage,
 ): SettingsPane => {
   const stored = storage.getItem(SETTINGS_PANE_KEY);
-  return stored === "metrics" || stored === "phases" || stored === "tags"
+  return stored === "metrics" ||
+    stored === "phases" ||
+    stored === "tags" ||
+    stored === "reminders"
     ? stored
     : "metrics";
 };

@@ -181,8 +181,15 @@ _Avoid_: Nav, rail (for this strip)
 
 **Greetings board**:
 The Overview-only strip with the typewriter greeting, live Phase, and Timer
-(countdown and interval control).
+(countdown and interval control). After the time-of-day greeting, it rotates
+through every **Active** Reminder; with none Active, only the greeting shows.
 _Avoid_: Header, masthead, status bar (for this strip)
+
+**Reminder**:
+A short line the user owns in Settings. Active Reminders rotate on the
+Greetings board; Inactive ones stay in Settings but are skipped there. New
+Reminders start Active. Text is capped so one line fits the board.
+_Avoid_: Tip, prompt, notification
 
 **Tasks scope sidebar**:
 The Scopes filter panel inside the Tasks Section. It starts collapsed.
@@ -190,8 +197,8 @@ _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
 Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
-icons and colors, and Tags. One Sidebar entry; a segmented control switches
-panes. The last pane is remembered (Metrics when unset).
+icons and colors, Tags, and Reminders. One Sidebar entry; a segmented control
+switches panes. The last pane is remembered (Metrics when unset).
 _Avoid_: Preferences, admin
 
 **Logs**:
@@ -267,7 +274,7 @@ _Avoid_: Journal
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, Overview-only.
 - "sidebar" for two panels — resolved: **Sidebar** is the Section switcher; the Scopes filter in Tasks is the **Tasks scope sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags destinations.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
 
 ## Timer
 

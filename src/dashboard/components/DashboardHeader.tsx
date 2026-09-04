@@ -5,7 +5,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { listReminders, startTimer } from "../../lib/commands";
+import { startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   advanceTypewriter,
@@ -80,13 +80,12 @@ export function DashboardHeader() {
     timerState,
     phases,
     latestPhase,
+    reminders,
     mutate,
-    setError,
   } = useDashboardData();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
-  const [reminders, setReminders] = useState<string[]>([]);
   const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -94,9 +93,13 @@ export function DashboardHeader() {
   const timerWrapRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
+  const activeReminderTexts = useMemo(
+    () => reminders.filter((reminder) => reminder.active).map((r) => r.text),
+    [reminders],
+  );
   const messages = useMemo(
-    () => [`${greeting}.`, ...reminders],
-    [greeting, reminders],
+    () => [`${greeting}.`, ...activeReminderTexts],
+    [greeting, activeReminderTexts],
   );
   const message = messages[typewriter.messageIndex % messages.length];
   const visibleMessage = reducedMotion
@@ -118,20 +121,6 @@ export function DashboardHeader() {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listReminders()
-      .then((items) => {
-        if (!cancelled) setReminders(items);
-      })
-      .catch((error) => {
-        if (!cancelled) setError(String(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [setError]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
