@@ -178,7 +178,11 @@ day rail (Phase changes stay off the line; the gutter shows the active Phase).
 Brain dumps, Phases, Metrics, and Raw are day-grouped lists (Raw is the mixed
 feed, including Working now starts and stops). Phases always uses the
 60-second settle collapse (a burst lands on the Phase it settled on; if that
-equals the Phase before the burst, it is omitted). Each Phase has separate icon and color controls in Settings,
+equals the Phase before the burst, it is omitted). Each visible day has an
+Export control that downloads a chronological Markdown timeline of every event
+type for that calendar day, regardless of the active Logs filter; exported
+Phase changes use the same settled aggregation rather than raw checkpoints.
+Each Phase has separate icon and color controls in Settings,
 with a broad preset palette and custom color picker; those choices drive the
 header, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
 and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,

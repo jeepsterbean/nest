@@ -1,3 +1,22 @@
+import type {
+  BrainDump,
+  Metric,
+  MetricCheckInWithRatings,
+  Phase,
+  PhaseCheckIn,
+  Pulse,
+  Task,
+  TaskWorkStretch,
+} from "../../lib/types";
+import { phaseName } from "./period";
+import { formatTime, toDateInput } from "./time";
+import {
+  buildRawLog,
+  collapsePhaseCheckIns,
+  phaseCheckInsInRange,
+  type RawLogEvent,
+} from "./timeline";
+
 export const LOG_VIEWS = [
   { key: "timeline", label: "Timeline" },
   { key: "dumps", label: "Brain dumps" },
@@ -56,4 +75,109 @@ export function writeLogsPreferences(
   storage: LogsStorage = localStorage,
 ) {
   storage.setItem(LOGS_PREFERENCES_KEY, JSON.stringify(preferences));
+}
+
+export function buildLogExportEvents(
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  brainDumps: BrainDump[],
+  taskWorkStretches: TaskWorkStretch[],
+  historyFromSec: number,
+) {
+  return buildRawLog(
+    checkIns,
+    phaseCheckInsInRange(
+      collapsePhaseCheckIns(phaseCheckIns),
+      historyFromSec,
+    ),
+    brainDumps,
+    taskWorkStretches,
+  );
+}
+
+type LogExportContext = {
+  phases: Phase[];
+  metrics: Metric[];
+  pulses: Pulse[];
+  tasks: Task[];
+};
+
+const taskTitle = (tasks: Task[], taskId: number) =>
+  tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
+
+function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
+  const time = formatTime(event.at);
+  switch (event.kind) {
+    case "phase":
+      return `- ${time} — Phase — ${phaseName(event.checkIn.phaseId, context.phases, event.checkIn.phaseLabel)}`;
+    case "metrics": {
+      const pulse =
+        event.checkIn.pulseId === null
+          ? undefined
+          : context.pulses.find(
+              (item) => item.id === event.checkIn.pulseId,
+            );
+      const pulseLabel =
+        pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
+      const ratings = event.checkIn.ratings
+        .map((rating) => {
+          const metric = context.metrics.find(
+            (item) => item.id === rating.metricId,
+          );
+          return `${metric?.name ?? `Metric ${rating.metricId}`} ${rating.value}`;
+        })
+        .join(", ");
+      return `- ${time} — Metric check-in — ${pulseLabel}${ratings ? `: ${ratings}` : ""}`;
+    }
+    case "dump": {
+      const title = event.dump.title?.trim();
+      const tags = event.dump.tags.map((tag) => tag.name).join(", ");
+      const detail = [title, tags && `Tags: ${tags}`].filter(Boolean).join(" — ");
+      const body = event.dump.text
+        .trim()
+        .split("\n")
+        .map((line) => `  > ${line}`)
+        .join("\n");
+      return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
+    }
+    case "work-start":
+      return `- ${time} — Working now started — ${taskTitle(context.tasks, event.stretch.taskId)}`;
+    case "work-stop":
+      return `- ${time} — Working now stopped — ${taskTitle(context.tasks, event.stretch.taskId)}`;
+  }
+}
+
+export function logDayMarkdown(
+  dayKey: number,
+  events: RawLogEvent[],
+  context: LogExportContext,
+) {
+  const date = new Date(dayKey).toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const timeline = [...events]
+    .sort((a, b) => a.at - b.at)
+    .map((event) => eventMarkdown(event, context))
+    .join("\n");
+  return `# Nest Logs — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
+}
+
+export function downloadLogDay(
+  dayKey: number,
+  events: RawLogEvent[],
+  context: LogExportContext,
+) {
+  const url = URL.createObjectURL(
+    new Blob([logDayMarkdown(dayKey, events, context)], {
+      type: "text/markdown;charset=utf-8",
+    }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `nest-logs-${toDateInput(dayKey / 1000)}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

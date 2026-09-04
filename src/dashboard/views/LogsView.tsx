@@ -12,6 +12,8 @@ import {
   type TimelineEvent,
 } from "../lib/timeline";
 import {
+  buildLogExportEvents,
+  downloadLogDay,
   LOG_EVENT_BATCH_SIZE,
   LOG_VIEWS,
   readLogsPreferences,
@@ -27,7 +29,7 @@ import { useCurrentTime } from "../hooks/useCurrentTime";
 import { historyStartSec } from "../lib/time";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
-import { LogsTimeline } from "./LogsTimeline";
+import { DayExportButton, LogsTimeline } from "./LogsTimeline";
 
 const EMPTY_COPY: Record<LogsViewKey, { title: string; body: string }> = {
   raw: {
@@ -61,6 +63,7 @@ function DayArticle({
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
+  onExportDay,
 }: {
   day: DayGroup<RawLogEvent>;
   phases: Phase[];
@@ -70,11 +73,17 @@ function DayArticle({
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
+  onExportDay: (dayKey: number) => void;
 }) {
   return (
     <article className="day-group">
       <header className="day-group__head">
         <h3 className="day-group__label">{day.label}</h3>
+        <DayExportButton
+          label={day.label}
+          dayKey={day.key}
+          onExportDay={onExportDay}
+        />
       </header>
       <LogsEvents
         events={day.events}
@@ -159,6 +168,30 @@ export function LogsView() {
     [rawEvents],
   );
 
+  const exportEventsByDay = useMemo(
+    () =>
+      new Map(
+        groupByDay(
+          buildLogExportEvents(
+            checkIns,
+            phaseCheckIns,
+            brainDumps,
+            taskWorkStretches,
+            historyFromSec,
+          ),
+          nowMs,
+        ).map((day) => [day.key, day.events]),
+      ),
+    [
+      brainDumps,
+      checkIns,
+      historyFromSec,
+      nowMs,
+      phaseCheckIns,
+      taskWorkStretches,
+    ],
+  );
+
   const listEvents = useMemo((): RawLogEvent[] => {
     if (view === "timeline") return [];
     if (view === "raw") return rawEvents;
@@ -210,6 +243,14 @@ export function LogsView() {
     });
   };
 
+  const exportDay = (dayKey: number) =>
+    downloadLogDay(dayKey, exportEventsByDay.get(dayKey) ?? [], {
+      phases,
+      metrics,
+      pulses,
+      tasks,
+    });
+
   const empty = EMPTY_COPY[view];
   const eventCount =
     view === "timeline" ? timelineEvents.length : listEvents.length;
@@ -243,6 +284,7 @@ export function LogsView() {
             expandedDumpIds={expandedDumpIds}
             onDeleteCheckIn={onDeleteCheckIn}
             onToggleDump={toggleDumpExpanded}
+            onExportDay={exportDay}
             nowMs={nowMs}
           />
         ) : (
@@ -257,6 +299,7 @@ export function LogsView() {
               expandedDumpIds={expandedDumpIds}
               onDeleteCheckIn={onDeleteCheckIn}
               onToggleDump={toggleDumpExpanded}
+              onExportDay={exportDay}
             />
           ))
         )}

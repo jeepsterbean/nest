@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
+import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
@@ -81,6 +82,28 @@ const eventKey = (event: TimelineLogEvent) =>
       ? `dump-${event.dump.id}`
       : `${event.kind}-${event.stretch.id}`;
 
+export function DayExportButton({
+  label,
+  dayKey,
+  onExportDay,
+}: {
+  label: string;
+  dayKey: number;
+  onExportDay: (dayKey: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="day-group__export"
+      onClick={() => onExportDay(dayKey)}
+      aria-label={`Export ${label} timeline as Markdown`}
+      title="Export timeline as Markdown"
+    >
+      <Download aria-hidden="true" />
+    </button>
+  );
+}
+
 export function LogsTimeline({
   events,
   phaseCheckIns,
@@ -91,6 +114,7 @@ export function LogsTimeline({
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
+  onExportDay,
   nowMs,
   dayChrome = true,
 }: {
@@ -103,6 +127,7 @@ export function LogsTimeline({
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
+  onExportDay?: (dayKey: number) => void;
   nowMs: number;
   /** Overview today-only rail hides the day label and Phase totals. */
   dayChrome?: boolean;
@@ -133,7 +158,16 @@ export function LogsTimeline({
         {dayChrome ? (
           <header className="day-group__head">
             <h3 className="day-group__label">{day.label}</h3>
-            <PhaseTotals sessions={daySessions} phases={phases} />
+            <div className="day-group__meta">
+              <PhaseTotals sessions={daySessions} phases={phases} />
+              {onExportDay ? (
+                <DayExportButton
+                  label={day.label}
+                  dayKey={day.key}
+                  onExportDay={onExportDay}
+                />
+              ) : null}
+            </div>
           </header>
         ) : null}
         <ol className="logs-chrono">
