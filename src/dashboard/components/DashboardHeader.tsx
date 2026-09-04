@@ -1,50 +1,54 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { listReminders, scheduleNextCheckIn } from "../../lib/commands";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { listReminders, startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import { formatCheckInCountdown, greetingForHour, checkInRemainingSeconds } from "../lib/time";
+import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
+import { phaseColor, phaseIcon, phaseName } from "../lib/period";
+import { NestIcon } from "./PulseIcon";
 import {
+  calendarIcon,
   chevronDownIcon,
   clockIcon,
   insightsIcon,
-  journalIcon,
-  metricsIcon,
+  logsIcon,
   overviewIcon,
-  pencilIcon,
+  settingsIcon,
   tasksIcon,
 } from "./icons";
 
-const CHECK_IN_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
-
 export type DashboardView =
   | "overview"
+  | "calendar"
   | "insights"
-  | "journal"
+  | "logs"
   | "tasks"
-  | "metrics";
+  | "settings";
 
 const VIEWS = [
   { key: "overview", label: "Overview", icon: overviewIcon },
+  { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
-  { key: "journal", label: "Journal", icon: journalIcon },
+  { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
-  { key: "metrics", label: "Metrics", icon: metricsIcon },
+  { key: "settings", label: "Settings", icon: settingsIcon },
 ] as const;
 
 export function DashboardSidebar({
   view,
   onSelectView,
-  brainDumpOpen,
-  onToggleBrainDump,
 }: {
   view: DashboardView;
   onSelectView: (view: DashboardView) => void;
-  brainDumpOpen: boolean;
-  onToggleBrainDump: () => void;
 }) {
   return (
     <aside className="dash-sidebar">
@@ -67,24 +71,13 @@ export function DashboardSidebar({
           </button>
         ))}
       </nav>
-      <button
-        type="button"
-        className="brain-dump-trigger"
-        aria-label={brainDumpOpen ? "Close brain dump" : "Open brain dump"}
-        aria-expanded={brainDumpOpen}
-        aria-controls="brain-dump-composer"
-        onClick={onToggleBrainDump}
-      >
-        <span className="brain-dump-trigger__icon">{pencilIcon}</span>
-        <span className="dash-nav__label">Brain dump</span>
-      </button>
     </aside>
   );
 }
 
 export function DashboardHeader() {
   const {
-    checkInSchedule,
+    timerState,
     phases,
     latestPhase,
     mutate,
@@ -109,22 +102,18 @@ export function DashboardHeader() {
   const visibleMessage = reducedMotion
     ? message
     : message.slice(0, typewriter.characterIndex);
-  const countdown = checkInSchedule
-    ? formatCheckInCountdown(checkInSchedule.nextDueAt, nowMs)
+  const countdown = timerState
+    ? formatTimerCountdown(timerState.nextDueAt, nowMs)
     : "—:—";
-  const checkInDue =
-    checkInSchedule !== null &&
-    (checkInSchedule.waitingForResponse ||
-      checkInRemainingSeconds(checkInSchedule.nextDueAt, nowMs) === 0);
-  const timerLabel = checkInDue ? "time to check in!" : countdown;
+  const timerDue =
+    timerState !== null && isTimerDue(timerState, nowMs);
+  const timerLabel = timerDue ? "time to check in!" : countdown;
 
   const currentPhaseName = latestPhase
-    ? latestPhase.phaseId === null
-      ? "Idle"
-      : (phases.find((phase) => phase.id === latestPhase.phaseId)?.name ??
-        latestPhase.phaseLabel ??
-        `Phase ${latestPhase.phaseId}`)
+    ? phaseName(latestPhase.phaseId, phases, latestPhase.phaseLabel)
     : null;
+  const currentPhaseId = latestPhase?.phaseId ?? null;
+  const currentPhaseColor = phaseColor(currentPhaseId, phases);
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -209,14 +198,14 @@ export function DashboardHeader() {
     setPickerOpen(false);
     if (scheduling) return;
     setScheduling(true);
-    await mutate(() => scheduleNextCheckIn(minutes));
+    await mutate(() => startTimer(minutes));
     setScheduling(false);
   };
 
   const phaseLabel = currentPhaseName ?? "No phase yet";
 
   return (
-    <header className="dash-header">
+    <header className="dash-header" aria-label="Greetings board">
       <div className="dash-header__intro">
         <h1 className="dash-header__greeting" aria-label={message}>
           <span aria-hidden="true">{visibleMessage}</span>
@@ -228,7 +217,22 @@ export function DashboardHeader() {
           )}
         </h1>
         <div className="dash-header__meta">
-          <p className="dash-header__phase" aria-label={`Current phase: ${phaseLabel}`}>
+          <p
+            className={`dash-header__phase${
+              currentPhaseColor ? " dash-header__phase--colored" : ""
+            }`}
+            aria-label={`Current phase: ${phaseLabel}`}
+            style={
+              currentPhaseColor
+                ? ({ "--phase-color": currentPhaseColor } as CSSProperties)
+                : undefined
+            }
+          >
+            <span className="dash-header__phase-icon" aria-hidden="true">
+              <NestIcon
+                name={phaseIcon(currentPhaseId, phases, phaseLabel)}
+              />
+            </span>
             <span className="dash-header__phase-name">{phaseLabel}</span>
           </p>
           <div
@@ -243,18 +247,18 @@ export function DashboardHeader() {
             <button
               type="button"
               className={
-                checkInDue
+                timerDue
                   ? "dash-header__timer dash-header__timer--due"
                   : "dash-header__timer"
               }
               aria-haspopup="listbox"
               aria-expanded={pickerOpen}
               aria-label={
-                checkInDue
-                  ? "Time to check in. Change interval"
-                  : `Next check-in: ${countdown}. Change interval`
+                timerDue
+                  ? "Timer due. Change interval"
+                  : `Timer in ${countdown}. Change interval`
               }
-              disabled={!checkInSchedule || scheduling}
+              disabled={!timerState || scheduling}
               onClick={() => {
                 setPickerOpen((open) => !open);
               }}
@@ -264,7 +268,7 @@ export function DashboardHeader() {
               </span>
               <strong
                 className={
-                  checkInDue ? "dash-header__timer-label--due" : undefined
+                  timerDue ? "dash-header__timer-label--due" : undefined
                 }
               >
                 {timerLabel}
@@ -275,25 +279,25 @@ export function DashboardHeader() {
             </button>
             {pickerOpen && (
               <div
-                className="checkin-picker"
+                className="timer-picker"
                 role="listbox"
-                aria-label="Next check-in in"
+                aria-label="Timer interval"
               >
-                {CHECK_IN_INTERVALS.map((minutes) => {
-                  const selected = checkInSchedule?.intervalMinutes === minutes;
+                {TIMER_INTERVALS.map((minutes) => {
+                  const selected = timerState?.intervalMinutes === minutes;
                   return (
                     <button
                       key={minutes}
                       type="button"
                       role="option"
                       aria-selected={selected}
-                      className="checkin-picker__option"
+                      className="timer-picker__option"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => selectInterval(minutes)}
                     >
                       <span>{minutes} min</span>
                       {selected && (
-                        <span className="checkin-picker__mark">Current</span>
+                        <span className="timer-picker__mark">Current</span>
                       )}
                     </button>
                   );

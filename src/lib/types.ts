@@ -3,6 +3,7 @@ export type Metric = {
   name: string;
   icon: string;
   createdAt: number;
+  color: string | null;
 };
 
 export type Pulse = {
@@ -40,6 +41,8 @@ export type RatingValue = 1 | 2 | 3 | 4 | 5;
 export type Phase = {
   id: number;
   name: string;
+  icon: string;
+  color: string | null;
   createdAt: number;
   inactiveSince: number | null;
 };
@@ -77,6 +80,14 @@ export type Task = {
   updatedAt: number;
 };
 
+/** One recorded stretch of Working now. Open (still running) while endedAt is null. */
+export type TaskWorkStretch = {
+  id: number;
+  taskId: number;
+  startedAt: number;
+  endedAt: number | null;
+};
+
 export type TaskDependency = {
   blockerTaskId: number;
   blockedTaskId: number;
@@ -91,7 +102,7 @@ export type TaskStatusEvent = {
   createdAt: number;
 };
 
-export type CheckInSchedule = {
+export type TimerState = {
   intervalMinutes: number;
   nextDueAt: number;
   waitingForResponse: boolean;
@@ -100,6 +111,18 @@ export type CheckInSchedule = {
 export type BrainDump = {
   id: number;
   createdAt: number;
-  title: string | null;
   text: string;
+  tags: BrainDumpTag[];
+};
+
+export type BrainDumpTag = {
+  id: number;
+  name: string;
+};
+
+export type Tag = {
+  id: number;
+  name: string;
+  createdAt: number;
+  lastUsedAt: number | null;
 };

@@ -8,8 +8,7 @@ export const TASK_STATUSES: TaskStatus[] = [
   "cancelled",
 ];
 
-// Board lanes: statuses that hold live work, in flow order. Completed and
-// cancelled are terminal and live in the board's closed rail instead.
+// Live work statuses, in flow order. Completed and cancelled are terminal.
 export const WORKING_STATUSES: TaskStatus[] = [
   "backlog",
   "up_next",
@@ -17,6 +16,25 @@ export const WORKING_STATUSES: TaskStatus[] = [
 ];
 
 export const CLOSED_STATUSES: TaskStatus[] = ["completed", "cancelled"];
+
+/** Popup history above Active: closed Tasks still in this window. */
+export const RECENT_CLOSED_WINDOW_SECONDS = 60 * 60;
+
+/**
+ * Completed and cancelled Tasks whose last update falls in the last hour,
+ * oldest first so the newest sits just above Active.
+ * ponytail: uses updatedAt, not status events; a later rename can keep an
+ * older close in the window. Switch to events if that starts to matter.
+ */
+export const recentlyClosedTasks = (taskList: Task[], nowMs: number): Task[] => {
+  const cutoff = nowMs / 1000 - RECENT_CLOSED_WINDOW_SECONDS;
+  return taskList
+    .filter(
+      (task) =>
+        CLOSED_STATUSES.includes(task.status) && task.updatedAt >= cutoff,
+    )
+    .sort((a, b) => a.updatedAt - b.updatedAt || a.id - b.id);
+};
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: "Backlog",
@@ -26,23 +44,93 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: "Cancelled",
 };
 
-export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
+export const TASK_STATUS_FILTERS = TASK_STATUSES.map((status) => ({
+  key: status,
+  label: TASK_STATUS_LABEL[status],
+}));
 
-// Groups scored tasks that share the same value/effort cell so the priority
-// matrix can fan them out instead of stacking chips invisibly. Input order is
-// preserved, so pass a deterministically sorted list.
-export const clusterByScore = (taskList: Task[]): Map<string, Task[]> => {
-  const clusters = new Map<string, Task[]>();
-  for (const task of taskList) {
-    if (task.value === null || task.effort === null) continue;
-    const key = `${task.value}:${task.effort}`;
-    const cluster = clusters.get(key);
-    if (cluster) cluster.push(task);
-    else clusters.set(key, [task]);
-  }
-  return clusters;
+export type TaskTableSort = "updated" | "status";
+
+const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
+  active: 0,
+  up_next: 1,
+  backlog: 2,
+  completed: 3,
+  cancelled: 4,
 };
 
+export const sortTaskTable = (
+  taskList: Task[],
+  sort: TaskTableSort,
+): Task[] =>
+  [...taskList].sort(
+    (a, b) =>
+      (sort === "status"
+        ? TASK_STATUS_SORT_ORDER[a.status] - TASK_STATUS_SORT_ORDER[b.status]
+        : 0) ||
+      b.updatedAt - a.updatedAt ||
+      b.id - a.id,
+  );
+
+export const TASK_STATUS_PRESETS = [
+  { key: "open", label: "Open", statuses: WORKING_STATUSES },
+  { key: "closed", label: "Closed", statuses: CLOSED_STATUSES },
+  { key: "all", label: "All", statuses: TASK_STATUSES },
+] as const;
+
+export const matchingTaskStatusPreset = (selected: TaskStatus[]) =>
+  TASK_STATUS_PRESETS.find(
+    ({ statuses }) =>
+      statuses.length === selected.length &&
+      statuses.every((status) => selected.includes(status)),
+  )?.key ?? null;
+
+export const toggleTaskStatusFilter = (
+  selected: TaskStatus[],
+  status: TaskStatus,
+): TaskStatus[] =>
+  selected.includes(status)
+    ? selected.filter((candidate) => candidate !== status)
+    : TASK_STATUSES.filter(
+        (candidate) => candidate === status || selected.includes(candidate),
+      );
+
+export const RATING_VALUES: RatingValue[] = [1, 2, 3, 4, 5];
+
+export const parseRatingValue = (
+  value: string,
+): RatingValue | null | undefined => {
+  if (value === "") return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5
+    ? (number as RatingValue)
+    : undefined;
+};
+
+// Working now outranks manual order, always: a working task sits above every
+// idle one and no drag can push it below. Sort is stable, so the manual
+// sort_order still decides the order inside each band.
+export const pinWorkingNowFirst = <T extends { workingNow: boolean }>(
+  taskList: T[],
+): T[] =>
+  [...taskList].sort((a, b) => Number(b.workingNow) - Number(a.workingNow));
+
+/**
+ * Ids in drop order, re-pinned so working-now tasks keep the top and lane
+ * placeholders (negative ids) drop out. Persist this, never the raw drop.
+ */
+export const pinnedIdOrder = (ids: number[], taskList: Task[]): number[] => {
+  const byId = new Map(taskList.map((task) => [task.id, task]));
+  return pinWorkingNowFirst(
+    ids.flatMap((id) => {
+      const task = byId.get(id);
+      return task ? [task] : [];
+    }),
+  ).map((task) => task.id);
+};
+
+// Lanes otherwise keep the input order: tasks arrive in their manual
+// sort_order, which drag-to-reorder owns.
 export const groupTasksByStatus = (taskList: Task[]) => {
   const grouped: Record<TaskStatus, Task[]> = {
     backlog: [],
@@ -53,11 +141,7 @@ export const groupTasksByStatus = (taskList: Task[]) => {
   };
   for (const task of taskList) grouped[task.status].push(task);
   for (const status of TASK_STATUSES) {
-    grouped[status].sort(
-      (a, b) =>
-        Number(b.workingNow) - Number(a.workingNow) ||
-        b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id - a.id,
-    );
+    grouped[status] = pinWorkingNowFirst(grouped[status]);
   }
   return grouped;
 };

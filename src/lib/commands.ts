@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   BrainDump,
-  CheckInSchedule,
   Metric,
   MetricCheckIn,
   MetricCheckInWithRatings,
@@ -13,7 +12,10 @@ import type {
   Task,
   TaskDependency,
   TaskStatusEvent,
+  TaskWorkStretch,
   TaskStatus,
+  Tag,
+  TimerState,
 } from "./types";
 
 export function listReminders(): Promise<string[]> {
@@ -34,6 +36,10 @@ export function renameMetric(id: number, name: string): Promise<Metric> {
 
 export function setMetricIcon(id: number, icon: string): Promise<Metric> {
   return invoke("set_metric_icon", { id, icon });
+}
+
+export function setMetricColor(id: number, color: string | null): Promise<Metric> {
+  return invoke("set_metric_color", { id, color });
 }
 
 export function listPulses(): Promise<Pulse[]> {
@@ -70,6 +76,10 @@ export function removeMetricFromPulse(
   return invoke("remove_metric_from_pulse", { pulseId, metricId });
 }
 
+export function reorderTasks(ids: number[]): Promise<void> {
+  return invoke("reorder_tasks", { ids });
+}
+
 export function reorderPulses(ids: number[]): Promise<void> {
   return invoke("reorder_pulses", { ids });
 }
@@ -83,6 +93,14 @@ export function reorderPulseMetrics(
 
 export function listPhases(includeInactive: boolean): Promise<Phase[]> {
   return invoke("list_phases", { includeInactive });
+}
+
+export function setPhaseIcon(id: number, icon: string): Promise<Phase> {
+  return invoke("set_phase_icon", { id, icon });
+}
+
+export function setPhaseColor(id: number, color: string | null): Promise<Phase> {
+  return invoke("set_phase_color", { id, color });
 }
 
 export function listTasks(): Promise<Task[]> {
@@ -164,12 +182,43 @@ export function setTaskWorking(id: number, working: boolean): Promise<Task> {
   return invoke("set_task_working", { id, working });
 }
 
+export function stopAllWorkingNow(): Promise<Task[]> {
+  return invoke("stop_all_working_now");
+}
+
+export function listTaskWorkStretches(
+  from: number,
+  to: number,
+): Promise<TaskWorkStretch[]> {
+  return invoke("list_task_work_stretches", { from, to });
+}
+
+export function updateTaskWorkStretch(
+  id: number,
+  startedAt: number,
+  endedAt: number | null,
+): Promise<Task> {
+  return invoke("update_task_work_stretch", { id, startedAt, endedAt });
+}
+
+export function deleteTaskWorkStretch(id: number): Promise<Task> {
+  return invoke("delete_task_work_stretch", { id });
+}
+
 export function setTaskScore(
   id: number,
   value: RatingValue | null,
   effort: RatingValue | null,
 ): Promise<Task> {
   return invoke("set_task_score", { id, value, effort });
+}
+
+export function setTaskScoreField(
+  id: number,
+  field: "value" | "effort",
+  score: RatingValue | null,
+): Promise<Task> {
+  return invoke("set_task_score_field", { id, field, score });
 }
 
 export function submitMetricCheckIn(
@@ -203,43 +252,72 @@ export function listPhaseCheckIns(
   return invoke("list_phase_check_ins", { from, to });
 }
 
-export function getCheckInSchedule(): Promise<CheckInSchedule> {
-  return invoke("get_check_in_schedule");
+export function getTimerState(): Promise<TimerState> {
+  return invoke("get_timer_state");
 }
 
-export function scheduleNextCheckIn(minutes: number): Promise<CheckInSchedule> {
-  return invoke("schedule_next_check_in", { minutes });
+export function startTimer(minutes: number): Promise<TimerState> {
+  return invoke("start_timer", { minutes });
 }
 
-export function closeCheckInPopup(
+export function closePopup(
   dismissed: boolean,
   minutes: number | null = null,
 ): Promise<void> {
-  return invoke("close_check_in_popup", { dismissed, minutes });
+  return invoke("close_popup", { dismissed, minutes });
 }
 
-export function summonCheckIn(): Promise<void> {
-  return invoke("summon_check_in");
+export function showPopup(): Promise<void> {
+  return invoke("show_popup");
+}
+
+export function showDashboard(): Promise<void> {
+  return invoke("show_dashboard");
 }
 
 export function submitBrainDump(
   text: string,
-  title: string | null = null,
+  tagIds: number[] = [],
 ): Promise<BrainDump> {
-  return invoke("submit_brain_dump", { text, title });
+  return invoke("submit_brain_dump", { text, tagIds });
 }
 
-export function updateBrainDumpTitle(
+export function listBrainDumps(
+  from: number,
+  to: number,
+  limit?: number,
+): Promise<BrainDump[]> {
+  return invoke("list_brain_dumps", { from, to, limit: limit ?? null });
+}
+
+export function listTags(): Promise<Tag[]> {
+  return invoke("list_tags");
+}
+
+export function createTag(name: string): Promise<Tag> {
+  return invoke("create_tag", { name });
+}
+
+export function renameTag(id: number, name: string): Promise<Tag> {
+  return invoke("rename_tag", { id, name });
+}
+
+export function deleteTag(id: number): Promise<void> {
+  return invoke("delete_tag", { id });
+}
+
+export function updateBrainDumpTags(
   id: number,
-  title: string | null,
+  tagIds: number[],
 ): Promise<BrainDump> {
-  return invoke("update_brain_dump_title", { id, title });
-}
-
-export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
-  return invoke("list_brain_dumps", { from, to });
+  return invoke("update_brain_dump_tags", { id, tagIds });
 }
 
 export function logClientEvent(message: string): Promise<void> {
   return invoke("log_client_event", { message });
+}
+
+/** Marks that the user started dragging the popup (persist origin on hide). */
+export function notePopupDrag(): Promise<void> {
+  return invoke("note_popup_drag");
 }

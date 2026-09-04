@@ -2,27 +2,27 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { DashboardDataProvider } from "./context/DashboardDataContext";
+import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import {
   DashboardHeader,
   DashboardSidebar,
   type DashboardView,
 } from "./components/DashboardHeader";
-import { BrainDumpModal } from "./components/BrainDumpModal";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
+import { CalendarView } from "./views/CalendarView";
 import { InsightsView } from "./views/InsightsView";
-import { JournalView } from "./views/JournalView";
+import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
-import { MetricsView } from "./views/MetricsView";
+import { SettingsView } from "./views/SettingsView";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
-  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -48,32 +48,27 @@ function DashboardInner() {
   }, []);
 
   return (
-    <main className="dashboard">
-      <DashboardSidebar
-        view={view}
-        onSelectView={setView}
-        brainDumpOpen={brainDumpOpen}
-        onToggleBrainDump={() => setBrainDumpOpen((open) => !open)}
-      />
-      <div className={`dashboard__inner dashboard__inner--${view}`}>
-        <DashboardHeader />
+    <FloatingBrainDumpsProvider>
+      <main className="dashboard">
+        <DashboardSidebar view={view} onSelectView={setView} />
+        <div className={`dashboard__inner dashboard__inner--${view}`}>
+          {view === "overview" && <DashboardHeader />}
 
-        <BrainDumpModal
-          open={brainDumpOpen}
-          onClose={() => setBrainDumpOpen(false)}
-        />
+          <ErrorBanner />
 
-        <ErrorBanner />
-
-        {view === "overview" && <OverviewView />}
-        {view === "insights" && <InsightsView />}
-        {view === "journal" && <JournalView />}
-        {view === "tasks" && <TasksView />}
-        {view === "metrics" && <MetricsView />}
-      </div>
-      <ScopeMenu />
-      <StatusMenu />
-    </main>
+          {view === "overview" && (
+            <OverviewView onOpenTasks={() => setView("tasks")} />
+          )}
+          {view === "calendar" && <CalendarView />}
+          {view === "insights" && <InsightsView />}
+          {view === "logs" && <LogsView />}
+          {view === "tasks" && <TasksView />}
+          {view === "settings" && <SettingsView />}
+        </div>
+        <ScopeMenu />
+        <StatusMenu />
+      </main>
+    </FloatingBrainDumpsProvider>
   );
 }
 

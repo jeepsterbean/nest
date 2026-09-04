@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  adjacentBrainDumpIndex,
+  brainDumpHistoryDirection,
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
 } from "../../src/lib/brainDumpDraft";
+
+describe("adjacentBrainDumpIndex", () => {
+  it("moves between the current draft and at most five saved dumps", () => {
+    expect(adjacentBrainDumpIndex(-1, 1, 5)).toBe(0);
+    expect(adjacentBrainDumpIndex(4, 1, 5)).toBe(4);
+    expect(adjacentBrainDumpIndex(0, -1, 5)).toBe(-1);
+    expect(adjacentBrainDumpIndex(-1, -1, 5)).toBe(-1);
+  });
+});
+
+describe("brainDumpHistoryDirection", () => {
+  it("maps modified brackets to brain dump history navigation", () => {
+    expect(
+      brainDumpHistoryDirection({ key: "[", metaKey: true, ctrlKey: false }),
+    ).toBe(1);
+    expect(
+      brainDumpHistoryDirection({ key: "]", metaKey: false, ctrlKey: true }),
+    ).toBe(-1);
+    expect(
+      brainDumpHistoryDirection({ key: "[", metaKey: false, ctrlKey: false }),
+    ).toBeNull();
+  });
+});
 
 const enter = {
   key: "Enter",
@@ -23,10 +48,7 @@ describe("isBrainDumpSubmitShortcut", () => {
 });
 
 describe("trimBrainDumpDraft", () => {
-  it("keeps the title attached to the shared body", () => {
-    expect(trimBrainDumpDraft({ title: "  Plan  ", text: "  Details  " })).toEqual({
-      title: "Plan",
-      text: "Details",
-    });
+  it("trims the shared body", () => {
+    expect(trimBrainDumpDraft({ text: "  Details  ", tagIds: [] })).toBe("Details");
   });
 });

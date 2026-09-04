@@ -9,26 +9,35 @@ import {
   renamePulse,
   reorderPulseMetrics,
   reorderPulses,
+  setMetricColor,
   setMetricIcon,
   setPulseIcon,
 } from "../../lib/commands";
+import { resolveMetricColorFromList } from "../../lib/metricColors";
 import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
-import { IconPicker, NestIcon } from "../components/PulseIcon";
+import { IconPicker, NestIcon, nestIconLabel } from "../components/PulseIcon";
 import { Sparkline } from "../components/Sparkline";
+import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
+import { useCurrentTime } from "../hooks/useCurrentTime";
 import { buildMetricSeries } from "../lib/timeline";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
 const METRIC_RANGES = [
-  { key: "30m", label: "30 minutes", seconds: 30 * 60 },
-  { key: "1h", label: "1 hour", seconds: 60 * 60 },
-  { key: "3h", label: "3 hours", seconds: 3 * 60 * 60 },
-  { key: "1d", label: "1 day", seconds: 24 * 60 * 60 },
+  { key: "30m", label: "30m", aria: "30 minutes", seconds: 30 * 60 },
+  { key: "1h", label: "1h", aria: "1 hour", seconds: 60 * 60 },
+  { key: "3h", label: "3h", aria: "3 hours", seconds: 3 * 60 * 60 },
+  { key: "1d", label: "1d", aria: "1 day", seconds: 24 * 60 * 60 },
+] as const;
+
+const METRIC_VIEWS = [
+  { key: "pulses", label: "Pulses" },
+  { key: "all", label: "Metrics" },
 ] as const;
 
 function TrashIcon() {
@@ -76,6 +85,7 @@ export function MetricsView() {
   const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [metricIconPickerId, setMetricIconPickerId] = useState<number | null>(null);
+  const nowMs = useCurrentTime();
 
   const metricRename = useInlineRename({
     rename: renameMetric,
@@ -95,6 +105,18 @@ export function MetricsView() {
       pulses.find((pulse) => pulse.id === remembered)?.id ?? pulses[0]?.id ?? null,
     );
   }, [pulses, selectedPulseId]);
+
+  useEffect(() => {
+    if (!iconPickerOpen && metricIconPickerId === null) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest(".pulse-icon-control, .metric-icon-control")) return;
+      setIconPickerOpen(false);
+      setMetricIconPickerId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [iconPickerOpen, metricIconPickerId]);
 
   const selectPulse = (id: number) => {
     setSelectedPulseId(id);
@@ -127,11 +149,11 @@ export function MetricsView() {
           ? checkIns.filter(
               (checkIn) =>
                 checkIn.pulseId === selectedPulse.id &&
-                checkIn.createdAt >= Date.now() / 1000 - rangeSeconds,
+                checkIn.createdAt >= nowMs / 1000 - rangeSeconds,
             )
           : [],
       ),
-    [checkIns, rangeSeconds, selectedPulse],
+    [checkIns, nowMs, rangeSeconds, selectedPulse],
   );
 
   const onCreatePulse = async (event: FormEvent) => {
@@ -160,7 +182,7 @@ export function MetricsView() {
 
   const onDeletePulse = () => {
     if (!selectedPulse) return;
-    if (!window.confirm(`Delete “${selectedPulse.name}”? Its past check-ins will stay in the journal.`)) {
+    if (!window.confirm(`Delete “${selectedPulse.name}”? Its past Metric check-ins will stay in Logs.`)) {
       return;
     }
     void mutate(() => deletePulse(selectedPulse.id));
@@ -179,6 +201,10 @@ export function MetricsView() {
     }
   };
 
+  const onSetMetricColor = async (metric: Metric, color: string | null) => {
+    await mutate(() => setMetricColor(metric.id, color));
+  };
+
   const pulseIds = pulses.map((pulse) => pulse.id);
   const pulseSort = useListSort("pulse", pulseIds, (ids) => {
     void mutate(() => reorderPulses(ids));
@@ -193,30 +219,18 @@ export function MetricsView() {
   );
 
   return (
-    <section className="dash-section dash-section--metrics">
-      <header className="dash-section__head metrics-head">
-        <nav className="metrics-tabs" role="tablist" aria-label="Metric views">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "pulses"}
-            onClick={() => setView("pulses")}
-          >
-            Pulses
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "all"}
-            onClick={() => setView("all")}
-          >
-            Metrics
-          </button>
-        </nav>
+    <div className="settings-pane settings-pane--metrics">
+      <header className="settings-pane__toolbar">
+        <ViewToggle
+          value={view}
+          options={METRIC_VIEWS}
+          label="Metric views"
+          onChange={setView}
+        />
       </header>
 
       {view === "pulses" ? (
-        <div className="pulse-workspace" role="tabpanel">
+        <div className="pulse-workspace">
           <aside className="pulse-sidebar" aria-label="Pulses">
             <div className="pulse-sidebar__head">
               <span>Pulses</span>
@@ -242,7 +256,12 @@ export function MetricsView() {
                       if (event.key === "Escape") setAddingPulse(false);
                     }}
                   />
-                  <button type="submit" disabled={!newPulseName.trim()} aria-label="Create pulse">
+                  <button
+                    type="submit"
+                    className="btn-accent"
+                    disabled={!newPulseName.trim()}
+                    aria-label="Create pulse"
+                  >
                     Add
                   </button>
                 </div>
@@ -267,7 +286,9 @@ export function MetricsView() {
                       </span>
                       {pulseRename.editingId === pulse.id ? (
                         <div className="pulse-list__rename">
-                          <NestIcon name={pulse.icon} />
+                          <span title={nestIconLabel(pulse.icon)}>
+                            <NestIcon name={pulse.icon} />
+                          </span>
                           <input
                             className="rename-input"
                             autoFocus
@@ -296,7 +317,9 @@ export function MetricsView() {
                             }
                           }}
                         >
-                          <NestIcon name={pulse.icon} />
+                          <span title={nestIconLabel(pulse.icon)}>
+                            <NestIcon name={pulse.icon} />
+                          </span>
                           <span>{pulse.name}</span>
                         </button>
                       )}
@@ -330,6 +353,7 @@ export function MetricsView() {
                       type="button"
                       className="pulse-icon-trigger"
                       aria-label={`Choose icon for ${selectedPulse.name}`}
+                      title={nestIconLabel(selectedPulse.icon)}
                       aria-expanded={iconPickerOpen}
                       onClick={() => setIconPickerOpen((open) => !open)}
                     >
@@ -344,19 +368,12 @@ export function MetricsView() {
                     )}
                   </div>
                   <div className="pulse-detail__actions">
-                    <div className="pulse-range" role="group" aria-label="Metric history range">
-                      {METRIC_RANGES.map((range) => (
-                        <button
-                          type="button"
-                          key={range.key}
-                          aria-label={range.label}
-                          aria-pressed={metricRange === range.key}
-                          onClick={() => setMetricRange(range.key)}
-                        >
-                          {range.key}
-                        </button>
-                      ))}
-                    </div>
+                    <ViewToggle
+                      value={metricRange}
+                      options={METRIC_RANGES}
+                      label="Metric history range"
+                      onChange={setMetricRange}
+                    />
                     <button
                       type="button"
                       className="pulse-delete"
@@ -384,7 +401,12 @@ export function MetricsView() {
                         {gripIcon}
                       </span>
                       <div className="metric-identity">
-                        <NestIcon name={metric.icon} />
+                        <span title={nestIconLabel(metric.icon)}>
+                          <NestIcon
+                            name={metric.icon}
+                            color={resolveMetricColorFromList(metrics, metric.id)}
+                          />
+                        </span>
                         <strong>{metric.name}</strong>
                       </div>
                       <MetricTrend values={pulseSeries.get(metric.id) ?? []} />
@@ -430,7 +452,7 @@ export function MetricsView() {
           </main>
         </div>
       ) : (
-        <div className="all-metrics" role="tabpanel">
+        <div className="all-metrics">
           <header className="all-metrics__head">
             <div>
               <h3>All metrics</h3>
@@ -440,6 +462,7 @@ export function MetricsView() {
           <ul className="pulse-metrics pulse-metrics--all">
             {metrics.map((metric: Metric) => {
                 const membershipCount = pulses.filter((pulse) => pulse.metricIds.includes(metric.id)).length;
+                const metricColor = resolveMetricColorFromList(metrics, metric.id);
                 return (
                   <li className="pulse-metric" key={metric.id}>
                     <div className="metric-identity">
@@ -448,16 +471,20 @@ export function MetricsView() {
                           type="button"
                           className="metric-icon-trigger"
                           aria-label={`Choose icon for ${metric.name}`}
+                          title={nestIconLabel(metric.icon)}
                           aria-expanded={metricIconPickerId === metric.id}
                           onClick={() => setMetricIconPickerId((id) => id === metric.id ? null : metric.id)}
                         >
-                          <NestIcon name={metric.icon} />
+                          <NestIcon name={metric.icon} color={metricColor} />
                         </button>
                         {metricIconPickerId === metric.id && (
                           <IconPicker
                             value={metric.icon}
                             label={`Icon for ${metric.name}`}
+                            color={metric.color}
+                            iconColor={metricColor}
                             onChange={(icon) => void onSetMetricIcon(metric, icon)}
+                            onColorChange={(color) => void onSetMetricColor(metric, color)}
                           />
                         )}
                       </div>
@@ -523,6 +550,6 @@ export function MetricsView() {
           </ul>
         </div>
       )}
-    </section>
+    </div>
   );
 }

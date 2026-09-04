@@ -1,55 +1,94 @@
 import {
   Activity,
+  AlarmClock,
   Apple,
+  Bandage,
+  Bath,
   BatteryCharging,
   Bed,
   BicepsFlexed,
   Bike,
+  Bird,
   BookHeart,
   BookOpen,
   Brain,
   BriefcaseBusiness,
   CalendarDays,
+  Camera,
+  Carrot,
+  Cat,
   CircleCheck,
   CircleGauge,
   Clock3,
   CloudRain,
   CloudSun,
   Coffee,
+  Compass,
+  CookingPot,
+  Dog,
+  Droplets,
   Dumbbell,
+  Ear,
   Eye,
+  FaceGrinning,
+  FaceSlightlyFrowning,
+  FaceSlightlySmiling,
   Flame,
   Flower2,
   Footprints,
+  Gamepad2,
   GlassWater,
   Goal,
   HandHeart,
+  Headphones,
+  HeartHandshake,
   HeartPulse,
   House,
+  Laptop,
   Leaf,
   Lightbulb,
+  MapPin,
   Medal,
+  MessageCircleHeart,
   Moon,
   Mountain,
   Music2,
   NotebookPen,
   Palette,
+  PartyPopper,
+  PawPrint,
   PersonStanding,
+  PhoneOff,
   Pill,
+  Plane,
+  Rainbow,
   Salad,
   ShieldCheck,
   Shuffle,
+  Snowflake,
+  Sofa,
+  Soup,
   Sparkles,
   Sprout,
   Star,
+  Stethoscope,
+  StretchHorizontal,
   Sun,
+  Sunrise,
+  Sunset,
   Target,
   Timer,
+  Trees,
   Trophy,
+  Users,
   Utensils,
+  WavesHorizontal,
+  Weight,
+  Wind,
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { MetricColorPicker } from "./MetricColorPicker";
 
 export const NEST_ICONS = [
   { key: "activity", label: "Activity", Icon: Activity },
@@ -86,7 +125,7 @@ export const NEST_ICONS = [
   { key: "moon", label: "Moon", Icon: Moon },
   { key: "mountain", label: "Challenge", Icon: Mountain },
   { key: "music", label: "Music", Icon: Music2 },
-  { key: "notes", label: "Journal", Icon: NotebookPen },
+  { key: "notes", label: "Notes", Icon: NotebookPen },
   { key: "palette", label: "Creativity", Icon: Palette },
   { key: "body", label: "Body", Icon: PersonStanding },
   { key: "medicine", label: "Medicine", Icon: Pill },
@@ -100,6 +139,44 @@ export const NEST_ICONS = [
   { key: "trophy", label: "Win", Icon: Trophy },
   { key: "food", label: "Food", Icon: Utensils },
   { key: "zap", label: "Charge", Icon: Zap },
+  { key: "alarm", label: "Alarm", Icon: AlarmClock },
+  { key: "bandage", label: "Recovery", Icon: Bandage },
+  { key: "bath", label: "Bath", Icon: Bath },
+  { key: "bird", label: "Nature", Icon: Bird },
+  { key: "camera", label: "Photo", Icon: Camera },
+  { key: "carrot", label: "Produce", Icon: Carrot },
+  { key: "cat", label: "Cat", Icon: Cat },
+  { key: "celebrate", label: "Celebrate", Icon: PartyPopper },
+  { key: "chat", label: "Connection", Icon: MessageCircleHeart },
+  { key: "compass", label: "Direction", Icon: Compass },
+  { key: "cook", label: "Cooking", Icon: CookingPot },
+  { key: "dog", label: "Dog", Icon: Dog },
+  { key: "droplets", label: "Tears", Icon: Droplets },
+  { key: "ear", label: "Listening", Icon: Ear },
+  { key: "games", label: "Play", Icon: Gamepad2 },
+  { key: "grin", label: "Joy", Icon: FaceGrinning },
+  { key: "headphones", label: "Audio", Icon: Headphones },
+  { key: "support", label: "Support", Icon: HeartHandshake },
+  { key: "laptop", label: "Screen", Icon: Laptop },
+  { key: "place", label: "Place", Icon: MapPin },
+  { key: "mood", label: "Mood", Icon: FaceSlightlySmiling },
+  { key: "low", label: "Low", Icon: FaceSlightlyFrowning },
+  { key: "paw", label: "Pets", Icon: PawPrint },
+  { key: "people", label: "People", Icon: Users },
+  { key: "travel", label: "Travel", Icon: Plane },
+  { key: "quiet", label: "Quiet", Icon: PhoneOff },
+  { key: "rainbow", label: "Hope", Icon: Rainbow },
+  { key: "snow", label: "Cold", Icon: Snowflake },
+  { key: "sofa", label: "Rest", Icon: Sofa },
+  { key: "soup", label: "Soup", Icon: Soup },
+  { key: "health", label: "Health", Icon: Stethoscope },
+  { key: "stretch", label: "Stretch", Icon: StretchHorizontal },
+  { key: "sunrise", label: "Morning", Icon: Sunrise },
+  { key: "sunset", label: "Evening", Icon: Sunset },
+  { key: "trees", label: "Outdoors", Icon: Trees },
+  { key: "waves", label: "Calm", Icon: WavesHorizontal },
+  { key: "weight", label: "Weight", Icon: Weight },
+  { key: "wind", label: "Breath", Icon: Wind },
 ] as const satisfies ReadonlyArray<{
   key: string;
   label: string;
@@ -110,9 +187,24 @@ const ICONS = Object.fromEntries(
   NEST_ICONS.map(({ key, Icon }) => [key, Icon]),
 ) as Record<string, LucideIcon>;
 
-export function NestIcon({ name }: { name: string }) {
+const ICON_LABELS = Object.fromEntries(
+  NEST_ICONS.map(({ key, label }) => [key, label]),
+) as Record<string, string>;
+
+/** Friendly name for a Nest icon key (e.g. hover tooltips). */
+export function nestIconLabel(name: string) {
+  return ICON_LABELS[name] ?? "Activity";
+}
+
+export function NestIcon({ name, color }: { name: string; color?: string }) {
   const Icon = ICONS[name] ?? Activity;
-  return <Icon aria-hidden="true" focusable="false" />;
+  return (
+    <Icon
+      aria-hidden="true"
+      focusable="false"
+      style={color ? { color } : undefined}
+    />
+  );
 }
 
 export function pickRandomIcon(current: string, random = Math.random) {
@@ -124,11 +216,18 @@ export function IconPicker({
   value,
   label,
   onChange,
+  color = null,
+  iconColor,
+  onColorChange,
 }: {
   value: string;
   label: string;
   onChange: (icon: string) => void;
+  color?: string | null;
+  iconColor?: string;
+  onColorChange?: (color: string | null) => void;
 }) {
+  const tint = iconColor ?? color ?? undefined;
   return (
     <div className="icon-picker" role="group" aria-label={label}>
       <button
@@ -149,10 +248,18 @@ export function IconPicker({
             title={iconLabel}
             onClick={() => onChange(key)}
           >
-            <NestIcon name={key} />
+            <NestIcon name={key} color={value === key ? tint : undefined} />
           </button>
         ))}
       </div>
+      {onColorChange ? (
+        <MetricColorPicker
+          embedded
+          value={color}
+          label={`Color for ${label}`}
+          onChange={onColorChange}
+        />
+      ) : null}
     </div>
   );
 }

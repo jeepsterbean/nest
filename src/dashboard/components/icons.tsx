@@ -10,25 +10,10 @@ const iconProps = {
   "aria-hidden": true,
 } as const;
 
-export const pencilIcon = (
-  <svg {...iconProps}>
-    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-  </svg>
-);
-
 export const clockIcon = (
   <svg {...iconProps}>
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v5l3 2" />
-  </svg>
-);
-
-export const eyeOffIcon = (
-  <svg {...iconProps}>
-    <path d="M3 3l18 18" />
-    <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
-    <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9 6 9 6a15.6 15.6 0 0 1-2.1 2.8" />
-    <path d="M6.2 6.2C4.2 7.5 3 10 3 10s3.5 6 9 6a9.8 9.8 0 0 0 3-.5" />
   </svg>
 );
 
@@ -85,13 +70,21 @@ export const overviewIcon = (
 
 export const insightsIcon = (
   <svg {...iconProps}>
-    <path d="M9 18h6" />
-    <path d="M10 22h4" />
-    <path d="M8.4 14.5A7 7 0 1 1 15.6 14.5 4.2 4.2 0 0 0 14 18h-4a4.2 4.2 0 0 0-1.6-3.5z" />
+    <path d="M4 16l5-5 3.5 3.5L20 7" />
+    <path d="M15 7h5v5" />
   </svg>
 );
 
-export const journalIcon = (
+export const calendarIcon = (
+  <svg {...iconProps}>
+    <rect x="4" y="5" width="16" height="15" rx="2" />
+    <path d="M8 3v4" />
+    <path d="M16 3v4" />
+    <path d="M4 10h16" />
+  </svg>
+);
+
+export const logsIcon = (
   <svg {...iconProps}>
     <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
     <path d="M8 4v16" />
@@ -106,12 +99,35 @@ export const tasksIcon = (
   </svg>
 );
 
-export const metricsIcon = (
+export const settingsIcon = (
   <svg {...iconProps}>
-    <path d="M4 20V10" />
-    <path d="M10 20V4" />
-    <path d="M16 20v-7" />
-    <path d="M22 20V7" />
+    <line x1="4" x2="20" y1="7" y2="7" />
+    <line x1="4" x2="20" y1="12" y2="12" />
+    <line x1="4" x2="20" y1="17" y2="17" />
+    <circle cx="8" cy="7" r="2" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+    <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const tagsIcon = (
+  <svg {...iconProps}>
+    <path d="M20 13 13 20 4 11V4h7z" />
+    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const promoteIcon = (
+  <svg {...iconProps}>
+    <path d="M12 19V5" />
+    <path d="m5 12 7-7 7 7" />
+  </svg>
+);
+
+export const floatingDraftIcon = (
+  <svg {...iconProps}>
+    <path d="M6 3h12a3 3 0 0 1 3 3v9l-6 6H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z" />
+    <path d="M15 21v-4a2 2 0 0 1 2-2h4" />
   </svg>
 );
 

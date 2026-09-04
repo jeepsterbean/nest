@@ -698,7 +698,7 @@ WHERE name NOT IN ('Scoping', 'Doing', 'Resting');
         // A pulse is now the only grouping/lifecycle for metrics. Preserve the
         // old active set as one pulse, leave old inactive metrics unassigned,
         // and snapshot the pulse name on check-ins so deleting a pulse keeps
-        // its journal history legible.
+        // its history legible.
         M::up(
             r#"
 CREATE TABLE pulses (
@@ -747,6 +747,155 @@ ALTER TABLE pulse_metrics ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
 UPDATE pulse_metrics SET sort_order = rowid;
 "#,
         ),
+        // Offline is the live Phase for lock / display-sleep / system-sleep.
+        // Freeze-to-three inactivated any extra names; reactivate or insert it.
+        M::up(
+            r#"
+INSERT INTO phases (name, created_at)
+SELECT 'Offline', CAST(strftime('%s', 'now') AS INTEGER)
+WHERE NOT EXISTS (SELECT 1 FROM phases WHERE name = 'Offline');
+
+UPDATE phases SET inactive_since = NULL WHERE name = 'Offline';
+"#,
+        ),
+        // Task lists are drag-sortable, so tasks keep a manual sort_order.
+        // Seed it from the old newest-updated-first order.
+        M::up(
+            r#"
+ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE tasks SET sort_order = (
+  SELECT COUNT(*) FROM tasks other
+  WHERE other.updated_at > tasks.updated_at
+     OR (other.updated_at = tasks.updated_at AND other.id > tasks.id)
+);
+"#,
+        ),
+        // Repair databases that burned a version slot on the sort_order
+        // migration while it briefly sat mid-list during development.
+        M::up_with_hook("", |tx| {
+            let has_sort_order: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'sort_order')",
+                [],
+                |row| row.get(0),
+            )?;
+            if !has_sort_order {
+                tx.execute_batch(
+                    "ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+                     UPDATE tasks SET sort_order = (
+                       SELECT COUNT(*) FROM tasks other
+                       WHERE other.updated_at > tasks.updated_at
+                          OR (other.updated_at = tasks.updated_at AND other.id > tasks.id)
+                     );",
+                )?;
+            }
+            Ok(())
+        }),
+        // Each stretch of Working now becomes a row with a start and an end,
+        // replacing the three timer columns on tasks. Legacy totals have no
+        // timestamps, so preserve each as one closed stretch ending at the
+        // current live start or the Task's last update. No table rebuild:
+        // SQLite drops a column-level CHECK along with its column, so
+        // sort_order and the parent self-FK are never at risk.
+        M::up(
+            r#"
+CREATE TABLE task_work_stretches (
+  id         INTEGER PRIMARY KEY,
+  task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  started_at INTEGER NOT NULL,
+  ended_at   INTEGER,
+  CHECK (ended_at IS NULL OR ended_at >= started_at)
+);
+
+CREATE INDEX idx_task_work_stretches_task_started
+  ON task_work_stretches(task_id, started_at DESC);
+CREATE INDEX idx_task_work_stretches_started_at
+  ON task_work_stretches(started_at);
+CREATE UNIQUE INDEX idx_task_work_stretches_open
+  ON task_work_stretches(task_id) WHERE ended_at IS NULL;
+
+INSERT INTO task_work_stretches (task_id, started_at, ended_at)
+SELECT id,
+       COALESCE(work_started_at, updated_at) - worked_seconds,
+       COALESCE(work_started_at, updated_at)
+FROM tasks
+WHERE worked_seconds > 0;
+
+INSERT INTO task_work_stretches (task_id, started_at, ended_at)
+SELECT id, work_started_at, NULL FROM tasks
+WHERE working_now = 1 AND work_started_at IS NOT NULL;
+
+ALTER TABLE tasks DROP COLUMN working_now;
+ALTER TABLE tasks DROP COLUMN worked_seconds;
+ALTER TABLE tasks DROP COLUMN work_started_at;
+"#,
+        ),
+        // TimerState lives here. The table kept the old check-in name until
+        // the timer/popup rename; live queries must use timer_schedule.
+        M::up("ALTER TABLE check_in_schedule RENAME TO timer_schedule;"),
+        // A running Nest stamps this while any Work stretch is open. A clean
+        // exit banks open stretches; after a crash there is no such moment, so
+        // the last heartbeat stands in for one and the downtime before the next
+        // launch is not counted as work.
+        M::up(
+            r#"
+CREATE TABLE app_heartbeat (
+  id      INTEGER PRIMARY KEY CHECK (id = 1),
+  beat_at INTEGER NOT NULL
+);
+
+INSERT INTO app_heartbeat (id, beat_at) VALUES (1, 0);
+"#,
+        ),
+        M::up("ALTER TABLE metrics ADD COLUMN color TEXT;"),
+        // Closing the popup leaves the timer paused at zero; persist that so
+        // a restart does not treat an overdue next_due_at as a fresh due.
+        M::up(
+            "ALTER TABLE timer_schedule ADD COLUMN waiting_for_response INTEGER NOT NULL DEFAULT 0;",
+        ),
+        M::up(
+            r#"
+CREATE TABLE tags (
+  id         INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE brain_dump_tags (
+  brain_dump_id INTEGER NOT NULL REFERENCES brain_dumps(id) ON DELETE CASCADE,
+  tag_id        INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (brain_dump_id, tag_id)
+);
+
+CREATE INDEX idx_brain_dump_tags_tag_id ON brain_dump_tags(tag_id);
+"#,
+        ),
+        // Phase appearance is user-owned. Seed the existing four-Phase visual
+        // language so upgrading keeps its meaning, then let settings replace it.
+        M::up(
+            r#"
+ALTER TABLE phases ADD COLUMN icon TEXT NOT NULL DEFAULT 'activity';
+ALTER TABLE phases ADD COLUMN color TEXT;
+
+UPDATE phases SET icon = CASE name
+  WHEN 'Doing' THEN 'target'
+  WHEN 'Scoping' THEN 'idea'
+  WHEN 'Resting' THEN 'coffee'
+  WHEN 'Offline' THEN 'moon'
+  ELSE 'activity'
+END;
+
+UPDATE phases SET color = CASE name
+  WHEN 'Doing' THEN '#5f8fb8'
+  WHEN 'Scoping' THEN '#c18e43'
+  WHEN 'Resting' THEN '#35764e'
+  ELSE NULL
+END;
+"#,
+        ),
+        // Brain dumps no longer carry an optional title; first line of text is
+        // enough for Logs display, and fork-to-sticky replaces editing.
+        M::up("ALTER TABLE brain_dumps DROP COLUMN title;"),
     ])
 }
 
@@ -754,6 +903,175 @@ UPDATE pulse_metrics SET sort_order = rowid;
 mod tests {
     use super::migrations;
     use rusqlite::Connection;
+
+    /// Schema version right after tasks gained sort_order, i.e. the slot the
+    /// repair hook that follows it fixes up. Bump only if a migration is ever
+    /// inserted at or before that slot.
+    const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn adds_configurable_phase_appearance() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+
+        let phases: Vec<(String, String, Option<String>)> = conn
+            .prepare(
+                "SELECT name, icon, color FROM phases WHERE inactive_since IS NULL ORDER BY name",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+
+        assert_eq!(
+            phases,
+            vec![
+                ("Doing".into(), "target".into(), Some("#5f8fb8".into())),
+                ("Offline".into(), "moon".into(), None),
+                ("Resting".into(), "coffee".into(), Some("#35764e".into())),
+                ("Scoping".into(), "idea".into(), Some("#c18e43".into())),
+            ]
+        );
+    }
+
+    #[test]
+    fn tag_deletion_removes_associations_and_keeps_brain_dumps() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO brain_dumps (id, created_at, text) VALUES (1, 10, 'Keep me')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 10)",
+            [],
+        )
+        .unwrap();
+        assert!(conn
+            .execute(
+                "INSERT INTO tags (id, name, created_at) VALUES (2, 'work', 11)",
+                [],
+            )
+            .is_err());
+        conn.execute(
+            "INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (1, 1)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM tags WHERE id = 1", []).unwrap();
+
+        let dump_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+            .unwrap();
+        let association_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM brain_dump_tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!((dump_count, association_count), (1, 0));
+    }
+
+    #[test]
+    fn repairs_a_database_that_burned_a_version_on_the_sort_order_migration() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        // The shipped-then-moved migration left real databases stopped right
+        // after the sort_order slot with no sort_order column. Stop there
+        // rather than rewinding from latest, so appending migrations later
+        // neither retargets this test nor re-runs a one-shot migration.
+        migrations().to_version(&mut conn, SORT_ORDER_VERSION).unwrap();
+        conn.execute_batch("ALTER TABLE tasks DROP COLUMN sort_order;")
+            .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+        let has_sort_order: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') \
+                 WHERE name = 'sort_order')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(has_sort_order);
+    }
+
+    #[test]
+    fn work_stretches_preserve_banked_and_live_work() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 35).unwrap();
+        conn.execute(
+            "INSERT INTO tasks \
+             (id, title, status, working_now, worked_seconds, work_started_at, \
+              sort_order, created_at, updated_at) \
+             VALUES (1, 'Working', 'active', 1, 300, 900, 7, 1, 1000), \
+                    (2, 'Banked only', 'active', 0, 500, NULL, 8, 1, 1000)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let stretches: Vec<(i64, i64, Option<i64>)> = conn
+            .prepare(
+                "SELECT task_id, started_at, ended_at FROM task_work_stretches \
+                 ORDER BY task_id, id",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            stretches,
+            vec![(1, 600, Some(900)), (1, 900, None), (2, 500, Some(1000)),]
+        );
+
+        let worked: Vec<(i64, i64)> = conn
+            .prepare(
+                "SELECT task_id, SUM(ended_at - started_at) \
+                 FROM task_work_stretches WHERE ended_at IS NOT NULL \
+                 GROUP BY task_id ORDER BY task_id",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(worked, vec![(1, 300), (2, 500)]);
+
+        let sort_order: i64 = conn
+            .query_row("SELECT sort_order FROM tasks WHERE id = 2", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(sort_order, 8);
+
+        let timer_columns: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('tasks') \
+                 WHERE name IN ('working_now', 'worked_seconds', 'work_started_at')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(timer_columns, 0);
+
+        // One open stretch per task, enforced by the partial unique index.
+        conn.execute(
+            "INSERT INTO task_work_stretches (task_id, started_at) VALUES (1, 950)",
+            [],
+        )
+        .unwrap_err();
+
+        let foreign_key_errors: i64 = conn
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(foreign_key_errors, 0);
+    }
 
     #[test]
     fn repairs_database_missing_brain_dumps_after_mid_list_migration_insert() {
@@ -825,7 +1143,7 @@ CREATE TABLE phase_check_ins (
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(title_column_count, 1);
+        assert_eq!(title_column_count, 0);
 
         conn.execute(
             "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",
@@ -850,7 +1168,7 @@ CREATE TABLE phase_check_ins (
 
         let (interval, next_due_at): (i64, i64) = conn
             .query_row(
-                "SELECT interval_minutes, next_due_at FROM check_in_schedule WHERE id = 1",
+                "SELECT interval_minutes, next_due_at FROM timer_schedule WHERE id = 1",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1009,10 +1327,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
-        let working_now: bool = conn
-            .query_row("SELECT working_now FROM tasks", [], |row| row.get(0))
+        let open_stretches: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_work_stretches WHERE ended_at IS NULL",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
-        assert!(!working_now);
+        assert_eq!(open_stretches, 0);
     }
 
     #[test]
@@ -1095,7 +1417,10 @@ CREATE TABLE phase_check_ins (
 
         let parked: (String, bool) = conn
             .query_row(
-                "SELECT status, working_now FROM tasks WHERE id = 1",
+                "SELECT t.status, \
+                 EXISTS(SELECT 1 FROM task_work_stretches s \
+                        WHERE s.task_id = t.id AND s.ended_at IS NULL) \
+                 FROM tasks t WHERE t.id = 1",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1139,9 +1464,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
+        // Live work carries over as an open stretch; banked totals start fresh.
         let timer: (i64, Option<i64>) = conn
             .query_row(
-                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                "SELECT COALESCE((SELECT SUM(ended_at - started_at) \
+                                  FROM task_work_stretches \
+                                  WHERE task_id = 1 AND ended_at IS NOT NULL), 0), \
+                 (SELECT started_at FROM task_work_stretches \
+                  WHERE task_id = 1 AND ended_at IS NULL)",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1164,9 +1494,14 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
+        // Live work carries over as an open stretch; banked totals start fresh.
         let timer: (i64, Option<i64>) = conn
             .query_row(
-                "SELECT worked_seconds, work_started_at FROM tasks WHERE id = 1",
+                "SELECT COALESCE((SELECT SUM(ended_at - started_at) \
+                                  FROM task_work_stretches \
+                                  WHERE task_id = 1 AND ended_at IS NOT NULL), 0), \
+                 (SELECT started_at FROM task_work_stretches \
+                  WHERE task_id = 1 AND ended_at IS NULL)",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -1204,7 +1539,7 @@ CREATE TABLE phase_check_ins (
         let extras: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM phases \
-                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting') \
+                 WHERE name NOT IN ('Scoping', 'Doing', 'Resting', 'Offline') \
                    AND inactive_since IS NULL",
                 [],
                 |row| row.get(0),
@@ -1220,6 +1555,15 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(historical, 1);
+
+        let offline_active: Option<i64> = conn
+            .query_row(
+                "SELECT inactive_since FROM phases WHERE name = 'Offline'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(offline_active, None);
     }
 
     #[test]

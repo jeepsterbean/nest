@@ -1,202 +1,177 @@
 import {
-  useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
-  type FormEvent,
 } from "react";
 import {
-  createTask,
+  deleteMetricCheckIn,
   submitBrainDump,
 } from "../../lib/commands";
 import {
+  isBrainDumpPeelShortcut,
   isBrainDumpSubmitShortcut,
   trimBrainDumpDraft,
   useBrainDumpDraft,
+  useRecentBrainDumpHistory,
 } from "../../lib/brainDumpDraft";
+import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
 import {
-  clockIcon,
-  eyeOffIcon,
-  pencilIcon,
-} from "../components/icons";
+  DayStats,
+  PhaseTotals,
+} from "../components/DayReflection";
+import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
+import { BrainDumpSurface } from "../components/BrainDumpSurface";
+import { OverviewTasksPanel } from "../components/OverviewTasksPanel";
+import { ViewToggle } from "../components/ViewToggle";
+import { useComposerTagProps } from "../components/BrainDumpTags";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { groupTasksByStatus, TASK_STATUS_LABEL } from "../lib/tasks";
-import { initialBrainDumpStart } from "../lib/brainDumps";
-import { TaskCard } from "../task/TaskCard";
-import { BrainDumpEntry } from "./BrainDumpEntry";
+import { useCurrentTime } from "../hooks/useCurrentTime";
+import { windowInsight } from "../lib/insights";
+import { LOG_EVENT_BATCH_SIZE } from "../lib/logs";
+import {
+  buildRawLog,
+  phaseCheckInsInRange,
+  type TimelineLogEvent,
+} from "../lib/timeline";
+import { startOfDayMs } from "../lib/time";
+import { LogsTimeline } from "./LogsTimeline";
 
-const OLDER_DUMP_BATCH_SIZE = 10;
-type OverviewTaskStatus = "active" | "up_next" | "backlog";
+const OVERVIEW_WINDOW_SECONDS = 60 * 60;
 
-export function OverviewView() {
+const OVERVIEW_TIMELINE_FILTERS = [
+  { key: "timeline", label: "Timeline" },
+  { key: "dumps", label: "Brain dumps" },
+  { key: "metrics", label: "Metrics" },
+] as const;
+
+type OverviewTimelineFilter =
+  (typeof OVERVIEW_TIMELINE_FILTERS)[number]["key"];
+
+const EMPTY_COPY: Record<
+  OverviewTimelineFilter,
+  { title: string; body: string }
+> = {
+  timeline: {
+    title: "Nothing on the timeline yet",
+    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
+  },
+  dumps: {
+    title: "No brain dumps yet",
+    body: "Capture a thought from this panel or the popup.",
+  },
+  metrics: {
+    title: "No Metric check-ins yet",
+    body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
+  },
+};
+
+const matchesTimelineFilter = (
+  event: TimelineLogEvent,
+  filter: OverviewTimelineFilter,
+) => {
+  if (filter === "timeline") return true;
+  if (filter === "dumps") return event.kind === "dump";
+  return event.kind === "metrics";
+};
+
+export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
   const {
     tasks,
-    allBrainDumps,
+    taskStatusEvents,
+    checkIns,
+    phaseCheckIns,
+    phases,
+    metrics,
+    pulses,
+    brainDumps,
+    taskWorkStretches,
+    tags,
     loaded,
     mutate,
+    setError,
   } = useDashboardData();
-  const [backlogCollapsed, setBacklogCollapsed] = useState(false);
-  const [quickAddStatus, setQuickAddStatus] =
-    useState<OverviewTaskStatus | null>(null);
-  const [quickAddTitle, setQuickAddTitle] = useState("");
-  const quickAddRef = useRef<HTMLInputElement | null>(null);
-  const [brainDumpExpanded, setBrainDumpExpanded] = useState(true);
-  const [brainDumpLogsHidden, setBrainDumpLogsHidden] = useState(false);
+  const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { title: brainDumpTitle, text: brainDumpText } = brainDumpDraft;
-  const [brainDumpSubmitting, setBrainDumpSubmitting] = useState<
-    "expanded" | "compact" | null
-  >(null);
-  const brainDumpTextRef = useRef<HTMLTextAreaElement | null>(null);
-  const compactBrainDumpRef = useRef<HTMLTextAreaElement | null>(null);
-  const brainDumpHistoryRef = useRef<HTMLDivElement | null>(null);
-  const loadingOlderDumpsRef = useRef(false);
-  const suppressHistoryAutoScrollRef = useRef(false);
-  const [visibleBrainDumpStart, setVisibleBrainDumpStart] = useState<
-    number | null
-  >(null);
-  const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    if (quickAddStatus) quickAddRef.current?.focus();
-  }, [quickAddStatus]);
-
-  const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
-  const overviewBrainDumps = useMemo(
-    () =>
-      [...allBrainDumps]
-        .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id),
-    [allBrainDumps],
+  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
+  const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
+  const composerTagProps = useComposerTagProps(
+    tags,
+    brainDumpTagIds,
+    brainDumpHistory.viewingDump,
   );
-  const visibleOverviewBrainDumps = useMemo(
-    () =>
-      overviewBrainDumps.slice(
-        visibleBrainDumpStart ?? overviewBrainDumps.length,
-      ),
-    [overviewBrainDumps, visibleBrainDumpStart],
+  const { forkToFloating } = useFloatingBrainDumpsContext();
+
+  const nowMs = useCurrentTime();
+  const dayFromSec = Math.floor(startOfDayMs(nowMs / 1000) / 1000);
+  const [timelineFilter, setTimelineFilter] =
+    useState<OverviewTimelineFilter>("timeline");
+  const [visibleEventCount, setVisibleEventCount] = useState(
+    LOG_EVENT_BATCH_SIZE,
   );
-  const hasOlderBrainDumps =
-    visibleBrainDumpStart !== null && visibleBrainDumpStart > 0;
+  const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
-  useEffect(() => {
-    if (!loaded || visibleBrainDumpStart !== null) return;
-    setVisibleBrainDumpStart(
-      initialBrainDumpStart(
-        overviewBrainDumps,
-        Math.floor(Date.now() / 1000),
-      ),
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) =>
+      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
+    [setBrainDumpDraft],
+  );
+
+  const dayReflection = useMemo(() => {
+    const to = Math.floor(Date.now() / 1000);
+    return windowInsight(
+      tasks,
+      taskStatusEvents,
+      checkIns,
+      phaseCheckIns,
+      phases,
+      to - OVERVIEW_WINDOW_SECONDS,
+      to,
     );
-  }, [loaded, overviewBrainDumps, visibleBrainDumpStart]);
+  }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
-  useEffect(() => {
-    if (
-      brainDumpExpanded ||
-      brainDumpLogsHidden ||
-      visibleBrainDumpStart === null
-    ) {
-      return;
-    }
-    if (suppressHistoryAutoScrollRef.current) {
-      suppressHistoryAutoScrollRef.current = false;
-      return;
-    }
-    requestAnimationFrame(() => {
-      const history = brainDumpHistoryRef.current;
-      if (history) history.scrollTop = history.scrollHeight;
-    });
-  }, [brainDumpExpanded, brainDumpLogsHidden, visibleBrainDumpStart]);
-
-  const onSubmitQuickBrainDump = async (e: FormEvent) => {
-    e.preventDefault();
-    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
-    if (!text || brainDumpSubmitting !== null) return;
-    setBrainDumpSubmitting("expanded");
-    const ok = await mutate(() => submitBrainDump(text, title));
-    if (ok) {
-      setBrainDumpDraft({ title: "", text: "" });
-    }
-    setBrainDumpSubmitting(null);
-  };
-
-  const onSubmitCompactBrainDump = async (e: FormEvent) => {
-    e.preventDefault();
-    const { title, text } = trimBrainDumpDraft(brainDumpDraft);
-    if (!text || brainDumpSubmitting !== null) return;
-    setBrainDumpSubmitting("compact");
-    const ok = await mutate(() => submitBrainDump(text, title));
-    if (ok) {
-      setBrainDumpDraft({ title: "", text: "" });
-      requestAnimationFrame(() => compactBrainDumpRef.current?.focus());
-    }
-    setBrainDumpSubmitting(null);
-  };
-
-  const showBrainDumpHistory = () => {
-    setBrainDumpExpanded(false);
-    requestAnimationFrame(() => compactBrainDumpRef.current?.focus());
-  };
-
-  const showBrainDumpComposer = () => {
-    setBrainDumpExpanded(true);
-    requestAnimationFrame(() => brainDumpTextRef.current?.focus());
-  };
-
-  const toggleBrainDumpLogs = () => {
-    if (!brainDumpLogsHidden) {
-      setBrainDumpLogsHidden(true);
-      return;
-    }
-    loadingOlderDumpsRef.current = false;
-    suppressHistoryAutoScrollRef.current = false;
-    setVisibleBrainDumpStart(
-      initialBrainDumpStart(
-        overviewBrainDumps,
-        Math.floor(Date.now() / 1000),
-      ),
+  const timelineEvents = useMemo(() => {
+    const eventPhaseCheckIns = phaseCheckInsInRange(
+      phaseCheckIns,
+      dayFromSec,
     );
-    setBrainDumpLogsHidden(false);
-  };
-
-  const loadOlderBrainDumps = () => {
-    if (
-      visibleBrainDumpStart === null ||
-      visibleBrainDumpStart === 0 ||
-      loadingOlderDumpsRef.current
-    ) {
-      return;
-    }
-    const history = brainDumpHistoryRef.current;
-    const previousHeight = history?.scrollHeight ?? 0;
-    loadingOlderDumpsRef.current = true;
-    suppressHistoryAutoScrollRef.current = true;
-    setVisibleBrainDumpStart((current) =>
-      current === null
-        ? current
-        : Math.max(0, current - OLDER_DUMP_BATCH_SIZE),
+    const raw = buildRawLog(
+      checkIns,
+      eventPhaseCheckIns,
+      brainDumps,
+      taskWorkStretches,
     );
-    requestAnimationFrame(() => {
-      if (history) {
-        history.scrollTop += history.scrollHeight - previousHeight;
-      }
-      loadingOlderDumpsRef.current = false;
-    });
-  };
+    return raw.filter(
+      (event): event is TimelineLogEvent =>
+        event.kind !== "phase" &&
+        event.at >= dayFromSec &&
+        matchesTimelineFilter(event, timelineFilter),
+    );
+  }, [
+    brainDumps,
+    checkIns,
+    dayFromSec,
+    phaseCheckIns,
+    taskWorkStretches,
+    timelineFilter,
+  ]);
 
-  const openQuickAdd = (status: OverviewTaskStatus) => {
-    if (status === "backlog") setBacklogCollapsed(false);
-    setQuickAddTitle("");
-    setQuickAddStatus(status);
-  };
+  const visibleTimelineEvents = useMemo(
+    () => timelineEvents.slice(0, visibleEventCount),
+    [timelineEvents, visibleEventCount],
+  );
+  const remainingEventCount = Math.max(
+    0,
+    timelineEvents.length - visibleEventCount,
+  );
+  const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
+  const empty = EMPTY_COPY[timelineFilter];
 
-  const submitQuickAdd = async (e: FormEvent, status: OverviewTaskStatus) => {
-    e.preventDefault();
-    const title = quickAddTitle.trim();
-    if (!title) return;
-    if (await mutate(() => createTask(title, "", status))) {
-      setQuickAddTitle("");
-      quickAddRef.current?.focus();
-    }
-  };
+  const onDeleteCheckIn = (id: number) =>
+    void mutate(() => deleteMetricCheckIn(id));
 
   const toggleDumpExpanded = (id: number) => {
     setExpandedDumpIds((prev) => {
@@ -207,356 +182,182 @@ export function OverviewView() {
     });
   };
 
-  const renderQuickAdd = (status: OverviewTaskStatus) =>
-    quickAddStatus === status ? (
-      <form
-        className="overview-quick-add"
-        onSubmit={(e) => submitQuickAdd(e, status)}
-      >
-        <input
-          ref={quickAddRef}
-          type="text"
-          value={quickAddTitle}
-          placeholder={`Add to ${TASK_STATUS_LABEL[status].toLowerCase()}…`}
-          aria-label={`New ${TASK_STATUS_LABEL[status]} task`}
-          onChange={(e) => setQuickAddTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setQuickAddStatus(null);
-          }}
-          onBlur={() => {
-            if (!quickAddTitle.trim()) setQuickAddStatus(null);
-          }}
-        />
-        <button type="submit" disabled={!quickAddTitle.trim()}>
-          Add
-        </button>
-      </form>
-    ) : null;
+  const submitOverviewDump = async () => {
+    const text = trimBrainDumpDraft(brainDumpDraft);
+    if (!text || brainDumpSubmitting) return;
+    setBrainDumpSubmitting(true);
+    const ok = await mutate(() => submitBrainDump(text, brainDumpTagIds));
+    if (ok) {
+      setBrainDumpDraft({ text: "", tagIds: [] });
+      await brainDumpHistory.refresh();
+    }
+    setBrainDumpSubmitting(false);
+  };
 
-  const renderAddButton = (status: OverviewTaskStatus) => (
-    <button
-      type="button"
-      className="overview-group__add"
-      aria-label={`Add task to ${TASK_STATUS_LABEL[status].toLowerCase()}`}
-      title={`Add ${TASK_STATUS_LABEL[status].toLowerCase()} task`}
-      onClick={() => openQuickAdd(status)}
-    >
-      +
-    </button>
-  );
+  const peelToFloating = useCallback(() => {
+    if (brainDumpHistory.viewingHistory) return;
+    if (forkToFloating(brainDumpDraft)) {
+      setBrainDumpDraft({ text: "", tagIds: [] });
+    }
+  }, [
+    brainDumpDraft,
+    brainDumpHistory.viewingHistory,
+    forkToFloating,
+    setBrainDumpDraft,
+  ]);
 
-  const renderTaskList = (status: OverviewTaskStatus) =>
-    tasksByStatus[status].length === 0 ? (
-      <div className="overview-task-group__empty">
-        No {TASK_STATUS_LABEL[status].toLowerCase()} tasks
-      </div>
-    ) : (
-      <ol className="overview-task-list">
-        {tasksByStatus[status].map((task) => (
-          <TaskCard key={task.id} task={task} focusLayout />
-        ))}
-      </ol>
-    );
+  const peelViewedDumpToFloating = useCallback(() => {
+    const viewedDump = brainDumpHistory.viewingDump;
+    if (!viewedDump) return;
+    forkToFloating({
+      text: viewedDump.text,
+      tagIds: viewedDump.tags.map((tag) => tag.id),
+    });
+  }, [brainDumpHistory.viewingDump, forkToFloating]);
 
-  const renderOverviewGroup = (status: OverviewTaskStatus) => {
-    const collapsible = status === "backlog";
-    const collapsed = collapsible && backlogCollapsed;
-    const headingInner = (
-      <>
-        <span
-          className={`status-dot status-dot--${status}`}
-          aria-hidden="true"
-        />
-        <span className="overview-group__name">
-          {TASK_STATUS_LABEL[status]}
-        </span>
-        <span
-          className={`overview-group__count${
-            status === "active" ? " overview-group__count--accent" : ""
-          }`}
-        >
-          {tasksByStatus[status].length}
-        </span>
-      </>
-    );
-    const body = (
-      <div className="overview-group__reveal-body">
-        {renderQuickAdd(status)}
-        {renderTaskList(status)}
-      </div>
-    );
-    return (
-      <section className={`overview-group overview-group--${status}`}>
-        <header className="overview-group__head">
-          <h3 className="overview-group__heading">
-            {collapsible ? (
-              <button
-                type="button"
-                className="overview-group__toggle"
-                aria-expanded={!collapsed}
-                onClick={() => setBacklogCollapsed((c) => !c)}
-              >
-                <span className="overview-group__chevron" aria-hidden="true">
-                  ▾
-                </span>
-                {headingInner}
-              </button>
-            ) : (
-              <span className="overview-group__static">{headingInner}</span>
-            )}
-          </h3>
-          {renderAddButton(status)}
-        </header>
-        {collapsible ? (
-          <div
-            className={`overview-group__reveal${
-              collapsed ? " is-collapsed" : ""
-            }`}
-          >
-            <div className="overview-group__reveal-inner">{body}</div>
-          </div>
-        ) : (
-          body
-        )}
-      </section>
-    );
+  const onMainDumpKeyDown = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (brainDumpHistory.viewingHistory) return;
+    if (
+      isBrainDumpPeelShortcut({
+        key: event.key,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        isComposing: event.nativeEvent.isComposing,
+      })
+    ) {
+      event.preventDefault();
+      peelToFloating();
+      return;
+    }
+    if (
+      isBrainDumpSubmitShortcut({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        isComposing: event.nativeEvent.isComposing,
+      })
+    ) {
+      event.preventDefault();
+      void submitOverviewDump();
+    }
   };
 
   return (
-    <>
+    <div className="overview-stack">
+      <section className="overview-day" aria-label="Last hour">
+        <DayStats stats={dayReflection.stats} />
+        <PhaseTotals sessions={dayReflection.sessions} phases={phases} />
+      </section>
+
       <section className="overview-panels" aria-label="Overview">
         <section
           className="overview-panel overview-panel--tasks"
-          aria-label="Task focus"
+          aria-label="Tasks"
         >
+          <OverviewTasksPanel onOpenTasks={onOpenTasks} />
+        </section>
+
+        <section
+          className="overview-panel overview-panel--timeline"
+          aria-label="Timeline"
+        >
+          <header className="overview-panel__head">
+            <ViewToggle
+              value={timelineFilter}
+              options={OVERVIEW_TIMELINE_FILTERS}
+              label="Timeline filter"
+              onChange={(next) => {
+                setTimelineFilter(next);
+                setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+              }}
+            />
+          </header>
           <div className="overview-panel__scroll">
-            {renderOverviewGroup("active")}
-            {renderOverviewGroup("up_next")}
-            {renderOverviewGroup("backlog")}
+            {!loaded ? null : timelineEvents.length === 0 ? (
+              <div className="dash-empty">
+                <strong>{empty.title}</strong>
+                <span>{empty.body}</span>
+              </div>
+            ) : (
+              <>
+                <LogsTimeline
+                  events={visibleTimelineEvents}
+                  phaseCheckIns={phaseCheckIns}
+                  phases={phases}
+                  metrics={metrics}
+                  pulses={pulses}
+                  tasks={tasks}
+                  expandedDumpIds={expandedDumpIds}
+                  onDeleteCheckIn={onDeleteCheckIn}
+                  onToggleDump={toggleDumpExpanded}
+                  nowMs={nowMs}
+                  dayChrome={false}
+                />
+                {remainingEventCount > 0 ? (
+                  <div className="logs-load-older">
+                    <button
+                      type="button"
+                      className="btn-accent"
+                      onClick={() =>
+                        setVisibleEventCount(
+                          (count) => count + LOG_EVENT_BATCH_SIZE,
+                        )
+                      }
+                    >
+                      Load {nextBatchSize} older
+                    </button>
+                    <span>
+                      Showing{" "}
+                      {Math.min(visibleEventCount, timelineEvents.length)} of{" "}
+                      {timelineEvents.length}
+                    </span>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </section>
 
         <section
           className="overview-panel overview-panel--dumps"
-          aria-label="Brain dumps"
+          aria-label="Brain dump"
         >
-          {brainDumpExpanded ? (
-            <form
-              className="overview-dump-composer"
-              onSubmit={onSubmitQuickBrainDump}
-            >
-              <div className="overview-dump-composer__title-row">
-                <input
-                  type="text"
-                  value={brainDumpTitle}
-                  onChange={(e) =>
-                    setBrainDumpDraft((draft) => ({
-                      ...draft,
-                      title: e.target.value,
-                    }))
-                  }
-                  placeholder="Optional title"
-                  aria-label="New brain dump title"
+          {loaded && (
+            <BrainDumpSurface
+              className="brain-dump-surface--anchored"
+              text={brainDumpHistory.text}
+              tagIds={composerTagProps.selectedIds}
+              tags={composerTagProps.tags}
+              readOnly={brainDumpHistory.viewingHistory}
+              tagsDisabled={brainDumpHistory.viewingHistory}
+              textareaLabel={
+                brainDumpHistory.viewingHistory
+                  ? "Saved brain dump, read only"
+                  : "Brain dump"
+              }
+              headerEnd={
+                <BrainDumpHistoryControls
+                  canViewPrevious={brainDumpHistory.canViewPrevious}
+                  canViewNext={brainDumpHistory.canViewNext}
+                  onPrevious={brainDumpHistory.showPrevious}
+                  onNext={brainDumpHistory.showNext}
+                  onPeel={peelViewedDumpToFloating}
+                  submittedAt={brainDumpHistory.viewingDump?.createdAt}
                 />
-                <div className="overview-dump-actions">
-                  <button
-                    type="button"
-                    className="overview-dump-mode"
-                    aria-label="Minimize composer and show brain dump history"
-                    title="Show history"
-                    onClick={showBrainDumpHistory}
-                  >
-                    <span
-                      className="overview-dump-mode__minimize"
-                      aria-hidden="true"
-                    >
-                      −
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <textarea
-                ref={brainDumpTextRef}
-                autoCapitalize="off"
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                value={brainDumpText}
-                onChange={(e) =>
-                  setBrainDumpDraft((draft) => ({
-                    ...draft,
-                    text: e.target.value,
-                  }))
-                }
-                onKeyDown={(e) => {
-                  if (
-                    isBrainDumpSubmitShortcut({
-                      ...e,
-                      isComposing: e.nativeEvent.isComposing,
-                    })
-                  ) {
-                    e.preventDefault();
-                    e.currentTarget.form?.requestSubmit();
-                  }
-                }}
-                aria-label="New brain dump"
-                rows={8}
-              />
-              <button
-                type="submit"
-                className="overview-dump-submit"
-                disabled={
-                  !brainDumpText.trim() || brainDumpSubmitting !== null
-                }
-                aria-label={
-                  brainDumpSubmitting === "expanded"
-                    ? "Saving brain dump"
-                    : "Save brain dump"
-                }
-                title="Save brain dump"
-              >
-                <span aria-hidden="true">
-                  {brainDumpSubmitting === "expanded" ? "…" : "↑"}
-                </span>
-              </button>
-            </form>
-          ) : (
-            <>
-              <div className="overview-dump-toolbar">
-                <div className="overview-dump-actions">
-                  <button
-                    type="button"
-                    className="overview-dump-visibility"
-                    aria-pressed={brainDumpLogsHidden}
-                    aria-label={
-                      brainDumpLogsHidden
-                        ? "Show recent brain dumps"
-                        : "Hide all brain dump logs"
-                    }
-                    title={
-                      brainDumpLogsHidden ? "Show recent logs" : "Hide all logs"
-                    }
-                    onClick={toggleBrainDumpLogs}
-                  >
-                    <span aria-hidden="true">
-                      {brainDumpLogsHidden ? clockIcon : eyeOffIcon}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="overview-dump-mode"
-                    aria-label="Open full brain dump composer"
-                    title="Open full composer"
-                    onClick={showBrainDumpComposer}
-                  >
-                    <span
-                      className="overview-dump-mode__pencil"
-                      aria-hidden="true"
-                    >
-                      {pencilIcon}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <div
-                ref={brainDumpHistoryRef}
-                className={`overview-panel__scroll overview-dump-history${
-                  brainDumpLogsHidden ? " is-hidden" : ""
-                }`}
-                aria-hidden={brainDumpLogsHidden}
-                onWheel={(e) => {
-                  if (brainDumpLogsHidden) return;
-                  if (e.deltaY < 0 && e.currentTarget.scrollTop <= 24) {
-                    loadOlderBrainDumps();
-                  }
-                }}
-                onScroll={(e) => {
-                  if (brainDumpLogsHidden) return;
-                  if (
-                    e.currentTarget.scrollHeight >
-                      e.currentTarget.clientHeight &&
-                    e.currentTarget.scrollTop <= 8
-                  ) {
-                    loadOlderBrainDumps();
-                  }
-                }}
-              >
-                {hasOlderBrainDumps && (
-                  <div className="overview-dump-history__older">
-                    Scroll up for older entries
-                  </div>
-                )}
-                {loaded && visibleOverviewBrainDumps.length === 0 ? (
-                  <div className="overview-dump-empty">
-                    No brain dumps in the last hour
-                  </div>
-                ) : (
-                  <ol className="overview-dump-list">
-                    {visibleOverviewBrainDumps.map((dump) => (
-                      <li key={dump.id} className="overview-dump-item">
-                        <BrainDumpEntry
-                          dump={dump}
-                          className="overview-dump"
-                          expanded={expandedDumpIds.has(dump.id)}
-                          onToggle={() => toggleDumpExpanded(dump.id)}
-                        />
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-              <form
-                className="overview-dump-compact"
-                onSubmit={onSubmitCompactBrainDump}
-              >
-                <textarea
-                  ref={compactBrainDumpRef}
-                  autoCapitalize="off"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={brainDumpText}
-                  onChange={(e) =>
-                    setBrainDumpDraft((draft) => ({
-                      ...draft,
-                      text: e.target.value,
-                    }))
-                  }
-                  onKeyDown={(e) => {
-                    if (
-                      isBrainDumpSubmitShortcut({
-                        ...e,
-                        isComposing: e.nativeEvent.isComposing,
-                      })
-                    ) {
-                      e.preventDefault();
-                      e.currentTarget.form?.requestSubmit();
-                    }
-                  }}
-                  aria-label="Quick brain dump"
-                  rows={2}
-                />
-                <button
-                  type="submit"
-                  disabled={
-                    !brainDumpText.trim() || brainDumpSubmitting !== null
-                  }
-                  aria-label={
-                    brainDumpSubmitting === "compact"
-                      ? "Saving quick brain dump"
-                      : "Save quick brain dump"
-                  }
-                  title="Save brain dump"
-                >
-                  <span aria-hidden="true">
-                    {brainDumpSubmitting === "compact" ? "…" : "↑"}
-                  </span>
-                </button>
-              </form>
-            </>
+              }
+              onTextChange={(text) =>
+                setBrainDumpDraft((draft) => ({ ...draft, text }))
+              }
+              onTagsChange={handleTagsChange}
+              onKeyDown={onMainDumpKeyDown}
+              textareaRef={mainDumpRef}
+            />
           )}
         </section>
       </section>
-    </>
+    </div>
   );
 }

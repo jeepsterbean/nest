@@ -3,302 +3,402 @@ import type {
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
+  Pulse,
+  RecordedTaskStatus,
   Task,
+  TaskStatus,
   TaskStatusEvent,
 } from "../../lib/types";
-import { scopeMatches } from "./scope";
+import { resolveMetricColorFromList } from "../../lib/metricColors";
+import {
+  cancelledInPeriod,
+  completedInPeriod,
+  completionTotals,
+  countCheckIns,
+  isQuietPhase,
+  type Period,
+} from "./period";
+import {
+  phaseSessionsInWindow,
+  type PhaseSession,
+} from "./timeline";
+import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
+import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
 
-export const INSIGHT_RANGES = [
-  { key: "24h", label: "24 hours", seconds: 24 * 60 * 60 },
-  { key: "7d", label: "7 days", seconds: 7 * 24 * 60 * 60 },
-  { key: "30d", label: "30 days", seconds: 30 * 24 * 60 * 60 },
-  { key: "90d", label: "90 days", seconds: 90 * 24 * 60 * 60 },
+export const RANGE_MODES = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
 ] as const;
 
-export type InsightRangeKey = (typeof INSIGHT_RANGES)[number]["key"];
+export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
-export type Period = {
+const RANGE_MODE_KEY = "nest:date-range";
+const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
+const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
+
+type RangeStorage = Pick<Storage, "getItem" | "setItem">;
+
+export const readRangeMode = (
+  storage: RangeStorage = localStorage,
+): RangeModeKey => {
+  const stored =
+    storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
+  return MODE_KEYS.has(stored ?? "") ? (stored as RangeModeKey) : "day";
+};
+
+export const writeRangeMode = (
+  key: RangeModeKey,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(RANGE_MODE_KEY, key);
+};
+
+/** One calendar day of the grid: real local midnight to real local midnight,
+ * so a DST day is 23 or 25 hours long and blocks still land correctly. */
+export type InsightColumn = { from: number; to: number; label: string };
+
+/** Monday-first start of the week holding `dayMs`. */
+const startOfWeekMs = (dayMs: number) =>
+  shiftDayMs(dayMs, -((new Date(dayMs).getDay() + 6) % 7));
+
+/** How far the anchor moves per step, and how many columns it shows. */
+export const MODE_DAYS: Record<RangeModeKey, number> = { day: 1, week: 7 };
+
+/** The columns the grid draws for `mode` around `anchorMs` (any instant in the
+ * focused day). Week snaps to Monday so paging lands on whole weeks. */
+export const insightColumns = (
+  mode: RangeModeKey,
+  anchorMs: number,
+  nowMs: number = Date.now(),
+): InsightColumn[] => {
+  const start =
+    mode === "week"
+      ? startOfWeekMs(startOfDayMs(anchorMs / 1000))
+      : startOfDayMs(anchorMs / 1000);
+  return Array.from({ length: MODE_DAYS[mode] }, (_, index) => {
+    const from = shiftDayMs(start, index);
+    return {
+      from: Math.floor(from / 1000),
+      to: Math.floor(shiftDayMs(from, 1) / 1000),
+      label:
+        mode === "week"
+          ? new Date(from).toLocaleDateString(undefined, {
+              weekday: "short",
+              day: "numeric",
+            })
+          : dayLabel(from / 1000, nowMs),
+    };
+  });
+};
+
+/** The page `steps` away, as its own columns. The one place paging arithmetic
+ * lives, so the Earlier guard and the Earlier button cannot disagree — both
+ * move by calendar days, which a fixed 86400 would get wrong across DST. */
+export const stepColumns = (
+  mode: RangeModeKey,
+  anchorMs: number,
+  steps: number,
+  nowMs: number = Date.now(),
+): InsightColumn[] =>
+  insightColumns(mode, shiftDayMs(anchorMs, steps * MODE_DAYS[mode]), nowMs);
+
+/** Where to open the grid vertically: the live edge when a column holds it,
+ * else the first work of the range, else nowhere. A percentage of the column
+ * that holds `nowSec` — never of the first column, which in Week mode is
+ * Monday and would send every later weekday off the bottom. */
+export const openAtPct = (
+  columns: InsightColumn[],
+  nowSec: number,
+  firstBlockPct: number | null,
+): number | null => {
+  const live = columns.find(
+    (column) => nowSec >= column.from && nowSec < column.to,
+  );
+  return live
+    ? ((nowSec - live.from) / (live.to - live.from)) * 100
+    : firstBlockPct;
+};
+
+export type OutcomeStat = { label: string; value: string };
+
+export type WindowInsight = {
+  stats: OutcomeStat[];
+  sessions: PhaseSession[];
+};
+
+export const outcomeStats = (
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  checkIns: MetricCheckInWithRatings[],
+  period: { from: number; to: number },
+): OutcomeStat[] => {
+  const totals = completionTotals(tasks, events, period);
+  return [
+    { label: "Completed", value: String(totals.completed) },
+    { label: "Value", value: String(totals.value) },
+    { label: "Effort", value: String(totals.effort) },
+    { label: "Check-ins", value: String(countCheckIns(checkIns, period)) },
+  ];
+};
+
+export const windowInsight = (
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  phases: Phase[],
+  fromSec: number,
+  toSec: number,
+): WindowInsight => {
+  const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
+  return {
+    stats: outcomeStats(tasks, events, checkIns, {
+      from: fromSec,
+      to: toSec,
+    }),
+    // Untrimmed: quiet edges stay as empty track rather than being squeezed out.
+    sessions: phaseSessionsInWindow(
+      phaseCheckIns,
+      fromSec,
+      toSec,
+      isQuiet,
+      false,
+    ),
+  };
+};
+
+export type InsightTaskRow = { task: Task; seconds: number };
+
+export type InsightStatusGroup = {
+  status: TaskStatus;
+  rows: InsightTaskRow[];
+};
+
+export type InsightDay = {
+  label: string;
   from: number;
   to: number;
+  isFuture: boolean;
+  isToday: boolean;
+  groups: InsightStatusGroup[];
 };
 
-export type Completion = {
-  task: Task;
-  at: number;
-  phaseId: number | null;
+/** Live work first, then closed. Omit empty statuses. */
+const INSIGHT_STATUS_ORDER: TaskStatus[] = [
+  "active",
+  "up_next",
+  "backlog",
+  "completed",
+  "cancelled",
+];
+
+const asLiveStatus = (
+  status: RecordedTaskStatus | null,
+  fallback: TaskStatus,
+): TaskStatus => {
+  if (status === "paused") return "active";
+  return status ?? fallback;
 };
 
-export type ActivityBucket = {
-  from: number;
-  to: number;
-  count: number;
+/** Status at `at`. A later completion must not rewrite an earlier day's group. */
+const statusAt = (
+  task: Task,
+  events: TaskStatusEvent[],
+  at: number,
+): TaskStatus => {
+  const mine = [...events]
+    .filter((event) => event.taskId === task.id)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  for (const event of mine) {
+    if (event.createdAt >= at) {
+      return asLiveStatus(event.fromStatus, task.status);
+    }
+  }
+  const last = mine[mine.length - 1];
+  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
 };
 
-export type MetricInsight = {
-  metric: Metric;
-  average: number | null;
-  previousAverage: number | null;
-  entries: number;
-  previousEntries: number;
+const closedStatusInPeriod = (
+  taskId: number,
+  events: TaskStatusEvent[],
+  period: Period,
+): "completed" | "cancelled" | null => {
+  let last: "completed" | "cancelled" | null = null;
+  const ordered = [...events].sort(
+    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
+  );
+  for (const event of ordered) {
+    if (event.taskId !== taskId) continue;
+    if (event.createdAt < period.from || event.createdAt >= period.to) continue;
+    if (event.toStatus === "completed" || event.toStatus === "cancelled") {
+      last = event.toStatus;
+    }
+  }
+  return last;
 };
 
-export type PhaseDuration = {
-  phaseId: number;
-  seconds: number;
+const groupInsightTasks = (
+  rows: InsightTaskRow[],
+  events: TaskStatusEvent[],
+  period: Period,
+): InsightStatusGroup[] => {
+  const buckets = new Map<TaskStatus, InsightTaskRow[]>();
+  for (const row of rows) {
+    const closed = closedStatusInPeriod(row.task.id, events, period);
+    const status =
+      row.seconds > 0
+        ? statusAt(row.task, events, period.to)
+        : (closed ?? statusAt(row.task, events, period.to));
+    const list = buckets.get(status);
+    if (list) list.push(row);
+    else buckets.set(status, [row]);
+  }
+  return INSIGHT_STATUS_ORDER.flatMap((status) => {
+    const grouped = buckets.get(status);
+    if (!grouped?.length) return [];
+    return [
+      {
+        status,
+        rows: [...grouped].sort(
+          (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
+        ),
+      },
+    ];
+  });
 };
 
-export type PeriodSummary = {
-  completions: Completion[];
-  value: number;
-  effort: number;
-  valueScoredTasks: number;
-  effortScoredTasks: number;
-};
-
-const inPeriod = (at: number, period: Period) =>
-  at >= period.from && at < period.to;
-
-export function latestCompletions(
+const mergeClosedTasks = (
+  worked: InsightTaskRow[],
   tasks: Task[],
   events: TaskStatusEvent[],
   period: Period,
-  selectedScope: string | null,
-  phases: PhaseCheckIn[],
-): Completion[] {
-  const latestCompletedAt = new Map<number, number>();
-  for (const event of events) {
-    if (event.toStatus === "completed") {
-      latestCompletedAt.set(event.taskId, event.createdAt);
-    }
+): InsightTaskRow[] => {
+  const byId = new Map(worked.map((row) => [row.task.id, row]));
+  for (const task of [
+    ...completedInPeriod(tasks, events, period),
+    ...cancelledInPeriod(tasks, events, period),
+  ]) {
+    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
   }
+  return [...byId.values()];
+};
 
-  return tasks
-    .filter(
-      (task) =>
-        task.status === "completed" &&
-        scopeMatches(task.scope, selectedScope),
-    )
-    .flatMap((task) => {
-      const at = latestCompletedAt.get(task.id);
-      if (at === undefined || !inPeriod(at, period)) return [];
-      return [{ task, at, phaseId: phaseAt(phases, at) }];
-    })
-    .sort((a, b) => b.at - a.at || b.task.id - a.task.id);
-}
-
-export function summarizePeriod(completions: Completion[]): PeriodSummary {
-  return {
-    completions,
-    value: completions.reduce(
-      (sum, completion) => sum + (completion.task.value ?? 0),
-      0,
-    ),
-    effort: completions.reduce(
-      (sum, completion) => sum + (completion.task.effort ?? 0),
-      0,
-    ),
-    valueScoredTasks: completions.filter(({ task }) => task.value !== null)
-      .length,
-    effortScoredTasks: completions.filter(({ task }) => task.effort !== null)
-      .length,
-  };
-}
-
-export function buildActivityBuckets(
-  completions: Completion[],
-  period: Period,
-  range: InsightRangeKey,
-): ActivityBucket[] {
-  const seconds = period.to - period.from;
-  const bucketCount =
-    range === "24h"
-      ? 24
-      : range === "7d"
-        ? 7
-        : range === "30d"
-          ? 30
-          : 30;
-  const bucketSeconds = seconds / bucketCount;
-
-  return Array.from({ length: bucketCount }, (_, index) => {
-    const from = period.from + index * bucketSeconds;
-    const to = index === bucketCount - 1 ? period.to : from + bucketSeconds;
+/** One ledger per calendar column: Tasks with Worked time that day, plus
+ * Completions and Cancellations with no Working now, grouped by status as of
+ * that day's end. Future days stay empty rather than quiet. */
+export const insightDays = (
+  columns: InsightColumn[],
+  blocks: WorkBlock[],
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  nowSec: number,
+): InsightDay[] =>
+  columns.map((column) => {
+    const isFuture = nowSec < column.from;
+    const closedTo = Math.min(column.to, nowSec);
+    const period = { from: column.from, to: closedTo };
     return {
-      from,
-      to,
-      count: completions.filter((completion) =>
-        inPeriod(completion.at, { from, to }),
-      ).length,
+      label: column.label,
+      from: column.from,
+      to: column.to,
+      isFuture,
+      isToday: nowSec >= column.from && nowSec < column.to,
+      groups: isFuture
+        ? []
+        : groupInsightTasks(
+            mergeClosedTasks(
+              workTotalsInSpan(blocks, column.from, closedTo),
+              tasks,
+              events,
+              period,
+            ),
+            events,
+            period,
+          ),
     };
   });
-}
 
-export function metricInsights(
+export type InsightMetricRow = {
+  metricId: number;
+  name: string;
+  icon: string;
+  color: string;
+  values: number[];
+  average: number;
+};
+
+export type InsightPulseGroup = {
+  pulseId: number | null;
+  name: string;
+  icon: string;
+  checkInCount: number;
+  metrics: InsightMetricRow[];
+};
+
+const average = (values: number[]) =>
+  values.reduce((sum, value) => sum + value, 0) / values.length;
+
+/** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
+export const insightCheckIns = (
+  checkIns: MetricCheckInWithRatings[],
   metrics: Metric[],
-  checkIns: MetricCheckInWithRatings[],
-  current: Period,
-  previous: Period,
-): MetricInsight[] {
-  const values = new Map<
-    number,
-    { current: number[]; previous: number[] }
-  >();
-  for (const metric of metrics) {
-    values.set(metric.id, { current: [], previous: [] });
-  }
-  for (const checkIn of checkIns) {
-    const target = inPeriod(checkIn.createdAt, current)
-      ? "current"
-      : inPeriod(checkIn.createdAt, previous)
-        ? "previous"
-        : null;
-    if (!target) continue;
-    for (const rating of checkIn.ratings) {
-      values.get(rating.metricId)?.[target].push(rating.value);
-    }
-  }
-
-  const average = (items: number[]) =>
-    items.length
-      ? items.reduce((sum, value) => sum + value, 0) / items.length
-      : null;
-
-  return metrics
-    .map((metric) => {
-      const series = values.get(metric.id) ?? { current: [], previous: [] };
-      return {
-        metric,
-        average: average(series.current),
-        previousAverage: average(series.previous),
-        entries: series.current.length,
-        previousEntries: series.previous.length,
-      };
-    })
-    .filter((insight) => insight.entries > 0 || insight.previousEntries > 0)
-    .sort(
-      (a, b) =>
-        a.metric.createdAt - b.metric.createdAt ||
-        a.metric.id - b.metric.id,
-    );
-}
-
-export function phaseAt(checkIns: PhaseCheckIn[], at: number): number | null {
-  let result: PhaseCheckIn | null = null;
-  for (const checkIn of checkIns) {
-    if (
-      checkIn.createdAt <= at &&
-      (!result ||
-        checkIn.createdAt > result.createdAt ||
-        (checkIn.createdAt === result.createdAt && checkIn.id > result.id))
-    ) {
-      result = checkIn;
-    }
-  }
-  return result?.phaseId ?? null;
-}
-
-export function phaseDurations(
-  checkIns: PhaseCheckIn[],
+  pulses: Pulse[],
   period: Period,
-): PhaseDuration[] {
-  const ordered = [...checkIns].sort(
-    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
-  );
-  const secondsByPhase = new Map<number, number>();
-  let activePhase = phaseAt(ordered, period.from);
-  let cursor = period.from;
+): InsightPulseGroup[] => {
+  const inRange = checkIns
+    .filter((checkIn) => checkIn.createdAt >= period.from && checkIn.createdAt < period.to)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  if (inRange.length === 0) return [];
 
-  for (const checkIn of ordered) {
-    if (checkIn.createdAt <= period.from) continue;
-    if (checkIn.createdAt >= period.to) break;
-    if (activePhase !== null) {
-      secondsByPhase.set(
-        activePhase,
-        (secondsByPhase.get(activePhase) ?? 0) + checkIn.createdAt - cursor,
-      );
+  const metricById = new Map(metrics.map((metric) => [metric.id, metric]));
+  const pulseById = new Map(pulses.map((pulse) => [pulse.id, pulse]));
+  const pulseIndex = new Map(pulses.map((pulse, index) => [pulse.id, index]));
+  const groups = new Map<number | null, MetricCheckInWithRatings[]>();
+  for (const checkIn of inRange) {
+    const key = checkIn.pulseId;
+    const list = groups.get(key);
+    if (list) list.push(checkIn);
+    else groups.set(key, [checkIn]);
+  }
+
+  const rows: InsightPulseGroup[] = [...groups].map(([pulseId, items]) => {
+    const pulse = pulseId === null ? undefined : pulseById.get(pulseId);
+    const valuesByMetric = new Map<number, number[]>();
+    for (const checkIn of items) {
+      for (const rating of checkIn.ratings) {
+        const values = valuesByMetric.get(rating.metricId);
+        if (values) values.push(rating.value);
+        else valuesByMetric.set(rating.metricId, [rating.value]);
+      }
     }
-    activePhase = checkIn.phaseId;
-    cursor = checkIn.createdAt;
-  }
-  if (activePhase !== null && cursor < period.to) {
-    secondsByPhase.set(
-      activePhase,
-      (secondsByPhase.get(activePhase) ?? 0) + period.to - cursor,
-    );
-  }
+    const order = pulse?.metricIds ?? [];
+    const metricIds = [
+      ...order.filter((id) => valuesByMetric.has(id)),
+      ...[...valuesByMetric.keys()].filter((id) => !order.includes(id)),
+    ];
+    return {
+      pulseId,
+      name: pulse?.name ?? items[0].pulseName ?? "Metric check-in",
+      icon: pulse?.icon ?? "activity",
+      checkInCount: items.length,
+      metrics: metricIds.map((metricId) => {
+        const metric = metricById.get(metricId);
+        const values = valuesByMetric.get(metricId) ?? [];
+        return {
+          metricId,
+          name: metric?.name ?? `Metric ${metricId}`,
+          icon: metric?.icon ?? "activity",
+          color: resolveMetricColorFromList(metrics, metricId),
+          values,
+          average: average(values),
+        };
+      }),
+    };
+  });
 
-  return [...secondsByPhase]
-    .map(([phaseId, seconds]) => ({ phaseId, seconds }))
-    .sort((a, b) => b.seconds - a.seconds || a.phaseId - b.phaseId);
-}
-
-export function countCheckIns(
-  checkIns: MetricCheckInWithRatings[],
-  period: Period,
-) {
-  return checkIns.filter((checkIn) => inPeriod(checkIn.createdAt, period))
-    .length;
-}
-
-export function comparisonText(current: number, previous: number) {
-  if (current === previous) return "same as before";
-  if (previous === 0) return current === 0 ? "no change" : "new this period";
-  const percent = Math.round(((current - previous) / previous) * 100);
-  return `${percent > 0 ? "+" : ""}${percent}% vs before`;
-}
-
-export function notableObservations(
-  current: PeriodSummary,
-  previous: PeriodSummary,
-  metrics: MetricInsight[],
-  phases: Phase[],
-): string[] {
-  const observations: string[] = [];
-  const phaseCounts = new Map<number, number>();
-  for (const completion of current.completions) {
-    if (completion.phaseId !== null) {
-      phaseCounts.set(
-        completion.phaseId,
-        (phaseCounts.get(completion.phaseId) ?? 0) + 1,
-      );
-    }
-  }
-  const topPhase = [...phaseCounts].sort((a, b) => b[1] - a[1])[0];
-  if (topPhase && current.completions.length >= 2) {
-    const phase = phases.find((candidate) => candidate.id === topPhase[0]);
-    if (phase) {
-      observations.push(
-        `${topPhase[1]} of ${current.completions.length} completions happened during ${phase.name}.`,
-      );
-    }
-  }
-
-  const strongestMetric = metrics
-    .filter(
-      (metric) =>
-        metric.entries >= 2 &&
-        metric.previousEntries >= 2 &&
-        metric.average !== null &&
-        metric.previousAverage !== null,
-    )
-    .map((metric) => ({
-      ...metric,
-      change: metric.average! - metric.previousAverage!,
-    }))
-    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))[0];
-  if (strongestMetric && Math.abs(strongestMetric.change) >= 0.2) {
-    observations.push(
-      `${strongestMetric.metric.name} averaged ${Math.abs(strongestMetric.change).toFixed(1)} ${strongestMetric.change > 0 ? "higher" : "lower"} than the previous period.`,
-    );
-  }
-
-  const difference =
-    current.completions.length - previous.completions.length;
-  if (difference !== 0) {
-    observations.push(
-      `${Math.abs(difference)} ${difference > 0 ? "more" : "fewer"} ${Math.abs(difference) === 1 ? "task was" : "tasks were"} completed than in the previous period.`,
-    );
-  }
-
-  return observations.slice(0, 3);
-}
+  return rows.sort((a, b) => {
+    if (a.pulseId === null) return 1;
+    if (b.pulseId === null) return -1;
+    return (pulseIndex.get(a.pulseId) ?? 999) - (pulseIndex.get(b.pulseId) ?? 999);
+  });
+};

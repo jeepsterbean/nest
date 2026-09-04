@@ -1,52 +1,41 @@
 # Frontend and UI standards
 
-Supplements `coding-standards.md`. Applies to Nest’s functional surfaces
-(dashboard, check-in popup, forms) — not marketing pages.
-
-Follow `.impeccable.md` for brand, tone, and aesthetic direction: calm, warm,
-private, journal-like. Preserve light and dark system themes.
+Repository-specific brand direction, domain vocabulary, component names, CSS
+hooks, and layout constants belong in the project's root documentation.
 
 ## Copy: say it once
 
-- One heading per section. No eyebrow label or subtitle that just restates
-  the title in other words.
+- Avoid labels or subtitles that restate a heading in other words.
 - Remove descriptions that only enumerate content or states already visible
-  in the section below. Keep unique context such as time ranges or caveats.
-- Don't caption self-explanatory controls (a labeled field, a dropdown with
-  clear options) with extra headings or helper text.
-- Prefer domain words from `CONTEXT.md` in user-facing copy (Task, Blocker,
-  Ready, Scope, Working now, Pulse, Brain dump). Avoid todo/subitem jargon.
+  nearby. Keep unique context such as time ranges and caveats.
+- Do not caption self-explanatory controls with extra headings or helper text.
+- Use the repository's established domain vocabulary in user-facing copy.
 
 ## Components: no speculative flexibility
 
-- No prop unless a caller actually passes a non-default value today.
-- Delete props nothing sets.
-- Don't scaffold UI libraries/primitives before they're wired into a real
-  dashboard view or the check-in popup.
-- Reuse existing controls (`MenuSelect`, `NestIcon` / `IconPicker`, task
-  menus, shared icons in `icons.tsx`) before adding new ones.
+- Add a prop only when a caller passes a meaningful non-default value.
+- Delete unused props.
+- Build shared primitives only when a current product surface needs them.
+- Reuse existing controls before adding parallel implementations.
 
-## Duplication: share the identical part, not the whole shape
+## Duplication
 
-- Near-duplicate components: extract only the byte-identical logic (action
-  runners, badges, empty states, rename/create form chrome) into a shared
-  module.
-- Leave each caller's data types, fields, and copy in place — don't force
-  both into one generic component with config props. That couples flows that
-  should stay free to diverge.
+- Extract only the identical logic shared by near-duplicate components.
+- Keep caller-specific data, fields, and copy local when the flows can diverge.
+- Avoid generic components whose configuration is larger than the duplication
+  they replace.
 
 ## Interaction
 
-- Keep reflection and capture actions immediately available.
-- Prefer quiet progressive disclosure over modal or oversized controls.
-- Preserve drafts when switching views or collapsing detail.
-- Interactive controls need accessible names and visible focus states.
-- Compact targets are fine when clearly labeled; don't crowd the workspace
-  with decorative chrome.
+- Preserve accessible names, keyboard access, visible focus, and usable target
+  sizes.
+- Keep destructive actions explicit and recoverable where practical.
+- Preserve user input across navigation and changes in presentation.
+- Never start a drag from a nested interactive control.
 
-## Cleanup passes
+## Cleanup
 
-- Rank biggest-cut-first: dead files/deps → dead props → duplication → copy.
-- Apply safe deletions directly. Flag anything touching business logic
-  before changing it.
-- Run `npm run test:typecheck` and `npm test` after every deletion.
+- Work biggest-cut-first: dead files and dependencies, dead props, duplication,
+  then copy.
+- Apply safe deletions directly and verify them with the repository's checks.
+- Flag changes to business behavior before including them in a cleanup pass.

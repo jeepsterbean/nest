@@ -7,6 +7,7 @@ pub struct Metric {
     pub name: String,
     pub icon: String,
     pub created_at: i64,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +57,8 @@ pub struct MetricCheckInWithRatings {
 pub struct Phase {
     pub id: i64,
     pub name: String,
+    pub icon: String,
+    pub color: Option<String>,
     pub created_at: i64,
     pub inactive_since: Option<i64>,
 }
@@ -107,7 +110,7 @@ pub struct TaskStatusEvent {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CheckInSchedule {
+pub struct TimerState {
     pub interval_minutes: i64,
     pub next_due_at: i64,
     pub waiting_for_response: bool,
@@ -118,6 +121,32 @@ pub struct CheckInSchedule {
 pub struct BrainDump {
     pub id: i64,
     pub created_at: i64,
-    pub title: Option<String>,
     pub text: String,
+    pub tags: Vec<BrainDumpTag>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrainDumpTag {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tag {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
+    pub last_used_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskWorkStretch {
+    pub id: i64,
+    pub task_id: i64,
+    pub started_at: i64,
+    /// None while the stretch is still open, i.e. the task is Working now.
+    pub ended_at: Option<i64>,
 }

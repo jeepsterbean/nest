@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   CLOSED_STATUSES,
-  clusterByScore,
   groupTasksByStatus,
+  matchingTaskStatusPreset,
+  parseRatingValue,
+  pinnedIdOrder,
+  recentlyClosedTasks,
+  RECENT_CLOSED_WINDOW_SECONDS,
+  sortTaskTable,
+  TASK_STATUS_FILTERS,
+  TASK_STATUS_LABEL,
+  toggleTaskStatusFilter,
   TASK_STATUSES,
   WORKING_STATUSES,
 } from "../../../src/dashboard/lib/tasks";
-import type { RatingValue, Task, TaskStatus } from "../../../src/lib/types";
+import type { Task, TaskStatus } from "../../../src/lib/types";
 
 const task = (
   id: number,
@@ -29,14 +37,15 @@ const task = (
   updatedAt,
 });
 
-const scoredTask = (
-  id: number,
-  value: RatingValue | null,
-  effort: RatingValue | null,
-): Task => ({
-  ...task(id, "backlog"),
-  value,
-  effort,
+describe("TASK_STATUS_FILTERS", () => {
+  it("covers every persisted status with its display label", () => {
+    expect(TASK_STATUS_FILTERS.map((filter) => filter.key)).toEqual(
+      TASK_STATUSES,
+    );
+    for (const filter of TASK_STATUS_FILTERS) {
+      expect(filter.label).toBe(TASK_STATUS_LABEL[filter.key]);
+    }
+  });
 });
 
 describe("board status groups", () => {
@@ -47,35 +56,50 @@ describe("board status groups", () => {
   });
 });
 
-describe("clusterByScore", () => {
-  it("groups tasks sharing the same value and effort", () => {
-    const clusters = clusterByScore([
-      scoredTask(1, 4, 2),
-      scoredTask(2, 4, 2),
-      scoredTask(3, 1, 5),
+describe("table status filters", () => {
+  it("recognizes presets and keeps custom selections in status order", () => {
+    expect(matchingTaskStatusPreset(["active", "backlog", "up_next"])).toBe(
+      "open",
+    );
+    expect(matchingTaskStatusPreset(["active", "completed"])).toBeNull();
+    expect(toggleTaskStatusFilter(["active"], "backlog")).toEqual([
+      "backlog",
+      "active",
     ]);
-    expect(clusters.get("4:2")?.map((t) => t.id)).toEqual([1, 2]);
-    expect(clusters.get("1:5")?.map((t) => t.id)).toEqual([3]);
-    expect(clusters.size).toBe(2);
+    expect(toggleTaskStatusFilter(["backlog", "active"], "active")).toEqual([
+      "backlog",
+    ]);
   });
+});
 
-  it("excludes tasks missing either score", () => {
-    const clusters = clusterByScore([
-      scoredTask(1, 3, null),
-      scoredTask(2, null, 3),
-      scoredTask(3, null, null),
+describe("sortTaskTable", () => {
+  const tasks = [
+    task(1, "cancelled", 1, 80),
+    task(2, "backlog", 2, 70),
+    task(3, "active", 3, 60),
+    task(4, "completed", 4, 50),
+    task(5, "up_next", 5, 40),
+    task(6, "active", 6, 90),
+  ];
+
+  it("sorts by recency or workflow status with recency inside each status", () => {
+    expect(sortTaskTable(tasks, "updated").map(({ id }) => id)).toEqual([
+      6, 1, 2, 3, 4, 5,
     ]);
-    expect(clusters.size).toBe(0);
+    expect(sortTaskTable(tasks, "status").map(({ id }) => id)).toEqual([
+      6, 3, 5, 2, 4, 1,
+    ]);
   });
+});
 
-  it("preserves input order within a cluster and across clusters", () => {
-    const clusters = clusterByScore([
-      scoredTask(9, 2, 2),
-      scoredTask(1, 5, 1),
-      scoredTask(4, 2, 2),
-    ]);
-    expect([...clusters.keys()]).toEqual(["2:2", "5:1"]);
-    expect(clusters.get("2:2")?.map((t) => t.id)).toEqual([9, 4]);
+describe("parseRatingValue", () => {
+  it("accepts ratings from 1 to 5 and an empty value", () => {
+    expect(parseRatingValue("1")).toBe(1);
+    expect(parseRatingValue("5")).toBe(5);
+    expect(parseRatingValue("")).toBeNull();
+    expect(parseRatingValue("0")).toBeUndefined();
+    expect(parseRatingValue("6")).toBeUndefined();
+    expect(parseRatingValue("2.5")).toBeUndefined();
   });
 });
 
@@ -98,23 +122,76 @@ describe("groupTasksByStatus", () => {
     expect(grouped.up_next.map((t) => t.id)).toEqual([3]);
   });
 
-  it("sorts by updatedAt desc, then createdAt desc, then id desc", () => {
+  it("keeps the manual list order inside each bucket", () => {
     const grouped = groupTasksByStatus([
+      task(3, "active", 5, 200),
       task(1, "active", 10, 100),
-      task(2, "active", 20, 100), // same updatedAt as #1, higher createdAt -> first
-      task(3, "active", 5, 200), // highest updatedAt -> first overall
-      task(4, "active", 20, 100), // ties #2 on updatedAt+createdAt, lower id -> after #4? id desc
+      task(4, "backlog", 20, 100),
+      task(2, "active", 20, 100),
     ]);
-    expect(grouped.active.map((t) => t.id)).toEqual([3, 4, 2, 1]);
+    expect(grouped.active.map((t) => t.id)).toEqual([3, 1, 2]);
+    expect(grouped.backlog.map((t) => t.id)).toEqual([4]);
   });
 
-  it("puts working-now tasks first within active", () => {
+  it("pins working-now tasks above every idle one", () => {
     const grouped = groupTasksByStatus([
-      task(1, "active", 1, 200),
-      { ...task(2, "active", 1, 100), workingNow: true },
-      task(3, "backlog", 1, 300),
+      task(3, "active"),
+      { ...task(1, "active"), workingNow: true },
+      task(2, "active"),
+      { ...task(4, "active"), workingNow: true },
     ]);
-    expect(grouped.active.map((t) => t.id)).toEqual([2, 1]);
-    expect(grouped.backlog.map((t) => t.id)).toEqual([3]);
+    expect(grouped.active.map((t) => t.id)).toEqual([1, 4, 3, 2]);
+  });
+});
+
+describe("recentlyClosedTasks", () => {
+  const nowMs = 1_000_000_000_000;
+  const nowSecs = nowMs / 1000;
+  const closed = (
+    id: number,
+    status: "completed" | "cancelled",
+    updatedAt: number,
+  ) => task(id, status, id, updatedAt);
+
+  it("keeps completed and cancelled Tasks updated within the last hour", () => {
+    const recent = recentlyClosedTasks(
+      [
+        closed(1, "completed", nowSecs - 10),
+        closed(2, "cancelled", nowSecs - 30),
+        task(3, "active", 3, nowSecs),
+        task(4, "up_next", 4, nowSecs),
+        closed(5, "completed", nowSecs - RECENT_CLOSED_WINDOW_SECONDS - 1),
+      ],
+      nowMs,
+    );
+    expect(recent.map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("includes a close exactly at the window edge", () => {
+    const recent = recentlyClosedTasks(
+      [closed(1, "completed", nowSecs - RECENT_CLOSED_WINDOW_SECONDS)],
+      nowMs,
+    );
+    expect(recent.map((t) => t.id)).toEqual([1]);
+  });
+});
+
+describe("pinnedIdOrder", () => {
+  const tasks = [
+    { ...task(1, "active"), workingNow: true },
+    task(2, "active"),
+    task(3, "up_next"),
+  ];
+
+  it("hoists a working task back to the top of a drop that buried it", () => {
+    expect(pinnedIdOrder([2, 3, 1], tasks)).toEqual([1, 2, 3]);
+  });
+
+  it("keeps the dropped order among idle tasks", () => {
+    expect(pinnedIdOrder([3, 2, 1], tasks)).toEqual([1, 3, 2]);
+  });
+
+  it("drops lane placeholders and unknown ids", () => {
+    expect(pinnedIdOrder([-1, 2, -2, 99], tasks)).toEqual([2]);
   });
 });

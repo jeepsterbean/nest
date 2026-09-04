@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import CheckInPopup from "./popup/CheckInPopup";
+import Popup from "./popup/Popup";
 import Dashboard from "./dashboard/Dashboard";
 import "./App.css";
 
@@ -12,7 +12,7 @@ function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  if (hash.startsWith("#/popup")) return <CheckInPopup />;
+  if (hash.startsWith("#/popup")) return <Popup />;
   return <Dashboard />;
 }
 

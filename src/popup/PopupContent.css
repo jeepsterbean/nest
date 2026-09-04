@@ -1,65 +1,79 @@
-.combined-checkin {
-  --timer-collapse: 0;
-
+.popup-workspace {
   position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
   flex: 1;
   min-height: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.combined-checkin--loading {
+.popup-workspace--loading {
   grid-template-columns: 1fr;
   place-items: center;
   color: var(--muted);
 }
 
-.combined-sidebar {
-  display: flex;
+.popup-clock {
+  display: grid;
   min-width: 0;
   min-height: 0;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px 16px 16px;
+  place-items: center;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 46%, transparent);
 }
 
-.combined-workspace {
-  position: relative;
-  display: grid;
+.popup-tasks {
+  display: flex;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: minmax(0, 3fr) minmax(0, 1fr);
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 15px;
+  border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 62%, transparent);
 }
 
-.combined-sidebar .now-card {
-  flex: var(--timer-collapse) 1 187px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.combined-sidebar .now-card__tasks {
+.popup-tasks .now-card {
   min-height: 0;
   flex: 1;
+}
+
+.popup-dump {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
+}
+
+.popup-dump > .brain-dump-history-controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 1;
 }
 
 .combined-timer {
   position: relative;
   display: grid;
-  flex: calc(1 - var(--timer-collapse)) 1 72px;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   place-items: center;
   padding: 2px 8px 12px;
-  border-bottom: 1px solid var(--border);
+  cursor: grab;
+}
+
+.combined-timer:active {
+  cursor: grabbing;
+}
+
+.combined-timer button,
+.combined-timer [role="listbox"] {
+  cursor: pointer;
 }
 
 .combined-timer__main {
@@ -73,11 +87,21 @@
   container-type: size;
 }
 
-.combined-timer__trigger {
+/* Circle-sized positioning context: the picker must anchor here, not to
+   full-height __main, or it opens below the popup and gets clipped. */
+.combined-timer__anchor {
   position: relative;
   display: grid;
   width: min(100cqi, 100cqh);
   aspect-ratio: 1;
+  place-items: center;
+}
+
+.combined-timer__trigger {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
   place-items: center;
   padding: 0;
   border: none;
@@ -91,7 +115,6 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: calc(1 - var(--timer-collapse));
 }
 
 .combined-timer__bezel {
@@ -124,6 +147,40 @@
   transform: translate(-50%, -50%);
 }
 
+@keyframes timer-zero-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(
+      0 0 10px color-mix(in srgb, var(--rating-2) 80%, transparent)
+    );
+  }
+}
+
+@keyframes timer-zero-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    text-shadow:
+      0 0 12px color-mix(in srgb, var(--rating-2) 75%, transparent),
+      0 0 28px color-mix(in srgb, var(--rating-2) 35%, transparent);
+  }
+}
+
+.combined-timer__trigger--due .combined-timer__bezel {
+  stroke: var(--rating-2);
+  animation: timer-zero-pulse 2.4s ease-in-out infinite;
+}
+
+.combined-timer__trigger--due .combined-timer__value {
+  color: var(--rating-2);
+  animation: timer-zero-glow 2.4s ease-in-out infinite;
+}
+
 .combined-timer__trigger:hover .combined-timer__bezel,
 .combined-timer__trigger:focus-visible .combined-timer__bezel {
   stroke: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
@@ -138,7 +195,7 @@
 .combined-timer__picker {
   position: absolute;
   z-index: 30;
-  top: calc(100% + 7px);
+  top: 50%;
   left: 50%;
   display: grid;
   width: 122px;
@@ -147,7 +204,7 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
   box-shadow: var(--shadow);
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .combined-timer__picker button {
@@ -176,7 +233,7 @@
 .combined-dashboard-link {
   position: absolute;
   top: 2px;
-  right: 0;
+  left: 0;
   display: inline-grid;
   width: 22px;
   height: 22px;
@@ -210,16 +267,74 @@
 
 /* ---------- "Now" hero ---------- */
 
+/* Rows and rating buttons already carry border + background — the "card"
+   look belongs to them, not to this wrapper. Just a hairline to separate
+   tasks from the metric check-in above. */
 .now-card {
   display: flex;
   flex-direction: column;
   gap: 11px;
-  padding: 14px 16px 15px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
-  box-shadow: var(--shadow);
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
   animation: popup-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The one task in play: the single loudest element in the popup, so
+   opening it answers "what am I doing" before anything else is read. */
+.now-hero-list {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: 8px;
+  margin: 0 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.now-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.now-hero__lead {
+  flex: none;
+}
+
+.now-hero .working-toggle--play-pause {
+  width: 34px;
+  height: 34px;
+  opacity: 1;
+}
+
+.now-hero__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.now-hero__title {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-hero .now-task__actions button {
+  opacity: 0.75;
 }
 
 .now-card__empty {
@@ -230,12 +345,51 @@
   line-height: 1.45;
 }
 
+.now-card__scroller {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
 .now-card__tasks {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 2px 3px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.now-card__tasks::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.now-card__scroll-thumb {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.now-card__live {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 0 6px 3px;
-  overflow-y: auto;
+}
+
+.now-group--closed + .now-card__live {
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
 }
 
 .now-group {
@@ -272,12 +426,12 @@
   font-weight: 700;
 }
 
+.now-group__rest,
 .now-group__add {
   display: inline-grid;
   width: 19px;
   height: 19px;
   place-items: center;
-  margin-left: auto;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -288,6 +442,21 @@
   line-height: 1;
 }
 
+.now-group__rest {
+  align-self: center;
+}
+
+.now-group__rest svg {
+  width: 12px;
+  height: 12px;
+}
+
+.now-group__add {
+  margin-left: auto;
+}
+
+.now-group__rest:hover,
+.now-group__rest:focus-visible,
 .now-group__add:hover,
 .now-group__add:focus-visible,
 .now-group__add[aria-expanded="true"] {
@@ -297,18 +466,42 @@
   color: var(--accent);
 }
 
+.now-group__rest:disabled {
+  opacity: 0.45;
+}
+
 .now-group--up-next {
   outline: none;
 }
 
+/* Queued, not in play — fade and shrink until the user actually looks at
+   it, so hierarchy reads from size and weight, not just a squint at
+   opacity. */
 .now-group--up-next .now-task {
-  opacity: 0.62;
-  transition: opacity 0.16s cubic-bezier(0.25, 1, 0.5, 1);
+  opacity: 0.55;
+}
+
+.now-group--up-next .now-task__title {
+  font-size: 0.92rem;
+  font-weight: 550;
 }
 
 .now-group--up-next .now-task:hover,
 .now-group--up-next .now-task:focus-within {
   opacity: 1;
+}
+
+.now-group--closed .now-task {
+  opacity: 0.5;
+}
+
+.now-group--closed .now-task:hover,
+.now-group--closed .now-task:focus-within {
+  opacity: 1;
+}
+
+.now-task--cancelled .now-task__title {
+  text-decoration: line-through;
 }
 
 .now-list {
@@ -320,28 +513,46 @@
   list-style: none;
 }
 
+/* Idle rows stay flat by default — the boxed "card" look is reserved for
+   the hero above, so it isn't fighting these for attention. A box only
+   shows up here on hover/focus/drag, i.e. while the row is actually in
+   play. */
 .now-task {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 9px;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  background: transparent;
   transition:
     border-color 0.18s cubic-bezier(0.25, 1, 0.5, 1),
-    background 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+    background 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.18s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.now-task--working {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface));
+.now-task:hover,
+.now-task:focus-within {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
 }
 
-.now-task--up-next {
-  background: color-mix(in srgb, var(--surface) 56%, transparent);
+@keyframes now-task-nudge-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+
+/* Nobody's working: pulse the row that would start one, same glow
+   language as the metric check-in's due state. */
+.now-task--nudge .working-toggle--play-pause {
+  border-radius: 999px;
+  animation: now-task-nudge-glow 2.4s ease-in-out infinite;
 }
 
 .now-task__title,
@@ -354,7 +565,62 @@
   line-height: 1.3;
 }
 
+.now-task[data-sort] {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.now-task.is-dragging {
+  opacity: 0.38;
+}
+
+.now-task.is-drop-target {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+}
+
+/* Empty lanes stay droppable: their placeholder is the lane's drop target. */
+.now-card__empty.is-drop-target {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+  color: var(--accent);
+}
+
+.list-sort-in-progress,
+.list-sort-in-progress * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.now-task__lead {
+  flex: none;
+}
+
+.now-task__mark {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  color: var(--muted);
+}
+
+.now-task__mark svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+}
+
+.now-task--composer input {
+  flex: 1;
+  min-width: 0;
+}
+
 .now-task__title {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
@@ -389,7 +655,7 @@
 .now-task__actions svg {
   width: 15px;
   height: 15px;
-  fill: currentColor;
+  fill: none;
 }
 
 .now-task:hover .now-task__actions button,
@@ -418,6 +684,7 @@
 .now-task__actions .working-toggle--play-pause svg {
   width: 14px;
   height: 14px;
+  fill: currentColor;
 }
 
 .now-task__actions .working-toggle[aria-pressed="true"] {
@@ -425,10 +692,6 @@
   min-width: 30px;
   padding: 0 6px;
   opacity: 1;
-}
-
-.now-task__activate svg {
-  transform: translateX(1px);
 }
 
 .now-task--composer {
@@ -457,6 +720,7 @@
   display: inline-grid;
   width: 30px;
   height: 30px;
+  flex: none;
   place-items: center;
   padding: 0;
   border: 1px solid transparent;
@@ -466,6 +730,11 @@
   font: inherit;
   font-size: 22px;
   line-height: 1;
+}
+
+.now-task--composer > button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .now-task--composer > button:hover:not(:disabled),
@@ -483,16 +752,9 @@
 
 /* ---------- Brain dump ---------- */
 
-.combined-brain-dump {
-  position: relative;
-  min-height: 0;
-  border-bottom: 1px solid var(--border-strong);
-  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
-}
-
 .combined-input {
   width: 100%;
-  height: 100%;
+  flex: 1;
   min-height: 0;
   padding: 24px;
   border: 0;
@@ -505,15 +767,63 @@
   resize: none;
 }
 
-/* ---------- Pulse check-in ---------- */
+/* ---------- Metric check-in ---------- */
 
+/* Rating buttons already carry the "card" look, so this wrapper stays flat
+   even when a check-in is due — the only due-state effect is the glow on
+   the current metric's title and icon, below. */
 .pulse-panel {
+  position: relative;
   display: flex;
-  min-height: 0;
+  flex: none;
   flex-direction: column;
-  padding: 10px 16px 12px;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 2px 2px 8px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+@keyframes pulse-due-title-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    text-shadow: 0 0 9px color-mix(in srgb, var(--rating-2) 70%, transparent);
+  }
+}
+
+@keyframes pulse-due-icon-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rating-2) 75%, transparent));
+  }
+}
+
+.pulse-panel--due .metric-step__title h2 {
+  color: var(--rating-2);
+  animation: pulse-due-title-glow 2.4s ease-in-out infinite;
+}
+
+.pulse-panel--due .metric-step__title svg {
+  color: var(--rating-2);
+  animation: pulse-due-icon-glow 2.4s ease-in-out infinite;
+}
+
+.pulse-panel__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pulse-panel__header .metric-step__title {
+  flex: 1;
+  min-width: 0;
 }
 
 .popup-pulse-toggle {
@@ -521,28 +831,28 @@
   flex: none;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  padding-bottom: 6px;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .popup-pulse-toggle button {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   flex: none;
   place-items: center;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 7px;
   background: color-mix(in srgb, var(--surface) 82%, var(--surface-2));
   color: var(--accent);
   transition: border-color 0.14s, background 0.14s;
 }
 
 .popup-pulse-toggle button svg {
-  width: 17px;
-  height: 17px;
+  width: 13px;
+  height: 13px;
   stroke-width: 1.8;
 }
 
@@ -564,37 +874,38 @@
 }
 
 .pulse-panel > .combined-empty {
-  flex: 1;
+  flex: none;
 }
 
 .metric-step {
   display: flex;
-  min-height: 0;
-  flex: 1;
+  flex: none;
   flex-direction: column;
-  justify-content: center;
-  gap: 8px;
   animation: popup-rise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.metric-step h2 {
+.metric-step__title h2 {
   margin: 0;
+  overflow: hidden;
   color: var(--ink);
   font-family: var(--serif);
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-step__title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .metric-step__title svg {
-  width: 23px;
-  height: 23px;
+  width: 16px;
+  height: 16px;
   flex: none;
   color: var(--accent);
   stroke-width: 1.8;
@@ -603,8 +914,8 @@
 .metric-row__buttons {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 7px;
-  border-radius: 9px;
+  gap: 5px;
+  border-radius: 8px;
   outline: none;
 }
 
@@ -613,13 +924,14 @@
 }
 
 .metric-rating {
-  min-height: 36px;
-  padding: 6px 0;
+  min-height: 30px;
+  padding: 4px 0;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--surface);
   color: var(--muted);
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition:
@@ -691,7 +1003,7 @@
   text-decoration: underline;
 }
 
-.combined-checkin__error {
+.popup-workspace__error {
   flex: 0 0 auto;
   padding: 8px 11px;
   border-radius: 9px;
@@ -700,31 +1012,13 @@
   font-size: 13px;
 }
 
-.combined-workspace > .combined-checkin__error {
+.popup-dump > .popup-workspace__error {
   position: absolute;
   z-index: 10;
   right: 12px;
   bottom: 12px;
   left: 12px;
   box-shadow: var(--shadow);
-}
-
-@media (max-width: 680px) {
-  .combined-checkin {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .combined-sidebar {
-    padding-inline: 12px;
-  }
-
-  .combined-input {
-    padding: 18px;
-  }
-
-  .pulse-panel {
-    padding-inline: 14px;
-  }
 }
 
 @keyframes popup-rise {
@@ -748,7 +1042,30 @@
     transition: none;
   }
 
-  .now-group--up-next .now-task {
-    transition: none;
+  .combined-timer__trigger--due .combined-timer__bezel {
+    animation: none;
+    filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--rating-2) 55%, transparent)
+    );
+  }
+
+  .combined-timer__trigger--due .combined-timer__value {
+    animation: none;
+    text-shadow: 0 0 9px color-mix(in srgb, var(--rating-2) 60%, transparent);
+  }
+
+  .pulse-panel--due .metric-step__title h2 {
+    animation: none;
+    text-shadow: none;
+  }
+
+  .pulse-panel--due .metric-step__title svg {
+    animation: none;
+    filter: none;
+  }
+
+  .now-task--nudge .working-toggle--play-pause {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 }
