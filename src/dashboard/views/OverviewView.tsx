@@ -1,11 +1,9 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   deleteMetricCheckIn,
   submitBrainDump,
@@ -17,18 +15,13 @@ import {
   useBrainDumpDraft,
   useRecentBrainDumpHistory,
 } from "../../lib/brainDumpDraft";
-import {
-  createFloatingFromDraft,
-  useFloatingBrainDumps,
-  type FloatingBrainDump,
-} from "../../lib/floatingBrainDumps";
+import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
 import {
   DayStats,
   PhaseTotals,
 } from "../components/DayReflection";
 import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
-import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
 import { OverviewTasksPanel } from "../components/OverviewTasksPanel";
 import { ViewToggle } from "../components/ViewToggle";
 import { useComposerTagProps } from "../components/BrainDumpTags";
@@ -99,7 +92,6 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
     setError,
   } = useDashboardData();
   const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
-  const [portalRoot, setPortalRoot] = useState<Element | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
@@ -109,14 +101,7 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
     brainDumpTagIds,
     brainDumpHistory.viewingDump,
   );
-  const {
-    dumps: floatingDumps,
-    addDump,
-    updateDump,
-    removeDump,
-    bringToFront,
-    reclampToBoard,
-  } = useFloatingBrainDumps();
+  const { forkToFloating } = useFloatingBrainDumpsContext();
 
   const nowMs = useCurrentTime();
   const dayFromSec = Math.floor(startOfDayMs(nowMs / 1000) / 1000);
@@ -134,17 +119,6 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
       setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
     [setBrainDumpDraft],
   );
-
-  const handleViewportResize = useCallback(
-    (width: number, height: number) => {
-      reclampToBoard(width, height);
-    },
-    [reclampToBoard],
-  );
-
-  useEffect(() => {
-    setPortalRoot(document.querySelector(".dashboard"));
-  }, []);
 
   const dayReflection = useMemo(() => {
     const to = Math.floor(Date.now() / 1000);
@@ -212,7 +186,7 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
     const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
-    const ok = await mutate(() => submitBrainDump(text, null, brainDumpTagIds));
+    const ok = await mutate(() => submitBrainDump(text, brainDumpTagIds));
     if (ok) {
       setBrainDumpDraft({ text: "", tagIds: [] });
       await brainDumpHistory.refresh();
@@ -222,63 +196,24 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
 
   const peelToFloating = useCallback(() => {
     if (brainDumpHistory.viewingHistory) return;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const next = createFloatingFromDraft(
-      brainDumpDraft,
-      floatingDumps,
-      width,
-      height,
-    );
-    if (!next) return;
-    addDump(next);
-    setBrainDumpDraft({ text: "", tagIds: [] });
+    if (forkToFloating(brainDumpDraft)) {
+      setBrainDumpDraft({ text: "", tagIds: [] });
+    }
   }, [
-    addDump,
     brainDumpDraft,
     brainDumpHistory.viewingHistory,
-    floatingDumps,
+    forkToFloating,
     setBrainDumpDraft,
   ]);
 
   const peelViewedDumpToFloating = useCallback(() => {
     const viewedDump = brainDumpHistory.viewingDump;
     if (!viewedDump) return;
-    const next = createFloatingFromDraft(
-      {
-        text: viewedDump.text,
-        tagIds: viewedDump.tags.map((tag) => tag.id),
-      },
-      floatingDumps,
-      window.innerWidth,
-      window.innerHeight,
-    );
-    if (next) addDump(next);
-  }, [addDump, brainDumpHistory.viewingDump, floatingDumps]);
-
-  const promoteFloatingDump = useCallback(
-    (dump: FloatingBrainDump) => {
-      const mainDraft = brainDumpDraft;
-      const mainEmpty = !trimBrainDumpDraft(mainDraft);
-      setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
-      if (mainEmpty) removeDump(dump.id);
-      else updateDump(dump.id, { text: mainDraft.text, tagIds: mainDraft.tagIds });
-      mainDumpRef.current?.focus();
-    },
-    [brainDumpDraft, removeDump, setBrainDumpDraft, updateDump],
-  );
-
-  const submitFloatingDump = async (dump: FloatingBrainDump) => {
-    const text = dump.text.trim();
-    if (!text || brainDumpSubmitting) return;
-    setBrainDumpSubmitting(true);
-    const ok = await mutate(() => submitBrainDump(text, null, dump.tagIds));
-    if (ok) {
-      removeDump(dump.id);
-      await brainDumpHistory.refresh();
-    }
-    setBrainDumpSubmitting(false);
-  };
+    forkToFloating({
+      text: viewedDump.text,
+      tagIds: viewedDump.tags.map((tag) => tag.id),
+    });
+  }, [brainDumpHistory.viewingDump, forkToFloating]);
 
   const onMainDumpKeyDown = (
     event: React.KeyboardEvent<HTMLTextAreaElement>,
@@ -423,25 +358,6 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
           )}
         </section>
       </section>
-
-      {loaded &&
-        portalRoot &&
-        createPortal(
-          <FloatingBrainDumpsBoard
-            dumps={floatingDumps}
-            tags={tags}
-            onTextChange={(id, text) => updateDump(id, { text })}
-            onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
-            onPositionChange={(id, x, y) => updateDump(id, { x, y })}
-            onSizeChange={(id, width, height) => updateDump(id, { width, height })}
-            onPromote={promoteFloatingDump}
-            onRemove={removeDump}
-            onSubmit={(dump) => void submitFloatingDump(dump)}
-            onBringToFront={bringToFront}
-            onViewportResize={handleViewportResize}
-          />,
-          portalRoot,
-        )}
     </div>
   );
 }

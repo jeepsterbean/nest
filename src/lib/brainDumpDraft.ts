@@ -146,8 +146,8 @@ export function useRecentBrainDumpHistory(
   const refresh = useCallback(async () => {
     try {
       const now = Math.floor(Date.now() / 1000);
-      const dumps = await listBrainDumps(0, now + 1);
-      setBrainDumps(dumps.slice(0, HISTORY_LIMIT));
+      const dumps = await listBrainDumps(0, now + 1, HISTORY_LIMIT);
+      setBrainDumps(dumps);
     } catch (error) {
       onError(String(error));
     }

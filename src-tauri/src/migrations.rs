@@ -893,6 +893,9 @@ UPDATE phases SET color = CASE name
 END;
 "#,
         ),
+        // Brain dumps no longer carry an optional title; first line of text is
+        // enough for Logs display, and fork-to-sticky replaces editing.
+        M::up("ALTER TABLE brain_dumps DROP COLUMN title;"),
     ])
 }
 
@@ -1140,7 +1143,7 @@ CREATE TABLE phase_check_ins (
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(title_column_count, 1);
+        assert_eq!(title_column_count, 0);
 
         conn.execute(
             "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",

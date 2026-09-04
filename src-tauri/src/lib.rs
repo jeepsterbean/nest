@@ -1351,7 +1351,6 @@ pub fn run() {
             commands::rename_tag,
             commands::delete_tag,
             commands::submit_brain_dump,
-            commands::update_brain_dump_title,
             commands::update_brain_dump_tags,
             commands::list_brain_dumps,
             show_popup,

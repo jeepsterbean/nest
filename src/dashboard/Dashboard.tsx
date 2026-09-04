@@ -2,6 +2,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { DashboardDataProvider } from "./context/DashboardDataContext";
+import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import {
   DashboardHeader,
@@ -47,25 +48,27 @@ function DashboardInner() {
   }, []);
 
   return (
-    <main className="dashboard">
-      <DashboardSidebar view={view} onSelectView={setView} />
-      <div className={`dashboard__inner dashboard__inner--${view}`}>
-        {view === "overview" && <DashboardHeader />}
+    <FloatingBrainDumpsProvider>
+      <main className="dashboard">
+        <DashboardSidebar view={view} onSelectView={setView} />
+        <div className={`dashboard__inner dashboard__inner--${view}`}>
+          {view === "overview" && <DashboardHeader />}
 
-        <ErrorBanner />
+          <ErrorBanner />
 
-        {view === "overview" && (
-          <OverviewView onOpenTasks={() => setView("tasks")} />
-        )}
-        {view === "calendar" && <CalendarView />}
-        {view === "insights" && <InsightsView />}
-        {view === "logs" && <LogsView />}
-        {view === "tasks" && <TasksView />}
-        {view === "settings" && <SettingsView />}
-      </div>
-      <ScopeMenu />
-      <StatusMenu />
-    </main>
+          {view === "overview" && (
+            <OverviewView onOpenTasks={() => setView("tasks")} />
+          )}
+          {view === "calendar" && <CalendarView />}
+          {view === "insights" && <InsightsView />}
+          {view === "logs" && <LogsView />}
+          {view === "tasks" && <TasksView />}
+          {view === "settings" && <SettingsView />}
+        </div>
+        <ScopeMenu />
+        <StatusMenu />
+      </main>
+    </FloatingBrainDumpsProvider>
   );
 }
 

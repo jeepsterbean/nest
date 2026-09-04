@@ -46,7 +46,6 @@ const phaseCheckIn = (
 const dump = (id: number, createdAt: number): BrainDump => ({
   id,
   createdAt,
-  title: null,
   text: `dump ${id}`,
   tags: [],
 });

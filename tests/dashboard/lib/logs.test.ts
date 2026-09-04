@@ -106,7 +106,6 @@ describe("daily Logs export", () => {
         {
           id: 1,
           createdAt: 180,
-          title: "A thought",
           text: "First line\nSecond line",
           tags: [{ id: 1, name: "reflection" }],
         },
@@ -157,7 +156,7 @@ describe("daily Logs export", () => {
     expect(markdown).toContain("Metric check-in — Daily pulse: Energy 4");
     expect(markdown).toContain("Working now started — Write proposal");
     expect(markdown).toContain("Working now stopped — Write proposal");
-    expect(markdown).toContain("Brain dump — A thought — Tags: reflection");
+    expect(markdown).toContain("Brain dump — Tags: reflection");
     expect(markdown).toContain("> First line\n  > Second line");
   });
 });

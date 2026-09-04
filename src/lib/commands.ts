@@ -277,21 +277,17 @@ export function showDashboard(): Promise<void> {
 
 export function submitBrainDump(
   text: string,
-  title: string | null = null,
   tagIds: number[] = [],
 ): Promise<BrainDump> {
-  return invoke("submit_brain_dump", { text, title, tagIds });
+  return invoke("submit_brain_dump", { text, tagIds });
 }
 
-export function updateBrainDumpTitle(
-  id: number,
-  title: string | null,
-): Promise<BrainDump> {
-  return invoke("update_brain_dump_title", { id, title });
-}
-
-export function listBrainDumps(from: number, to: number): Promise<BrainDump[]> {
-  return invoke("list_brain_dumps", { from, to });
+export function listBrainDumps(
+  from: number,
+  to: number,
+  limit?: number,
+): Promise<BrainDump[]> {
+  return invoke("list_brain_dumps", { from, to, limit: limit ?? null });
 }
 
 export function listTags(): Promise<Tag[]> {

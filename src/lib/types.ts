@@ -111,7 +111,6 @@ export type TimerState = {
 export type BrainDump = {
   id: number;
   createdAt: number;
-  title: string | null;
   text: string;
   tags: BrainDumpTag[];
 };

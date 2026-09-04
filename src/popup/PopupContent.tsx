@@ -865,7 +865,7 @@ function PopupContent({
   const saveBrainDump = async () => {
     const text = trimBrainDumpDraft(brainDumpDraft);
     if (!text) return;
-    await submitBrainDump(text, null, brainDumpTagIds);
+    await submitBrainDump(text, brainDumpTagIds);
     setBrainDumpDraft({ text: "", tagIds: [] });
     await brainDumpHistory.refresh();
     await emit("data-changed");

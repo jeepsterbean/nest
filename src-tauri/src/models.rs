@@ -121,7 +121,6 @@ pub struct TimerState {
 pub struct BrainDump {
     pub id: i64,
     pub created_at: i64,
-    pub title: Option<String>,
     pub text: String,
     pub tags: Vec<BrainDumpTag>,
 }

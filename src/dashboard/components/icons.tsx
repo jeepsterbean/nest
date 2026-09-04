@@ -10,12 +10,6 @@ const iconProps = {
   "aria-hidden": true,
 } as const;
 
-export const pencilIcon = (
-  <svg {...iconProps}>
-    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-  </svg>
-);
-
 export const clockIcon = (
   <svg {...iconProps}>
     <circle cx="12" cy="12" r="9" />

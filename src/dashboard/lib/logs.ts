@@ -130,9 +130,8 @@ function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
       return `- ${time} — Metric check-in — ${pulseLabel}${ratings ? `: ${ratings}` : ""}`;
     }
     case "dump": {
-      const title = event.dump.title?.trim();
       const tags = event.dump.tags.map((tag) => tag.name).join(", ");
-      const detail = [title, tags && `Tags: ${tags}`].filter(Boolean).join(" — ");
+      const detail = tags ? `Tags: ${tags}` : "";
       const body = event.dump.text
         .trim()
         .split("\n")

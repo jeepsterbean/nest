@@ -154,11 +154,12 @@ _Avoid_: Check-in popup
 **Brain dump**:
 An unstructured captured thought stored on its own, with zero or more Tags.
 Overview and the popup share the text and selected-tag draft, and independently
-browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can attach
-an optional title and edit a saved dump's Tags. Overview drafts can be peeled
-into movable floating drafts and resized from their lower-right corner. A saved
-brain dump being browsed in Overview can be copied into a new floating draft.
-_Avoid_: note, journal entry
+browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can edit
+a saved dump's Tags, and fork a saved dump into a new unsaved floating draft
+(text and Tags). Overview drafts can be peeled into movable floating drafts and
+resized from their lower-right corner. A saved brain dump being browsed in
+Overview can also be copied into a new floating draft.
+_Avoid_: note, journal entry, title (brain dumps have no title field)
 
 **Tag**:
 A reusable label for brain dumps. The composer shows selected Tags followed by
