@@ -31,6 +31,8 @@
     0 8px 24px -16px rgba(60, 48, 30, 0.25);
   --serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
 
+  position: relative;
+  z-index: 0;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
@@ -85,8 +87,9 @@
   padding: 36px 32px 64px;
 }
 
-/* Non-Overview Sections: no Greetings board — reclaim the top for content. */
-.dashboard__inner:not(.dashboard__inner--overview) {
+/* No Greetings board — reclaim the top for content (other Sections, or
+   Overview while Doing). */
+.dashboard__inner--no-greetings {
   gap: 16px;
   padding-top: 24px;
 }
@@ -567,7 +570,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
+  background: color-mix(in srgb, var(--dump) 6%, var(--surface));
 }
 
 .overview-panel__head {
@@ -763,11 +766,89 @@
   width: 280px;
   height: 200px;
   pointer-events: auto;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--sticky-tint) 28%, var(--border));
   border-radius: 14px;
-  background: color-mix(in srgb, var(--dump-soft) 24%, var(--surface));
+  /* Paper wash strong enough to read as a real sticky tint. */
+  --sticky-tint: var(--dump);
+  background: color-mix(in srgb, var(--sticky-tint) 36%, var(--surface));
   box-shadow: var(--shadow);
   overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.floating-brain-dump[data-color="paper"] {
+  --sticky-tint: var(--dump);
+}
+
+.floating-brain-dump[data-color="blush"] {
+  --sticky-tint: var(--rating-1);
+}
+
+.floating-brain-dump[data-color="sage"] {
+  --sticky-tint: var(--doing);
+}
+
+.floating-brain-dump[data-color="sky"] {
+  --sticky-tint: var(--accent);
+}
+
+.floating-brain-dump[data-color="lilac"] {
+  --sticky-tint: var(--phase);
+}
+
+.floating-sticky-colors {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.floating-sticky-colors__swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 999px;
+  /* Match the note wash so the circle previews the paper. */
+  background: color-mix(in srgb, var(--swatch-tint) 36%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.floating-sticky-colors__swatch--paper {
+  --swatch-tint: var(--dump);
+}
+
+.floating-sticky-colors__swatch--blush {
+  --swatch-tint: var(--rating-1);
+}
+
+.floating-sticky-colors__swatch--sage {
+  --swatch-tint: var(--doing);
+}
+
+.floating-sticky-colors__swatch--sky {
+  --swatch-tint: var(--accent);
+}
+
+.floating-sticky-colors__swatch--lilac {
+  --swatch-tint: var(--phase);
+}
+
+.floating-sticky-colors__swatch:hover,
+.floating-sticky-colors__swatch:focus-visible {
+  transform: scale(1.12);
+  border-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  outline: none;
+}
+
+.floating-sticky-colors__swatch.is-selected {
+  border-color: var(--ink);
+  box-shadow:
+    0 0 0 1.5px var(--surface),
+    inset 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
 }
 
 .floating-brain-dump__resize {
@@ -804,7 +885,7 @@
 .floating-brain-dump .brain-dump-surface {
   min-height: 0;
   flex: 1;
-  background: color-mix(in srgb, var(--dump-soft) 24%, var(--surface));
+  background: inherit;
 }
 
 .floating-brain-dump .brain-dump-surface__input,
@@ -5288,7 +5369,7 @@
 
 .logs-chrono__row {
   --phase-gutter: var(--surface-2);
-  --logs-time-column: 4.75rem;
+  --logs-time-column: 6rem;
   --logs-mark-column: 22px;
   display: grid;
   grid-template-columns: var(--logs-time-column) minmax(0, 1fr);
@@ -5317,8 +5398,9 @@
 .logs-chrono__when time {
   display: block;
   line-height: 22px;
-  color: var(--muted);
-  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+  font-size: 12px;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -5455,7 +5537,7 @@
 
 @media (max-width: 680px) {
   .logs-chrono__row {
-    --logs-time-column: 4rem;
+    --logs-time-column: 5.25rem;
   }
 
   .logs-chrono__when {

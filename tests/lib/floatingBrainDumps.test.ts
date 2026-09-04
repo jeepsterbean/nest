@@ -7,12 +7,14 @@ import {
   clampFloatingPosition,
   createFloatingDumpWriter,
   createFloatingFromDraft,
+  DEFAULT_FLOATING_STICKY_COLOR,
   FLOATING_BRAIN_DUMP_MIN_VISIBLE,
   FLOATING_BRAIN_DUMP_WIDTH,
   type FloatingBrainDump,
   nextCascadePosition,
   nextZIndex,
   parseFloatingBrainDump,
+  parseFloatingStickyColor,
   reclampFloatingDumps,
 } from "../../src/lib/floatingBrainDumps";
 
@@ -71,6 +73,7 @@ describe("nextCascadePosition", () => {
           id: "a",
           text: "one",
           tagIds: [],
+          color: "paper",
           x: first.x,
           y: first.y,
           zIndex: 1,
@@ -92,6 +95,7 @@ describe("nextZIndex", () => {
           id: "a",
           text: "",
           tagIds: [],
+          color: "paper",
           x: 0,
           y: 0,
           zIndex: 2,
@@ -100,6 +104,7 @@ describe("nextZIndex", () => {
           id: "b",
           text: "",
           tagIds: [],
+          color: "sky",
           x: 0,
           y: 0,
           zIndex: 5,
@@ -120,6 +125,7 @@ describe("createFloatingFromDraft", () => {
     expect(dump).toMatchObject({
       text: "  Ideas  ",
       tagIds: [2],
+      color: DEFAULT_FLOATING_STICKY_COLOR,
       x: 96,
       y: 120,
       zIndex: 1,
@@ -139,6 +145,7 @@ describe("reclampFloatingDumps", () => {
         id: "a",
         text: "note",
         tagIds: [],
+        color: "paper" as const,
         x: 999,
         y: 999,
         zIndex: 1,
@@ -180,6 +187,7 @@ describe("createFloatingDumpWriter", () => {
     id,
     text: "note",
     tagIds: [],
+    color: "paper",
     x: 0,
     y: 0,
     zIndex: 1,
@@ -221,9 +229,34 @@ describe("createFloatingDumpWriter", () => {
   });
 });
 
+describe("parseFloatingStickyColor", () => {
+  it("accepts known ids and falls back to paper", () => {
+    expect(parseFloatingStickyColor("sage")).toBe("sage");
+    expect(parseFloatingStickyColor("neon")).toBe(DEFAULT_FLOATING_STICKY_COLOR);
+    expect(parseFloatingStickyColor(undefined)).toBe(
+      DEFAULT_FLOATING_STICKY_COLOR,
+    );
+  });
+});
+
 describe("parseFloatingBrainDump", () => {
   it("rejects malformed stored notes", () => {
     expect(parseFloatingBrainDump(null)).toBeNull();
     expect(parseFloatingBrainDump({ id: 1 })).toBeNull();
+  });
+
+  it("defaults missing color to paper and keeps a valid color", () => {
+    const base = {
+      id: "a",
+      text: "note",
+      tagIds: [1],
+      x: 10,
+      y: 20,
+      zIndex: 1,
+    };
+    expect(parseFloatingBrainDump(base)).toMatchObject({ color: "paper" });
+    expect(parseFloatingBrainDump({ ...base, color: "lilac" })).toMatchObject({
+      color: "lilac",
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
   writeSettingsPane,
   type SettingsPane,
 } from "../lib/settings";
+import { BackgroundView } from "./BackgroundView";
 import { MetricsView } from "./MetricsView";
 import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
@@ -41,6 +42,9 @@ export function SettingsView() {
       </div>
       <div className="settings-slot" hidden={pane !== "reminders"}>
         <RemindersView />
+      </div>
+      <div className="settings-slot" hidden={pane !== "background"}>
+        <BackgroundView />
       </div>
     </section>
   );

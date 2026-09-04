@@ -6,10 +6,36 @@ import {
 } from "react";
 import type { BrainDumpDraft } from "./brainDumpDraft";
 
+/** Calm paper tints for floating stickies (Nest journal palette). */
+export const FLOATING_STICKY_COLORS = [
+  { id: "paper", label: "Paper" },
+  { id: "blush", label: "Blush" },
+  { id: "sage", label: "Sage" },
+  { id: "sky", label: "Sky" },
+  { id: "lilac", label: "Lilac" },
+] as const;
+
+export type FloatingStickyColor = (typeof FLOATING_STICKY_COLORS)[number]["id"];
+
+export const DEFAULT_FLOATING_STICKY_COLOR: FloatingStickyColor = "paper";
+
+export function parseFloatingStickyColor(
+  value: unknown,
+): FloatingStickyColor {
+  if (
+    typeof value === "string" &&
+    FLOATING_STICKY_COLORS.some((color) => color.id === value)
+  ) {
+    return value as FloatingStickyColor;
+  }
+  return DEFAULT_FLOATING_STICKY_COLOR;
+}
+
 export type FloatingBrainDump = {
   id: string;
   text: string;
   tagIds: number[];
+  color: FloatingStickyColor;
   x: number;
   y: number;
   zIndex: number;
@@ -136,6 +162,7 @@ export function parseFloatingBrainDump(value: unknown): FloatingBrainDump | null
     id: record.id,
     text: record.text,
     tagIds,
+    color: parseFloatingStickyColor(record.color),
     x: record.x,
     y: record.y,
     zIndex: record.zIndex,
@@ -211,6 +238,7 @@ export function createFloatingFromDraft(
     id: createFloatingBrainDumpId(),
     text: draft.text,
     tagIds: [...draft.tagIds],
+    color: DEFAULT_FLOATING_STICKY_COLOR,
     x,
     y,
     zIndex: nextZIndex(existing),

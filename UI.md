@@ -18,9 +18,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Shared controls and Section anchors
 
-- Greetings board: `DashboardHeader` (`.dash-header`) on Overview only
-  (typewriter greeting, live Phase, Timer). Other Sections omit it so content
-  fills the area beside the Sidebar.
+- Greetings board: `DashboardHeader` (`.dash-header`) on Overview except while
+  Phase tone is Doing (typewriter greeting, live Phase, Timer). Other Sections
+  always omit it; Overview during Doing adds `.dashboard__inner--no-greetings`
+  so content fills the area beside the Sidebar. Timer stays on the Popup.
 - Sections show no title. Top controls stay in `.dash-section__head` or a
   sibling toolbar such as `RangeToolbar`; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
@@ -34,6 +35,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.overview-panel--dumps`). Shared table is `TaskTable` (`readOnly`); Overview
   columns come from `overviewTaskColumns()`. Timeline is today-only with
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
+  Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
+  sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
+  color persists in `nest.floating-brain-dumps`.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range is remembered in

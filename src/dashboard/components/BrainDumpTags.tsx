@@ -152,7 +152,11 @@ export function BrainDumpTags({
                   type="button"
                   aria-pressed={selected}
                   className={selected ? "is-selected" : undefined}
-                  onClick={() => toggle(tag.id)}
+                  onClick={() => {
+                    toggle(tag.id);
+                    setOpen(false);
+                    setQuery("");
+                  }}
                 >
                   <span>{tag.name}</span>
                   {selected && <span aria-hidden="true">✓</span>}

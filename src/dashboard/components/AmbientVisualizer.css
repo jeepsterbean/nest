@@ -1,0 +1,18 @@
+.ambient-visualizer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: blur(42px) saturate(1.6);
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ambient-visualizer {
+    mix-blend-mode: screen;
+    opacity: 1;
+  }
+}

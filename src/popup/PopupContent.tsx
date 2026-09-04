@@ -7,10 +7,13 @@ import {
   type RefObject,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
+import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
   getTimerState,
+  latestPhaseCheckIn,
   listMetrics,
+  listPhases,
   listPulses,
   listTaskWorkStretches,
   listTasks,
@@ -29,6 +32,8 @@ import type {
   TimerState,
   Metric,
   MetricRatingInput,
+  Phase,
+  PhaseCheckIn,
   Pulse,
   RatingValue,
   Task,
@@ -41,6 +46,10 @@ import {
   TIMER_INTERVALS,
   isTimerDue,
 } from "../dashboard/lib/time";
+import { phaseName, phaseTone } from "../dashboard/lib/period";
+import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
+import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
+import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
 import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
@@ -80,6 +89,8 @@ type LoadState = {
   workStretches: TaskWorkStretch[];
   timer: TimerState;
   tags: Tag[];
+  phases: Phase[];
+  latestPhase: PhaseCheckIn | null;
 };
 
 const loadTodayStretches = (nowMs: number = Date.now()) => {
@@ -445,6 +456,8 @@ function PopupContent({
   onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
+  const backgroundStyle = useBackgroundStyle();
+  const backgroundTuning = useBackgroundTuning();
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [metricIndex, setMetricIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
@@ -548,11 +561,13 @@ function PopupContent({
       loadTodayStretches(),
       getTimerState(),
       listTags(),
+      listPhases(true),
+      latestPhaseCheckIn(),
     ])
-      .then(([metrics, pulses, tasks, workStretches, timer, tags]) => {
+      .then(([metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase]) => {
         if (cancelled) return;
         const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
-        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags });
+        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase });
         setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
         setError(null);
       })
@@ -571,9 +586,12 @@ function PopupContent({
         loadTodayStretches(),
         getTimerState(),
         listTags(),
-      ]).then(([tasks, workStretches, timer, tags]) => {
+        latestPhaseCheckIn(),
+      ]).then(([tasks, workStretches, timer, tags, latestPhase]) => {
         setLoaded((current) =>
-          current ? { ...current, tasks, workStretches, timer, tags } : current,
+          current
+            ? { ...current, tasks, workStretches, timer, tags, latestPhase }
+            : current,
         );
       });
     };
@@ -670,6 +688,7 @@ function PopupContent({
         workStretches,
         tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
       });
+      if (status === "completed") pulseActivity();
       await emit("data-changed");
     } catch (e) {
       setError(String(e));
@@ -859,6 +878,7 @@ function PopupContent({
     await submitMetricCheckIn(pulse.id, ratingsInput);
     setRatings({});
     setHeldMetricDue(setMetricDue, timerDue, true);
+    pulseActivity();
     await emit("data-changed");
   };
 
@@ -930,6 +950,11 @@ function PopupContent({
       </div>
     );
   }
+
+  const currentPhaseName = loaded.latestPhase
+    ? phaseName(loaded.latestPhase.phaseId, loaded.phases, loaded.latestPhase.phaseLabel)
+    : null;
+  const isDoing = currentPhaseName ? phaseTone(currentPhaseName) === "doing" : false;
 
   const workingCount = workingTasks.length;
   // Working tasks lead as hero rows: the one thing the popup wants you to
@@ -1279,6 +1304,11 @@ function PopupContent({
       </aside>
 
       <main className="popup-tasks">
+        <AmbientVisualizer
+          active={isDoing}
+          style={backgroundStyle}
+          tuning={backgroundTuning}
+        />
         <section
           className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
           aria-label="Metrics"

@@ -3,6 +3,7 @@ export const SETTINGS_PANES = [
   { key: "phases", label: "Phases" },
   { key: "tags", label: "Tags" },
   { key: "reminders", label: "Reminders" },
+  { key: "background", label: "Background" },
 ] as const;
 
 export type SettingsPane = (typeof SETTINGS_PANES)[number]["key"];
@@ -19,7 +20,8 @@ export const readSettingsPane = (
   return stored === "metrics" ||
     stored === "phases" ||
     stored === "tags" ||
-    stored === "reminders"
+    stored === "reminders" ||
+    stored === "background"
     ? stored
     : "metrics";
 };

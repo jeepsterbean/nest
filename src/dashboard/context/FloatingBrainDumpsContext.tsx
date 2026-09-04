@@ -29,6 +29,10 @@ type FloatingBrainDumpsContextValue = {
 const FloatingBrainDumpsContext =
   createContext<FloatingBrainDumpsContextValue | null>(null);
 
+/**
+ * Must wrap content inside `.dashboard` so the sticky board (rendered here)
+ * inherits theme tokens like --surface and --dump.
+ */
 export function FloatingBrainDumpsProvider({
   children,
 }: {
@@ -99,6 +103,7 @@ export function FloatingBrainDumpsProvider({
         tags={tags}
         onTextChange={(id, text) => updateDump(id, { text })}
         onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
+        onColorChange={(id, color) => updateDump(id, { color })}
         onPositionChange={(id, x, y) => updateDump(id, { x, y })}
         onSizeChange={(id, width, height) =>
           updateDump(id, { width, height })

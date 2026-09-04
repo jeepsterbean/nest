@@ -1,3 +1,4 @@
+import { pulseActivity } from "../../lib/activityPulse";
 import { setTaskStatus } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
 import { checkIcon } from "../components/icons";
@@ -53,6 +54,7 @@ export function StatusMenu() {
               onClick={() => {
                 if (status !== task.status) {
                   void mutate(() => setTaskStatus(task.id, status as TaskStatus));
+                  if (status === "completed") pulseActivity();
                 }
                 closeStatusMenu();
               }}
