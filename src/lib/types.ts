@@ -126,3 +126,10 @@ export type Tag = {
   createdAt: number;
   lastUsedAt: number | null;
 };
+
+export type Reminder = {
+  id: number;
+  text: string;
+  active: boolean;
+  createdAt: number;
+};

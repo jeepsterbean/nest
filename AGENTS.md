@@ -52,8 +52,8 @@ qualitative.
 
 - Prefer domain vocabulary from `CONTEXT.md`. Use Task, Parent, Child,
   Blocker, Dependent, Ready, Blocked, Scope, Working now, Work stretch, Worked
-  time, Phase, Pulse, Metric, Metric check-in, Brain dump, Timer, Popup, and
-  Logs as defined there. Do not invent synonyms (todo, subitem,
+  time, Phase, Pulse, Metric, Metric check-in, Brain dump, Reminder, Timer,
+  Popup, and Logs as defined there. Do not invent synonyms (todo, subitem,
   dependency-as-jargon for either side of a Blocker edge, stopwatch for Worked
   time, session for Work stretch, Pulse check-in for Metric check-in) in
   user-facing copy or new domain types.

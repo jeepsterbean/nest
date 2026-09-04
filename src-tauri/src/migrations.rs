@@ -896,6 +896,27 @@ END;
         // Brain dumps no longer carry an optional title; first line of text is
         // enough for Logs display, and fork-to-sticky replaces editing.
         M::up("ALTER TABLE brain_dumps DROP COLUMN title;"),
+        // Reminders move from a hardcoded list into Settings-owned rows. Seed
+        // the previous defaults so upgrades keep the same Greetings board lines.
+        M::up(
+            r#"
+CREATE TABLE reminders (
+  id         INTEGER PRIMARY KEY,
+  text       TEXT NOT NULL,
+  active     INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
+
+INSERT INTO reminders (text, active, created_at) VALUES
+  ('Put on some good music', 1, 0),
+  ('Do a brain dump', 1, 0),
+  ('Choose one small thing', 1, 0),
+  ('Write down the next action', 1, 0),
+  ('Clear the space around you', 1, 0),
+  ('Close what you''re not using', 1, 0),
+  ('Start for just two minutes', 1, 0);
+"#,
+        ),
     ])
 }
 
@@ -908,6 +929,33 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn seeds_reminders_for_greetings_board() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+
+        let reminders: Vec<(String, i64)> = conn
+            .prepare("SELECT text, active FROM reminders ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+
+        assert_eq!(
+            reminders,
+            vec![
+                ("Put on some good music".into(), 1),
+                ("Do a brain dump".into(), 1),
+                ("Choose one small thing".into(), 1),
+                ("Write down the next action".into(), 1),
+                ("Clear the space around you".into(), 1),
+                ("Close what you're not using".into(), 1),
+                ("Start for just two minutes".into(), 1),
+            ]
+        );
+    }
 
     #[test]
     fn adds_configurable_phase_appearance() {

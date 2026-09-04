@@ -3467,6 +3467,115 @@
   height: 16px;
 }
 
+/* ---------- Reminders ---------- */
+
+.reminders-view {
+  max-width: 680px;
+}
+
+.reminders-view__create {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.reminders-view__create input,
+.reminders-view__list input {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+}
+
+.reminders-view__create input:focus,
+.reminders-view__list input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.reminders-view__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.reminders-view__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 9px 7px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reminders-view__list li:last-child {
+  border-bottom: 0;
+}
+
+.reminders-view__text {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminders-view__active {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reminders-view__active--on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--text);
+}
+
+.reminders-view__active:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.reminders-view__empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reminders-view__delete {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.reminders-view__delete:hover {
+  background: color-mix(in srgb, #d64545 10%, transparent);
+  color: #b93434;
+}
+
+.reminders-view__delete svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* ---------- Phases ---------- */
 
 .phase-settings {
