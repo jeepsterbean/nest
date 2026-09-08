@@ -20,7 +20,7 @@ export function BrainDumpEntry({
   const [editingTags, setEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState<number[]>([]);
   const [savingTags, setSavingTags] = useState(false);
-  const title = dump.text.trim().split("\n")[0] || "Brain dump";
+  const summary = dump.text.trim().split("\n")[0] || "Brain dump";
 
   const startTagEdit = () => {
     setTagDraft(dump.tags.map((tag) => tag.id));
@@ -54,7 +54,16 @@ export function BrainDumpEntry({
           <span className="event-dump__chevron" aria-hidden="true">
             {expanded ? "▾" : "▸"}
           </span>
-          <span className="event-dump__title">{title}</span>
+          {dump.tags.length > 0 ? (
+            <span className="event-dump__inline-tags" aria-label="Brain dump tags">
+              {dump.tags.map((tag) => (
+                <span key={tag.id} title={tag.name}>
+                  {tag.name}
+                </span>
+              ))}
+            </span>
+          ) : null}
+          <span className="event-dump__title">{summary}</span>
         </button>
         <button
           type="button"
@@ -92,15 +101,7 @@ export function BrainDumpEntry({
             </button>
           </div>
         </div>
-      ) : (
-        dump.tags.length > 0 && (
-          <div className="event-dump__tags" aria-label="Brain dump tags">
-            {dump.tags.map((tag) => (
-              <span key={tag.id} title={tag.name}>{tag.name}</span>
-            ))}
-          </div>
-        )
-      )}
+      ) : null}
       {expanded && <p className="event-dump__text">{dump.text}</p>}
     </div>
   );

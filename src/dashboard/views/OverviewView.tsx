@@ -473,6 +473,7 @@ export function OverviewView({
     if (tile.id === "brainDump") {
       return loaded ? (
         <BrainDumpSurface
+          layout="overview"
           className={
             tile.minimised
               ? "brain-dump-surface--compact"
@@ -518,6 +519,7 @@ export function OverviewView({
 
     return (
       <MetricCheckIn
+        layout="overview"
         metrics={metrics}
         pulses={visiblePulses}
         submitting={metricSubmitting}

@@ -14,6 +14,7 @@ export function BrainDumpSurface({
   tagsDisabled = false,
   readOnly = false,
   showTags = true,
+  layout = "default",
   textareaLabel,
   className = "",
   headerStart,
@@ -31,6 +32,7 @@ export function BrainDumpSurface({
   tagsDisabled?: boolean;
   readOnly?: boolean;
   showTags?: boolean;
+  layout?: "default" | "overview";
   textareaLabel: string;
   className?: string;
   headerStart?: ReactNode;
@@ -43,42 +45,77 @@ export function BrainDumpSurface({
   onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
 }) {
   const hasHeader = headerStart || headerEnd;
+  const usesOverviewChrome = layout === "overview";
 
   return (
-    <div className={`brain-dump-surface${className ? ` ${className}` : ""}`}>
+    <div
+      className={`brain-dump-surface${
+        usesOverviewChrome ? " brain-dump-surface--overview" : ""
+      }${className ? ` ${className}` : ""}`}
+    >
       {hasHeader && (
         <header
-          className={`brain-dump-surface__head${
-            onHeaderPointerDown ? " brain-dump-surface__head--draggable" : ""
+          className={`${
+            usesOverviewChrome ? "overview-panel__head" : "brain-dump-surface__head"
+          }${
+            onHeaderPointerDown
+              ? usesOverviewChrome
+                ? " overview-panel__head--draggable"
+                : " brain-dump-surface__head--draggable"
+              : ""
           }`}
           onPointerDown={onHeaderPointerDown}
         >
-          <div className="brain-dump-surface__head-start">{headerStart}</div>
-          <div className="brain-dump-surface__head-end">{headerEnd}</div>
+          <div
+            className={
+              usesOverviewChrome
+                ? "overview-panel__head-start"
+                : "brain-dump-surface__head-start"
+            }
+          >
+            {headerStart}
+          </div>
+          <div
+            className={
+              usesOverviewChrome
+                ? "overview-panel__head-end"
+                : "brain-dump-surface__head-end"
+            }
+          >
+            {headerEnd}
+          </div>
         </header>
       )}
-      <textarea
-        ref={textareaRef}
-        className="brain-dump-surface__input"
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        value={text}
-        readOnly={readOnly}
-        aria-label={textareaLabel}
-        onChange={(event) => onTextChange?.(event.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={onFocus}
-      />
-      {showTags && onTagsChange && (
-        <BrainDumpTags
-          tags={tags}
-          selectedIds={tagIds}
-          disabled={tagsDisabled || readOnly}
-          onChange={onTagsChange}
+      <div
+        className={
+          usesOverviewChrome
+            ? "overview-panel__scroll brain-dump-surface__scroll"
+            : "brain-dump-surface__scroll"
+        }
+      >
+        <textarea
+          ref={textareaRef}
+          className="brain-dump-surface__input"
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          value={text}
+          readOnly={readOnly}
+          aria-label={textareaLabel}
+          onChange={(event) => onTextChange?.(event.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={onFocus}
         />
-      )}
+        {showTags && onTagsChange && (
+          <BrainDumpTags
+            tags={tags}
+            selectedIds={tagIds}
+            disabled={tagsDisabled || readOnly}
+            onChange={onTagsChange}
+          />
+        )}
+      </div>
     </div>
   );
 }

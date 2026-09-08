@@ -29,6 +29,7 @@ export function MetricCheckIn({
   pulses,
   submitting,
   due = false,
+  layout = "default",
   emptyCopy,
   onComplete,
   pulseButtonsRef,
@@ -44,6 +45,7 @@ export function MetricCheckIn({
   pulses: Pulse[];
   submitting: boolean;
   due?: boolean;
+  layout?: "default" | "overview";
   emptyCopy: string;
   onComplete: (pulse: Pulse, ratings: MetricRatingInput[]) => Promise<void>;
   pulseButtonsRef?: RefObject<HTMLDivElement | null>;
@@ -70,6 +72,7 @@ export function MetricCheckIn({
     : [];
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
+  const usesOverviewChrome = layout === "overview";
 
   useEffect(() => {
     if (selectedPulse?.metricIds.length) return;
@@ -110,7 +113,9 @@ export function MetricCheckIn({
 
   return (
     <section
-      className={`pulse-panel${due ? " pulse-panel--due" : ""}`}
+      className={`pulse-panel${due ? " pulse-panel--due" : ""}${
+        usesOverviewChrome ? " pulse-panel--overview" : ""
+      }`}
       aria-label="Metrics"
       onKeyDown={(event) => {
         if (event.key >= "1" && event.key <= "5") {
@@ -120,13 +125,25 @@ export function MetricCheckIn({
       }}
     >
       <div
-        className={`pulse-panel__header${
-          onHeaderPointerDown ? " pulse-panel__header--draggable" : ""
+        className={`${
+          usesOverviewChrome ? "overview-panel__head" : "pulse-panel__header"
+        }${
+          onHeaderPointerDown
+            ? usesOverviewChrome
+              ? " overview-panel__head--draggable"
+              : " pulse-panel__header--draggable"
+            : ""
         }`}
         title={dragTitle}
         onPointerDown={onHeaderPointerDown}
       >
-        <div className="pulse-panel__header-start">
+        <div
+          className={
+            usesOverviewChrome
+              ? "overview-panel__head-start"
+              : "pulse-panel__header-start"
+          }
+        >
           {headerStart}
           {activeMetric && (
             <div
@@ -143,7 +160,13 @@ export function MetricCheckIn({
           )}
         </div>
         {(pulses.length > 0 || headerEnd) && (
-          <div className="pulse-panel__header-end">
+          <div
+            className={
+              usesOverviewChrome
+                ? "overview-panel__head-end"
+                : "pulse-panel__header-end"
+            }
+          >
             {pulses.length > 0 && (
               <div
                 ref={pulseButtonsRef}
@@ -197,42 +220,50 @@ export function MetricCheckIn({
           </div>
         )}
       </div>
-      {activeMetric ? (
-        <div
-          className="metric-step"
-          key={`${selectedPulseId}:${activeMetric.id}:ratings`}
-        >
+      <div
+        className={
+          usesOverviewChrome
+            ? "overview-panel__scroll pulse-panel__body"
+            : "pulse-panel__body"
+        }
+      >
+        {activeMetric ? (
           <div
-            className="metric-row__buttons"
-            role="group"
-            aria-label={activeMetric.name}
+            className="metric-step"
+            key={`${selectedPulseId}:${activeMetric.id}:ratings`}
           >
-            {RATING_VALUES.map((value) => {
-              const selected = ratings[ratingKey(activeMetric.id)] === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`${value} out of 5`}
-                  aria-pressed={selected}
-                  disabled={submitting}
-                  className={`metric-rating metric-rating--v${value}${
-                    selected ? " metric-rating--active" : ""
-                  }`}
-                  onClick={() => void answerMetric(value)}
-                >
-                  {value}
-                </button>
-              );
-            })}
+            <div
+              className="metric-row__buttons"
+              role="group"
+              aria-label={activeMetric.name}
+            >
+              {RATING_VALUES.map((value) => {
+                const selected = ratings[ratingKey(activeMetric.id)] === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={`${value} out of 5`}
+                    aria-pressed={selected}
+                    disabled={submitting}
+                    className={`metric-rating metric-rating--v${value}${
+                      selected ? " metric-rating--active" : ""
+                    }`}
+                    onClick={() => void answerMetric(value)}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="combined-empty">
-          {pulses.length ? "This pulse has no metrics yet." : emptyCopy}
-        </div>
-      )}
+        ) : (
+          <div className="combined-empty">
+            {pulses.length ? "This pulse has no metrics yet." : emptyCopy}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
