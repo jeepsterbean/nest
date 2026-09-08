@@ -19,8 +19,8 @@ import { startPointerDrag } from "../lib/pointerDrag";
 import { BrainDumpSurface } from "./BrainDumpSurface";
 import { promoteIcon, trashIcon } from "./icons";
 
-const MIN_WIDTH = 200;
-const MIN_HEIGHT = 140;
+const MIN_WIDTH = 220;
+const MIN_HEIGHT = 168;
 const KEYBOARD_RESIZE_STEP = 16;
 
 export function FloatingBrainDumpCard({

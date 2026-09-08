@@ -28,12 +28,23 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   No per-Section size overrides.
 - Tasks: `.task-table`. No Working now play control or Readiness column in the
   table; start work from the detail panel or Kanban.
-- Overview: last-hour band `.overview-day`; three panels in `.overview-panels`
-  (read-only Tasks `.overview-panel--tasks` with Open/Closed + Tasks jump;
-  Timeline `.overview-panel--timeline` spanning the right column with Timeline
-  / Brain dumps / Metrics filter via `ViewToggle`; dump composer
-  `.overview-panel--dumps`). Shared table is `TaskTable` (`readOnly`); Overview
-  columns come from `overviewTaskColumns()`. Timeline is today-only with
+- Overview: `.overview-grid` holds six movable `.overview-tile` surfaces with
+  ids `lastHour`, `tasks`, `timeline`, `brainDump`, `metrics`, and
+  `controlPanel`. The control panel is always present, cannot be hidden, and
+  shows hidden tiles as chips. Hiding a tile removes it from
+  `nest:overview-layout`; clicking its chip restores it minimised at the first
+  free spot, and dragging the chip onto the grid drops it at that spot when the
+  rect fits. The 12-column / 12-row rules and defaults live in
+  `overviewGrid.ts`; layout persists in `nest:overview-layout`. Tile heads show
+  a `NestIcon` chosen in Settings and stored in `nest:overview-tile-icons`; the
+  resize grip lives on the tile's own lower-right corner. The Greetings board
+  row carries compact saved-layout controls beside the Timer:
+  `.dash-header__layout-name` captures a snapshot name and
+  `.dash-header__layout-save` stores the current board under that name, keeping
+  up to five snapshots in `nest:overview-layout-snapshots`. Tiles stack by stored y/x
+  order below 861px, where drag and resize are disabled. `MetricCheckIn` is
+  shared with the Popup. The read-only Tasks peek uses `TaskTable` (`readOnly`)
+  and columns from `overviewTaskColumns()`. Timeline is today-only with
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
@@ -47,12 +58,14 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   when unset; migrates legacy `layout` + `rawFilter`). Phases is always
   aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
   rows (`LogsEvents`); Timeline keeps `.logs-chrono`.
-- Settings: `.dash-section--settings` with Metrics / Phases / Tags panes via
-  shared `ViewToggle`. Last pane is stored in `nest:settings-pane` (Metrics when
+- Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
+  Last hour / Tasks / Timeline / Brain dump / Background panes via shared
+  `ViewToggle`. Last pane is stored in `nest:settings-pane` (Metrics when
   unset). Panes stay mounted in `.settings-slot` through `hidden` so Metrics
   sub-state survives switches. Metrics uses `.settings-pane--metrics` (Pulses /
-  Metrics sub-toggle). Phase appearance uses `--phase-color` / `--colored` on
-  the Greetings board, Calendar rail and wash, Insights mix and totals, and
+  Metrics sub-toggle), and tile icon panes reuse `.tile-settings` with the
+  phase-settings controls. Phase appearance uses `--phase-color` / `--colored`
+  on the Greetings board, Calendar rail and wash, Insights mix and totals, and
   Logs Phase rows.
 
 ## Timeline grid

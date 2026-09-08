@@ -11,6 +11,7 @@ import { MetricsView } from "./MetricsView";
 import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
 import { TagsView } from "./TagsView";
+import { TileIconSettings } from "./TileIconSettings";
 
 export function SettingsView() {
   const [pane, setPane] = useState<SettingsPane>(readSettingsPane);
@@ -42,6 +43,21 @@ export function SettingsView() {
       </div>
       <div className="settings-slot" hidden={pane !== "reminders"}>
         <RemindersView />
+      </div>
+      <div className="settings-slot" hidden={pane !== "lastHour"}>
+        <TileIconSettings tileId="lastHour" />
+      </div>
+      <div className="settings-slot" hidden={pane !== "tasks"}>
+        <TileIconSettings tileId="tasks" />
+      </div>
+      <div className="settings-slot" hidden={pane !== "timeline"}>
+        <TileIconSettings tileId="timeline" />
+      </div>
+      <div className="settings-slot" hidden={pane !== "brainDump"}>
+        <TileIconSettings tileId="brainDump" />
+      </div>
+      <div className="settings-slot" hidden={pane !== "controlPanel"}>
+        <TileIconSettings tileId="controlPanel" />
       </div>
       <div className="settings-slot" hidden={pane !== "background"}>
         <BackgroundView />

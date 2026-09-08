@@ -26,6 +26,7 @@ import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { buildMetricSeries } from "../lib/timeline";
+import { TileIconSettings } from "./TileIconSettings";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
 const METRIC_RANGES = [
@@ -220,6 +221,7 @@ export function MetricsView() {
 
   return (
     <div className="settings-pane settings-pane--metrics">
+      <TileIconSettings tileId="metrics" embedded />
       <header className="settings-pane__toolbar">
         <ViewToggle
           value={view}

@@ -22,11 +22,13 @@ import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
 import { SettingsView } from "./views/SettingsView";
 import { phaseName, phaseTone } from "./lib/period";
+import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
+  const overviewLayout = useOverviewLayout();
   const { phases, latestPhase } = useDashboardData();
   const backgroundStyle = useBackgroundStyle();
   const backgroundTuning = useBackgroundTuning();
@@ -79,12 +81,15 @@ function DashboardInner() {
             showGreetings ? "" : " dashboard__inner--no-greetings"
           }`}
         >
-          {showGreetings && <DashboardHeader />}
+          {showGreetings && <DashboardHeader overviewLayout={overviewLayout} />}
 
           <ErrorBanner />
 
           {view === "overview" && (
-            <OverviewView onOpenTasks={() => setView("tasks")} />
+            <OverviewView
+              onOpenTasks={() => setView("tasks")}
+              overviewLayout={overviewLayout}
+            />
           )}
           {view === "calendar" && <CalendarView />}
           {view === "insights" && <InsightsView />}

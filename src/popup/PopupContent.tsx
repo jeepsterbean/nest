@@ -35,7 +35,6 @@ import type {
   Phase,
   PhaseCheckIn,
   Pulse,
-  RatingValue,
   Task,
   TaskWorkStretch,
   Tag,
@@ -54,7 +53,6 @@ import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
-  RATING_VALUES,
   recentlyClosedTasks,
 } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
@@ -73,7 +71,7 @@ import {
   useComposerTagProps,
 } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
-import { resolveMetricColorFromList } from "../lib/metricColors";
+import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 
@@ -403,10 +401,6 @@ export function PopupTopPanel({
   );
 }
 
-export function nextMetricIndex(index: number, metricCount: number) {
-  return index + 1 < metricCount ? index + 1 : null;
-}
-
 export function adjacentTimerInterval(current: number, direction: -1 | 1) {
   const currentIndex = TIMER_INTERVALS.findIndex(
     (interval) => interval === current,
@@ -419,10 +413,6 @@ export function adjacentTimerInterval(current: number, direction: -1 | 1) {
     ),
   );
   return TIMER_INTERVALS[nextIndex];
-}
-
-export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
-  return pulses.find((pulse) => pulse.metricIds.length > 0) ?? null;
 }
 
 /**
@@ -565,9 +555,6 @@ function PopupContent({
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const backgroundStyle = useBackgroundStyle();
   const backgroundTuning = useBackgroundTuning();
-  const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
-  const [metricIndex, setMetricIndex] = useState(0);
-  const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -595,15 +582,6 @@ function PopupContent({
   const visiblePulses = loaded?.pulses.filter(
     (pulse) => !hiddenPulseIds.has(pulse.id),
   ) ?? [];
-  const selectedPulse = visiblePulses.find((pulse) => pulse.id === selectedPulseId) ?? null;
-  const pulseMetrics = selectedPulse
-    ? selectedPulse.metricIds.flatMap((id) => {
-        const metric = loaded?.metrics.find((candidate) => candidate.id === id);
-        return metric ? [metric] : [];
-      })
-    : [];
-  const activeMetric = pulseMetrics[metricIndex] ?? null;
-  const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
@@ -660,9 +638,7 @@ function PopupContent({
     ])
       .then(([metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase]) => {
         if (cancelled) return;
-        const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
         setLoaded({ metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase });
-        setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
         setError(null);
       })
       .catch((e) => {
@@ -954,23 +930,12 @@ function PopupContent({
     }
   };
 
-  const ratingsForPulse = (
-    pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
-  ): MetricRatingInput[] =>
-    pulse.metricIds.flatMap((id) => {
-      const value = checkInRatings[`${pulse.id}:${id}`];
-      return value == null ? [] : [{ metricId: id, value }];
-    });
-
   const saveMetrics = async (
     pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
+    ratingsInput: MetricRatingInput[],
   ) => {
-    const ratingsInput = ratingsForPulse(pulse, checkInRatings);
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
-    setRatings({});
     setHeldMetricDue(setMetricDue, timerDue, true);
     pulseActivity();
     await emit("data-changed");
@@ -978,35 +943,21 @@ function PopupContent({
 
   const completePopup = async (
     pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
+    ratingsInput: MetricRatingInput[],
   ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       await onComplete(async () => {
-        await saveMetrics(pulse, checkInRatings);
+        await saveMetrics(pulse, ratingsInput);
         return timerDue ? loaded.timer.intervalMinutes : null;
       });
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
+      throw e;
     }
-  };
-
-  const answerMetric = async (value: RatingValue) => {
-    if (!activeMetric || !selectedPulse || submitting) return;
-    const nextRatings = {
-      ...ratings,
-      [ratingKey(activeMetric.id)]: value,
-    };
-    setRatings(nextRatings);
-    const nextIndex = nextMetricIndex(metricIndex, pulseMetrics.length);
-    if (nextIndex !== null) {
-      setMetricIndex(nextIndex);
-      return;
-    }
-    await completePopup(selectedPulse, nextRatings);
   };
 
   if (!loaded) {
@@ -1381,123 +1332,22 @@ function PopupContent({
           style={backgroundStyle}
           tuning={backgroundTuning}
         />
-        <section
-          className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
-          aria-label="Metrics"
-          onKeyDown={(event) => {
-            if (event.key >= "1" && event.key <= "5") {
-              event.preventDefault();
-              void answerMetric(Number(event.key) as RatingValue);
-            }
-          }}
-        >
-          <div className="pulse-panel__header">
-            {activeMetric && (
-              <div
-                className="metric-step__title"
-                key={`${selectedPulseId}:${activeMetric.id}`}
-                aria-live="polite"
-              >
-                <NestIcon
-                  name={activeMetric.icon}
-                  color={resolveMetricColorFromList(
-                    loaded?.metrics ?? [],
-                    activeMetric.id,
-                  )}
-                />
-                <h2>{activeMetric.name}</h2>
-              </div>
-            )}
-            {visiblePulses.length > 0 && (
-              <div
-                ref={pulseButtonsRef}
-                className="popup-pulse-toggle"
-                role="group"
-                aria-label="Pulses"
-                onKeyDown={(event) => {
-                  if (event.key !== "Tab") return;
-                  const buttons = event.currentTarget.querySelectorAll(
-                    "button:not(:disabled)",
-                  );
-                  const boundary = buttons.item(
-                    event.shiftKey ? 0 : buttons.length - 1,
-                  );
-                  if (boundary !== event.target) return;
-                  event.preventDefault();
-                  if (event.shiftKey) brainDumpRef.current?.focus();
-                  else timerButtonRef.current?.focus();
-                }}
-              >
-                {visiblePulses.map((pulse) => (
-                  <button
-                    key={pulse.id}
-                    ref={
-                      pulse.id === selectedPulseId
-                        ? selectedPulseButtonRef
-                        : undefined
-                    }
-                    type="button"
-                    aria-label={pulse.name}
-                    title={pulse.name}
-                    aria-pressed={pulse.id === selectedPulseId}
-                    disabled={submitting || pulse.metricIds.length === 0}
-                    onFocus={() => {
-                      if (pulse.id === selectedPulseId) return;
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                    onClick={() => {
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                  >
-                    <NestIcon name={pulse.icon} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {activeMetric ? (
-            <div
-              className="metric-step"
-              key={`${selectedPulseId}:${activeMetric.id}:ratings`}
-            >
-              <div
-                className="metric-row__buttons"
-                role="group"
-                aria-label={activeMetric.name}
-              >
-                {RATING_VALUES.map((value) => {
-                  const selected = ratings[ratingKey(activeMetric.id)] === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      tabIndex={-1}
-                      aria-label={`${value} out of 5`}
-                      aria-pressed={selected}
-                      disabled={submitting}
-                      className={`metric-rating metric-rating--v${value}${
-                        selected ? " metric-rating--active" : ""
-                      }`}
-                      onClick={() => void answerMetric(value)}
-                    >
-                      {value}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="combined-empty">
-              {visiblePulses.length
-                ? "This pulse has no metrics yet."
-                : loaded.pulses.length
-                  ? "No pulses are shown in the popup. Turn one on in Metrics."
-                  : "Create a pulse in the Metrics dashboard."}
-            </div>
-          )}
-        </section>
+        <MetricCheckIn
+          metrics={loaded.metrics}
+          pulses={visiblePulses}
+          submitting={submitting}
+          due={metricDue}
+          emptyCopy={
+            loaded.pulses.length
+              ? "No pulses are shown in the popup. Turn one on in Metrics."
+              : "Create a pulse in the Metrics dashboard."
+          }
+          onComplete={completePopup}
+          pulseButtonsRef={pulseButtonsRef}
+          selectedPulseButtonRef={selectedPulseButtonRef}
+          onTabBack={() => brainDumpRef.current?.focus()}
+          onTabForward={() => timerButtonRef.current?.focus()}
+        />
 
         {taskView}
       </main>

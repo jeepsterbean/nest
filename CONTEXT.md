@@ -84,15 +84,18 @@ leaves dashboard attention even if the Nest window is still key. Overview
 shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
-0, not as missing; live rolling summaries refresh as time passes. Below that,
-Overview is three panels: a read-only Tasks peek (Status, Title, Value, Effort)
-with Open / Closed and a button that opens the Tasks section; a today-only
-Logs Timeline (same marks and Phase gutter coloring as Logs, without day
-labels, Phase totals, or Logs chrome) filtered by Timeline / Brain dumps /
-Metrics, with load-older batching when needed; and a brain dump composer that
-matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to save). Both
-capture surfaces can independently
-browse the five most recent dumps as read-only text with their tags. Full dump
+0, not as missing; live rolling summaries refresh as time passes. Overview is
+a persistent tile board with that summary, a read-only Tasks peek (Status,
+Title, Value, Effort) with Open / Closed and a button that opens the Tasks
+section, a today-only Logs Timeline (same marks and Phase gutter coloring as
+Logs, without day labels, Phase totals, or Logs chrome) filtered by Timeline /
+Brain dumps / Metrics with load-older batching when needed, a brain dump
+composer that matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to
+save), and Metric check-in scoring. Tiles can be hidden into the always-present
+control panel and restored from there as space allows. Tasks, Timeline, and Brain dump can be
+minimised to counts, the three newest events, and a one-line capture field.
+Both capture surfaces can independently browse the five most recent dumps as
+read-only text with their tags. Full dump
 history lives in Logs. Insights is the longer look: a Phase mix for the
 range, Tasks with Worked time that day grouped by status as of that day's end
 (Active, Up next, Backlog, Completed, Cancelled), plus Completions and
@@ -200,8 +203,9 @@ _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
 Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
-icons and colors, Tags, and Reminders. One Sidebar entry; a segmented control
-switches panes. The last pane is remembered (Metrics when unset).
+icons and colors, Tags, Reminders, Last hour, Tasks, Timeline, Brain dump, and
+Background. One Sidebar entry; a segmented control switches panes. The last
+pane is remembered (Metrics when unset).
 _Avoid_: Preferences, admin
 
 **Logs**:

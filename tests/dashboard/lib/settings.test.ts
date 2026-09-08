@@ -24,6 +24,8 @@ describe("settings pane", () => {
     expect(readSettingsPane(storage)).toBe("tags");
     writeSettingsPane("reminders", storage);
     expect(readSettingsPane(storage)).toBe("reminders");
+    writeSettingsPane("timeline", storage);
+    expect(readSettingsPane(storage)).toBe("timeline");
   });
 
   it("falls back to Metrics for an unknown stored pane", () => {

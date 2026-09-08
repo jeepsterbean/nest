@@ -84,7 +84,9 @@ button {
 
 .brain-dump-tags {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   min-width: 0;
   height: 30px;
   border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
@@ -94,11 +96,12 @@ button {
 .brain-dump-tags__scroll {
   display: flex;
   min-width: 0;
-  flex: 1;
   align-items: center;
   gap: 5px;
   padding: 3px 6px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 
@@ -108,6 +111,9 @@ button {
 
 .brain-dump-tag,
 .brain-dump-tags__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   height: 23px;
   border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
@@ -115,6 +121,8 @@ button {
   background: color-mix(in srgb, var(--surface-2) 72%, transparent);
   color: var(--muted);
   font-size: 11px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .brain-dump-tag {
@@ -133,10 +141,12 @@ button {
 
 .brain-dump-tags__more {
   width: 31px;
-  margin: 3px 4px 3px 0;
+  min-width: 31px;
+  margin: 0 4px 0 0;
   padding: 0;
   border-radius: 7px;
   font-weight: 800;
+  place-self: center end;
 }
 
 .brain-dump-tag:disabled,

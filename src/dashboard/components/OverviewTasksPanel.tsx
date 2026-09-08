@@ -1,9 +1,15 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { ViewToggle } from "./ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { overviewTaskColumns } from "../lib/taskTable";
 import {
   CLOSED_STATUSES,
+  groupTasksByStatus,
   sortTaskTable,
   WORKING_STATUSES,
 } from "../lib/tasks";
@@ -18,11 +24,22 @@ const OVERVIEW_STATUS_FILTERS = [
 /** Read-only Tasks peek for Overview — Open/Closed filter and a jump to Tasks. */
 export function OverviewTasksPanel({
   onOpenTasks,
+  minimised = false,
+  headerStart,
+  headerEnd,
+  onHeaderPointerDown,
+  dragTitle,
 }: {
   onOpenTasks: () => void;
+  minimised?: boolean;
+  headerStart?: ReactNode;
+  headerEnd?: ReactNode;
+  onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
+  dragTitle?: string;
 }) {
   const { tasks, taskGraph, loaded } = useDashboardData();
   const [statusFilter, setStatusFilter] = useState<"open" | "closed">("open");
+  const groupedTasks = useMemo(() => groupTasksByStatus(tasks), [tasks]);
 
   const visibleTasks = useMemo(() => {
     const statuses =
@@ -48,9 +65,46 @@ export function OverviewTasksPanel({
     );
   }
 
+  if (minimised) {
+    return (
+      <div
+        className={`overview-tasks overview-tasks--minimised${
+          onHeaderPointerDown ? " overview-tasks--draggable" : ""
+        }`}
+        title={dragTitle}
+        onPointerDown={onHeaderPointerDown}
+      >
+        {headerStart}
+        <div className="overview-tasks__counts">
+          <span>{groupedTasks.active.length} Active</span>
+          <span aria-hidden="true">·</span>
+          <span>{groupedTasks.up_next.length} Up next</span>
+        </div>
+        <button
+          type="button"
+          className="overview-panel__goto"
+          aria-label="Open Tasks section"
+          onClick={onOpenTasks}
+        >
+          Tasks
+        </button>
+        {headerEnd}
+      </div>
+    );
+  }
+
   return (
     <div className="overview-tasks">
-      <header className="overview-panel__head">
+      <header
+        className={`overview-panel__head${
+          onHeaderPointerDown ? " overview-panel__head--draggable" : ""
+        }`}
+        title={dragTitle}
+        onPointerDown={onHeaderPointerDown}
+      >
+        {headerStart ? (
+          <div className="overview-panel__head-start">{headerStart}</div>
+        ) : null}
         <ViewToggle
           value={statusFilter}
           options={OVERVIEW_STATUS_FILTERS}
@@ -65,6 +119,9 @@ export function OverviewTasksPanel({
         >
           Tasks
         </button>
+        {headerEnd ? (
+          <div className="overview-panel__head-end">{headerEnd}</div>
+        ) : null}
       </header>
       <div className="overview-tasks__body">
         <div className="overview-tasks__main">
