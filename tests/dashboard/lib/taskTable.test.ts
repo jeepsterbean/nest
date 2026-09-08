@@ -27,13 +27,13 @@ describe("task view", () => {
   it("defaults to Table and restores the last saved layout", () => {
     const storage = memory();
     expect(readTaskView(storage)).toBe("table");
-    writeTaskView("kanban", storage);
-    expect(readTaskView(storage)).toBe("kanban");
+    writeTaskView("map", storage);
+    expect(readTaskView(storage)).toBe("map");
   });
 
-  it("falls back to Table for an unknown stored view", () => {
+  it("falls back to Table for an unknown stored view, including retired Kanban", () => {
     const storage = memory();
-    storage.setItem("nest:task-view", "graph");
+    storage.setItem("nest:task-view", "kanban");
     expect(readTaskView(storage)).toBe("table");
   });
 });

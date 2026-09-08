@@ -61,14 +61,32 @@ the total. It keeps counting if Working now is left on. The Working now control
 shows the current stretch; the total is every stretch added up. The total has
 its own column in the Tasks table and sits in the detail panel, on every Task
 whatever its status — unlike the control, which is only on Active Tasks.
-Table is the default Tasks layout (Kanban is the other); last choice is
-remembered. Both layouts show one persisted status at a time — Backlog, Up next,
-Active, Completed, Cancelled — via a toggle; first visit is Active. New tasks
-are created in the status being viewed. The **Tasks scope sidebar** starts
+Table is the default Tasks layout (Map is the other); last choice is
+remembered. The table filters by any set of persisted statuses — Backlog, Up
+next, Active, Completed, Cancelled — with Open / Closed / All presets; first
+visit is Open. New tasks are created Active. The **Tasks scope sidebar** starts
 collapsed.
 Table columns can be reordered and resized. Working now is started
-from the detail panel or Kanban, not from the table.
+from the detail panel, not from the table or the Map.
 _Avoid_: Session, stopwatch, in progress
+
+**Map**:
+The other Tasks layout: a fixed-column grid the user arranges by hand. Open
+Tasks wait in the **Map tray**; dragging one onto the grid places it in a cell,
+and clicking it places it in the first free cell. A card's cell is only the
+user's arrangement; it never creates or implies a relation. Arrows run from
+each placed Blocker to the Task it blocks, and Blocked cards are muted with
+their Waiting on count. Completed and Cancelled cards stay on the Map, dimmed,
+so a chain still reads end to end; drag a card back to the tray, or use its
+remove button, to take it off. Blockers are added and removed in the detail
+panel, not on the Map. Positions live in the browser, keyed by Task id, and are
+dropped when the Task is deleted.
+_Avoid_: Board (that word means the Overview tiles), Canvas, Kanban
+
+**Map tray**:
+The list of open Tasks not yet placed on the Map, filtered by the selected
+scope. The Map itself shows every placed Task whatever the scope.
+_Avoid_: Sidebar, backlog
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.

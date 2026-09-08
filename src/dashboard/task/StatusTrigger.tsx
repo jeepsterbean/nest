@@ -8,8 +8,8 @@ export function StatusTrigger({
   compact = false,
 }: {
   task: Task;
-  // Compact drops the label to dot + chevron for tight spots like kanban
-  // cards, where the column already names the status.
+  // Compact drops the label to dot + chevron for tight spots where the
+  // surroundings already name the status.
   compact?: boolean;
 }) {
   const { statusMenu, openStatusMenu } = useTaskMenus();

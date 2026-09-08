@@ -21,9 +21,7 @@ import {
 } from "../lib/taskTable";
 import {
   matchingTaskStatusPreset,
-  pinWorkingNowFirst,
   sortTaskTable,
-  TASK_STATUS_FILTERS,
   TASK_STATUS_LABEL,
   TASK_STATUS_PRESETS,
   TASK_STATUSES,
@@ -32,8 +30,8 @@ import {
   type TaskTableSort,
 } from "../lib/tasks";
 import { chevronDownIcon, chevronRightIcon } from "../components/icons";
-import { TaskCard } from "../task/TaskCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
+import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
 
 const TASK_TABLE_SORT_OPTIONS = [
@@ -45,7 +43,6 @@ export function TasksView() {
   const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
     useDashboardData();
   const [taskView, setTaskView] = useState(readTaskView);
-  const [boardStatus, setBoardStatus] = useState<TaskStatus>("active");
   const [tableStatuses, setTableStatuses] =
     useState<TaskStatus[]>(WORKING_STATUSES);
   const [tableSort, setTableSort] = useState<TaskTableSort>("status");
@@ -141,14 +138,9 @@ export function TasksView() {
     () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
     [tasks, selectedTaskScope],
   );
-  const visibleTasks = useMemo(
-    () =>
-      scopedTasks.filter((task) =>
-        taskView === "table"
-          ? tableStatuses.includes(task.status)
-          : task.status === boardStatus,
-      ),
-    [boardStatus, scopedTasks, tableStatuses, taskView],
+  const tableTasks = useMemo(
+    () => scopedTasks.filter((task) => tableStatuses.includes(task.status)),
+    [scopedTasks, tableStatuses],
   );
   const tableStatusPreset = matchingTaskStatusPreset(tableStatuses);
   const emptyListCopy =
@@ -156,25 +148,16 @@ export function TasksView() {
       ? "Nothing on the board yet — name the first task above."
       : scopedTasks.length === 0
         ? "No tasks in this scope yet."
-        : taskView === "table"
-          ? tableStatuses.length === 0
-            ? "Choose at least one status."
-            : "No tasks match these statuses."
-          : `No ${TASK_STATUS_LABEL[boardStatus].toLowerCase()} tasks.`;
+        : tableStatuses.length === 0
+          ? "Choose at least one status."
+          : "No tasks match these statuses.";
 
-  // A table filter can represent several statuses, so table additions use the
-  // actionable Active state while board additions stay in the viewed lane.
   const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const title = composerTitle.trim();
     if (!title) return;
     try {
-      const created = await createTask(
-        title,
-        "",
-        taskView === "table" ? "active" : boardStatus,
-        selectedTaskScope,
-      );
+      const created = await createTask(title, "", "active", selectedTaskScope);
       await reload();
       setComposerTitle("");
       selectTask(created.id);
@@ -265,42 +248,11 @@ export function TasksView() {
     );
   };
 
-  const renderTaskColumn = () => (
-    <section className="task-column">
-      <header className="task-column__head">
-        <h3>{TASK_STATUS_LABEL[boardStatus]}</h3>
-        <span>{visibleTasks.length}</span>
-      </header>
-      {visibleTasks.length === 0 ? (
-        <div className="task-column__empty">{emptyListCopy}</div>
-      ) : (
-        <ol className="task-card-list">
-          {pinWorkingNowFirst(visibleTasks).map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              selected={selectedTaskId === task.id}
-              onSelect={(origin) => selectTask(task.id, origin)}
-              statusCompact
-            />
-          ))}
-        </ol>
-      )}
-    </section>
-  );
-
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
         <div className="dash-toolbar">
-          {taskView === "kanban" ? (
-            <ViewToggle
-              value={boardStatus}
-              options={TASK_STATUS_FILTERS}
-              label="Task status"
-              onChange={setBoardStatus}
-            />
-          ) : (
+          {taskView === "table" && (
             <>
               <ViewToggle
                 value={tableStatusPreset}
@@ -436,16 +388,10 @@ export function TasksView() {
                 className="task-composer__title"
                 placeholder={
                   selectedTaskScope
-                    ? `Add ${taskView === "table" ? "an active task" : "a task"} in ${selectedTaskScope}…`
-                    : taskView === "table"
-                      ? "Add an active task…"
-                      : "Add a task…"
+                    ? `Add an active task in ${selectedTaskScope}…`
+                    : "Add an active task…"
                 }
-                aria-label={
-                  taskView === "table"
-                    ? "New active task title"
-                    : "New task title"
-                }
+                aria-label="New active task title"
                 value={composerTitle}
                 onChange={(e) => setComposerTitle(e.target.value)}
               />
@@ -453,25 +399,29 @@ export function TasksView() {
                 Add
               </button>
             </form>
-          {taskView === "kanban" && (
-            <div className="task-board">{renderTaskColumn()}</div>
-          )}
-          {taskView === "table" && (
-            <TaskTable
-              columns={tableColumns.columns}
-              tasks={sortTaskTable(visibleTasks, tableSort)}
-              taskGraph={taskGraph}
-              selectedTaskId={selectedTaskId}
-              emptyCopy={emptyListCopy}
-              onSelect={selectTask}
-              columnInteraction={{
-                draggingId: tableColumns.draggingId,
-                overId: tableColumns.overId,
-                onMovePointerDown: tableColumns.onMovePointerDown,
-                onResizePointerDown: tableColumns.onResizePointerDown,
-              }}
-            />
-          )}
+            {taskView === "map" && (
+              <TaskMap
+                tasks={scopedTasks}
+                selectedTaskId={selectedTaskId}
+                onSelect={selectTask}
+              />
+            )}
+            {taskView === "table" && (
+              <TaskTable
+                columns={tableColumns.columns}
+                tasks={sortTaskTable(tableTasks, tableSort)}
+                taskGraph={taskGraph}
+                selectedTaskId={selectedTaskId}
+                emptyCopy={emptyListCopy}
+                onSelect={selectTask}
+                columnInteraction={{
+                  draggingId: tableColumns.draggingId,
+                  overId: tableColumns.overId,
+                  onMovePointerDown: tableColumns.onMovePointerDown,
+                  onResizePointerDown: tableColumns.onResizePointerDown,
+                }}
+              />
+            )}
           </div>
           {selectedTask && (
             <TaskDetailPanel

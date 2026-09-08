@@ -8,8 +8,6 @@ import {
   recentlyClosedTasks,
   RECENT_CLOSED_WINDOW_SECONDS,
   sortTaskTable,
-  TASK_STATUS_FILTERS,
-  TASK_STATUS_LABEL,
   toggleTaskStatusFilter,
   TASK_STATUSES,
   WORKING_STATUSES,
@@ -35,17 +33,6 @@ const task = (
   parentTaskId: null,
   createdAt,
   updatedAt,
-});
-
-describe("TASK_STATUS_FILTERS", () => {
-  it("covers every persisted status with its display label", () => {
-    expect(TASK_STATUS_FILTERS.map((filter) => filter.key)).toEqual(
-      TASK_STATUSES,
-    );
-    for (const filter of TASK_STATUS_FILTERS) {
-      expect(filter.label).toBe(TASK_STATUS_LABEL[filter.key]);
-    }
-  });
 });
 
 describe("board status groups", () => {

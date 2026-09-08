@@ -27,7 +27,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
   No per-Section size overrides.
 - Tasks: `.task-table`. No Working now play control or Readiness column in the
-  table; start work from the detail panel or Kanban.
+  table; start work from the detail panel.
+- Tasks Map: `.task-map` with the tray `.task-map__tray` and the grid
+  `.task-map__board`; cards are `.task-map-card` (one cell each) and Blocker
+  arrows are an SVG overlay `.task-map__edges`. Layout is stored in
+  `nest:task-map`. Drags use `startPointerDrag`; every drag has a click
+  fallback (tray click places, card remove button unplaces).
 - Overview: `.overview-grid` holds six movable `.overview-tile` surfaces with
   ids `lastHour`, `tasks`, `timeline`, `brainDump`, `metrics`, and
   `controlPanel`. The control panel is always present, cannot be hidden, and
@@ -40,16 +45,16 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   cells, so when there is nowhere to push the dragged tile trades slots with
   whichever tile it covers most, and the swap is refused if either tile would
   breach its minimum (Metric check-in is pinned to 4x2, so it only moves once
-  the board has slack). Tile heads show
-  a `NestIcon` chosen in Settings and stored in `nest:overview-tile-icons`; the
-  resize grip lives on the tile's own lower-right corner. The Greetings board
-  row carries compact saved-layout controls beside the Timer:
-  `.dash-header__layout-name` captures a snapshot name and
-  `.dash-header__layout-save` stores the current board under that name, keeping
-  up to five snapshots in `nest:overview-layout-snapshots`. Tiles stack by stored y/x
-  order below 861px, where drag and resize are disabled. `MetricCheckIn` is
-  shared with the Popup. The read-only Tasks peek uses `TaskTable` (`readOnly`)
-  and columns from `overviewTaskColumns()`. Timeline is today-only with
+  the board has slack). Tile heads show a `NestIcon` chosen in Settings and
+  stored in `nest:overview-tile-icons`; the resize grip lives on the tile's own
+  lower-right corner. The Greetings board row carries compact saved-layout
+  controls beside the Timer: `.dash-header__layout-name` captures a snapshot
+  name and `.dash-header__layout-save` stores the current board under that
+  name, keeping up to five snapshots in `nest:overview-layout-snapshots`. Tiles
+  stack by stored y/x order below 861px, where drag and resize are disabled.
+  `MetricCheckIn` is shared with the Popup. The read-only Tasks peek uses
+  `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
+  is today-only with
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
