@@ -339,6 +339,45 @@ function reflowLayout(
   return layout.map((tile) => byId.get(tile.id) ?? tile);
 }
 
+const overlapArea = (a: TileRect, b: TileRect) =>
+  Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) *
+  Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/**
+ * The default board fills all 144 cells, so a push has no free rect to relocate
+ * a displaced tile into and every drag would otherwise fail. Trading slots with
+ * the most-covered tile keeps the board packed and rearrangeable. Minimised
+ * tiles sit this out: their height is a collapsed state, not a slot to swap.
+ */
+function swapWithCoveredTile(
+  layout: TileLayout[],
+  tile: TileLayout,
+  dx: number,
+  dy: number,
+): TileLayout[] | null {
+  if (tile.minimised) return null;
+  const target = { x: tile.x + dx, y: tile.y + dy, w: tile.w, h: tile.h };
+  const partner = layout
+    .filter((candidate) => candidate.id !== tile.id && !candidate.minimised)
+    .map((candidate) => ({ candidate, area: overlapArea(target, candidate) }))
+    .filter(({ area }) => area > 0)
+    .sort((a, b) => b.area - a.area)[0]?.candidate;
+  if (!partner) return null;
+
+  const moved = { ...tile, x: partner.x, y: partner.y, w: partner.w, h: partner.h };
+  const displaced = { ...partner, x: tile.x, y: tile.y, w: tile.w, h: tile.h };
+  if (!isValidRectForTile(moved, moved) || !isValidRectForTile(displaced, displaced)) {
+    return null;
+  }
+  return layout.map((candidate) =>
+    candidate.id === moved.id
+      ? moved
+      : candidate.id === displaced.id
+        ? displaced
+        : candidate,
+  );
+}
+
 export function previewMoveTile(
   layout: TileLayout[],
   id: TileId,
@@ -348,11 +387,12 @@ export function previewMoveTile(
   const tile = layout.find((candidate) => candidate.id === id);
   if (!tile) return null;
   if (!dx && !dy) return cloneLayout(layout);
-  return reflowLayout(layout, id, (current) => ({
+  const reflowed = reflowLayout(layout, id, (current) => ({
     ...current,
     x: current.x + dx,
     y: current.y + dy,
   }));
+  return reflowed ?? swapWithCoveredTile(layout, tile, dx, dy);
 }
 
 export function previewResizeTile(
@@ -804,12 +844,10 @@ export function useOverviewLayout() {
     [],
   );
   const restoreSnapshot = useCallback((snapshotId: string) => {
-    setSnapshots((current) => {
-      const snapshot = current.find((candidate) => candidate.id === snapshotId);
-      if (snapshot) setLayout(cloneLayout(snapshot.layout));
-      return current;
-    });
-  }, []);
+    const snapshot = snapshots.find((candidate) => candidate.id === snapshotId);
+    if (!snapshot) return;
+    setLayout(cloneLayout(snapshot.layout));
+  }, [snapshots]);
   const saveSnapshot = useCallback(
     (label: string) =>
       setSnapshots((current) =>

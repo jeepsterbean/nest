@@ -34,6 +34,15 @@ const tile = (
 ): TileLayout => ({ id, x, y, w, h, minimised: false });
 
 describe("overview grid", () => {
+  const expectInBounds = (layout: TileLayout[]) => {
+    for (const current of layout) {
+      expect(current.x).toBeGreaterThanOrEqual(0);
+      expect(current.y).toBeGreaterThanOrEqual(0);
+      expect(current.x + current.w).toBeLessThanOrEqual(COLS);
+      expect(current.y + current.h).toBeLessThanOrEqual(ROWS);
+    }
+  };
+
   const expectNoOverlaps = (layout: TileLayout[]) => {
     for (const [index, current] of layout.entries()) {
       expect(
@@ -55,6 +64,40 @@ describe("overview grid", () => {
     expect(
       DEFAULT_LAYOUT.reduce((area, current) => area + current.w * current.h, 0),
     ).toBeLessThanOrEqual(COLS * ROWS);
+  });
+
+  it("keeps the packed default layout draggable by trading slots", () => {
+    // The default board fills every cell, so a push has no free rect to move a
+    // displaced tile into. Without the slot swap almost every drag dead-ends.
+    for (const id of ["lastHour", "tasks", "timeline", "brainDump"] as const) {
+      const landed = [];
+      for (let dx = -COLS; dx <= COLS; dx += 1) {
+        for (let dy = -ROWS; dy <= ROWS; dy += 1) {
+          if (!dx && !dy) continue;
+          const moved = previewMoveTile(DEFAULT_LAYOUT, id, dx, dy);
+          if (!moved) continue;
+          landed.push(moved);
+          expectInBounds(moved);
+          expectNoOverlaps(moved);
+        }
+      }
+      expect(landed.length).toBeGreaterThan(50);
+    }
+  });
+
+  it("swaps two tiles when a drag covers a neighbour on a full board", () => {
+    const moved = previewMoveTile(DEFAULT_LAYOUT, "tasks", 0, -2);
+    const tasks = moved?.find((current) => current.id === "tasks");
+    const lastHour = moved?.find((current) => current.id === "lastHour");
+
+    expect(tasks).toMatchObject({ x: 0, y: 0, w: 8, h: 2 });
+    expect(lastHour).toMatchObject({ x: 0, y: 2, w: 6, h: 5 });
+    expectNoOverlaps(moved!);
+  });
+
+  it("refuses a slot swap that would breach a tile's minimum size", () => {
+    // Metric check-in is pinned to 4x2, so it has no compatible slot to take.
+    expect(previewMoveTile(DEFAULT_LAYOUT, "metrics", 0, 4)).toBeNull();
   });
 
   it("reflows neighbouring tiles when a move would overlap them", () => {

@@ -18,6 +18,7 @@ dist-ssr
 .mcp.json
 .idea
 .DS_Store
+.tmp-debug/
 *.suo
 *.ntvs*
 *.njsproj

@@ -35,7 +35,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:overview-layout`; clicking its chip restores it minimised at the first
   free spot, and dragging the chip onto the grid drops it at that spot when the
   rect fits. The 12-column / 12-row rules and defaults live in
-  `overviewGrid.ts`; layout persists in `nest:overview-layout`. Tile heads show
+  `overviewGrid.ts`; layout persists in `nest:overview-layout`. A drag first
+  tries to push neighbours into free space; the default board fills all 144
+  cells, so when there is nowhere to push the dragged tile trades slots with
+  whichever tile it covers most, and the swap is refused if either tile would
+  breach its minimum (Metric check-in is pinned to 4x2, so it only moves once
+  the board has slack). Tile heads show
   a `NestIcon` chosen in Settings and stored in `nest:overview-tile-icons`; the
   resize grip lives on the tile's own lower-right corner. The Greetings board
   row carries compact saved-layout controls beside the Timer:

@@ -56,9 +56,6 @@ export function SettingsView() {
       <div className="settings-slot" hidden={pane !== "brainDump"}>
         <TileIconSettings tileId="brainDump" />
       </div>
-      <div className="settings-slot" hidden={pane !== "controlPanel"}>
-        <TileIconSettings tileId="controlPanel" />
-      </div>
       <div className="settings-slot" hidden={pane !== "background"}>
         <BackgroundView />
       </div>

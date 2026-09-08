@@ -578,7 +578,7 @@ export function OverviewView({
               : (chrome) => renderTileContent(tile, chrome)
           }
         >
-          {renderTileContent(tile)}
+          {tile.id === "lastHour" ? renderTileContent(tile) : null}
         </OverviewTile>
       ))}
     </div>

@@ -130,14 +130,7 @@ export function DashboardHeader({
     : null;
   const currentPhaseId = latestPhase?.phaseId ?? null;
   const currentPhaseColor = phaseColor(currentPhaseId, phases);
-  const savedLayoutOptions = useMemo(
-    () =>
-      overviewLayout?.snapshots.map((snapshot) => ({
-        value: snapshot.id,
-        label: snapshot.label,
-      })) ?? [],
-    [overviewLayout],
-  );
+  const savedLayoutOptions = overviewLayout?.snapshots ?? [];
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -377,10 +370,10 @@ export function DashboardHeader({
                     {savedLayoutOptions.length ? (
                       savedLayoutOptions.map((snapshot) => {
                         const selected =
-                          snapshot.value === overviewLayout.activeSnapshotId;
+                          snapshot.id === overviewLayout.activeSnapshotId;
                         return (
                           <button
-                            key={snapshot.value}
+                            key={snapshot.id}
                             type="button"
                             role="option"
                             aria-selected={selected}
@@ -389,7 +382,7 @@ export function DashboardHeader({
                             }`}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => {
-                              overviewLayout.restoreSnapshot(snapshot.value);
+                              overviewLayout.restoreSnapshot(snapshot.id);
                               setSnapshotName(snapshot.label);
                               setLayoutPickerOpen(false);
                             }}

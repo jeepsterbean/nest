@@ -73,10 +73,14 @@ export function MetricCheckIn({
 
   useEffect(() => {
     if (selectedPulse?.metricIds.length) return;
-    setSelectedPulseId(firstScorablePulse(pulses)?.id ?? null);
+    const fallbackId = firstScorablePulse(pulses)?.id ?? null;
+    if (fallbackId === selectedPulseId) return;
+    // Reset only when the fallback Pulse actually changes, so empty states do
+    // not loop on fresh array identities from callers.
+    setSelectedPulseId(fallbackId);
     setMetricIndex(0);
     setRatings({});
-  }, [pulses, selectedPulse]);
+  }, [pulses, selectedPulse, selectedPulseId]);
 
   const answerMetric = async (value: RatingValue) => {
     if (!activeMetric || !selectedPulse || submitting) return;
