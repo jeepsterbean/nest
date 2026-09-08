@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   createFloatingFromDraft,
   useFloatingBrainDumps,
@@ -84,9 +85,18 @@ export function FloatingBrainDumpsProvider({
     (dump: FloatingBrainDump) => {
       const mainDraft = getBrainDumpDraft();
       const mainEmpty = !trimBrainDumpDraft(mainDraft);
-      setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
-      if (mainEmpty) removeDump(dump.id);
-      else updateDump(dump.id, { text: mainDraft.text, tagIds: mainDraft.tagIds });
+      // Commit the swap synchronously so a rapid second click sees the updated
+      // sticky content instead of reusing the pre-swap snapshot.
+      flushSync(() => {
+        setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
+        if (mainEmpty) removeDump(dump.id);
+        else {
+          updateDump(dump.id, {
+            text: mainDraft.text,
+            tagIds: mainDraft.tagIds,
+          });
+        }
+      });
     },
     [removeDump, updateDump],
   );

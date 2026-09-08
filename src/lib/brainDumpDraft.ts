@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listBrainDumps } from "./commands";
 import { trimBrainDumpHtml } from "./brainDumpRichText";
 import { subscribeTauriEvent } from "./tauriListen";
@@ -138,6 +138,15 @@ export function adjacentBrainDumpIndex(
   return Math.max(-1, Math.min(index + direction, historyLength - 1));
 }
 
+export function historyIndexForDraftRevisionChange(
+  historyIndex: number,
+  previousRevision: string,
+  nextRevision: string,
+) {
+  if (previousRevision === nextRevision) return historyIndex;
+  return historyIndex < 0 ? historyIndex : -1;
+}
+
 export function brainDumpHistoryDirection(event: {
   key: string;
   metaKey: boolean;
@@ -152,9 +161,11 @@ export function brainDumpHistoryDirection(event: {
 export function useRecentBrainDumpHistory(
   draftText: string,
   onError: (error: string) => void,
+  draftRevision = draftText,
 ) {
   const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const lastDraftRevisionRef = useRef(draftRevision);
 
   const refresh = useCallback(async () => {
     try {
@@ -174,6 +185,17 @@ export function useRecentBrainDumpHistory(
   useEffect(() => {
     if (historyIndex >= brainDumps.length) setHistoryIndex(-1);
   }, [brainDumps.length, historyIndex]);
+
+  useEffect(() => {
+    const nextHistoryIndex = historyIndexForDraftRevisionChange(
+      historyIndex,
+      lastDraftRevisionRef.current,
+      draftRevision,
+    );
+    lastDraftRevisionRef.current = draftRevision;
+    if (nextHistoryIndex === historyIndex) return;
+    setHistoryIndex(nextHistoryIndex);
+  }, [draftRevision]);
 
   useEffect(() => {
     const navigateHistory = (event: KeyboardEvent) => {
@@ -204,6 +226,7 @@ export function useRecentBrainDumpHistory(
       setHistoryIndex((index) =>
         adjacentBrainDumpIndex(index, -1, brainDumps.length),
       ),
+    stopViewingHistory: () => setHistoryIndex(-1),
     refresh,
   };
 }

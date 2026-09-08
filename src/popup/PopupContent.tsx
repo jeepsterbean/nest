@@ -467,7 +467,8 @@ function PopupBrainDump({
 }) {
   const [draft, setDraft] = useBrainDumpDraft();
   const icons = useTileIcons();
-  const history = useRecentBrainDumpHistory(draft.text, onError);
+  const draftRevision = `${draft.text}\n${draft.tagIds.join(",")}`;
+  const history = useRecentBrainDumpHistory(draft.text, onError, draftRevision);
   const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
   const handleTagsChange = useCallback(
     (tagIds: number[]) => setDraft((current) => ({ ...current, tagIds })),
@@ -519,6 +520,7 @@ function PopupBrainDump({
         setDraft((current) => ({ ...current, text }))
       }
       onTagsChange={handleTagsChange}
+      draftRevision={draftRevision}
       onKeyDown={(event) => {
         if (event.key === "Tab") {
           event.preventDefault();

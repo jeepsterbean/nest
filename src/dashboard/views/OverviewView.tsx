@@ -151,7 +151,12 @@ export function OverviewView({
   const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
   const [metricSubmitting, setMetricSubmitting] = useState(false);
-  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
+  const brainDumpDraftRevision = `${brainDumpText}\n${brainDumpTagIds.join(",")}`;
+  const brainDumpHistory = useRecentBrainDumpHistory(
+    brainDumpText,
+    setError,
+    brainDumpDraftRevision,
+  );
   const composerTagProps = useComposerTagProps(
     tags,
     brainDumpTagIds,
@@ -514,6 +519,7 @@ export function OverviewView({
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
           editorRef={mainDumpRef}
+          draftRevision={brainDumpDraftRevision}
         />
       ) : null;
     }

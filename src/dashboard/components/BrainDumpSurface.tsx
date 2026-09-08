@@ -38,6 +38,7 @@ function ToolbarDropdown({
   currentLabel,
   currentIcon,
   menuAlign = "start",
+  dismissVersion = 0,
   options,
   onSelect,
 }: {
@@ -45,6 +46,7 @@ function ToolbarDropdown({
   currentLabel: string;
   currentIcon?: ReactNode;
   menuAlign?: "start" | "end";
+  dismissVersion?: number;
   options: ToolbarDropdownOption[];
   onSelect: (value: string) => void;
 }) {
@@ -107,6 +109,10 @@ function ToolbarDropdown({
       window.visualViewport?.removeEventListener("resize", onViewportChange);
     };
   }, [open]);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [dismissVersion]);
 
   return (
     <div
@@ -188,6 +194,8 @@ export function BrainDumpSurface({
   onFocus,
   editorRef,
   onHeaderPointerDown,
+  dismissPopupsOnOutsideInteraction = false,
+  draftRevision,
 }: {
   text: string;
   tagIds: number[];
@@ -206,6 +214,8 @@ export function BrainDumpSurface({
   onFocus?: () => void;
   editorRef?: RefObject<HTMLElement | null>;
   onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
+  dismissPopupsOnOutsideInteraction?: boolean;
+  draftRevision?: string;
 }) {
   const hasHeader = headerStart || headerEnd;
   const usesOverviewChrome = layout === "overview";
@@ -213,6 +223,10 @@ export function BrainDumpSurface({
   // arrive through the sync effect below, so this deliberately runs once.
   const [initialContent] = useState(() => brainDumpStorageToEditorHtml(text));
   const [selectedFontSize, setSelectedFontSize] = useState(BRAIN_DUMP_DEFAULT_FONT_SIZE);
+  const [dismissVersion, setDismissVersion] = useState(0);
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const lastLocalTextRef = useRef<string | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -260,7 +274,9 @@ export function BrainDumpSurface({
       },
     },
     onUpdate({ editor: current }) {
-      onTextChange?.(brainDumpEditorHtmlToStorage(current.getHTML()));
+      const nextText = brainDumpEditorHtmlToStorage(current.getHTML());
+      lastLocalTextRef.current = nextText;
+      onTextChange?.(nextText);
     },
   });
 
@@ -271,10 +287,47 @@ export function BrainDumpSurface({
 
   useEffect(() => {
     if (!editor) return;
+    if (lastLocalTextRef.current === text) return;
     const next = brainDumpStorageToEditorHtml(text);
     if (editor.getHTML() === next) return;
     editor.commands.setContent(next, { emitUpdate: false });
+    // External swaps can alternate back to a value this editor last emitted.
+    // Track the applied text so the next external change is not mistaken for
+    // stale local input and skipped.
+    lastLocalTextRef.current = text;
   }, [editor, text]);
+
+  useEffect(() => {
+    if (!dismissPopupsOnOutsideInteraction) return;
+    const dismissIfOutside = (target: EventTarget | null) => {
+      const node = target as Node | null;
+      if (
+        surfaceRef.current?.contains(node) ||
+        toolbarRef.current?.contains(node)
+      ) {
+        return;
+      }
+      setDismissVersion((current) => current + 1);
+      editor?.commands.blur();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      dismissIfOutside(event.target);
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      dismissIfOutside(event.target);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+    };
+  }, [dismissPopupsOnOutsideInteraction, editor]);
+
+  useEffect(() => {
+    if (draftRevision === undefined) return;
+    lastLocalTextRef.current = null;
+  }, [draftRevision]);
 
   useEffect(() => {
     if (!editorRef) return;
@@ -333,6 +386,7 @@ export function BrainDumpSurface({
     "Body";
   return (
     <div
+      ref={surfaceRef}
       className={`brain-dump-surface${
         usesOverviewChrome ? " brain-dump-surface--overview" : ""
       }${className ? ` ${className}` : ""}`}
@@ -388,12 +442,18 @@ export function BrainDumpSurface({
               shift: { padding: 8 },
             }}
           >
-            <div className="brain-dump-toolbar" role="toolbar" aria-label="Text formatting">
+            <div
+              ref={toolbarRef}
+              className="brain-dump-toolbar"
+              role="toolbar"
+              aria-label="Text formatting"
+            >
               <ToolbarDropdown
                 label="List style"
                 currentLabel={activeListLabel}
                 currentIcon={chevronRightIcon}
                 menuAlign="start"
+                dismissVersion={dismissVersion}
                 options={listOptions}
                 onSelect={(value) => runListCommand(value as BrainDumpListVariant)}
               />
@@ -402,6 +462,7 @@ export function BrainDumpSurface({
                   label="Font size"
                   currentLabel={selectedFontSizeLabel}
                   menuAlign="end"
+                  dismissVersion={dismissVersion}
                   options={BRAIN_DUMP_FONT_SIZE_OPTIONS.map((option) => ({
                     value: option.value,
                     label: option.label,
@@ -467,6 +528,7 @@ export function BrainDumpSurface({
             tags={tags}
             selectedIds={tagIds}
             disabled={tagsDisabled || readOnly}
+            dismissVersion={dismissVersion}
             onChange={onTagsChange}
           />
         )}

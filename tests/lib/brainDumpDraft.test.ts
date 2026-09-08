@@ -3,6 +3,7 @@ import {
   adjacentBrainDumpIndex,
   brainDumpHistoryDirection,
   getBrainDumpDraft,
+  historyIndexForDraftRevisionChange,
   isBrainDumpSubmitShortcut,
   setBrainDumpDraft,
   trimBrainDumpDraft,
@@ -67,5 +68,17 @@ describe("setBrainDumpDraft", () => {
     expect(getBrainDumpDraft()).not.toBe(stored);
 
     setBrainDumpDraft({ text: "", tagIds: [] });
+  });
+});
+
+describe("historyIndexForDraftRevisionChange", () => {
+  it("keeps browsing history while the revision is unchanged", () => {
+    expect(historyIndexForDraftRevisionChange(1, "draft-a", "draft-a")).toBe(1);
+    expect(historyIndexForDraftRevisionChange(-1, "draft-a", "draft-a")).toBe(-1);
+  });
+
+  it("returns to the live draft only when the underlying revision changes", () => {
+    expect(historyIndexForDraftRevisionChange(1, "draft-a", "draft-b")).toBe(-1);
+    expect(historyIndexForDraftRevisionChange(-1, "draft-a", "draft-b")).toBe(-1);
   });
 });
