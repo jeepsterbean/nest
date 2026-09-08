@@ -80,16 +80,29 @@ export function BrainDumpTags({
   useEffect(() => {
     if (!open) return;
     searchRef.current?.focus();
+    const dismissIfOutside = (target: EventTarget | null) => {
+      if (rootRef.current?.contains(target as Node)) return;
+      setOpen(false);
+      setQuery("");
+    };
     const dismiss = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      dismissIfOutside(event.target);
+    };
+    const dismissOnFocus = (event: FocusEvent) => {
+      dismissIfOutside(event.target);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+      }
     };
-    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("focusin", dismissOnFocus, true);
     window.addEventListener("keydown", escape);
     return () => {
-      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("focusin", dismissOnFocus, true);
       window.removeEventListener("keydown", escape);
     };
   }, [open]);

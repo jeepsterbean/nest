@@ -13,6 +13,12 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-bubble-menu": "^3.31.3",
+    "@tiptap/extension-details": "^3.31.3",
+    "@tiptap/extension-list": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "lucide-react": "^1.31.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

@@ -15,6 +15,7 @@ export function FloatingBrainDumpsBoard({
   onTextChange,
   onTagsChange,
   onColorChange,
+  onMinimisedChange,
   onPositionChange,
   onSizeChange,
   onPromote,
@@ -28,6 +29,7 @@ export function FloatingBrainDumpsBoard({
   onTextChange: (id: string, text: string) => void;
   onTagsChange: (id: string, tagIds: number[]) => void;
   onColorChange: (id: string, color: FloatingStickyColor) => void;
+  onMinimisedChange: (id: string, minimised: boolean) => void;
   onPositionChange: (id: string, x: number, y: number) => void;
   onSizeChange: (id: string, width: number, height: number) => void;
   onPromote: (dump: FloatingBrainDump) => void;
@@ -63,6 +65,9 @@ export function FloatingBrainDumpsBoard({
           onTextChange={(text) => onTextChange(dump.id, text)}
           onTagsChange={(tagIds) => onTagsChange(dump.id, tagIds)}
           onColorChange={(color) => onColorChange(dump.id, color)}
+          onMinimisedChange={(minimised) =>
+            onMinimisedChange(dump.id, minimised)
+          }
           onPositionChange={(x, y) => onPositionChange(dump.id, x, y)}
           onSizeChange={(width, height) => onSizeChange(dump.id, width, height)}
           onPromote={() => onPromote(dump)}

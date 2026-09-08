@@ -74,6 +74,7 @@ describe("nextCascadePosition", () => {
           text: "one",
           tagIds: [],
           color: "paper",
+          minimised: false,
           x: first.x,
           y: first.y,
           zIndex: 1,
@@ -96,6 +97,7 @@ describe("nextZIndex", () => {
           text: "",
           tagIds: [],
           color: "paper",
+          minimised: false,
           x: 0,
           y: 0,
           zIndex: 2,
@@ -105,6 +107,7 @@ describe("nextZIndex", () => {
           text: "",
           tagIds: [],
           color: "sky",
+          minimised: false,
           x: 0,
           y: 0,
           zIndex: 5,
@@ -126,6 +129,7 @@ describe("createFloatingFromDraft", () => {
       text: "  Ideas  ",
       tagIds: [2],
       color: DEFAULT_FLOATING_STICKY_COLOR,
+      minimised: false,
       x: 96,
       y: 120,
       zIndex: 1,
@@ -146,6 +150,7 @@ describe("reclampFloatingDumps", () => {
         text: "note",
         tagIds: [],
         color: "paper" as const,
+        minimised: false,
         x: 999,
         y: 999,
         zIndex: 1,
@@ -188,6 +193,7 @@ describe("createFloatingDumpWriter", () => {
     text: "note",
     tagIds: [],
     color: "paper",
+    minimised: false,
     x: 0,
     y: 0,
     zIndex: 1,
@@ -254,9 +260,19 @@ describe("parseFloatingBrainDump", () => {
       y: 20,
       zIndex: 1,
     };
-    expect(parseFloatingBrainDump(base)).toMatchObject({ color: "paper" });
+    expect(parseFloatingBrainDump(base)).toMatchObject({
+      color: "paper",
+      minimised: false,
+    });
     expect(parseFloatingBrainDump({ ...base, color: "lilac" })).toMatchObject({
       color: "lilac",
+      minimised: false,
+    });
+    expect(
+      parseFloatingBrainDump({ ...base, minimised: true }),
+    ).toMatchObject({
+      color: "paper",
+      minimised: true,
     });
   });
 });

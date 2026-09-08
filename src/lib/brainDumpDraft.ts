@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listBrainDumps } from "./commands";
+import { trimBrainDumpHtml } from "./brainDumpRichText";
 import { subscribeTauriEvent } from "./tauriListen";
 import type { BrainDump } from "./types";
 
@@ -97,7 +98,7 @@ function startSync() {
 }
 
 export function trimBrainDumpDraft(draft: BrainDumpDraft) {
-  return draft.text.trim();
+  return trimBrainDumpHtml(draft.text);
 }
 
 export function isBrainDumpSubmitShortcut(event: {

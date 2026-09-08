@@ -172,6 +172,9 @@ _Avoid_: Check-in popup
 
 **Brain dump**:
 An unstructured captured thought stored on its own, with zero or more Tags.
+Its text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
+and collapsible lists. Saved checklist boxes show their recorded state in
+history and Logs; edit the content by forking it into a draft.
 Overview and the popup share the text and selected-tag draft, and independently
 browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can edit
 a saved dump's Tags, and fork a saved dump into a new unsaved floating draft

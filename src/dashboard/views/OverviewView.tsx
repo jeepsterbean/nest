@@ -146,7 +146,7 @@ export function OverviewView({
       typeof window !== "undefined" &&
       window.matchMedia("(max-width: 860px)").matches,
   );
-  const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const mainDumpRef = useRef<HTMLElement | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
@@ -255,10 +255,11 @@ export function OverviewView({
   }, []);
 
   const submitOverviewDump = async () => {
-    const text = trimBrainDumpDraft(brainDumpDraft);
-    if (!text || brainDumpSubmitting) return;
+    if (!trimBrainDumpDraft(brainDumpDraft) || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
-    const ok = await mutate(() => submitBrainDump(text, brainDumpTagIds));
+    const ok = await mutate(() =>
+      submitBrainDump(brainDumpDraft.text, brainDumpTagIds),
+    );
     if (ok) {
       setBrainDumpDraft({ text: "", tagIds: [] });
       await brainDumpHistory.refresh();
@@ -288,7 +289,7 @@ export function OverviewView({
   }, [brainDumpHistory.viewingDump, forkToFloating]);
 
   const onMainDumpKeyDown = (
-    event: React.KeyboardEvent<HTMLTextAreaElement>,
+    event: React.KeyboardEvent<HTMLElement>,
     minimised = false,
   ) => {
     if (brainDumpHistory.viewingHistory) return;
@@ -512,7 +513,7 @@ export function OverviewView({
           onTagsChange={handleTagsChange}
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
-          textareaRef={mainDumpRef}
+          editorRef={mainDumpRef}
         />
       ) : null;
     }

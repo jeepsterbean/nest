@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import type { BrainDumpDraft } from "./brainDumpDraft";
+import { trimBrainDumpHtml } from "./brainDumpRichText";
 
 /** Calm paper tints for floating stickies (Nest journal palette). */
 export const FLOATING_STICKY_COLORS = [
@@ -36,6 +37,7 @@ export type FloatingBrainDump = {
   text: string;
   tagIds: number[];
   color: FloatingStickyColor;
+  minimised: boolean;
   x: number;
   y: number;
   zIndex: number;
@@ -163,6 +165,7 @@ export function parseFloatingBrainDump(value: unknown): FloatingBrainDump | null
     text: record.text,
     tagIds,
     color: parseFloatingStickyColor(record.color),
+    minimised: record.minimised === true,
     x: record.x,
     y: record.y,
     zIndex: record.zIndex,
@@ -231,7 +234,7 @@ export function createFloatingFromDraft(
   viewportWidth: number,
   viewportHeight: number,
 ): FloatingBrainDump | null {
-  const text = draft.text.trim();
+  const text = trimBrainDumpHtml(draft.text);
   if (!text) return null;
   const { x, y } = nextCascadePosition(existing, viewportWidth, viewportHeight);
   return {
@@ -239,6 +242,7 @@ export function createFloatingFromDraft(
     text: draft.text,
     tagIds: [...draft.tagIds],
     color: DEFAULT_FLOATING_STICKY_COLOR,
+    minimised: false,
     x,
     y,
     zIndex: nextZIndex(existing),

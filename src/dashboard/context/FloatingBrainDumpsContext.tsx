@@ -13,6 +13,7 @@ import {
   type FloatingBrainDump,
 } from "../../lib/floatingBrainDumps";
 import { submitBrainDump } from "../../lib/commands";
+import { trimBrainDumpHtml } from "../../lib/brainDumpRichText";
 import {
   getBrainDumpDraft,
   setBrainDumpDraft,
@@ -92,10 +93,9 @@ export function FloatingBrainDumpsProvider({
 
   const submitFloatingDump = useCallback(
     async (dump: FloatingBrainDump) => {
-      const text = dump.text.trim();
-      if (!text || submitting) return;
+      if (!trimBrainDumpHtml(dump.text) || submitting) return;
       setSubmitting(true);
-      const ok = await mutate(() => submitBrainDump(text, dump.tagIds));
+      const ok = await mutate(() => submitBrainDump(dump.text, dump.tagIds));
       if (ok) removeDump(dump.id);
       setSubmitting(false);
     },
@@ -113,6 +113,7 @@ export function FloatingBrainDumpsProvider({
         onTextChange={(id, text) => updateDump(id, { text })}
         onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
         onColorChange={(id, color) => updateDump(id, { color })}
+        onMinimisedChange={(id, minimised) => updateDump(id, { minimised })}
         onPositionChange={(id, x, y) => updateDump(id, { x, y })}
         onSizeChange={(id, width, height) =>
           updateDump(id, { width, height })

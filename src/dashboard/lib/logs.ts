@@ -8,6 +8,7 @@ import type {
   Task,
   TaskWorkStretch,
 } from "../../lib/types";
+import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { phaseName } from "./period";
 import { formatTime, toDateInput } from "./time";
 import {
@@ -132,10 +133,8 @@ function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
     case "dump": {
       const tags = event.dump.tags.map((tag) => tag.name).join(", ");
       const detail = tags ? `Tags: ${tags}` : "";
-      const body = event.dump.text
-        .trim()
-        .split("\n")
-        .map((line) => `  > ${line}`)
+      const body = brainDumpPlainTextLines(event.dump.text)
+        .map((line: string) => `  > ${line}`)
         .join("\n");
       return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
     }

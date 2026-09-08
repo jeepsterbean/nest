@@ -1,4 +1,8 @@
 import { useState } from "react";
+import {
+  brainDumpStorageToDisplayHtml,
+  brainDumpSummary,
+} from "../../../lib/brainDumpRichText";
 import { updateBrainDumpTags } from "../../../lib/commands";
 import type { BrainDump } from "../../../lib/types";
 import { floatingDraftIcon, tagsIcon } from "../icons";
@@ -20,7 +24,7 @@ export function BrainDumpEntry({
   const [editingTags, setEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState<number[]>([]);
   const [savingTags, setSavingTags] = useState(false);
-  const summary = dump.text.trim().split("\n")[0] || "Brain dump";
+  const summary = brainDumpSummary(dump.text);
 
   const startTagEdit = () => {
     setTagDraft(dump.tags.map((tag) => tag.id));
@@ -102,7 +106,12 @@ export function BrainDumpEntry({
           </div>
         </div>
       ) : null}
-      {expanded && <p className="event-dump__text">{dump.text}</p>}
+      {expanded && (
+        <div
+          className="event-dump__text"
+          dangerouslySetInnerHTML={{ __html: brainDumpStorageToDisplayHtml(dump.text) }}
+        />
+      )}
     </div>
   );
 }

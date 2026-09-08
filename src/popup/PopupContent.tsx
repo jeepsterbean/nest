@@ -49,6 +49,7 @@ import { phaseName, phaseTone } from "../dashboard/lib/period";
 import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
+import { useTileIcons } from "../dashboard/hooks/useTileIcons";
 import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
@@ -62,16 +63,17 @@ import {
   useBrainDumpDraft,
   useRecentBrainDumpHistory,
 } from "../lib/brainDumpDraft";
+import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import {
-  BrainDumpTags,
   useComposerTagProps,
 } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
+import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 
@@ -448,7 +450,7 @@ function setHeldMetricDue(
  */
 function PopupBrainDump({
   tags,
-  textareaRef,
+  editorRef,
   busy,
   onBusyChange,
   onError,
@@ -456,7 +458,7 @@ function PopupBrainDump({
   onTabForward,
 }: {
   tags: Tag[];
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  editorRef: RefObject<HTMLElement | null>;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
   onError: (error: string | null) => void;
@@ -464,6 +466,7 @@ function PopupBrainDump({
   onTabForward: () => void;
 }) {
   const [draft, setDraft] = useBrainDumpDraft();
+  const icons = useTileIcons();
   const history = useRecentBrainDumpHistory(draft.text, onError);
   const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
   const handleTagsChange = useCallback(
@@ -472,12 +475,11 @@ function PopupBrainDump({
   );
 
   const submitDraft = async () => {
-    const text = trimBrainDumpDraft(draft);
-    if (busy || !text) return;
+    if (busy || !trimBrainDumpDraft(draft)) return;
     onBusyChange(true);
     onError(null);
     try {
-      await submitBrainDump(text, draft.tagIds);
+      await submitBrainDump(draft.text, draft.tagIds);
       setDraft({ text: "", tagIds: [] });
       await history.refresh();
       await emit("data-changed");
@@ -489,59 +491,56 @@ function PopupBrainDump({
   };
 
   return (
-    <>
-      <BrainDumpHistoryControls
-        canViewPrevious={history.canViewPrevious}
-        canViewNext={history.canViewNext}
-        onPrevious={history.showPrevious}
-        onNext={history.showNext}
-        submittedAt={history.viewingDump?.createdAt}
-      />
-      <textarea
-        ref={textareaRef}
-        id="popup-brain-dump"
-        className="combined-input"
-        aria-label={
-          history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+    <BrainDumpSurface
+      className="brain-dump-surface--popup"
+      text={history.text}
+      tagIds={tagProps.selectedIds}
+      tags={tagProps.tags}
+      readOnly={history.viewingHistory}
+      tagsDisabled={history.viewingHistory}
+      headerStart={
+        <span className="brain-dump-surface__header-icon" aria-hidden="true">
+          <NestIcon name={icons.brainDump} />
+        </span>
+      }
+      textareaLabel={
+        history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+      }
+      headerEnd={
+        <BrainDumpHistoryControls
+          canViewPrevious={history.canViewPrevious}
+          canViewNext={history.canViewNext}
+          onPrevious={history.showPrevious}
+          onNext={history.showNext}
+          submittedAt={history.viewingDump?.createdAt}
+        />
+      }
+      onTextChange={(text) =>
+        setDraft((current) => ({ ...current, text }))
+      }
+      onTagsChange={handleTagsChange}
+      onKeyDown={(event) => {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          if (event.shiftKey) onTabBack();
+          else onTabForward();
+          return;
         }
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        value={history.text}
-        readOnly={history.viewingHistory}
-        onChange={(event) =>
-          setDraft((current) => ({ ...current, text: event.target.value }))
+        if (
+          !history.viewingHistory &&
+          isBrainDumpSubmitShortcut({
+            key: event.key,
+            metaKey: event.metaKey,
+            ctrlKey: event.ctrlKey,
+            isComposing: event.nativeEvent.isComposing,
+          })
+        ) {
+          event.preventDefault();
+          void submitDraft();
         }
-        onKeyDown={(event) => {
-          if (event.key === "Tab") {
-            event.preventDefault();
-            if (event.shiftKey) onTabBack();
-            else onTabForward();
-            return;
-          }
-          if (
-            !history.viewingHistory &&
-            isBrainDumpSubmitShortcut({
-              key: event.key,
-              metaKey: event.metaKey,
-              ctrlKey: event.ctrlKey,
-              isComposing: event.nativeEvent.isComposing,
-            })
-          ) {
-            event.preventDefault();
-            void submitDraft();
-          }
-        }}
-      />
-
-      <BrainDumpTags
-        tags={tagProps.tags}
-        selectedIds={tagProps.selectedIds}
-        disabled={history.viewingHistory}
-        onChange={handleTagsChange}
-      />
-    </>
+      }}
+      editorRef={editorRef}
+    />
   );
 }
 
@@ -564,7 +563,7 @@ function PopupContent({
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
   const taskInputRef = useRef<HTMLInputElement | null>(null);
-  const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const brainDumpRef = useRef<HTMLElement | null>(null);
   const pulseButtonsRef = useRef<HTMLDivElement | null>(null);
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -682,8 +681,7 @@ function PopupContent({
       const brainDump = brainDumpRef.current;
       if (brainDump) {
         brainDump.focus();
-        const end = brainDump.value.length;
-        brainDump.setSelectionRange(end, end);
+        setContentEditableCaretToEnd(brainDump);
       }
     });
   }, [isLoaded]);
@@ -1355,7 +1353,7 @@ function PopupContent({
       <section className="popup-dump" aria-label="Brain dump">
         <PopupBrainDump
           tags={loaded?.tags ?? EMPTY_TAGS}
-          textareaRef={brainDumpRef}
+          editorRef={brainDumpRef}
           busy={submitting}
           onBusyChange={setSubmitting}
           onError={setError}

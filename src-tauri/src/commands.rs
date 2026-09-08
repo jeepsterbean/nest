@@ -379,6 +379,63 @@ fn validate_tag_ids(conn: &Connection, tag_ids: &[i64]) -> Result<()> {
     Ok(())
 }
 
+const BRAIN_DUMP_RICH_TEXT_PREFIX: &str = "<!--nest-rich-text:v1-->";
+
+fn brain_dump_plain_text(text: &str) -> String {
+    let Some(text) = text.strip_prefix(BRAIN_DUMP_RICH_TEXT_PREFIX) else {
+        return text.to_string();
+    };
+    let mut plain = String::with_capacity(text.len());
+    let mut in_tag = false;
+    let mut entity = String::new();
+    let mut in_entity = false;
+
+    for ch in text.chars() {
+        if in_tag {
+            if ch == '>' {
+                in_tag = false;
+            }
+            continue;
+        }
+
+        if in_entity {
+            if ch == ';' {
+                match entity.as_str() {
+                    "nbsp" => plain.push(' '),
+                    "amp" => plain.push('&'),
+                    "lt" => plain.push('<'),
+                    "gt" => plain.push('>'),
+                    "quot" => plain.push('"'),
+                    "#39" | "apos" => plain.push('\''),
+                    _ => {}
+                }
+                entity.clear();
+                in_entity = false;
+                continue;
+            }
+
+            if ch.is_ascii_alphanumeric() || ch == '#' {
+                entity.push(ch);
+                continue;
+            }
+
+            in_entity = false;
+            entity.clear();
+        }
+
+        match ch {
+            '<' => in_tag = true,
+            '&' => {
+                in_entity = true;
+                entity.clear();
+            }
+            _ => plain.push(ch),
+        }
+    }
+
+    plain
+}
+
 fn record_brain_dump(
     conn: &mut Connection,
     text: String,
@@ -1791,7 +1848,7 @@ pub fn submit_brain_dump(
     tag_ids: Vec<i64>,
 ) -> Result<BrainDump> {
     let text_clean = text.trim().to_string();
-    if text_clean.is_empty() {
+    if brain_dump_plain_text(&text_clean).trim().is_empty() {
         return Err(AppError::InvalidInput("brain dump cannot be empty".into()));
     }
     let mut conn = state.lock().unwrap();
@@ -1874,8 +1931,8 @@ pub fn list_brain_dumps(
 #[cfg(test)]
 mod tests {
     use super::{
-        bank_all_working_now, bank_task_work, beat_heartbeat, change_task_status,
-        change_task_work_stretch, change_task_working, fetch_task,
+        bank_all_working_now, bank_task_work, beat_heartbeat, brain_dump_plain_text,
+        change_task_status, change_task_work_stretch, change_task_working, fetch_task,
         normalize_task_scope, persist_timer_waiting, query_brain_dumps, record_brain_dump,
         record_metric_check_in, recover_open_stretches, schedule_timer, update_task_score_field,
         valid_color, valid_icon, validate_task_status,
@@ -1945,6 +2002,28 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn strips_rich_text_markup_when_validating_brain_dumps() {
+        assert_eq!(
+            brain_dump_plain_text("Use <draft> wording"),
+            "Use <draft> wording"
+        );
+        assert_eq!(brain_dump_plain_text("<3 & counting"), "<3 & counting");
+        assert_eq!(
+            brain_dump_plain_text("<!--nest-rich-text:v1--><p>Hello <strong>there</strong></p>"),
+            "Hello there"
+        );
+        assert_eq!(
+            brain_dump_plain_text("<!--nest-rich-text:v1--><p>&nbsp;</p>"),
+            " "
+        );
+        assert!(
+            brain_dump_plain_text("<!--nest-rich-text:v1--><p><u> </u></p>")
+                .trim()
+                .is_empty()
+        );
     }
 
     #[test]
