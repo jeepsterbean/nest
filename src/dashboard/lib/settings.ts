@@ -7,6 +7,7 @@ export const SETTINGS_PANES = [
   { key: "tasks", label: "Tasks" },
   { key: "timeline", label: "Timeline" },
   { key: "brainDump", label: "Brain dump" },
+  { key: "controlPanel", label: "Control panel" },
   { key: "background", label: "Background" },
 ] as const;
 

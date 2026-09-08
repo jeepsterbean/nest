@@ -64,14 +64,14 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
   rows (`LogsEvents`); Timeline keeps `.logs-chrono`.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
-  Last hour / Tasks / Timeline / Brain dump / Background panes via shared
-  `ViewToggle`. Last pane is stored in `nest:settings-pane` (Metrics when
-  unset). Panes stay mounted in `.settings-slot` through `hidden` so Metrics
-  sub-state survives switches. Metrics uses `.settings-pane--metrics` (Pulses /
-  Metrics sub-toggle), and tile icon panes reuse `.tile-settings` with the
-  phase-settings controls. Phase appearance uses `--phase-color` / `--colored`
-  on the Greetings board, Calendar rail and wash, Insights mix and totals, and
-  Logs Phase rows.
+  Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
+  via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
+  (Metrics when unset). Panes stay mounted in `.settings-slot` through
+  `hidden` so Metrics sub-state survives switches. Metrics uses
+  `.settings-pane--metrics` (Pulses / Metrics sub-toggle), and tile icon panes
+  reuse `.tile-settings` with the phase-settings controls. Phase appearance
+  uses `--phase-color` / `--colored` on the Greetings board, Calendar rail and
+  wash, Insights mix and totals, and Logs Phase rows.
 
 ## Timeline grid
 
