@@ -170,17 +170,21 @@ export function OverviewView({ onOpenTasks }: { onOpenTasks: () => void }) {
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
   const empty = EMPTY_COPY[timelineFilter];
 
-  const onDeleteCheckIn = (id: number) =>
-    void mutate(() => deleteMetricCheckIn(id));
+  // Stable identities so the memoized timeline can skip re-rendering while
+  // the brain dump composer above it updates on every keystroke.
+  const onDeleteCheckIn = useCallback(
+    (id: number) => void mutate(() => deleteMetricCheckIn(id)),
+    [mutate],
+  );
 
-  const toggleDumpExpanded = (id: number) => {
+  const toggleDumpExpanded = useCallback((id: number) => {
     setExpandedDumpIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
   const submitOverviewDump = async () => {
     const text = trimBrainDumpDraft(brainDumpDraft);

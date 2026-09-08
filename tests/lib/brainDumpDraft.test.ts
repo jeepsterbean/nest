@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   adjacentBrainDumpIndex,
   brainDumpHistoryDirection,
+  getBrainDumpDraft,
   isBrainDumpSubmitShortcut,
+  setBrainDumpDraft,
   trimBrainDumpDraft,
 } from "../../src/lib/brainDumpDraft";
 
@@ -50,5 +52,20 @@ describe("isBrainDumpSubmitShortcut", () => {
 describe("trimBrainDumpDraft", () => {
   it("trims the shared body", () => {
     expect(trimBrainDumpDraft({ text: "  Details  ", tagIds: [] })).toBe("Details");
+  });
+});
+
+describe("setBrainDumpDraft", () => {
+  it("ignores writes that change nothing, so listeners stay asleep", () => {
+    setBrainDumpDraft({ text: "Ideas", tagIds: [1, 2] });
+    const stored = getBrainDumpDraft();
+
+    setBrainDumpDraft({ text: "Ideas", tagIds: [1, 2] });
+    expect(getBrainDumpDraft()).toBe(stored);
+
+    setBrainDumpDraft({ text: "Ideas", tagIds: [2, 1] });
+    expect(getBrainDumpDraft()).not.toBe(stored);
+
+    setBrainDumpDraft({ text: "", tagIds: [] });
   });
 });

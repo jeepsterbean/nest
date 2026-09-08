@@ -2,6 +2,8 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -12,16 +14,15 @@ import {
 } from "../../lib/floatingBrainDumps";
 import { submitBrainDump } from "../../lib/commands";
 import {
+  getBrainDumpDraft,
+  setBrainDumpDraft,
   trimBrainDumpDraft,
-  useBrainDumpDraft,
   type BrainDumpDraft,
 } from "../../lib/brainDumpDraft";
 import { FloatingBrainDumpsBoard } from "../components/FloatingBrainDumpsBoard";
 import { useDashboardData } from "./DashboardDataContext";
 
 type FloatingBrainDumpsContextValue = {
-  dumps: FloatingBrainDump[];
-  addDump: (dump: FloatingBrainDump) => void;
   /** Copy a draft (or saved dump text+tags) into a new unsaved sticky. */
   forkToFloating: (draft: BrainDumpDraft) => boolean;
 };
@@ -39,7 +40,6 @@ export function FloatingBrainDumpsProvider({
   children: ReactNode;
 }) {
   const { tags, mutate } = useDashboardData();
-  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const [submitting, setSubmitting] = useState(false);
   const {
     dumps,
@@ -57,11 +57,18 @@ export function FloatingBrainDumpsProvider({
     [reclampToBoard],
   );
 
+  // This provider wraps the whole dashboard, so anything that changes its
+  // context value re-renders every consumer — including the brain dump entries
+  // inside the timeline. Reading the notes through a ref keeps the value
+  // constant while stickies are typed in.
+  const dumpsRef = useRef(dumps);
+  dumpsRef.current = dumps;
+
   const forkToFloating = useCallback(
     (draft: BrainDumpDraft) => {
       const next = createFloatingFromDraft(
         draft,
-        dumps,
+        dumpsRef.current,
         window.innerWidth,
         window.innerHeight,
       );
@@ -69,18 +76,18 @@ export function FloatingBrainDumpsProvider({
       addDump(next);
       return true;
     },
-    [addDump, dumps],
+    [addDump],
   );
 
   const promoteFloatingDump = useCallback(
     (dump: FloatingBrainDump) => {
-      const mainDraft = brainDumpDraft;
+      const mainDraft = getBrainDumpDraft();
       const mainEmpty = !trimBrainDumpDraft(mainDraft);
       setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
       if (mainEmpty) removeDump(dump.id);
       else updateDump(dump.id, { text: mainDraft.text, tagIds: mainDraft.tagIds });
     },
-    [brainDumpDraft, removeDump, setBrainDumpDraft, updateDump],
+    [removeDump, updateDump],
   );
 
   const submitFloatingDump = useCallback(
@@ -95,8 +102,10 @@ export function FloatingBrainDumpsProvider({
     [mutate, removeDump, submitting],
   );
 
+  const contextValue = useMemo(() => ({ forkToFloating }), [forkToFloating]);
+
   return (
-    <FloatingBrainDumpsContext.Provider value={{ dumps, addDump, forkToFloating }}>
+    <FloatingBrainDumpsContext.Provider value={contextValue}>
       {children}
       <FloatingBrainDumpsBoard
         dumps={dumps}

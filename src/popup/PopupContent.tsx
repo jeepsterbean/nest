@@ -77,6 +77,9 @@ import { resolveMetricColorFromList } from "../lib/metricColors";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 
+/** Stable identity so the composer's tag memo holds before tags load. */
+const EMPTY_TAGS: Tag[] = [];
+
 // Drop targets for a lane with no tasks in it. Negative so they can never
 // collide with a task id.
 const EMPTY_ACTIVE_ROW = -1;
@@ -448,6 +451,110 @@ function setHeldMetricDue(
   });
 }
 
+/**
+ * Owns the brain dump draft so a keystroke re-renders only this section.
+ * Held by the popup shell it used to live in, every character re-rendered the
+ * task board, pulse buttons and timer as well.
+ */
+function PopupBrainDump({
+  tags,
+  textareaRef,
+  busy,
+  onBusyChange,
+  onError,
+  onTabBack,
+  onTabForward,
+}: {
+  tags: Tag[];
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onError: (error: string | null) => void;
+  onTabBack: () => void;
+  onTabForward: () => void;
+}) {
+  const [draft, setDraft] = useBrainDumpDraft();
+  const history = useRecentBrainDumpHistory(draft.text, onError);
+  const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) => setDraft((current) => ({ ...current, tagIds })),
+    [setDraft],
+  );
+
+  const submitDraft = async () => {
+    const text = trimBrainDumpDraft(draft);
+    if (busy || !text) return;
+    onBusyChange(true);
+    onError(null);
+    try {
+      await submitBrainDump(text, draft.tagIds);
+      setDraft({ text: "", tagIds: [] });
+      await history.refresh();
+      await emit("data-changed");
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      onBusyChange(false);
+    }
+  };
+
+  return (
+    <>
+      <BrainDumpHistoryControls
+        canViewPrevious={history.canViewPrevious}
+        canViewNext={history.canViewNext}
+        onPrevious={history.showPrevious}
+        onNext={history.showNext}
+        submittedAt={history.viewingDump?.createdAt}
+      />
+      <textarea
+        ref={textareaRef}
+        id="popup-brain-dump"
+        className="combined-input"
+        aria-label={
+          history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+        }
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        value={history.text}
+        readOnly={history.viewingHistory}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, text: event.target.value }))
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Tab") {
+            event.preventDefault();
+            if (event.shiftKey) onTabBack();
+            else onTabForward();
+            return;
+          }
+          if (
+            !history.viewingHistory &&
+            isBrainDumpSubmitShortcut({
+              key: event.key,
+              metaKey: event.metaKey,
+              ctrlKey: event.ctrlKey,
+              isComposing: event.nativeEvent.isComposing,
+            })
+          ) {
+            event.preventDefault();
+            void submitDraft();
+          }
+        }}
+      />
+
+      <BrainDumpTags
+        tags={tagProps.tags}
+        selectedIds={tagProps.selectedIds}
+        disabled={history.viewingHistory}
+        onChange={handleTagsChange}
+      />
+    </>
+  );
+}
+
 function PopupContent({
   onDismiss,
   onComplete,
@@ -461,23 +568,10 @@ function PopupContent({
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [metricIndex, setMetricIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
-  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
-  const composerTagProps = useComposerTagProps(
-    loaded?.tags ?? [],
-    brainDumpTagIds,
-    brainDumpHistory.viewingDump,
-  );
-  const handleTagsChange = useCallback(
-    (tagIds: number[]) =>
-      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
-    [setBrainDumpDraft],
-  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
@@ -880,28 +974,6 @@ function PopupContent({
     setHeldMetricDue(setMetricDue, timerDue, true);
     pulseActivity();
     await emit("data-changed");
-  };
-
-  const saveBrainDump = async () => {
-    const text = trimBrainDumpDraft(brainDumpDraft);
-    if (!text) return;
-    await submitBrainDump(text, brainDumpTagIds);
-    setBrainDumpDraft({ text: "", tagIds: [] });
-    await brainDumpHistory.refresh();
-    await emit("data-changed");
-  };
-
-  const submitBrainDumpDraft = async () => {
-    if (submitting || !brainDumpText.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await saveBrainDump();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const completePopup = async (
@@ -1431,62 +1503,16 @@ function PopupContent({
       </main>
 
       <section className="popup-dump" aria-label="Brain dump">
-        <BrainDumpHistoryControls
-          canViewPrevious={brainDumpHistory.canViewPrevious}
-          canViewNext={brainDumpHistory.canViewNext}
-          onPrevious={brainDumpHistory.showPrevious}
-          onNext={brainDumpHistory.showNext}
-          submittedAt={brainDumpHistory.viewingDump?.createdAt}
-        />
-        <textarea
-          ref={brainDumpRef}
-          id="popup-brain-dump"
-          className="combined-input"
-          aria-label={
-            brainDumpHistory.viewingHistory
-              ? "Saved brain dump, read only"
-              : "Brain dump"
+        <PopupBrainDump
+          tags={loaded?.tags ?? EMPTY_TAGS}
+          textareaRef={brainDumpRef}
+          busy={submitting}
+          onBusyChange={setSubmitting}
+          onError={setError}
+          onTabBack={() => dashboardButtonRef.current?.focus()}
+          onTabForward={() =>
+            (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus()
           }
-          autoCapitalize="off"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={brainDumpHistory.text}
-          readOnly={brainDumpHistory.viewingHistory}
-          onChange={(event) =>
-            setBrainDumpDraft((draft) => ({ ...draft, text: event.target.value }))
-          }
-          onKeyDown={(event) => {
-            if (event.key === "Tab") {
-              event.preventDefault();
-              if (event.shiftKey) dashboardButtonRef.current?.focus();
-              else {
-                (
-                  selectedPulseButtonRef.current ?? timerButtonRef.current
-                )?.focus();
-              }
-              return;
-            }
-            if (
-              !brainDumpHistory.viewingHistory &&
-              isBrainDumpSubmitShortcut({
-                key: event.key,
-                metaKey: event.metaKey,
-                ctrlKey: event.ctrlKey,
-                isComposing: event.nativeEvent.isComposing,
-              })
-            ) {
-              event.preventDefault();
-              void submitBrainDumpDraft();
-            }
-          }}
-        />
-
-        <BrainDumpTags
-          tags={composerTagProps.tags}
-          selectedIds={composerTagProps.selectedIds}
-          disabled={brainDumpHistory.viewingHistory}
-          onChange={handleTagsChange}
         />
 
         {error && (

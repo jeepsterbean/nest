@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { memo, useMemo, type CSSProperties } from "react";
 import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
@@ -104,7 +104,10 @@ export function DayExportButton({
   );
 }
 
-export function LogsTimeline({
+/** Memoized: the Overview brain dump composer re-renders on every keystroke,
+ * and rebuilding up to LOG_EVENT_BATCH_SIZE rows underneath it is what made
+ * typing lag. Callers must pass stable handler identities for this to hold. */
+export const LogsTimeline = memo(function LogsTimeline({
   events,
   phaseCheckIns,
   phases,
@@ -220,4 +223,4 @@ export function LogsTimeline({
       </article>
     );
   });
-}
+});
