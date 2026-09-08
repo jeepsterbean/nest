@@ -2,7 +2,10 @@ import { useCallback, useState } from "react";
 import {
   useViewportSize,
 } from "../../lib/floatingBrainDumps";
-import type { FloatingBrainDump } from "../../lib/floatingBrainDumps";
+import type {
+  FloatingBrainDump,
+  FloatingStickyColor,
+} from "../../lib/floatingBrainDumps";
 import type { Tag } from "../../lib/types";
 import { FloatingBrainDumpCard } from "./FloatingBrainDumpCard";
 
@@ -11,6 +14,7 @@ export function FloatingBrainDumpsBoard({
   tags,
   onTextChange,
   onTagsChange,
+  onColorChange,
   onPositionChange,
   onSizeChange,
   onPromote,
@@ -23,6 +27,7 @@ export function FloatingBrainDumpsBoard({
   tags: Tag[];
   onTextChange: (id: string, text: string) => void;
   onTagsChange: (id: string, tagIds: number[]) => void;
+  onColorChange: (id: string, color: FloatingStickyColor) => void;
   onPositionChange: (id: string, x: number, y: number) => void;
   onSizeChange: (id: string, width: number, height: number) => void;
   onPromote: (dump: FloatingBrainDump) => void;
@@ -57,6 +62,7 @@ export function FloatingBrainDumpsBoard({
           viewportHeight={viewportSize.height}
           onTextChange={(text) => onTextChange(dump.id, text)}
           onTagsChange={(tagIds) => onTagsChange(dump.id, tagIds)}
+          onColorChange={(color) => onColorChange(dump.id, color)}
           onPositionChange={(x, y) => onPositionChange(dump.id, x, y)}
           onSizeChange={(width, height) => onSizeChange(dump.id, width, height)}
           onPromote={() => onPromote(dump)}

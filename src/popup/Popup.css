@@ -15,6 +15,7 @@
   --muted: #70675b;
   --accent: #3f6cb7;
   --accent-soft: rgba(74, 125, 209, 0.13);
+  --doing: #3f6b52;
   --phase: #6846a5;
   --phase-soft: rgba(138, 99, 210, 0.12);
   --dump: #805821;
@@ -58,6 +59,7 @@
     --muted: #a89d8a;
     --accent: #6f9be0;
     --accent-soft: rgba(111, 155, 224, 0.18);
+    --doing: #7eb392;
     --phase: #a98ee6;
     --phase-soft: rgba(169, 142, 230, 0.16);
     --dump: #d4a35c;

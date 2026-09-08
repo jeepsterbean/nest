@@ -68,6 +68,14 @@ export const overviewIcon = (
   </svg>
 );
 
+export const saveLayoutIcon = (
+  <svg {...iconProps}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="M8 12h8" />
+    <path d="M12 8v8" />
+  </svg>
+);
+
 export const insightsIcon = (
   <svg {...iconProps}>
     <path d="M4 16l5-5 3.5 3.5L20 7" />

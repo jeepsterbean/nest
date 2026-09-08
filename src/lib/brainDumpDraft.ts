@@ -47,7 +47,19 @@ function storeDraft(draft: BrainDumpDraft) {
   }
 }
 
+function sameDraft(a: BrainDumpDraft, b: BrainDumpDraft) {
+  return (
+    a.text === b.text &&
+    a.tagIds.length === b.tagIds.length &&
+    a.tagIds.every((id, index) => id === b.tagIds[index])
+  );
+}
+
 function updateDraft(draft: BrainDumpDraft) {
+  // The other window hears each keystroke twice — once on the BroadcastChannel,
+  // once on the `storage` event — and notifying twice re-rendered its whole
+  // tree for nothing. Only a real change is worth waking subscribers for.
+  if (sameDraft(currentDraft, draft)) return;
   currentDraft = draft;
   subscribers.forEach((subscriber) => subscriber(draft));
 }
@@ -195,6 +207,21 @@ export function useRecentBrainDumpHistory(
   };
 }
 
+/** Read the draft without subscribing — for callers that only need its value
+ * at call time and would otherwise re-render on every keystroke. */
+export function getBrainDumpDraft() {
+  return currentDraft;
+}
+
+export function setBrainDumpDraft(
+  update: BrainDumpDraft | ((draft: BrainDumpDraft) => BrainDumpDraft),
+) {
+  startSync();
+  const next = typeof update === "function" ? update(currentDraft) : update;
+  receiveDraft(next);
+  channel?.postMessage(next);
+}
+
 export function useBrainDumpDraft() {
   const [draft, setLocalDraft] = useState(currentDraft);
 
@@ -207,14 +234,5 @@ export function useBrainDumpDraft() {
     };
   }, []);
 
-  const setDraft = useCallback(
-    (update: BrainDumpDraft | ((draft: BrainDumpDraft) => BrainDumpDraft)) => {
-      const next = typeof update === "function" ? update(currentDraft) : update;
-      receiveDraft(next);
-      channel?.postMessage(next);
-    },
-    [],
-  );
-
-  return [draft, setDraft] as const;
+  return [draft, setBrainDumpDraft] as const;
 }

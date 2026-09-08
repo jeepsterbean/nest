@@ -9,16 +9,18 @@ import {
   FLOATING_BRAIN_DUMP_HEIGHT,
   FLOATING_BRAIN_DUMP_PADDING,
   FLOATING_BRAIN_DUMP_WIDTH,
+  FLOATING_STICKY_COLORS,
   floatingBrainDumpStackZIndex,
   type FloatingBrainDump,
+  type FloatingStickyColor,
 } from "../../lib/floatingBrainDumps";
 import type { Tag } from "../../lib/types";
 import { startPointerDrag } from "../lib/pointerDrag";
 import { BrainDumpSurface } from "./BrainDumpSurface";
 import { promoteIcon, trashIcon } from "./icons";
 
-const MIN_WIDTH = 200;
-const MIN_HEIGHT = 140;
+const MIN_WIDTH = 220;
+const MIN_HEIGHT = 168;
 const KEYBOARD_RESIZE_STEP = 16;
 
 export function FloatingBrainDumpCard({
@@ -28,6 +30,7 @@ export function FloatingBrainDumpCard({
   viewportHeight,
   onTextChange,
   onTagsChange,
+  onColorChange,
   onPositionChange,
   onSizeChange,
   onPromote,
@@ -41,6 +44,7 @@ export function FloatingBrainDumpCard({
   viewportHeight: number;
   onTextChange: (text: string) => void;
   onTagsChange: (tagIds: number[]) => void;
+  onColorChange: (color: FloatingStickyColor) => void;
   onPositionChange: (x: number, y: number) => void;
   onSizeChange: (width: number, height: number) => void;
   onPromote: () => void;
@@ -196,6 +200,7 @@ export function FloatingBrainDumpCard({
     <div
       ref={cardRef}
       className="floating-brain-dump"
+      data-color={dump.color}
       style={{
         left: displayX,
         top: displayY,
@@ -210,6 +215,30 @@ export function FloatingBrainDumpCard({
         tagIds={dump.tagIds}
         tags={tags}
         textareaLabel="Floating brain dump"
+        headerStart={
+          <div
+            className="floating-sticky-colors"
+            role="group"
+            aria-label="Sticky color"
+          >
+            {FLOATING_STICKY_COLORS.map((option) => (
+              <button
+                type="button"
+                key={option.id}
+                className={`floating-sticky-colors__swatch floating-sticky-colors__swatch--${option.id}${
+                  dump.color === option.id ? " is-selected" : ""
+                }`}
+                aria-label={option.label}
+                aria-pressed={dump.color === option.id}
+                title={option.label}
+                onClick={() => {
+                  onFocus();
+                  onColorChange(option.id);
+                }}
+              />
+            ))}
+          </div>
+        }
         headerEnd={
           <>
             <button

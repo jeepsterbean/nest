@@ -84,15 +84,18 @@ leaves dashboard attention even if the Nest window is still key. Overview
 shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
 Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 (Idle time is counted as Offline). A quiet hour still shows those figures as
-0, not as missing; live rolling summaries refresh as time passes. Below that,
-Overview is three panels: a read-only Tasks peek (Status, Title, Value, Effort)
-with Open / Closed and a button that opens the Tasks section; a today-only
-Logs Timeline (same marks and Phase gutter coloring as Logs, without day
-labels, Phase totals, or Logs chrome) filtered by Timeline / Brain dumps /
-Metrics, with load-older batching when needed; and a brain dump composer that
-matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to save). Both
-capture surfaces can independently
-browse the five most recent dumps as read-only text with their tags. Full dump
+0, not as missing; live rolling summaries refresh as time passes. Overview is
+a persistent tile board with that summary, a read-only Tasks peek (Status,
+Title, Value, Effort) with Open / Closed and a button that opens the Tasks
+section, a today-only Logs Timeline (same marks and Phase gutter coloring as
+Logs, without day labels, Phase totals, or Logs chrome) filtered by Timeline /
+Brain dumps / Metrics with load-older batching when needed, a brain dump
+composer that matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to
+save), and Metric check-in scoring. Tiles can be hidden into the always-present
+control panel and restored from there as space allows. Tasks, Timeline, and Brain dump can be
+minimised to counts, the three newest events, and a one-line capture field.
+Both capture surfaces can independently browse the five most recent dumps as
+read-only text with their tags. Full dump
 history lives in Logs. Insights is the longer look: a Phase mix for the
 range, Tasks with Worked time that day grouped by status as of that day's end
 (Active, Up next, Backlog, Completed, Cancelled), plus Completions and
@@ -166,9 +169,10 @@ Deleting a Tag removes it from every historical brain dump.
 
 **Section**:
 One primary destination in the dashboard, chosen from the **Sidebar**. The six
-are Overview, Calendar, Insights, Logs, Tasks, and Settings. Overview is the
-only Section that shows the **Greetings board**; every other Section gives its
-content the full content area beside the Sidebar. No Section shows a title —
+are Overview, Calendar, Insights, Logs, Tasks, and Settings. Overview shows the
+**Greetings board** except while Phase is Doing; every other Section always
+gives its content the full content area beside the Sidebar. No Section shows a
+title —
 the Sidebar already names where you are. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
@@ -180,9 +184,11 @@ Tasks, Settings).
 _Avoid_: Nav, rail (for this strip)
 
 **Greetings board**:
-The Overview-only strip with the typewriter greeting, live Phase, and Timer
-(countdown and interval control). After the time-of-day greeting, it rotates
-through every **Active** Reminder; with none Active, only the greeting shows.
+The Overview strip with the typewriter greeting, live Phase, and Timer
+(countdown and interval control). Hidden while Phase is Doing so Overview can
+stay on work; Timer interval and countdown stay available on the **Popup**.
+After the time-of-day greeting, it rotates through every **Active** Reminder;
+with none Active, only the greeting shows.
 _Avoid_: Header, masthead, status bar (for this strip)
 
 **Reminder**:
@@ -197,8 +203,9 @@ _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
 Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
-icons and colors, Tags, and Reminders. One Sidebar entry; a segmented control
-switches panes. The last pane is remembered (Metrics when unset).
+icons and colors, Tags, Reminders, Last hour, Tasks, Timeline, Brain dump, and
+Background. One Sidebar entry; a segmented control switches panes. The last
+pane is remembered (Metrics when unset).
 _Avoid_: Preferences, admin
 
 **Logs**:
@@ -251,7 +258,7 @@ _Avoid_: Journal
 > **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
 > **Dev:** "Is the Timer part of every Section header?"
-> **Domain expert:** "No. The Timer sits on the **Greetings board**, and that board only appears on the Overview **Section**. Other Sections have no title — the **Sidebar** already says where you are."
+> **Domain expert:** "No. The Timer sits on the **Greetings board**, which appears on Overview except while Phase is Doing. Other Sections have no title — the **Sidebar** already says where you are. During Doing, use the **Popup** for the countdown and interval."
 
 ## Flagged ambiguities
 
@@ -271,7 +278,7 @@ _Avoid_: Journal
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
 - "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
-- "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, Overview-only.
+- "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for two panels — resolved: **Sidebar** is the Section switcher; the Scopes filter in Tasks is the **Tasks scope sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
@@ -279,8 +286,9 @@ _Avoid_: Journal
 ## Timer
 
 - The **Greetings board** shows the countdown and controls its 5–30 minute
-  interval. When due it shows "time to check in!"; the Popup clock stays on
-  the countdown.
+  interval when Overview is showing it (not during Doing). When due it shows
+  "time to check in!"; the Popup clock stays on the countdown and remains the
+  Timer surface while Doing.
 - At zero, the timer pauses, plays the system alert sound, and opens the
   popup. It stays at `0:00` (glowing) until a new interval is picked or the
   due Metric check-in is completed. Dismissing the popup does not start the

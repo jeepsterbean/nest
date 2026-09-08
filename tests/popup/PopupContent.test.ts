@@ -8,14 +8,16 @@ vi.mock("../../src/popup/windowDrag", () => ({
 
 import {
   adjacentTimerInterval,
-  firstScorablePulse,
   holdMetricDue,
   isPopupWindowDragTarget,
-  nextMetricIndex,
   PopupTopPanel,
   shouldCloseOverlayOnFocusLeave,
   shouldDismissOnPointerDown,
 } from "../../src/popup/PopupContent";
+import {
+  firstScorablePulse,
+  nextMetricIndex,
+} from "../../src/dashboard/components/MetricCheckIn";
 import type { Pulse } from "../../src/lib/types";
 
 const pulse = (id: number, metricIds: number[]): Pulse => ({

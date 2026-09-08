@@ -7,10 +7,13 @@ import {
   type RefObject,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
+import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
   getTimerState,
+  latestPhaseCheckIn,
   listMetrics,
+  listPhases,
   listPulses,
   listTaskWorkStretches,
   listTasks,
@@ -29,8 +32,9 @@ import type {
   TimerState,
   Metric,
   MetricRatingInput,
+  Phase,
+  PhaseCheckIn,
   Pulse,
-  RatingValue,
   Task,
   TaskWorkStretch,
   Tag,
@@ -41,11 +45,14 @@ import {
   TIMER_INTERVALS,
   isTimerDue,
 } from "../dashboard/lib/time";
+import { phaseName, phaseTone } from "../dashboard/lib/period";
+import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
+import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
+import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
 import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
-  RATING_VALUES,
   recentlyClosedTasks,
 } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
@@ -64,9 +71,12 @@ import {
   useComposerTagProps,
 } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
-import { resolveMetricColorFromList } from "../lib/metricColors";
+import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
+
+/** Stable identity so the composer's tag memo holds before tags load. */
+const EMPTY_TAGS: Tag[] = [];
 
 // Drop targets for a lane with no tasks in it. Negative so they can never
 // collide with a task id.
@@ -80,6 +90,8 @@ type LoadState = {
   workStretches: TaskWorkStretch[];
   timer: TimerState;
   tags: Tag[];
+  phases: Phase[];
+  latestPhase: PhaseCheckIn | null;
 };
 
 const loadTodayStretches = (nowMs: number = Date.now()) => {
@@ -389,10 +401,6 @@ export function PopupTopPanel({
   );
 }
 
-export function nextMetricIndex(index: number, metricCount: number) {
-  return index + 1 < metricCount ? index + 1 : null;
-}
-
 export function adjacentTimerInterval(current: number, direction: -1 | 1) {
   const currentIndex = TIMER_INTERVALS.findIndex(
     (interval) => interval === current,
@@ -405,10 +413,6 @@ export function adjacentTimerInterval(current: number, direction: -1 | 1) {
     ),
   );
   return TIMER_INTERVALS[nextIndex];
-}
-
-export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
-  return pulses.find((pulse) => pulse.metricIds.length > 0) ?? null;
 }
 
 /**
@@ -437,6 +441,110 @@ function setHeldMetricDue(
   });
 }
 
+/**
+ * Owns the brain dump draft so a keystroke re-renders only this section.
+ * Held by the popup shell it used to live in, every character re-rendered the
+ * task board, pulse buttons and timer as well.
+ */
+function PopupBrainDump({
+  tags,
+  textareaRef,
+  busy,
+  onBusyChange,
+  onError,
+  onTabBack,
+  onTabForward,
+}: {
+  tags: Tag[];
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onError: (error: string | null) => void;
+  onTabBack: () => void;
+  onTabForward: () => void;
+}) {
+  const [draft, setDraft] = useBrainDumpDraft();
+  const history = useRecentBrainDumpHistory(draft.text, onError);
+  const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) => setDraft((current) => ({ ...current, tagIds })),
+    [setDraft],
+  );
+
+  const submitDraft = async () => {
+    const text = trimBrainDumpDraft(draft);
+    if (busy || !text) return;
+    onBusyChange(true);
+    onError(null);
+    try {
+      await submitBrainDump(text, draft.tagIds);
+      setDraft({ text: "", tagIds: [] });
+      await history.refresh();
+      await emit("data-changed");
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      onBusyChange(false);
+    }
+  };
+
+  return (
+    <>
+      <BrainDumpHistoryControls
+        canViewPrevious={history.canViewPrevious}
+        canViewNext={history.canViewNext}
+        onPrevious={history.showPrevious}
+        onNext={history.showNext}
+        submittedAt={history.viewingDump?.createdAt}
+      />
+      <textarea
+        ref={textareaRef}
+        id="popup-brain-dump"
+        className="combined-input"
+        aria-label={
+          history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+        }
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        value={history.text}
+        readOnly={history.viewingHistory}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, text: event.target.value }))
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Tab") {
+            event.preventDefault();
+            if (event.shiftKey) onTabBack();
+            else onTabForward();
+            return;
+          }
+          if (
+            !history.viewingHistory &&
+            isBrainDumpSubmitShortcut({
+              key: event.key,
+              metaKey: event.metaKey,
+              ctrlKey: event.ctrlKey,
+              isComposing: event.nativeEvent.isComposing,
+            })
+          ) {
+            event.preventDefault();
+            void submitDraft();
+          }
+        }}
+      />
+
+      <BrainDumpTags
+        tags={tagProps.tags}
+        selectedIds={tagProps.selectedIds}
+        disabled={history.viewingHistory}
+        onChange={handleTagsChange}
+      />
+    </>
+  );
+}
+
 function PopupContent({
   onDismiss,
   onComplete,
@@ -445,26 +553,12 @@ function PopupContent({
   onComplete: (save: () => Promise<number | null>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
-  const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
-  const [metricIndex, setMetricIndex] = useState(0);
-  const [ratings, setRatings] = useState<Record<string, RatingValue | null>>({});
-  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
+  const backgroundStyle = useBackgroundStyle();
+  const backgroundTuning = useBackgroundTuning();
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
-  const composerTagProps = useComposerTagProps(
-    loaded?.tags ?? [],
-    brainDumpTagIds,
-    brainDumpHistory.viewingDump,
-  );
-  const handleTagsChange = useCallback(
-    (tagIds: number[]) =>
-      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
-    [setBrainDumpDraft],
-  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
@@ -488,15 +582,6 @@ function PopupContent({
   const visiblePulses = loaded?.pulses.filter(
     (pulse) => !hiddenPulseIds.has(pulse.id),
   ) ?? [];
-  const selectedPulse = visiblePulses.find((pulse) => pulse.id === selectedPulseId) ?? null;
-  const pulseMetrics = selectedPulse
-    ? selectedPulse.metricIds.flatMap((id) => {
-        const metric = loaded?.metrics.find((candidate) => candidate.id === id);
-        return metric ? [metric] : [];
-      })
-    : [];
-  const activeMetric = pulseMetrics[metricIndex] ?? null;
-  const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
@@ -548,12 +633,12 @@ function PopupContent({
       loadTodayStretches(),
       getTimerState(),
       listTags(),
+      listPhases(true),
+      latestPhaseCheckIn(),
     ])
-      .then(([metrics, pulses, tasks, workStretches, timer, tags]) => {
+      .then(([metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase]) => {
         if (cancelled) return;
-        const visible = pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id));
-        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags });
-        setSelectedPulseId(firstScorablePulse(visible)?.id ?? null);
+        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase });
         setError(null);
       })
       .catch((e) => {
@@ -571,9 +656,12 @@ function PopupContent({
         loadTodayStretches(),
         getTimerState(),
         listTags(),
-      ]).then(([tasks, workStretches, timer, tags]) => {
+        latestPhaseCheckIn(),
+      ]).then(([tasks, workStretches, timer, tags, latestPhase]) => {
         setLoaded((current) =>
-          current ? { ...current, tasks, workStretches, timer, tags } : current,
+          current
+            ? { ...current, tasks, workStretches, timer, tags, latestPhase }
+            : current,
         );
       });
     };
@@ -670,6 +758,7 @@ function PopupContent({
         workStretches,
         tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
       });
+      if (status === "completed") pulseActivity();
       await emit("data-changed");
     } catch (e) {
       setError(String(e));
@@ -841,80 +930,34 @@ function PopupContent({
     }
   };
 
-  const ratingsForPulse = (
-    pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
-  ): MetricRatingInput[] =>
-    pulse.metricIds.flatMap((id) => {
-      const value = checkInRatings[`${pulse.id}:${id}`];
-      return value == null ? [] : [{ metricId: id, value }];
-    });
-
   const saveMetrics = async (
     pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
+    ratingsInput: MetricRatingInput[],
   ) => {
-    const ratingsInput = ratingsForPulse(pulse, checkInRatings);
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
-    setRatings({});
     setHeldMetricDue(setMetricDue, timerDue, true);
+    pulseActivity();
     await emit("data-changed");
-  };
-
-  const saveBrainDump = async () => {
-    const text = trimBrainDumpDraft(brainDumpDraft);
-    if (!text) return;
-    await submitBrainDump(text, brainDumpTagIds);
-    setBrainDumpDraft({ text: "", tagIds: [] });
-    await brainDumpHistory.refresh();
-    await emit("data-changed");
-  };
-
-  const submitBrainDumpDraft = async () => {
-    if (submitting || !brainDumpText.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await saveBrainDump();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const completePopup = async (
     pulse: Pulse,
-    checkInRatings: Record<string, RatingValue | null>,
+    ratingsInput: MetricRatingInput[],
   ) => {
     if (!loaded || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       await onComplete(async () => {
-        await saveMetrics(pulse, checkInRatings);
+        await saveMetrics(pulse, ratingsInput);
         return timerDue ? loaded.timer.intervalMinutes : null;
       });
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
+      throw e;
     }
-  };
-
-  const answerMetric = async (value: RatingValue) => {
-    if (!activeMetric || !selectedPulse || submitting) return;
-    const nextRatings = {
-      ...ratings,
-      [ratingKey(activeMetric.id)]: value,
-    };
-    setRatings(nextRatings);
-    const nextIndex = nextMetricIndex(metricIndex, pulseMetrics.length);
-    if (nextIndex !== null) {
-      setMetricIndex(nextIndex);
-      return;
-    }
-    await completePopup(selectedPulse, nextRatings);
   };
 
   if (!loaded) {
@@ -930,6 +973,11 @@ function PopupContent({
       </div>
     );
   }
+
+  const currentPhaseName = loaded.latestPhase
+    ? phaseName(loaded.latestPhase.phaseId, loaded.phases, loaded.latestPhase.phaseLabel)
+    : null;
+  const isDoing = currentPhaseName ? phaseTone(currentPhaseName) === "doing" : false;
 
   const workingCount = workingTasks.length;
   // Working tasks lead as hero rows: the one thing the popup wants you to
@@ -1279,184 +1327,42 @@ function PopupContent({
       </aside>
 
       <main className="popup-tasks">
-        <section
-          className={`pulse-panel${metricDue ? " pulse-panel--due" : ""}`}
-          aria-label="Metrics"
-          onKeyDown={(event) => {
-            if (event.key >= "1" && event.key <= "5") {
-              event.preventDefault();
-              void answerMetric(Number(event.key) as RatingValue);
-            }
-          }}
-        >
-          <div className="pulse-panel__header">
-            {activeMetric && (
-              <div
-                className="metric-step__title"
-                key={`${selectedPulseId}:${activeMetric.id}`}
-                aria-live="polite"
-              >
-                <NestIcon
-                  name={activeMetric.icon}
-                  color={resolveMetricColorFromList(
-                    loaded?.metrics ?? [],
-                    activeMetric.id,
-                  )}
-                />
-                <h2>{activeMetric.name}</h2>
-              </div>
-            )}
-            {visiblePulses.length > 0 && (
-              <div
-                ref={pulseButtonsRef}
-                className="popup-pulse-toggle"
-                role="group"
-                aria-label="Pulses"
-                onKeyDown={(event) => {
-                  if (event.key !== "Tab") return;
-                  const buttons = event.currentTarget.querySelectorAll(
-                    "button:not(:disabled)",
-                  );
-                  const boundary = buttons.item(
-                    event.shiftKey ? 0 : buttons.length - 1,
-                  );
-                  if (boundary !== event.target) return;
-                  event.preventDefault();
-                  if (event.shiftKey) brainDumpRef.current?.focus();
-                  else timerButtonRef.current?.focus();
-                }}
-              >
-                {visiblePulses.map((pulse) => (
-                  <button
-                    key={pulse.id}
-                    ref={
-                      pulse.id === selectedPulseId
-                        ? selectedPulseButtonRef
-                        : undefined
-                    }
-                    type="button"
-                    aria-label={pulse.name}
-                    title={pulse.name}
-                    aria-pressed={pulse.id === selectedPulseId}
-                    disabled={submitting || pulse.metricIds.length === 0}
-                    onFocus={() => {
-                      if (pulse.id === selectedPulseId) return;
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                    onClick={() => {
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                  >
-                    <NestIcon name={pulse.icon} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {activeMetric ? (
-            <div
-              className="metric-step"
-              key={`${selectedPulseId}:${activeMetric.id}:ratings`}
-            >
-              <div
-                className="metric-row__buttons"
-                role="group"
-                aria-label={activeMetric.name}
-              >
-                {RATING_VALUES.map((value) => {
-                  const selected = ratings[ratingKey(activeMetric.id)] === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      tabIndex={-1}
-                      aria-label={`${value} out of 5`}
-                      aria-pressed={selected}
-                      disabled={submitting}
-                      className={`metric-rating metric-rating--v${value}${
-                        selected ? " metric-rating--active" : ""
-                      }`}
-                      onClick={() => void answerMetric(value)}
-                    >
-                      {value}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="combined-empty">
-              {visiblePulses.length
-                ? "This pulse has no metrics yet."
-                : loaded.pulses.length
-                  ? "No pulses are shown in the popup. Turn one on in Metrics."
-                  : "Create a pulse in the Metrics dashboard."}
-            </div>
-          )}
-        </section>
+        <AmbientVisualizer
+          active={isDoing}
+          style={backgroundStyle}
+          tuning={backgroundTuning}
+        />
+        <MetricCheckIn
+          metrics={loaded.metrics}
+          pulses={visiblePulses}
+          submitting={submitting}
+          due={metricDue}
+          emptyCopy={
+            loaded.pulses.length
+              ? "No pulses are shown in the popup. Turn one on in Metrics."
+              : "Create a pulse in the Metrics dashboard."
+          }
+          onComplete={completePopup}
+          pulseButtonsRef={pulseButtonsRef}
+          selectedPulseButtonRef={selectedPulseButtonRef}
+          onTabBack={() => brainDumpRef.current?.focus()}
+          onTabForward={() => timerButtonRef.current?.focus()}
+        />
 
         {taskView}
       </main>
 
       <section className="popup-dump" aria-label="Brain dump">
-        <BrainDumpHistoryControls
-          canViewPrevious={brainDumpHistory.canViewPrevious}
-          canViewNext={brainDumpHistory.canViewNext}
-          onPrevious={brainDumpHistory.showPrevious}
-          onNext={brainDumpHistory.showNext}
-          submittedAt={brainDumpHistory.viewingDump?.createdAt}
-        />
-        <textarea
-          ref={brainDumpRef}
-          id="popup-brain-dump"
-          className="combined-input"
-          aria-label={
-            brainDumpHistory.viewingHistory
-              ? "Saved brain dump, read only"
-              : "Brain dump"
+        <PopupBrainDump
+          tags={loaded?.tags ?? EMPTY_TAGS}
+          textareaRef={brainDumpRef}
+          busy={submitting}
+          onBusyChange={setSubmitting}
+          onError={setError}
+          onTabBack={() => dashboardButtonRef.current?.focus()}
+          onTabForward={() =>
+            (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus()
           }
-          autoCapitalize="off"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={brainDumpHistory.text}
-          readOnly={brainDumpHistory.viewingHistory}
-          onChange={(event) =>
-            setBrainDumpDraft((draft) => ({ ...draft, text: event.target.value }))
-          }
-          onKeyDown={(event) => {
-            if (event.key === "Tab") {
-              event.preventDefault();
-              if (event.shiftKey) dashboardButtonRef.current?.focus();
-              else {
-                (
-                  selectedPulseButtonRef.current ?? timerButtonRef.current
-                )?.focus();
-              }
-              return;
-            }
-            if (
-              !brainDumpHistory.viewingHistory &&
-              isBrainDumpSubmitShortcut({
-                key: event.key,
-                metaKey: event.metaKey,
-                ctrlKey: event.ctrlKey,
-                isComposing: event.nativeEvent.isComposing,
-              })
-            ) {
-              event.preventDefault();
-              void submitBrainDumpDraft();
-            }
-          }}
-        />
-
-        <BrainDumpTags
-          tags={composerTagProps.tags}
-          selectedIds={composerTagProps.selectedIds}
-          disabled={brainDumpHistory.viewingHistory}
-          onChange={handleTagsChange}
         />
 
         {error && (
