@@ -22,6 +22,7 @@ preserves calm, private, flow-friendly behavior.
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | CSS hooks, component constraints, layout constants | `UI.md` |
+| Library behavior found only by reading its source | `UI.md` |
 | Closing, parking, or adding durable open work | `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` |
 | Incoming ideas awaiting triage | `FEATURE-REQUESTS.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
@@ -150,3 +151,20 @@ qualitative.
   - `cargo check` when a full test run is disproportionate
 - There is no separate JS lint script today; rely on TypeScript strictness and
   tests. Do not add ESLint or Prettier unless requested.
+- Vitest runs in the `node` environment, so caret placement, focus, selection,
+  and bubble menu visibility have no automated coverage. Do not add jsdom or
+  happy-dom to cover them: neither reproduces WKWebView caret behavior, so a
+  green run would only buy false confidence. Verify those by hand.
+- After changing `BrainDumpSurface` or its editor helpers, run the manual pass
+  that the two long-standing caret bugs would have failed:
+  1. Two stickies plus the Overview dump open; click into each and type. The
+     caret lands every time.
+  2. Click twice inside one editor. The caret lands where clicked.
+  3. Select text, press B, then click outside. The formatting menu closes.
+  4. Select text in one sticky, then click into another. The first menu closes.
+  5. Minimise and expand a sticky. Its text survives.
+  6. Type in the popup with the dashboard open. The main dump mirrors it and
+     the popup caret stays put.
+- Bumping `@tiptap/*` or `prosemirror-*` invalidates the source references in
+  `UI.md` under "Third-party editor behaviour". Re-read every claim there
+  against the new source in the same change.
