@@ -1,6 +1,8 @@
 import { Editor, Extension } from "@tiptap/core";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import {
+  BulletList,
+  OrderedList,
   TaskItem,
   TaskList,
 } from "@tiptap/extension-list";
@@ -176,14 +178,36 @@ export function applyBrainDumpListVariant(
   chain.run();
 }
 
+// Keep list creation explicit; markdown triggers like "- " can move the caret
+// into a list while the user is just capturing a thought.
+const ExplicitBulletList = BulletList.extend({
+  addInputRules() {
+    return [];
+  },
+});
+
+const ExplicitOrderedList = OrderedList.extend({
+  addInputRules() {
+    return [];
+  },
+});
+
+const ExplicitTaskItem = TaskItem.extend({
+  addInputRules() {
+    return [];
+  },
+}).configure({
+  a11y: {
+    checkboxLabel: (node, checked) =>
+      `${checked ? "Completed" : "Open"} to-do item: ${node.textContent || "empty item"}`,
+  },
+});
+
 export const brainDumpEditorExtensions = [
+  ExplicitBulletList,
+  ExplicitOrderedList,
   TaskList,
-  TaskItem.configure({
-    a11y: {
-      checkboxLabel: (node, checked) =>
-        `${checked ? "Completed" : "Open"} to-do item: ${node.textContent || "empty item"}`,
-    },
-  }),
+  ExplicitTaskItem,
   Details.configure({
     persist: true,
     HTMLAttributes: { class: "brain-dump-details" },

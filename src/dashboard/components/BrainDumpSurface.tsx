@@ -1,8 +1,10 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import type { EditorOptions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -26,6 +28,27 @@ import type { Tag } from "../../lib/types";
 import { chevronDownIcon, chevronRightIcon } from "./icons";
 import { BrainDumpTags } from "./BrainDumpTags";
 import "./BrainDumpSurface.css";
+
+const BRAIN_DUMP_STARTER_KIT = StarterKit.configure({
+  blockquote: false,
+  bulletList: false,
+  code: false,
+  codeBlock: false,
+  dropcursor: false,
+  gapcursor: false,
+  heading: false,
+  horizontalRule: false,
+  // Autolinked anchors are stripped by the storage round-trip, which would
+  // rewrite the document mid-word; dumps have no use for live links.
+  link: false,
+  orderedList: false,
+  strike: false,
+});
+
+const BRAIN_DUMP_EDITOR_EXTENSIONS = [
+  BRAIN_DUMP_STARTER_KIT,
+  ...brainDumpEditorExtensions,
+];
 
 type ToolbarDropdownOption = {
   value: string;
@@ -226,8 +249,10 @@ export function BrainDumpSurface({
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const lastLocalTextRef = useRef<string | null>(null);
   const onTextChangeRef = useRef(onTextChange);
+  const onFocusRef = useRef(onFocus);
   const readOnlyRef = useRef(readOnly);
   onTextChangeRef.current = onTextChange;
+  onFocusRef.current = onFocus;
   readOnlyRef.current = readOnly;
 
   const dismissTransientUi = () => {
@@ -235,27 +260,8 @@ export function BrainDumpSurface({
     editor?.commands.blur();
   };
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    editable: !readOnly,
-    extensions: [
-      StarterKit.configure({
-        blockquote: false,
-        code: false,
-        codeBlock: false,
-        dropcursor: false,
-        gapcursor: false,
-        heading: false,
-        horizontalRule: false,
-        // Autolinked anchors are stripped by the storage round-trip, which would
-        // rewrite the document mid-word; dumps have no use for live links.
-        link: false,
-        strike: false,
-      }),
-      ...brainDumpEditorExtensions,
-    ],
-    content: initialContent,
-    editorProps: {
+  const editorProps = useMemo<NonNullable<EditorOptions["editorProps"]>>(
+    () => ({
       attributes: {
         class: "brain-dump-surface__input",
         "aria-label": textareaLabel,
@@ -275,11 +281,21 @@ export function BrainDumpSurface({
       },
       handleDOMEvents: {
         focus: () => {
-          onFocus?.();
+          onFocusRef.current?.();
           return false;
         },
       },
-    },
+    }),
+    [textareaLabel],
+  );
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    shouldRerenderOnTransaction: false,
+    editable: !readOnly,
+    extensions: BRAIN_DUMP_EDITOR_EXTENSIONS,
+    content: initialContent,
+    editorProps,
     onUpdate({ editor: current }) {
       // History browse reuses this editor as read-only; never publish those
       // content swaps (or TipTap editable toggles) into the live draft.

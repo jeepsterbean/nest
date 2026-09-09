@@ -65,24 +65,13 @@ function updateDraft(draft: BrainDumpDraft) {
   subscribers.forEach((subscriber) => subscriber(draft));
 }
 
-function receiveDraft(draft: BrainDumpDraft) {
-  updateDraft(draft);
-  storeDraft(draft);
-}
-
 function startSync() {
   if (!channel && typeof BroadcastChannel !== "undefined") {
     try {
       channel = new BroadcastChannel(CHANNEL_NAME);
-      channel.onmessage = (event: MessageEvent<unknown>) => {
-        const draft = event.data as Partial<BrainDumpDraft> | null;
-        if (typeof draft?.text === "string" && Array.isArray(draft.tagIds)) {
-          receiveDraft({
-            text: draft.text,
-            tagIds: draft.tagIds.filter((id): id is number => Number.isInteger(id)),
-          });
-        }
-      };
+      // A delayed notification must read the latest draft, never write an
+      // older snapshot back into storage and reset the typing window's caret.
+      channel.onmessage = () => updateDraft(readDraft());
     } catch {
       channel = null;
     }
@@ -242,8 +231,9 @@ export function setBrainDumpDraft(
 ) {
   startSync();
   const next = typeof update === "function" ? update(currentDraft) : update;
-  receiveDraft(next);
-  channel?.postMessage(next);
+  storeDraft(next);
+  updateDraft(next);
+  channel?.postMessage(null);
 }
 
 export function useBrainDumpDraft() {
@@ -252,7 +242,7 @@ export function useBrainDumpDraft() {
   useEffect(() => {
     startSync();
     subscribers.add(setLocalDraft);
-    receiveDraft(readDraft());
+    updateDraft(readDraft());
     return () => {
       subscribers.delete(setLocalDraft);
     };
