@@ -183,6 +183,12 @@ An unstructured captured thought stored on its own, with zero or more Tags.
 Its text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
 and collapsible lists. Saved checklist boxes show their recorded state in
 history and Logs; edit the content by forking it into a draft.
+Expanding a saved dump in Logs opens a read-only sticky 12px to the right of
+the cursor, centered at its height, and it closes on an outside click or Escape.
+It has no editing or action controls; collapsible
+lists are unfolded for reading. Settings → Brain dump shows compact saved-sticky
+previews that open that same sticky, newest first, filtered by the past 1, 3, or 7 days and by Tag.
+The range defaults to 7 days and measures back from the current time.
 Overview and the popup share the text and selected-tag draft, and independently
 browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can edit
 a saved dump's Tags, and fork a saved dump into a new unsaved floating draft
@@ -259,7 +265,7 @@ Logs does not show the day strip or outcome stats. Events are grouped by day;
 Phase totals end at midnight for past days and at the current time for Today.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same
 height as brain dumps and Working now marks. Brain dumps
-match that row height until expanded. Pulse, Metric, and brain dump icons stand
+keep that row height when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
 in for names. The filters are the only chrome at the top of Logs.
 _Avoid_: Journal
 

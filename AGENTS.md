@@ -109,11 +109,13 @@ qualitative.
   last-hour summary plus dump capture; Calendar is the Day/Week timetable;
   Insights is the ranged Phase mix, per-day Worked time grouped by status as
   of that day's end, and Metric check-in scores; Logs is filtered history.
-- Tasks UI layouts are Kanban and Table only. Table is the default; the last
+- Tasks UI layouts are Table and Map only. Table is the default; the last
   chosen layout is remembered (`nest:task-view`). Table column order and widths
-  persist (`nest:task-table`). `taskGraph` / `TaskGraphProjection` indexes
-  Parent/Child and Blocker/Dependent edges for those layouts and the detail
-  panel; it is not a canvas view.
+  persist (`nest:task-table`); Map placement and pan/zoom persist
+  (`nest:task-map-v2`, `nest:task-map-view`). `taskGraph` /
+  `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
+  both layouts and the detail panel. The Map is a pan/zoom canvas that draws
+  those edges as an SVG overlay; its hooks and constants live in `UI.md`.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view

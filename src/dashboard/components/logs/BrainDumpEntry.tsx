@@ -1,14 +1,12 @@
-import { useState } from "react";
-import {
-  brainDumpStorageToDisplayHtml,
-  brainDumpSummary,
-} from "../../../lib/brainDumpRichText";
+import { useState, type MouseEvent } from "react";
+import { brainDumpSummary } from "../../../lib/brainDumpRichText";
 import { updateBrainDumpTags } from "../../../lib/commands";
 import type { BrainDump } from "../../../lib/types";
 import { floatingDraftIcon, tagsIcon } from "../icons";
 import { BrainDumpTags } from "../BrainDumpTags";
 import { useDashboardData } from "../../context/DashboardDataContext";
 import { useFloatingBrainDumpsContext } from "../../context/FloatingBrainDumpsContext";
+import { SavedBrainDumpPopover, type SavedBrainDumpPosition } from "../SavedBrainDump";
 
 export function BrainDumpEntry({
   dump,
@@ -20,6 +18,7 @@ export function BrainDumpEntry({
   onToggle: () => void;
 }) {
   const { tags, mutate } = useDashboardData();
+  const [popoverPosition, setPopoverPosition] = useState<SavedBrainDumpPosition | null>(null);
   const { forkToFloating } = useFloatingBrainDumpsContext();
   const [editingTags, setEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState<number[]>([]);
@@ -46,6 +45,16 @@ export function BrainDumpEntry({
     });
   };
 
+  const openDump = (event: MouseEvent<HTMLButtonElement>) => {
+    setPopoverPosition({ x: event.clientX, y: event.clientY });
+    if (!expanded) onToggle();
+  };
+
+  const closeDump = () => {
+    setPopoverPosition(null);
+    if (expanded) onToggle();
+  };
+
   return (
     <div className="event-dump">
       <div className="event-dump__head">
@@ -53,7 +62,8 @@ export function BrainDumpEntry({
           type="button"
           className="event-dump__toggle"
           aria-expanded={expanded}
-          onClick={onToggle}
+          aria-haspopup="dialog"
+          onClick={openDump}
         >
           <span className="event-dump__chevron" aria-hidden="true">
             {expanded ? "▾" : "▸"}
@@ -106,12 +116,12 @@ export function BrainDumpEntry({
           </div>
         </div>
       ) : null}
-      {expanded && (
-        <div
-          className="event-dump__text"
-          dangerouslySetInnerHTML={{ __html: brainDumpStorageToDisplayHtml(dump.text) }}
-        />
-      )}
+      <SavedBrainDumpPopover
+        dump={dump}
+        open={expanded}
+        position={popoverPosition}
+        onClose={closeDump}
+      />
     </div>
   );
 }

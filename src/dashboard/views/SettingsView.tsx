@@ -12,6 +12,7 @@ import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
 import { TagsView } from "./TagsView";
 import { TileIconSettings } from "./TileIconSettings";
+import { BrainDumpSettings } from "./BrainDumpSettings";
 
 export function SettingsView() {
   const [pane, setPane] = useState<SettingsPane>(readSettingsPane);
@@ -54,7 +55,7 @@ export function SettingsView() {
         <TileIconSettings tileId="timeline" />
       </div>
       <div className="settings-slot" hidden={pane !== "brainDump"}>
-        <TileIconSettings tileId="brainDump" />
+        <BrainDumpSettings />
       </div>
       <div className="settings-slot" hidden={pane !== "controlPanel"}>
         <TileIconSettings tileId="controlPanel" />

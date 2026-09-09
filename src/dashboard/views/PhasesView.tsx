@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { setPhaseColor, setPhaseIcon } from "../../lib/commands";
 import { MetricColorPicker } from "../components/MetricColorPicker";
 import { IconPicker, NestIcon, nestIconLabel } from "../components/PulseIcon";
@@ -9,13 +9,15 @@ type OpenPicker = { phaseId: number; kind: "icon" | "color" };
 export function PhasesView() {
   const { phases, mutate } = useDashboardData();
   const [openPicker, setOpenPicker] = useState<OpenPicker | null>(null);
+  // Held by the row that owns the open picker, so a click on another row's
+  // controls closes it instead of counting as inside.
+  const openControlsRef = useRef<HTMLDivElement | null>(null);
   const activePhases = phases.filter((phase) => phase.inactiveSince === null);
 
   useEffect(() => {
     if (openPicker === null) return;
     const closePicker = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (!target?.closest(".phase-settings__controls")) {
+      if (!openControlsRef.current?.contains(event.target as Node)) {
         setOpenPicker(null);
       }
     };
@@ -46,7 +48,10 @@ export function PhasesView() {
                 : undefined
             }
           >
-            <div className="phase-settings__controls">
+            <div
+              className="phase-settings__controls"
+              ref={openPicker?.phaseId === phase.id ? openControlsRef : null}
+            >
               <div className="phase-settings__icon-control">
                 <button
                   type="button"

@@ -114,6 +114,14 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Brain dump surface
 
+`SavedBrainDump` renders static rich text, recorded checklist states, timestamp,
+and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
+read-only sticky positioned 12px to the right of the opening cursor and centered
+on its y-coordinate. It closes on an outside click or Escape.
+Settings uses `BrainDumpSettings` with shared range/tag controls and a responsive
+`.brain-dump-history__grid` of 154px-tall saved-sticky previews; clicking a
+preview opens the same cursor-positioned sticky.
+
 `BrainDumpSurface` is the only component that mounts several times on one
 screen and reaches for browser singletons, which is what turns its bugs into
 cross-instance ones. Three kinds of instance can be live at once: the Overview
