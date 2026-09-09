@@ -520,7 +520,7 @@ function PopupBrainDump({
         setDraft((current) => ({ ...current, text }))
       }
       onTagsChange={handleTagsChange}
-      draftRevision={draftRevision}
+      dismissPopupsOnOutsideInteraction
       onKeyDown={(event) => {
         if (event.key === "Tab") {
           event.preventDefault();

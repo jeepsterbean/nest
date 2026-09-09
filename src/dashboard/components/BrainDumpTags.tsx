@@ -41,12 +41,14 @@ export function BrainDumpTags({
   selectedIds,
   disabled = false,
   autoOpen = false,
+  dismissVersion = 0,
   onChange,
 }: {
   tags: Tag[];
   selectedIds: number[];
   disabled?: boolean;
   autoOpen?: boolean;
+  dismissVersion?: number;
   onChange: (ids: number[]) => void;
 }) {
   const [open, setOpen] = useState(autoOpen);
@@ -106,6 +108,12 @@ export function BrainDumpTags({
       window.removeEventListener("keydown", escape);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (dismissVersion === 0) return;
+    setOpen(false);
+    setQuery("");
+  }, [dismissVersion]);
 
   const toggle = (id: number) => {
     onChange(

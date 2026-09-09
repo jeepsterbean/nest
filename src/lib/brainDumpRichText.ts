@@ -4,6 +4,7 @@ import {
   TaskItem,
   TaskList,
 } from "@tiptap/extension-list";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 export const BRAIN_DUMP_FONT_SIZE_OPTIONS = [
   { value: "12.6px", label: "Body" },
   { value: "18px", label: "H2" },
@@ -60,18 +61,18 @@ function isBrainDumpRowSelectionSingle(editor: Editor) {
   return selection.$from.sameParent(selection.$to);
 }
 
-function selectedBrainDumpRowRanges(editor: Editor) {
+function selectedBrainDumpRowRanges(state: EditorState) {
   const ranges = new Map<number, { pos: number; type: string; attrs: Record<string, unknown> }>();
-  editor.state.doc.nodesBetween(editor.state.selection.from, editor.state.selection.to, (node, pos) => {
+  state.doc.nodesBetween(state.selection.from, state.selection.to, (node, pos) => {
     if (!BRAIN_DUMP_ROW_NODE_TYPES.has(node.type.name)) return;
     ranges.set(pos, { pos, type: node.type.name, attrs: node.attrs });
   });
   if (ranges.size > 0) return Array.from(ranges.values());
-  const parent = editor.state.selection.$from.parent;
+  const parent = state.selection.$from.parent;
   if (!BRAIN_DUMP_ROW_NODE_TYPES.has(parent.type.name)) return [];
   return [
     {
-      pos: editor.state.selection.$from.before(),
+      pos: state.selection.$from.before(),
       type: parent.type.name,
       attrs: parent.attrs,
     },
@@ -80,20 +81,23 @@ function selectedBrainDumpRowRanges(editor: Editor) {
 
 function setBrainDumpRowFontSize(editor: Editor, fontSize: string | null) {
   const normalized = fontSize ? explicitBrainDumpFontSize(fontSize) : null;
-  const rows = selectedBrainDumpRowRanges(editor);
+  return editor
+    .chain()
+    .focus()
+    .command(({ state, tr }) => setSelectedBrainDumpRowFontSize(state, tr, normalized))
+    .run();
+}
+
+function setSelectedBrainDumpRowFontSize(
+  state: EditorState,
+  tr: Transaction,
+  fontSize: string | null,
+) {
+  const rows = selectedBrainDumpRowRanges(state);
   if (rows.length === 0) return false;
-  const { state } = editor;
-  let tr = state.tr;
-  let changed = false;
   for (const row of rows) {
-    const nextAttrs =
-      normalized == null ? { ...row.attrs, fontSize: null } : { ...row.attrs, fontSize: normalized };
-    tr = tr.setNodeMarkup(row.pos, undefined, nextAttrs);
-    changed = true;
+    tr.setNodeMarkup(row.pos, undefined, { ...row.attrs, fontSize });
   }
-  if (!changed) return false;
-  editor.view.dispatch(tr);
-  editor.commands.focus();
   return true;
 }
 
@@ -111,8 +115,14 @@ export function applyBrainDumpFontSize(
   return setBrainDumpRowFontSize(editor, fontSize);
 }
 
-export function resetBrainDumpFontSize(editor: Editor) {
-  return setBrainDumpRowFontSize(editor, null);
+export function clearBrainDumpFormatting(editor: Editor) {
+  return editor
+    .chain()
+    .focus()
+    .unsetAllMarks()
+    .clearNodes()
+    .command(({ state, tr }) => setSelectedBrainDumpRowFontSize(state, tr, null))
+    .run();
 }
 
 function applyToggleList(editor: Editor) {

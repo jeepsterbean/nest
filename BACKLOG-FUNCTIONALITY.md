@@ -8,6 +8,9 @@ APIs, schema, or code structure.
 
 ## Brain dump
 i want brain dump section, purpose is to at a glance, see all the brain dumps. but thats kind of covereed under logs. so its fine
+- Make floating Brain dump formatting controls feel instant and close cleanly when attention leaves the sticky.
+- Keep a minimised floating Brain dump's expand button visible at every width; reserve its space and clip overflowing summary text to the remaining width.
+- Keep the main Brain dump and a floating sticky alternating their text and Tags on every Promote click.
 
 ## Metrics
 same comment for brain dump. 

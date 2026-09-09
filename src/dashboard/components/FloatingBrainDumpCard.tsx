@@ -76,7 +76,6 @@ export function FloatingBrainDumpCard({
     : (resizePreview?.height ?? dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT);
   const expandedHeight = dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT;
   const summary = brainDumpSummary(dump.text);
-  const draftRevision = `${dump.text}\n${dump.tagIds.join(",")}`;
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -338,7 +337,6 @@ export function FloatingBrainDumpCard({
             onFocus={onFocus}
             onHeaderPointerDown={onHeaderPointerDown}
             dismissPopupsOnOutsideInteraction
-            draftRevision={draftRevision}
           />
         </>
       )}

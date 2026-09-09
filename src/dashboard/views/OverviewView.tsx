@@ -518,8 +518,8 @@ export function OverviewView({
           onTagsChange={handleTagsChange}
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
+          dismissPopupsOnOutsideInteraction
           editorRef={mainDumpRef}
-          draftRevision={brainDumpDraftRevision}
         />
       ) : null;
     }

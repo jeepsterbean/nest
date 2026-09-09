@@ -15,11 +15,11 @@ import {
   applyBrainDumpListVariant,
   BRAIN_DUMP_DEFAULT_FONT_SIZE,
   BRAIN_DUMP_FONT_SIZE_OPTIONS,
+  clearBrainDumpFormatting,
   type BrainDumpListVariant,
   brainDumpEditorHtmlToStorage,
   brainDumpEditorExtensions,
   brainDumpStorageToEditorHtml,
-  resetBrainDumpFontSize,
   selectedBrainDumpFontSize,
 } from "../../lib/brainDumpRichText";
 import type { Tag } from "../../lib/types";
@@ -195,7 +195,6 @@ export function BrainDumpSurface({
   editorRef,
   onHeaderPointerDown,
   dismissPopupsOnOutsideInteraction = false,
-  draftRevision,
 }: {
   text: string;
   tagIds: number[];
@@ -215,7 +214,6 @@ export function BrainDumpSurface({
   editorRef?: RefObject<HTMLElement | null>;
   onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
   dismissPopupsOnOutsideInteraction?: boolean;
-  draftRevision?: string;
 }) {
   const hasHeader = headerStart || headerEnd;
   const usesOverviewChrome = layout === "overview";
@@ -227,6 +225,15 @@ export function BrainDumpSurface({
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const lastLocalTextRef = useRef<string | null>(null);
+  const onTextChangeRef = useRef(onTextChange);
+  const readOnlyRef = useRef(readOnly);
+  onTextChangeRef.current = onTextChange;
+  readOnlyRef.current = readOnly;
+
+  const dismissTransientUi = () => {
+    setDismissVersion((current) => current + 1);
+    editor?.commands.blur();
+  };
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -274,15 +281,20 @@ export function BrainDumpSurface({
       },
     },
     onUpdate({ editor: current }) {
+      // History browse reuses this editor as read-only; never publish those
+      // content swaps (or TipTap editable toggles) into the live draft.
+      if (readOnlyRef.current) return;
       const nextText = brainDumpEditorHtmlToStorage(current.getHTML());
       lastLocalTextRef.current = nextText;
-      onTextChange?.(nextText);
+      onTextChangeRef.current?.(nextText);
     },
   });
 
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(!readOnly);
+    // TipTap defaults emitUpdate to true; that would fire onUpdate with the
+    // still-visible saved dump when leaving history and overwrite the draft.
+    editor.setEditable(!readOnly, false);
   }, [editor, readOnly]);
 
   useEffect(() => {
@@ -307,8 +319,7 @@ export function BrainDumpSurface({
       ) {
         return;
       }
-      setDismissVersion((current) => current + 1);
-      editor?.commands.blur();
+      dismissTransientUi();
     };
     const onPointerDown = (event: PointerEvent) => {
       dismissIfOutside(event.target);
@@ -323,11 +334,6 @@ export function BrainDumpSurface({
       document.removeEventListener("focusin", onFocusIn, true);
     };
   }, [dismissPopupsOnOutsideInteraction, editor]);
-
-  useEffect(() => {
-    if (draftRevision === undefined) return;
-    lastLocalTextRef.current = null;
-  }, [draftRevision]);
 
   useEffect(() => {
     if (!editorRef) return;
@@ -434,6 +440,7 @@ export function BrainDumpSurface({
         {editor && !readOnly ? (
           <BubbleMenu
             editor={editor}
+            updateDelay={0}
             appendTo={() => document.body}
             options={{
               strategy: "fixed",
@@ -501,10 +508,7 @@ export function BrainDumpSurface({
                   type="button"
                   aria-label="Clear formatting"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    editor.chain().focus().unsetAllMarks().clearNodes().run();
-                    resetBrainDumpFontSize(editor);
-                  }}
+                  onClick={() => clearBrainDumpFormatting(editor)}
                 >
                   Tx
                 </button>
