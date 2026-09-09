@@ -8,6 +8,7 @@ import type {
 } from "../../lib/floatingBrainDumps";
 import type { Tag } from "../../lib/types";
 import { FloatingBrainDumpCard } from "./FloatingBrainDumpCard";
+import { floatingDraftIcon, xIcon } from "./icons";
 
 export function FloatingBrainDumpsBoard({
   dumps,
@@ -39,6 +40,7 @@ export function FloatingBrainDumpsBoard({
   onViewportResize: (width: number, height: number) => void;
 }) {
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [hidden, setHidden] = useState(false);
 
   const handleResize = useCallback(
     (width: number, height: number) => {
@@ -51,31 +53,51 @@ export function FloatingBrainDumpsBoard({
   useViewportSize(handleResize);
 
   return (
-    <div
-      className="floating-brain-dumps-board"
-      aria-hidden={dumps.length === 0}
-    >
-      {dumps.map((dump) => (
-        <FloatingBrainDumpCard
-          key={dump.id}
-          dump={dump}
-          tags={tags}
-          viewportWidth={viewportSize.width}
-          viewportHeight={viewportSize.height}
-          onTextChange={(text) => onTextChange(dump.id, text)}
-          onTagsChange={(tagIds) => onTagsChange(dump.id, tagIds)}
-          onColorChange={(color) => onColorChange(dump.id, color)}
-          onMinimisedChange={(minimised) =>
-            onMinimisedChange(dump.id, minimised)
-          }
-          onPositionChange={(x, y) => onPositionChange(dump.id, x, y)}
-          onSizeChange={(width, height) => onSizeChange(dump.id, width, height)}
-          onPromote={() => onPromote(dump)}
-          onRemove={() => onRemove(dump.id)}
-          onSubmit={() => onSubmit(dump)}
-          onFocus={() => onBringToFront(dump.id)}
-        />
-      ))}
-    </div>
+    <>
+      {dumps.length > 0 && (
+        <button
+          type="button"
+          className="floating-brain-dumps-toggle"
+          aria-pressed={!hidden}
+          aria-label={hidden ? "Show sticky notes" : "Hide sticky notes"}
+          title={hidden ? "Show sticky notes" : "Hide sticky notes"}
+          onClick={() => setHidden((isHidden) => !isHidden)}
+        >
+          <span className="floating-brain-dumps-toggle__note" aria-hidden="true">
+            {floatingDraftIcon}
+          </span>
+          {!hidden && (
+            <span className="floating-brain-dumps-toggle__cross" aria-hidden="true">
+              {xIcon}
+            </span>
+          )}
+        </button>
+      )}
+      {!hidden && (
+        <div className="floating-brain-dumps-board" aria-hidden={dumps.length === 0}>
+          {dumps.map((dump) => (
+            <FloatingBrainDumpCard
+              key={dump.id}
+              dump={dump}
+              tags={tags}
+              viewportWidth={viewportSize.width}
+              viewportHeight={viewportSize.height}
+              onTextChange={(text) => onTextChange(dump.id, text)}
+              onTagsChange={(tagIds) => onTagsChange(dump.id, tagIds)}
+              onColorChange={(color) => onColorChange(dump.id, color)}
+              onMinimisedChange={(minimised) =>
+                onMinimisedChange(dump.id, minimised)
+              }
+              onPositionChange={(x, y) => onPositionChange(dump.id, x, y)}
+              onSizeChange={(width, height) => onSizeChange(dump.id, width, height)}
+              onPromote={() => onPromote(dump)}
+              onRemove={() => onRemove(dump.id)}
+              onSubmit={() => onSubmit(dump)}
+              onFocus={() => onBringToFront(dump.id)}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }

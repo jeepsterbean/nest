@@ -185,26 +185,3 @@ export function TaskRelations({ task }: { task: Task }) {
     </section>
   );
 }
-
-/** Compact Parent/Blocker signals for cards — not a canvas. */
-export function TaskGraphBadges({ task }: { task: Task }) {
-  const { taskGraph } = useDashboardData();
-  const blockers = unresolvedBlockers(taskGraph, task.id);
-  const progress = childProgress(taskGraph, task.id);
-  if (blockers.length === 0 && progress.total === 0) return null;
-
-  return (
-    <div className="task-graph-badges" aria-label={`Task structure for ${task.title}`}>
-      {blockers.length > 0 && task.status !== "completed" && task.status !== "cancelled" && (
-        <span className="task-graph-badge task-graph-badge--blocked">
-          Waiting on {blockers.length}
-        </span>
-      )}
-      {progress.total > 0 && (
-        <span className="task-graph-badge">
-          {progress.completed}/{progress.total} children
-        </span>
-      )}
-    </div>
-  );
-}

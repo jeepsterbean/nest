@@ -1114,6 +1114,61 @@
   pointer-events: none;
 }
 
+.floating-brain-dumps-toggle {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 201;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.floating-brain-dumps-toggle__note,
+.floating-brain-dumps-toggle__cross {
+  display: inline-flex;
+}
+
+.floating-brain-dumps-toggle__note svg {
+  width: 16px;
+  height: 16px;
+}
+
+.floating-brain-dumps-toggle__cross {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px;
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.floating-brain-dumps-toggle__cross svg {
+  width: 8px;
+  height: 8px;
+}
+
+.floating-brain-dumps-toggle:hover,
+.floating-brain-dumps-toggle:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--text);
+  outline: none;
+}
+
+.floating-brain-dumps-toggle:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .floating-brain-dump {
   position: fixed;
   display: flex;
@@ -2094,6 +2149,11 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.task-workspace--map {
+  /* The canvas owns its own space; nothing here scrolls. */
+  overflow: hidden;
+}
+
 .task-workspace--detail {
   grid-template-columns:
     164px minmax(0, 1fr)
@@ -2341,42 +2401,177 @@
 /* ---------- Task map ---------- */
 
 .task-map {
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  overflow: hidden;
 }
 
 .task-map--dragging {
   cursor: grabbing;
 }
 
+.task-map__viewport {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.task-map__viewport--panning {
+  cursor: grabbing;
+}
+
+.task-map__canvas {
+  position: relative;
+  transform-origin: 0 0;
+  /* Dot grid so the canvas reads as a place to arrange things. */
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.task-map__edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.task-map__edge {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.task-map__edge--blocks {
+  stroke-dasharray: 4 3;
+}
+
+.task-map__edge--done {
+  opacity: 0.4;
+}
+
+.task-map__edge--selected {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.task-map__arrow--plain {
+  fill: var(--border-strong);
+}
+
+.task-map__arrow--done {
+  fill: var(--border-strong);
+  opacity: 0.4;
+}
+
+.task-map__arrow--selected {
+  fill: var(--accent);
+}
+
+.task-map__hint {
+  position: absolute;
+  inset: 0 0 0 268px;
+  display: grid;
+  padding: 0 24px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* The sidebar floats over the canvas rather than taking space from it. */
 .task-map__tray {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
   display: flex;
-  max-height: 520px;
+  width: 244px;
+  max-height: calc(100% - 24px);
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--border);
   border-radius: 13px;
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.task-map__tray--collapsed {
+  width: auto;
+  padding: 6px;
 }
 
 .task-map__tray--over {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface-2));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
 }
 
 .task-map__tray-head {
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.task-map__tray-count {
+  flex: 1;
+}
+
+.task-map__tray-toggle {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.task-map__tray-toggle:hover,
+.task-map__tray-toggle:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+  outline: none;
+}
+
+.task-map__tray-toggle svg {
+  width: 14px;
+  height: 14px;
+  transform: rotate(180deg);
+}
+
+.task-map__tray .task-composer {
+  flex: none;
+  margin-bottom: 0;
+}
+
+.task-map__tray .task-composer__title {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.task-map__tray .task-composer > button {
+  padding: 7px 11px;
+  font-size: 12.5px;
 }
 
 .task-map__tray-empty {
@@ -2436,90 +2631,54 @@
   white-space: nowrap;
 }
 
-.task-map__board {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background-color: var(--surface-2);
-  /* Cell guides so empty cells read as places to drop. */
-  background-image:
-    linear-gradient(to right, var(--border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  overflow: hidden;
-}
-
-.task-map__edges {
+.task-map__zoom {
   position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-}
-
-.task-map__edge {
-  fill: none;
-  stroke: var(--border-strong);
-  stroke-width: 1.5;
-}
-
-.task-map__edge--done {
-  opacity: 0.4;
-}
-
-.task-map__edge--selected {
-  stroke: var(--accent);
-  stroke-width: 2;
-}
-
-.task-map__arrow--plain {
-  fill: var(--border-strong);
-}
-
-.task-map__arrow--done {
-  fill: var(--border-strong);
-  opacity: 0.4;
-}
-
-.task-map__arrow--selected {
-  fill: var(--accent);
-}
-
-.task-map__hint {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
   display: flex;
-  height: 84px;
   align-items: center;
-  justify-content: center;
-  padding: 0 16px;
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.task-map__target {
-  margin: 5px;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
 }
 
-.task-map-card {
-  position: relative;
+.task-map__zoom button {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.task-map__zoom button:hover,
+.task-map__zoom button:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+  outline: none;
+}
+
+.task-map__zoom-level {
+  font-size: 11.5px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-entity {
+  position: absolute;
   z-index: 1;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 5px;
-  margin: 5px;
-  padding: 8px 9px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
   overflow: hidden;
   cursor: grab;
   touch-action: none;
@@ -2527,45 +2686,44 @@
   -webkit-user-select: none;
 }
 
-.task-map-card--active {
+.task-entity--active {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
-.task-map-card--blocked {
-  background: var(--surface-2);
+.task-entity--blocked .task-entity__head {
+  background: var(--dump-soft);
 }
 
-.task-map-card--blocked .task-map-card__open {
-  color: var(--muted);
-}
-
-.task-map-card--done {
+.task-entity--done {
   opacity: 0.55;
 }
 
-.task-map-card--selected {
+.task-entity--selected {
+  z-index: 2;
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.task-map-card--dragging {
-  opacity: 0.3;
+.task-entity--dragging {
+  z-index: 3;
+  box-shadow: var(--shadow);
+  cursor: grabbing;
 }
 
-.task-map-card__top {
+.task-entity__head {
   display: flex;
-  min-width: 0;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
+  padding: 6px 7px 6px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
-.task-map-card__top .status-dot {
+.task-entity__head .status-dot {
   flex: none;
-  margin-top: 4px;
 }
 
-.task-map-card__open {
-  display: -webkit-box;
+.task-entity__title {
   min-width: 0;
   flex: 1;
   padding: 0;
@@ -2575,26 +2733,24 @@
   font: inherit;
   font-size: 12.5px;
   font-weight: 650;
-  line-height: 1.25;
   overflow: hidden;
-  overflow-wrap: anywhere;
   text-align: left;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.task-map-card__open:hover {
+.task-entity__title:hover {
   color: var(--accent);
 }
 
-.task-map-card__open:focus-visible {
+.task-entity__title:focus-visible {
   border-radius: 4px;
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.task-map-card__remove {
+.task-entity__remove {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -2608,19 +2764,55 @@
   cursor: pointer;
 }
 
-.task-map-card:hover .task-map-card__remove,
-.task-map-card__remove:focus-visible {
+.task-entity:hover .task-entity__remove,
+.task-entity__remove:focus-visible {
   opacity: 1;
 }
 
-.task-map-card__remove:hover {
-  background: var(--surface-2);
+.task-entity__remove:hover {
+  background: var(--surface);
   color: var(--ink);
 }
 
-.task-map-card__remove:focus-visible {
+.task-entity__remove:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-entity__fields {
+  margin: 0;
+  padding: 4px 0;
+}
+
+.task-entity__field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 9px;
+}
+
+.task-entity__field dt {
+  flex: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.task-entity__field dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-entity__field dd.task-entity__value--muted {
+  color: var(--muted);
 }
 
 .task-map__ghost {
@@ -2727,32 +2919,6 @@
 }
 
 .task-readiness--blocked {
-  color: var(--dump);
-}
-
-.task-graph-badges {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-}
-
-.task-graph-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 6px;
-  border-radius: 5px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.task-graph-badge--blocked {
-  background: var(--dump-soft);
   color: var(--dump);
 }
 

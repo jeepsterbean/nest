@@ -64,29 +64,37 @@ whatever its status — unlike the control, which is only on Active Tasks.
 Table is the default Tasks layout (Map is the other); last choice is
 remembered. The table filters by any set of persisted statuses — Backlog, Up
 next, Active, Completed, Cancelled — with Open / Closed / All presets; first
-visit is Open. New tasks are created Active. The **Tasks scope sidebar** starts
-collapsed.
+visit is Open. New tasks are created Active. The **Tasks scope sidebar** belongs to the table;
+the Map has none. The "Add an active task" composer is in both layouts — above
+the table, and at the top of the Map sidebar.
 Table columns can be reordered and resized. Working now is started
 from the detail panel, not from the table or the Map.
 _Avoid_: Session, stopwatch, in progress
 
 **Map**:
-The other Tasks layout: a fixed-column grid the user arranges by hand. Open
-Tasks wait in the **Map tray**; dragging one onto the grid places it in a cell,
-and clicking it places it in the first free cell. A card's cell is only the
-user's arrangement; it never creates or implies a relation. Arrows run from
-each placed Blocker to the Task it blocks, and Blocked cards are muted with
-their Waiting on count. Completed and Cancelled cards stay on the Map, dimmed,
-so a chain still reads end to end; drag a card back to the tray, or use its
-remove button, to take it off. Blockers are added and removed in the detail
-panel, not on the Map. Positions live in the browser, keyed by Task id, and are
+The other Tasks layout: a free-form canvas the user arranges by hand, drawn
+like a data model. Each placed Task is an **entity box** — a title header over
+attribute rows (status, scope, value / effort, and parent, children or blocked
+by when they apply). The canvas is far larger than the screen and is panned by
+dragging bare canvas, zoomed with the wheel about the pointer or with the
+corner zoom controls; pan and zoom are remembered. Open Tasks wait in the **Map
+sidebar**; dragging one onto the canvas drops it wherever the pointer is, and
+clicking it drops it in view. Boxes go anywhere and may overlap; a box's
+position is only the user's arrangement and never creates or implies a
+relation. Connectors are
+right-angled and arrowed: solid from Parent to child, dashed from Blocker to
+the Task it blocks. Completed and Cancelled boxes stay on the Map, dimmed, so a
+chain still reads end to end; drag a box back to the sidebar, or use its remove
+button, to take it off. Relations are added and removed in the detail panel,
+not on the Map. Positions live in the browser, keyed by Task id, and are
 dropped when the Task is deleted.
 _Avoid_: Board (that word means the Overview tiles), Canvas, Kanban
 
-**Map tray**:
-The list of open Tasks not yet placed on the Map, filtered by the selected
-scope. The Map itself shows every placed Task whatever the scope.
-_Avoid_: Sidebar, backlog
+**Map sidebar**:
+The panel floating over the Map canvas: an "Add an active task" row above the
+list of open Tasks not yet placed. It collapses to a button showing that count.
+The Map is not scope-filtered — the sidebar lists every open Task.
+_Avoid_: Sidebar (alone — that word means the Section switcher), tray, backlog
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.
@@ -219,7 +227,8 @@ Reminders start Active. Text is capped so one line fits the board.
 _Avoid_: Tip, prompt, notification
 
 **Tasks scope sidebar**:
-The Scopes filter panel inside the Tasks Section. It starts collapsed.
+The Scopes filter panel beside the Tasks table. It starts collapsed, and the
+Map does not show it.
 _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
@@ -300,7 +309,7 @@ _Avoid_: Journal
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
 - "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
-- "sidebar" for two panels — resolved: **Sidebar** is the Section switcher; the Scopes filter in Tasks is the **Tasks scope sidebar**.
+- "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
 

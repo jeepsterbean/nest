@@ -138,6 +138,7 @@ export function TasksView() {
     () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
     [tasks, selectedTaskScope],
   );
+  const showScopePanel = taskView === "table" && scopeTree.roots.length > 0;
   const tableTasks = useMemo(
     () => scopedTasks.filter((task) => tableStatuses.includes(task.status)),
     [scopedTasks, tableStatuses],
@@ -174,6 +175,26 @@ export function TasksView() {
       return next;
     });
   };
+
+  const composerForm = (
+    <form className="task-composer" onSubmit={onComposerSubmit}>
+      <input
+        type="text"
+        className="task-composer__title"
+        placeholder={
+          selectedTaskScope
+            ? `Add an active task in ${selectedTaskScope}…`
+            : "Add an active task…"
+        }
+        aria-label="New active task title"
+        value={composerTitle}
+        onChange={(e) => setComposerTitle(e.target.value)}
+      />
+      <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
+        Add
+      </button>
+    </form>
+  );
 
   const selectedTask =
     selectedTaskId === null
@@ -312,6 +333,8 @@ export function TasksView() {
             onChange={(key) => {
               writeTaskView(key);
               setTaskView(key);
+              // The map has no scope tree, so it must not stay scope-filtered.
+              if (key === "map") setSelectedTaskScope(null);
             }}
           />
         </div>
@@ -322,12 +345,14 @@ export function TasksView() {
       ) : (
         <div
           className={`task-workspace${
-            scopeTree.roots.length === 0 ? " task-workspace--no-scopes" : ""
+            showScopePanel ? "" : " task-workspace--no-scopes"
           }${selectedTask ? " task-workspace--detail" : ""}${
-            scopePanelCollapsed ? " task-workspace--scope-collapsed" : ""
-          }`}
+            showScopePanel && scopePanelCollapsed
+              ? " task-workspace--scope-collapsed"
+              : ""
+          }${taskView === "map" ? " task-workspace--map" : ""}`}
         >
-          {scopeTree.roots.length > 0 && (
+          {showScopePanel && (
             <aside
               className={`task-scope-panel${
                 scopePanelCollapsed ? " task-scope-panel--collapsed" : ""
@@ -382,32 +407,18 @@ export function TasksView() {
           )}
 
           <div className="task-workspace__main">
-            <form className="task-composer" onSubmit={onComposerSubmit}>
-              <input
-                type="text"
-                className="task-composer__title"
-                placeholder={
-                  selectedTaskScope
-                    ? `Add an active task in ${selectedTaskScope}…`
-                    : "Add an active task…"
-                }
-                aria-label="New active task title"
-                value={composerTitle}
-                onChange={(e) => setComposerTitle(e.target.value)}
-              />
-              <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
-                Add
-              </button>
-            </form>
             {taskView === "map" && (
               <TaskMap
-                tasks={scopedTasks}
+                tasks={tasks}
                 selectedTaskId={selectedTaskId}
+                composer={composerForm}
                 onSelect={selectTask}
               />
             )}
             {taskView === "table" && (
-              <TaskTable
+              <>
+                {composerForm}
+                <TaskTable
                 columns={tableColumns.columns}
                 tasks={sortTaskTable(tableTasks, tableSort)}
                 taskGraph={taskGraph}
@@ -420,7 +431,8 @@ export function TasksView() {
                   onMovePointerDown: tableColumns.onMovePointerDown,
                   onResizePointerDown: tableColumns.onResizePointerDown,
                 }}
-              />
+                />
+              </>
             )}
           </div>
           {selectedTask && (

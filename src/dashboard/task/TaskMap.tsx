@@ -4,91 +4,183 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import type { Task } from "../../lib/types";
-import { xIcon } from "../components/icons";
+import { chevronRightIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { startPointerDrag } from "../lib/pointerDrag";
-import { isTaskBlocked } from "../lib/taskGraph";
+import { childProgress, isTaskBlocked, unresolvedBlockers } from "../lib/taskGraph";
 import {
-  MAP_COLS,
-  MAP_ROW_HEIGHT,
-  mapRowCount,
+  cascadeSpot,
+  clampMapView,
+  connectorPath,
+  MAP_BOARD_HEIGHT,
+  MAP_BOARD_WIDTH,
+  MAP_CARD_WIDTH,
   placeOnMap,
   pruneTaskMapLayout,
   readTaskMapLayout,
+  readTaskMapView,
   removeFromMap,
+  toBoardPoint,
   writeTaskMapLayout,
-  type MapCell,
+  writeTaskMapView,
+  zoomAround,
+  type MapPoint,
+  type MapView,
   type TaskMapLayout,
 } from "../lib/taskMap";
-import { WORKING_STATUSES } from "../lib/tasks";
-import { TaskGraphBadges } from "./TaskRelations";
+import { TASK_STATUS_LABEL, WORKING_STATUSES } from "../lib/tasks";
 
-const CARD_INSET = 5;
-const EDGE_STATES = ["plain", "done", "selected"] as const;
-type EdgeState = (typeof EDGE_STATES)[number];
+const EDGE_KINDS = ["blocks", "parent"] as const;
+type EdgeKind = (typeof EDGE_KINDS)[number];
+/** Used until a box has been measured, so first-paint lines land close. */
+const FALLBACK_CARD_HEIGHT = 128;
+/** Wheel deltas are far coarser than trackpad pinch deltas; scale them apart. */
+const WHEEL_ZOOM_RATE = 0.0015;
+const PINCH_ZOOM_RATE = 0.01;
+const BUTTON_ZOOM_STEP = 1.25;
+
 const isClosed = (task: Task) =>
   task.status === "completed" || task.status === "cancelled";
 
 type Drag = {
   taskId: number;
+  /** Pointer offset inside the box, in board pixels, so it does not jump. */
+  grab: MapPoint;
   clientX: number;
   clientY: number;
-  cell: MapCell | null;
-  overTray: boolean;
+  overSidebar: boolean;
+  /** Where the box sits while the drag runs; null when it is not over the canvas. */
+  point: MapPoint | null;
 };
 
-/** Open Tasks wait in the tray; dropped ones sit on the grid with Blocker lines drawn between them. */
+type Attribute = { name: string; value: string; muted?: boolean };
+
+/** Open Tasks wait in the Map sidebar; dropped ones become entity boxes placed
+ * freely on a big pan/zoom canvas, wired by Parent and Blocker connectors. */
 export function TaskMap({
   tasks,
   selectedTaskId,
+  composer,
   onSelect,
 }: {
-  /** Scope-filtered tasks feed the tray; the board shows every placed task. */
   tasks: Task[];
   selectedTaskId: number | null;
+  /** The "add an active task" row, rendered at the top of the sidebar. */
+  composer?: ReactNode;
   onSelect: (id: number, origin?: HTMLElement) => void;
 }) {
   const { tasks: allTasks, taskGraph } = useDashboardData();
   const [layout, setLayout] = useState<TaskMapLayout>(readTaskMapLayout);
+  const [view, setView] = useState<MapView>(readTaskMapView);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const [boardWidth, setBoardWidth] = useState(0);
-  const boardRef = useRef<HTMLDivElement>(null);
-  const trayRef = useRef<HTMLElement>(null);
+  const [panning, setPanning] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [heights, setHeights] = useState<Record<number, number>>({});
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const suppressClickRef = useRef(false);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const interacting = drag !== null || panning;
 
-  useEffect(() => writeTaskMapLayout(layout), [layout]);
+  // Hold the writes until the gesture ends: a move is one storage write, not sixty.
+  useEffect(() => {
+    if (!interacting) writeTaskMapLayout(layout);
+  }, [layout, interacting]);
+  useEffect(() => {
+    if (!interacting) writeTaskMapView(view);
+  }, [view, interacting]);
   useEffect(() => {
     const liveIds = new Set(allTasks.map((task) => task.id));
     setLayout((prev) => pruneTaskMapLayout(prev, liveIds));
   }, [allTasks]);
+
+  const viewportRect = () => viewportRef.current?.getBoundingClientRect() ?? null;
+
+  // Wheel zooms about the pointer; a listener on the element, since React's
+  // onWheel is passive and cannot preventDefault the page zoom.
   useEffect(() => {
-    const board = boardRef.current;
-    if (!board) return;
-    const observer = new ResizeObserver(() =>
-      setBoardWidth(board.getBoundingClientRect().width),
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const rate = event.ctrlKey ? PINCH_ZOOM_RATE : WHEEL_ZOOM_RATE;
+      const pointer = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      setView((prev) =>
+        clampMapView(zoomAround(prev, Math.exp(-event.deltaY * rate), pointer), rect),
+      );
+    };
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Keep the canvas covering the viewport when the window or panels resize.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setView((prev) => clampMapView(prev, entry.contentRect)),
     );
-    observer.observe(board);
+    observer.observe(viewport);
     return () => observer.disconnect();
   }, []);
 
-  const placedTasks = useMemo(
-    () => allTasks.filter((task) => layout[task.id]),
-    [allTasks, layout],
+  // Box heights vary with how many attribute rows a task has; connectors need
+  // the real height, so measure rather than predict it.
+  const sizeObserver = useMemo(
+    () =>
+      new ResizeObserver((entries) => {
+        setHeights((prev) => {
+          let next = prev;
+          for (const entry of entries) {
+            const element = entry.target as HTMLElement;
+            const id = Number(element.dataset.taskId);
+            if (prev[id] === element.offsetHeight) continue;
+            next = { ...next, [id]: element.offsetHeight };
+          }
+          return next;
+        });
+      }),
+    [],
   );
-  const trayTasks = useMemo(
+  useEffect(() => () => sizeObserver.disconnect(), [sizeObserver]);
+  const measureCard = (node: HTMLDivElement | null) => {
+    if (!node) return;
+    sizeObserver.observe(node);
+    return () => sizeObserver.unobserve(node);
+  };
+
+  /** What the canvas shows: the stored layout with the in-flight drag applied. */
+  const boardLayout = useMemo(
+    () => (drag?.point ? placeOnMap(layout, drag.taskId, drag.point) : layout),
+    [layout, drag],
+  );
+  const placedTasks = useMemo(
+    () => allTasks.filter((task) => boardLayout[task.id]),
+    [allTasks, boardLayout],
+  );
+  const sidebarTasks = useMemo(
     () =>
       tasks.filter(
-        (task) => WORKING_STATUSES.includes(task.status) && !layout[task.id],
+        (task) => WORKING_STATUSES.includes(task.status) && !boardLayout[task.id],
       ),
-    [tasks, layout],
+    [tasks, boardLayout],
   );
-  const rows = mapRowCount(layout);
-  const cellWidth = boardWidth / MAP_COLS;
 
-  const cellAt = (clientX: number, clientY: number): MapCell | null => {
-    const rect = boardRef.current?.getBoundingClientRect();
+  /** Board point under the pointer, less the grab offset; null off-canvas. */
+  const boardPointAt = (
+    clientX: number,
+    clientY: number,
+    grab: MapPoint,
+  ): MapPoint | null => {
+    const rect = viewportRect();
     if (!rect || rect.width === 0) return null;
     if (
       clientX < rect.left ||
@@ -98,13 +190,14 @@ export function TaskMap({
     ) {
       return null;
     }
-    return {
-      x: Math.floor(((clientX - rect.left) / rect.width) * MAP_COLS),
-      y: Math.floor((clientY - rect.top) / MAP_ROW_HEIGHT),
-    };
+    const point = toBoardPoint(viewRef.current, {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    });
+    return { x: point.x - grab.x, y: point.y - grab.y };
   };
-  const isOverTray = (clientX: number, clientY: number) => {
-    const rect = trayRef.current?.getBoundingClientRect();
+  const isOverSidebar = (clientX: number, clientY: number) => {
+    const rect = sidebarRef.current?.getBoundingClientRect();
     return (
       !!rect &&
       clientX >= rect.left &&
@@ -113,39 +206,101 @@ export function TaskMap({
       clientY < rect.bottom
     );
   };
+  /** Middle of the canvas as it is currently framed — where click-placed boxes go. */
+  const viewportCenterOnBoard = (): MapPoint => {
+    const rect = viewportRect();
+    return rect
+      ? toBoardPoint(viewRef.current, { x: rect.width / 2, y: rect.height / 2 })
+      : { x: 24, y: 24 };
+  };
 
-  const beginDrag = (task: Task) => (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return;
-    startPointerDrag(event, {
-      onStart: () =>
+  const beginDrag =
+    (task: Task, fromSidebar: boolean) => (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const zoom = viewRef.current.zoom;
+      // A sidebar row is narrower than a box; grab it near its top-left instead.
+      const grab = fromSidebar
+        ? { x: 24, y: 14 }
+        : {
+            x: (event.clientX - rect.left) / zoom,
+            y: (event.clientY - rect.top) / zoom,
+          };
+      // The box follows the pointer through drag state alone; the layout — and
+      // so storage — takes a single write on drop.
+      let dropPoint: MapPoint | null = null;
+      const track = (move: { clientX: number; clientY: number }) => {
+        const overSidebar = isOverSidebar(move.clientX, move.clientY);
+        const point = overSidebar
+          ? null
+          : boardPointAt(move.clientX, move.clientY, grab);
+        if (point) dropPoint = point;
         setDrag({
           taskId: task.id,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          cell: null,
-          overTray: false,
-        }),
-      onMove: (move) =>
-        setDrag({
-          taskId: task.id,
+          grab,
           clientX: move.clientX,
           clientY: move.clientY,
-          cell: cellAt(move.clientX, move.clientY),
-          overTray: isOverTray(move.clientX, move.clientY),
-        }),
-      onEnd: (up, dragged) => {
-        setDrag(null);
-        if (!dragged) return;
-        suppressClickRef.current = true;
-        const cell = cellAt(up.clientX, up.clientY);
-        if (cell) {
-          setLayout((prev) => placeOnMap(prev, task.id, cell));
-        } else if (isOverTray(up.clientX, up.clientY)) {
-          setLayout((prev) => removeFromMap(prev, task.id));
-        }
+          overSidebar,
+          point,
+        });
+      };
+
+      startPointerDrag(event, {
+        onStart: () => track(event),
+        onMove: track,
+        onEnd: (up, dragged) => {
+          setDrag(null);
+          if (!dragged) return;
+          suppressClickRef.current = true;
+          const point = dropPoint;
+          if (isOverSidebar(up.clientX, up.clientY)) {
+            setLayout((prev) => removeFromMap(prev, task.id));
+          } else if (point) {
+            setLayout((prev) => placeOnMap(prev, task.id, point));
+          }
+        },
+        onCancel: () => setDrag(null),
+      });
+    };
+
+  /** Dragging bare canvas pans; dragging a box is handled by the box itself. */
+  const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest(".task-entity")) return;
+    const origin = viewRef.current;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    startPointerDrag(event, {
+      startImmediately: true,
+      onStart: () => setPanning(true),
+      onMove: (move) => {
+        const rect = viewportRect();
+        if (!rect) return;
+        setView(
+          clampMapView(
+            {
+              zoom: origin.zoom,
+              x: origin.x + (move.clientX - startX),
+              y: origin.y + (move.clientY - startY),
+            },
+            rect,
+          ),
+        );
       },
-      onCancel: () => setDrag(null),
+      onEnd: () => setPanning(false),
+      onCancel: () => setPanning(false),
     });
+  };
+
+  const zoomByButton = (factor: number) => {
+    const rect = viewportRect();
+    if (!rect) return;
+    setView((prev) =>
+      clampMapView(
+        zoomAround(prev, factor, { x: rect.width / 2, y: rect.height / 2 }),
+        rect,
+      ),
+    );
   };
 
   // A drag that ends on the pressed element still fires click; swallow that one.
@@ -160,192 +315,280 @@ export function TaskMap({
   };
 
   const edges = useMemo(() => {
-    if (cellWidth === 0) return [];
-    const halfW = cellWidth / 2 - CARD_INSET;
-    const halfH = MAP_ROW_HEIGHT / 2 - CARD_INSET;
-    const center = (cell: MapCell) => ({
-      x: (cell.x + 0.5) * cellWidth,
-      y: (cell.y + 0.5) * MAP_ROW_HEIGHT,
-    });
-    const result: { key: string; d: string; state: EdgeState }[] = [];
-    for (const blocked of placedTasks) {
-      for (const blocker of taskGraph.blockersByTask.get(blocked.id) ?? []) {
-        const from = layout[blocker.id];
-        if (!from) continue;
-        const a = center(from);
-        const b = center(layout[blocked.id]);
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        if (dx === 0 && dy === 0) continue;
-        // Trim the line so it runs edge to edge instead of under the cards.
-        const trim = Math.min(halfW / Math.abs(dx), halfH / Math.abs(dy));
+    const boxOf = (id: number) => {
+      const point = boardLayout[id];
+      return point === undefined
+        ? null
+        : {
+            x: point.x,
+            y: point.y,
+            width: MAP_CARD_WIDTH,
+            height: heights[id] ?? FALLBACK_CARD_HEIGHT,
+          };
+    };
+    const result: { key: string; d: string; kind: EdgeKind; state: string }[] = [];
+    for (const task of placedTasks) {
+      const target = boxOf(task.id);
+      if (!target) continue;
+      const relations: { id: number; kind: EdgeKind }[] = [
+        ...(taskGraph.blockersByTask.get(task.id) ?? []).map((blocker) => ({
+          id: blocker.id,
+          kind: "blocks" as const,
+        })),
+      ];
+      if (task.parentTaskId !== null) {
+        relations.push({ id: task.parentTaskId, kind: "parent" });
+      }
+      for (const relation of relations) {
+        const source = boxOf(relation.id);
+        if (!source) continue;
+        const selected =
+          selectedTaskId === task.id || selectedTaskId === relation.id;
+        const other = taskGraph.byId.get(relation.id);
         result.push({
-          key: `${blocker.id}-${blocked.id}`,
-          d: `M${a.x + dx * trim} ${a.y + dy * trim} L${b.x - dx * trim} ${
-            b.y - dy * trim
-          }`,
-          state:
-            selectedTaskId === blocker.id || selectedTaskId === blocked.id
-              ? "selected"
-              : isClosed(blocker)
-                ? "done"
-                : "plain",
+          key: `${relation.kind}-${relation.id}-${task.id}`,
+          kind: relation.kind,
+          d: connectorPath(source, target).d,
+          state: selected
+            ? "selected"
+            : isClosed(task) || (other !== undefined && isClosed(other))
+              ? "done"
+              : "plain",
         });
       }
     }
     return result;
-  }, [cellWidth, layout, placedTasks, selectedTaskId, taskGraph]);
+  }, [heights, boardLayout, placedTasks, selectedTaskId, taskGraph]);
 
   const draggedTask =
     drag === null ? null : taskGraph.byId.get(drag.taskId) ?? null;
 
-  return (
-    <div className={`task-map${drag ? " task-map--dragging" : ""}`}>
-      <aside
-        ref={trayRef}
-        className={`task-map__tray${drag?.overTray ? " task-map__tray--over" : ""}`}
-        aria-label="Open tasks waiting to be placed"
-      >
-        <div className="task-map__tray-head">
-          <span>Open</span>
-          <span>{trayTasks.length}</span>
-        </div>
-        {trayTasks.length === 0 ? (
-          <div className="task-map__tray-empty">
-            {tasks.some((task) => WORKING_STATUSES.includes(task.status))
-              ? "Every open task is on the map."
-              : "No open tasks here."}
-          </div>
-        ) : (
-          <ol className="task-map__tray-list">
-            {trayTasks.map((task) => (
-              <li key={task.id}>
-                <button
-                  type="button"
-                  className={`task-map__tray-item${
-                    drag?.taskId === task.id
-                      ? " task-map__tray-item--dragging"
-                      : ""
-                  }`}
-                  title="Drag onto the map, or click to place it in the first free cell"
-                  onPointerDown={beginDrag(task)}
-                  onClickCapture={onClickCapture}
-                  onClick={() =>
-                    setLayout((prev) =>
-                      placeOnMap(prev, task.id, { x: 0, y: 0 }),
-                    )
-                  }
-                >
-                  <span className={`status-dot status-dot--${task.status}`} />
-                  <span className="task-map__tray-title">{task.title}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-      </aside>
+  const attributesOf = (task: Task): Attribute[] => {
+    const progress = childProgress(taskGraph, task.id);
+    const blockers = unresolvedBlockers(taskGraph, task.id);
+    const parent =
+      task.parentTaskId === null ? null : taskGraph.byId.get(task.parentTaskId);
+    return [
+      { name: "status", value: TASK_STATUS_LABEL[task.status] },
+      { name: "scope", value: task.scope ?? "—", muted: task.scope === null },
+      {
+        name: "value / effort",
+        value: `${task.value ?? "—"} / ${task.effort ?? "—"}`,
+        muted: task.value === null && task.effort === null,
+      },
+      ...(parent ? [{ name: "parent", value: parent.title }] : []),
+      ...(progress.total > 0
+        ? [{ name: "children", value: `${progress.completed} / ${progress.total}` }]
+        : []),
+      ...(blockers.length > 0 && !isClosed(task)
+        ? [{ name: "blocked by", value: `${blockers.length} open` }]
+        : []),
+    ];
+  };
 
+  return (
+    <div className={`task-map${interacting ? " task-map--dragging" : ""}`}>
       <div
-        ref={boardRef}
-        className="task-map__board"
-        style={{
-          gridTemplateRows: `repeat(${rows}, ${MAP_ROW_HEIGHT}px)`,
-          backgroundSize: `${100 / MAP_COLS}% ${MAP_ROW_HEIGHT}px`,
-        }}
+        ref={viewportRef}
+        className={`task-map__viewport${panning ? " task-map__viewport--panning" : ""}`}
+        onPointerDown={beginPan}
         aria-label="Task map"
       >
-        <svg
-          className="task-map__edges"
-          width={boardWidth}
-          height={rows * MAP_ROW_HEIGHT}
-          aria-hidden="true"
+        <div
+          className="task-map__canvas"
+          style={{
+            width: MAP_BOARD_WIDTH,
+            height: MAP_BOARD_HEIGHT,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+          }}
         >
-          <defs>
-            {/* One marker per state: WebKit here has no context-stroke, so the
-                arrowhead cannot inherit its line's colour. */}
-            {EDGE_STATES.map((state) => (
-              <marker
-                key={state}
-                id={`task-map-arrow-${state}`}
-                viewBox="0 0 10 10"
-                refX="9"
-                refY="5"
-                markerWidth="7"
-                markerHeight="7"
-                orient="auto"
-              >
-                <path className={`task-map__arrow--${state}`} d="M0 0L10 5L0 10z" />
-              </marker>
+          <svg
+            className="task-map__edges"
+            width={MAP_BOARD_WIDTH}
+            height={MAP_BOARD_HEIGHT}
+            aria-hidden="true"
+          >
+            <defs>
+              {/* One marker per state: WebKit here has no context-stroke, so the
+                  arrowhead cannot inherit its line's colour. */}
+              {["plain", "done", "selected"].map((state) => (
+                <marker
+                  key={state}
+                  id={`task-map-arrow-${state}`}
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto"
+                >
+                  <path className={`task-map__arrow--${state}`} d="M0 0L10 5L0 10z" />
+                </marker>
+              ))}
+            </defs>
+            {edges.map((edge) => (
+              <path
+                key={edge.key}
+                className={`task-map__edge task-map__edge--${edge.kind} task-map__edge--${edge.state}`}
+                d={edge.d}
+                markerEnd={`url(#task-map-arrow-${edge.state})`}
+              />
             ))}
-          </defs>
-          {edges.map((edge) => (
-            <path
-              key={edge.key}
-              className={`task-map__edge task-map__edge--${edge.state}`}
-              d={edge.d}
-              markerEnd={`url(#task-map-arrow-${edge.state})`}
-            />
-          ))}
-        </svg>
+          </svg>
+
+          {placedTasks.map((task) => {
+            const point = boardLayout[task.id];
+            const blocked = isTaskBlocked(taskGraph, task.id);
+            return (
+              <div
+                key={task.id}
+                ref={measureCard}
+                data-task-id={task.id}
+                className={`task-entity task-entity--${task.status}${
+                  blocked ? " task-entity--blocked" : ""
+                }${isClosed(task) ? " task-entity--done" : ""}${
+                  selectedTaskId === task.id ? " task-entity--selected" : ""
+                }${drag?.taskId === task.id ? " task-entity--dragging" : ""}`}
+                style={{ left: point.x, top: point.y, width: MAP_CARD_WIDTH }}
+                onPointerDown={beginDrag(task, false)}
+                onClickCapture={onClickCapture}
+              >
+                <div className="task-entity__head">
+                  <span className={`status-dot status-dot--${task.status}`} />
+                  <button
+                    type="button"
+                    className="task-entity__title"
+                    title="Open details"
+                    onClick={(event) => onSelect(task.id, event.currentTarget)}
+                  >
+                    {task.title}
+                  </button>
+                  <button
+                    type="button"
+                    className="task-entity__remove"
+                    aria-label={`Send ${task.title} back to the Map sidebar`}
+                    title="Back to the Map sidebar"
+                    onClick={() => setLayout((prev) => removeFromMap(prev, task.id))}
+                  >
+                    {xIcon}
+                  </button>
+                </div>
+                <dl className="task-entity__fields">
+                  {attributesOf(task).map((attribute) => (
+                    <div className="task-entity__field" key={attribute.name}>
+                      <dt>{attribute.name}</dt>
+                      <dd className={attribute.muted ? "task-entity__value--muted" : ""}>
+                        {attribute.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })}
+        </div>
 
         {placedTasks.length === 0 && !drag && (
           <div className="task-map__hint">
-            Drag an open task here. Arrows point from a Blocker to the task it
-            blocks.
+            Drag an open task anywhere here. Solid lines run Parent → child,
+            dashed lines run Blocker → blocked.
           </div>
         )}
-
-        {drag?.cell && (
-          <div
-            className="task-map__target"
-            style={{ gridColumn: drag.cell.x + 1, gridRow: drag.cell.y + 1 }}
-          />
-        )}
-
-        {placedTasks.map((task) => {
-          const cell = layout[task.id];
-          const blocked = isTaskBlocked(taskGraph, task.id);
-          return (
-            <div
-              key={task.id}
-              className={`task-map-card task-map-card--${task.status}${
-                blocked ? " task-map-card--blocked" : ""
-              }${isClosed(task) ? " task-map-card--done" : ""}${
-                selectedTaskId === task.id ? " task-map-card--selected" : ""
-              }${drag?.taskId === task.id ? " task-map-card--dragging" : ""}`}
-              style={{ gridColumn: cell.x + 1, gridRow: cell.y + 1 }}
-              onPointerDown={beginDrag(task)}
-              onClickCapture={onClickCapture}
-            >
-              <div className="task-map-card__top">
-                <span className={`status-dot status-dot--${task.status}`} />
-                <button
-                  type="button"
-                  className="task-map-card__open"
-                  title="Open details"
-                  onClick={(event) => onSelect(task.id, event.currentTarget)}
-                >
-                  {task.title}
-                </button>
-                <button
-                  type="button"
-                  className="task-map-card__remove"
-                  aria-label={`Send ${task.title} back to the tray`}
-                  title="Back to tray"
-                  onClick={() =>
-                    setLayout((prev) => removeFromMap(prev, task.id))
-                  }
-                >
-                  {xIcon}
-                </button>
-              </div>
-              <TaskGraphBadges task={task} />
-            </div>
-          );
-        })}
       </div>
 
-      {drag && draggedTask && (
+      <aside
+        ref={sidebarRef}
+        className={`task-map__tray${drag?.overSidebar ? " task-map__tray--over" : ""}${
+          sidebarCollapsed ? " task-map__tray--collapsed" : ""
+        }`}
+        aria-label="Open tasks waiting to be placed"
+      >
+        <div className="task-map__tray-head">
+          {!sidebarCollapsed && (
+            <>
+              <span>Open</span>
+              <span className="task-map__tray-count">{sidebarTasks.length}</span>
+            </>
+          )}
+          <button
+            type="button"
+            className="task-map__tray-toggle"
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Show open tasks" : "Hide open tasks"}
+            title={sidebarCollapsed ? "Show open tasks" : "Hide open tasks"}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          >
+            {sidebarCollapsed ? sidebarTasks.length : chevronRightIcon}
+          </button>
+        </div>
+        {!sidebarCollapsed && (
+          <>
+            {composer}
+            {sidebarTasks.length === 0 ? (
+              <div className="task-map__tray-empty">
+                {tasks.some((task) => WORKING_STATUSES.includes(task.status))
+                  ? "Every open task is on the map."
+                  : "No open tasks yet."}
+              </div>
+            ) : (
+              <ol className="task-map__tray-list">
+                {sidebarTasks.map((task) => (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      className={`task-map__tray-item${
+                        drag?.taskId === task.id
+                          ? " task-map__tray-item--dragging"
+                          : ""
+                      }`}
+                      title="Drag onto the map, or click to drop it in view"
+                      onPointerDown={beginDrag(task, true)}
+                      onClickCapture={onClickCapture}
+                      onClick={() =>
+                        setLayout((prev) =>
+                          placeOnMap(prev, task.id, cascadeSpot(prev, viewportCenterOnBoard())),
+                        )
+                      }
+                    >
+                      <span className={`status-dot status-dot--${task.status}`} />
+                      <span className="task-map__tray-title">{task.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
+        )}
+      </aside>
+
+      <div className="task-map__zoom">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          title="Zoom out"
+          onClick={() => zoomByButton(1 / BUTTON_ZOOM_STEP)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="task-map__zoom-level"
+          title="Reset zoom"
+          onClick={() => zoomByButton(1 / view.zoom)}
+        >
+          {Math.round(view.zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          title="Zoom in"
+          onClick={() => zoomByButton(BUTTON_ZOOM_STEP)}
+        >
+          +
+        </button>
+      </div>
+
+      {drag && draggedTask && !drag.point && (
         <div
           className="task-map__ghost"
           style={{ left: drag.clientX, top: drag.clientY }}

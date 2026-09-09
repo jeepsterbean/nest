@@ -28,11 +28,18 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   No per-Section size overrides.
 - Tasks: `.task-table`. No Working now play control or Readiness column in the
   table; start work from the detail panel.
-- Tasks Map: `.task-map` with the tray `.task-map__tray` and the grid
-  `.task-map__board`; cards are `.task-map-card` (one cell each) and Blocker
-  arrows are an SVG overlay `.task-map__edges`. Layout is stored in
-  `nest:task-map`. Drags use `startPointerDrag`; every drag has a click
-  fallback (tray click places, card remove button unplaces).
+- Tasks Map: `.task-map` fills the workspace. `.task-map__viewport` clips a
+  6000x4000 `.task-map__canvas` that carries the pan/zoom transform; the
+  sidebar `.task-map__tray` (composer row plus unplaced open tasks) and
+  `.task-map__zoom` float over it. Each placed Task is an entity box
+  `.task-entity` (header plus `.task-entity__field` attribute rows), and
+  relation lines are an SVG overlay `.task-map__edges` — solid for
+  Parent → child, dashed for Blocker → blocked. Layout is stored in
+  `nest:task-map-v2`, pan/zoom in `nest:task-map-view`. Drags use
+  `startPointerDrag` (box drags move, bare-canvas drags pan); every drag has a
+  click fallback (sidebar click places, box remove button unplaces).
+  The scope panel renders only in the table view; the task composer renders in
+  both, inside `.task-map__tray` on the Map.
 - Overview: `.overview-grid` holds six movable `.overview-tile` surfaces with
   ids `lastHour`, `tasks`, `timeline`, `brainDump`, `metrics`, and
   `controlPanel`. The control panel is always present, cannot be hidden, and
@@ -58,7 +65,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
-  color persists in `nest.floating-brain-dumps`.
+  color persists in `nest.floating-brain-dumps`. The top-right
+  `.floating-brain-dumps-toggle` hides or restores every sticky without
+  minimising or changing its saved state.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range is remembered in
