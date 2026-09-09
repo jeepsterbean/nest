@@ -1,6 +1,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { EditorOptions } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import {
   useEffect,
@@ -49,6 +50,11 @@ const BRAIN_DUMP_EDITOR_EXTENSIONS = [
   BRAIN_DUMP_STARTER_KIT,
   ...brainDumpEditorExtensions,
 ];
+
+/** Lets an outside click hide the formatting menu directly. Its own blur handler
+ * skips the hide after any toolbar press, and again whenever focus moves inside
+ * the menu's container — which is <body> here, so that matches the whole page. */
+const BRAIN_DUMP_BUBBLE_MENU_KEY = new PluginKey("brainDumpBubbleMenu");
 
 type ToolbarDropdownOption = {
   value: string;
@@ -257,10 +263,12 @@ export function BrainDumpSurface({
 
   const dismissTransientUi = () => {
     setDismissVersion((current) => current + 1);
+    if (!editor) return;
     // Every surface watches for outside clicks, so one click runs this on all of
     // them. TipTap's blur() waits a frame and then clears the whole document's
     // selection, wiping the caret the click just placed in another editor.
-    if (editor?.isFocused) editor.view.dom.blur();
+    if (editor.isFocused) editor.view.dom.blur();
+    editor.view.dispatch(editor.state.tr.setMeta(BRAIN_DUMP_BUBBLE_MENU_KEY, "hide"));
   };
 
   const editorProps = useMemo<NonNullable<EditorOptions["editorProps"]>>(
@@ -459,6 +467,7 @@ export function BrainDumpSurface({
         {editor && !readOnly ? (
           <BubbleMenu
             editor={editor}
+            pluginKey={BRAIN_DUMP_BUBBLE_MENU_KEY}
             updateDelay={0}
             appendTo={() => document.body}
             options={{
