@@ -117,7 +117,8 @@ qualitative.
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view
   components.
-- Styles: dashboard in `src/dashboard/Dashboard.css`, popup in
+- Styles: dashboard CSS is imported through `src/dashboard/Dashboard.css`, with
+  section files under `src/dashboard/styles/`; popup CSS lives in
   `src/popup/PopupContent.css` and `src/popup/Popup.css`. Prefer extending
   existing class patterns over inventing parallel systems. Do not add a CSS
   framework unless explicitly requested.

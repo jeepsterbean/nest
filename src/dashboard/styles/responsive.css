@@ -1,0 +1,240 @@
+@media (prefers-reduced-motion: reduce) {
+  .dashboard * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .dash-header__typewriter-caret {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .pulse-metric {
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) 32px;
+    grid-template-areas:
+      "name graph remove"
+      "stats graph remove";
+    gap: 4px 12px;
+    padding: 9px 0;
+  }
+
+  .pulse-metric--ordered {
+    grid-template-columns: 18px minmax(0, 1fr) minmax(110px, 150px) 32px;
+    grid-template-areas:
+      "handle name graph remove"
+      "handle stats graph remove";
+  }
+
+  .pulse-metric--ordered > .reorder-handle {
+    grid-area: handle;
+  }
+
+  .pulse-metric > .metric-identity {
+    grid-area: name;
+  }
+
+  .pulse-metric__stats {
+    grid-area: stats;
+    justify-content: flex-start;
+  }
+
+  .pulse-metric__graph {
+    grid-area: graph;
+  }
+
+  .pulse-metric__remove {
+    grid-area: remove;
+  }
+
+  .pulse-metrics--all .pulse-metric {
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
+    grid-template-areas:
+      "name graph"
+      "membership graph"
+      "stats graph";
+  }
+
+  .all-metric__membership {
+    grid-area: membership;
+  }
+
+  .overview-grid {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .overview-tile {
+    min-height: 280px;
+    flex: none;
+  }
+
+  .overview-tile[data-tile="lastHour"],
+  .overview-tile[data-tile="controlPanel"],
+  .overview-tile[data-tile="metrics"] {
+    min-height: 150px;
+  }
+
+  .overview-tile[data-tile="tasks"],
+  .overview-tile[data-tile="timeline"] {
+    min-height: 360px;
+  }
+
+  .overview-tile--minimised:not([data-tile="timeline"]) {
+    min-height: 52px;
+  }
+
+  .overview-tile--minimised[data-tile="timeline"] {
+    min-height: 240px;
+  }
+
+  .overview-tile__head {
+    cursor: default;
+  }
+
+  .overview-tile__resize {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .dashboard__inner {
+    gap: 20px;
+    padding: 24px 14px 48px;
+  }
+
+  .dash-header__meta {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+  }
+
+  .dash-header__timer-wrap {
+    margin-left: 0;
+  }
+
+  .dash-header__layouts {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .dashboard {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .dash-sidebar {
+    padding: 18px 5px;
+  }
+
+  .dash-nav__btn {
+    width: 40px;
+    min-height: 40px;
+  }
+
+  .dash-header__intro {
+    --greeting-size: 31px;
+  }
+
+  .dash-section {
+    padding: 18px;
+  }
+
+  .dash-section--settings {
+    padding: 0;
+  }
+
+  .dash-section--settings > .dash-section__head {
+    padding: 18px 18px 16px;
+  }
+
+  .settings-pane {
+    padding: 0 18px 18px;
+  }
+
+  .settings-pane--metrics {
+    padding: 0;
+  }
+
+  .settings-pane__toolbar {
+    padding: 0 18px 12px;
+  }
+
+  .tile-settings--embedded {
+    padding: 0 18px 12px;
+  }
+
+  .pulse-workspace {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .pulse-sidebar {
+    min-height: auto;
+    overflow: visible;
+    padding: 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pulse-sidebar__head {
+    padding-bottom: 6px;
+  }
+
+  .pulse-list {
+    flex-direction: row;
+    min-height: auto;
+    overflow-y: hidden;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .pulse-list li {
+    flex: 0 0 auto;
+    max-width: 180px;
+  }
+
+  .pulse-list button,
+  .pulse-list__rename {
+    min-width: 116px;
+  }
+
+  .pulse-composer {
+    max-width: 300px;
+  }
+
+  .pulse-detail {
+    overflow: visible;
+  }
+
+  .pulse-detail,
+  .all-metrics {
+    padding: 18px;
+  }
+
+  .pulse-detail__head,
+  .all-metrics__head {
+    flex-direction: column;
+  }
+
+  /* Wraps so the full-width .view-toggle below doesn't crowd out delete. */
+  .pulse-detail__actions {
+    width: 100%;
+    max-width: none;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .overview-panel__scroll {
+    max-height: 420px;
+    padding: 14px;
+  }
+
+  .view-toggle {
+    flex: 1 0 100%;
+  }
+
+  .view-toggle__btn {
+    flex: 1;
+  }
+}

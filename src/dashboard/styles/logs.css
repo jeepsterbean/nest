@@ -1,0 +1,263 @@
+/* ---------- Logs load older ---------- */
+
+.logs-load-older {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.logs-load-older .btn-accent {
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Shared event body chrome (Timeline and Logs list rows). */
+.log-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.log-detail--dump {
+  display: block;
+}
+
+.log-detail--dump .event-dump {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.log-detail--dump .event-dump__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.log-detail--dump .event-dump__edit-title {
+  width: 21px;
+  height: 21px;
+}
+
+.log-detail--dump .event-dump__text {
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.log-detail--work {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Logs timeline ---------- */
+
+.logs-chrono-day {
+  text-align: left;
+}
+
+.logs-chrono {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  list-style: none;
+}
+
+.logs-chrono__row {
+  --phase-gutter: var(--surface-2);
+  --logs-time-column: 6rem;
+  --logs-mark-column: 22px;
+  display: grid;
+  grid-template-columns: var(--logs-time-column) minmax(0, 1fr);
+  min-height: 42px;
+  background: var(--surface);
+}
+
+.logs-chrono__row + .logs-chrono__row {
+  border-top: 1px solid var(--border);
+}
+
+.logs-chrono__row--colored {
+  --phase-gutter: color-mix(in srgb, var(--phase-color) 28%, var(--surface));
+}
+
+.logs-chrono__when {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  color: var(--muted);
+  background: var(--phase-gutter);
+  border-right: 1px solid var(--border);
+}
+
+.logs-chrono__when time {
+  display: block;
+  line-height: 22px;
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+  font-size: 12px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.logs-chrono__event {
+  display: grid;
+  position: relative;
+  grid-template-columns: var(--logs-mark-column) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px 10px 4px;
+}
+
+.logs-chrono__event::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(4px + var(--logs-mark-column) / 2 - 1px);
+  width: 2px;
+  background: var(--border);
+}
+
+.logs-chrono__mark {
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  justify-self: center;
+  color: var(--event-color, var(--accent));
+  background: var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--event-color, var(--accent));
+}
+
+.logs-chrono__mark svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2;
+}
+
+.logs-chrono__row--work-start .logs-chrono__mark svg {
+  /* Play triangle reads left-heavy; nudge so it sits optically centered. */
+  transform: translateX(0.5px);
+}
+
+.logs-chrono__row--metrics {
+  --event-color: var(--accent);
+}
+
+.logs-chrono__row--dump {
+  --event-color: var(--dump);
+}
+
+.logs-chrono__row--work-start,
+.logs-chrono__row--work-stop {
+  --event-color: var(--doing);
+}
+
+.logs-chrono__row:hover {
+  background: color-mix(in srgb, var(--muted) 5%, var(--surface));
+}
+
+.logs-chrono__row:hover .logs-chrono__when {
+  background: color-mix(in srgb, var(--muted) 8%, var(--phase-gutter));
+}
+
+/* Rows spanning an open work stretch share a colored rail, so the
+   start/stop pair reads as one block instead of two loose marks. */
+.logs-chrono__row--in-stretch .logs-chrono__event::before {
+  width: 3px;
+  background: var(--doing);
+  opacity: 0.4;
+}
+
+.logs-chrono__event .log-detail--metrics .event__icon {
+  display: none;
+}
+
+/* Keep Metric check-in chips on one row at the same height as dump / work rows. */
+.logs-chrono__event .log-detail--metrics .event__ratings {
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.logs-chrono__event .log-detail--metrics .event__rating {
+  gap: 3px;
+  padding: 0 2px 0 4px;
+  border-radius: 999px;
+}
+
+.logs-chrono__event .log-detail--metrics .event__rating-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.logs-chrono__event .log-detail--metrics .event__rating .rating-pill {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+
+.logs-chrono__event .log-detail--dump .event-dump__chevron {
+  display: none;
+}
+
+.logs-chrono__event .log-detail--dump .event-dump__toggle {
+  gap: 6px;
+}
+
+.logs-chrono__event > .log-detail {
+  min-height: 22px;
+}
+
+.logs-chrono__event .log-detail--dump .event-dump__head {
+  min-height: 22px;
+}
+
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags,
+.event--dump .event-dump__inline-tags {
+  max-width: min(50%, 18rem);
+}
+
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags span,
+.event--dump .event-dump__inline-tags span {
+  max-width: 96px;
+  font-size: 10px;
+}
+
+.logs-chrono__event .log-detail--metrics .event__delete {
+  opacity: 0;
+}
+
+.logs-chrono__row:hover .log-detail--metrics .event__delete,
+.logs-chrono__event .log-detail--metrics .event__delete:focus-visible {
+  opacity: 0.55;
+}
+
+@media (max-width: 680px) {
+  .logs-chrono__row {
+    --logs-time-column: 5.25rem;
+  }
+
+  .logs-chrono__when {
+    padding: 10px 8px;
+  }
+}

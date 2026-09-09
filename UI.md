@@ -18,6 +18,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Shared controls and Section anchors
 
+- Dashboard styles are loaded through `src/dashboard/Dashboard.css`; that file
+  preserves cascade order by importing focused files from `src/dashboard/styles/`.
 - Greetings board: `DashboardHeader` (`.dash-header`) on Overview except while
   Phase tone is Doing (typewriter greeting, live Phase, Timer). Other Sections
   always omit it; Overview during Doing adds `.dashboard__inner--no-greetings`
