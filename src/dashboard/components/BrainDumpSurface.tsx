@@ -257,7 +257,10 @@ export function BrainDumpSurface({
 
   const dismissTransientUi = () => {
     setDismissVersion((current) => current + 1);
-    editor?.commands.blur();
+    // Every surface watches for outside clicks, so one click runs this on all of
+    // them. TipTap's blur() waits a frame and then clears the whole document's
+    // selection, wiping the caret the click just placed in another editor.
+    if (editor?.isFocused) editor.view.dom.blur();
   };
 
   const editorProps = useMemo<NonNullable<EditorOptions["editorProps"]>>(
