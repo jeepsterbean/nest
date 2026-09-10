@@ -5,10 +5,16 @@ import {
 } from "../../src/lib/brainDumpDraft";
 import {
   clampFloatingPosition,
+  floatingBrainDumpSizeForText,
   createFloatingDumpWriter,
   createFloatingFromDraft,
   DEFAULT_FLOATING_STICKY_COLOR,
-  FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+  FLOATING_BRAIN_DUMP_HEIGHT,
+  FLOATING_BRAIN_DUMP_MAX_HEIGHT,
+  FLOATING_BRAIN_DUMP_MAX_WIDTH,
+  FLOATING_BRAIN_DUMP_MIN_HEIGHT,
+  FLOATING_BRAIN_DUMP_MIN_WIDTH,
+  FLOATING_BRAIN_DUMP_PADDING,
   FLOATING_BRAIN_DUMP_WIDTH,
   type FloatingBrainDump,
   nextCascadePosition,
@@ -45,26 +51,53 @@ describe("isBrainDumpPeelShortcut", () => {
 });
 
 describe("clampFloatingPosition", () => {
-  it("allows notes to extend past the content column while keeping a sliver visible", () => {
-    expect(clampFloatingPosition(0, 0, 400, 300)).toEqual({ x: 0, y: 16 });
-    expect(clampFloatingPosition(999, 999, 400, 300)).toEqual({
-      x: 400 - FLOATING_BRAIN_DUMP_MIN_VISIBLE,
-      y: 300 - FLOATING_BRAIN_DUMP_MIN_VISIBLE,
+  it("keeps the whole note inside the board", () => {
+    expect(clampFloatingPosition(0, 0, 900, 700)).toEqual({ x: 16, y: 16 });
+    expect(clampFloatingPosition(999, 999, 900, 700)).toEqual({
+      x: 900 - FLOATING_BRAIN_DUMP_WIDTH - FLOATING_BRAIN_DUMP_PADDING,
+      y: 700 - FLOATING_BRAIN_DUMP_HEIGHT - FLOATING_BRAIN_DUMP_PADDING,
     });
-    expect(clampFloatingPosition(-999, 16, 400, 300)).toEqual({
-      x: -FLOATING_BRAIN_DUMP_WIDTH + FLOATING_BRAIN_DUMP_MIN_VISIBLE,
-      y: 16,
+    expect(clampFloatingPosition(999, 999, 900, 700, 200, 100)).toEqual({
+      x: 900 - 200 - FLOATING_BRAIN_DUMP_PADDING,
+      y: 700 - 100 - FLOATING_BRAIN_DUMP_PADDING,
     });
-    expect(clampFloatingPosition(-999, 16, 400, 300, 200)).toEqual({
-      x: -200 + FLOATING_BRAIN_DUMP_MIN_VISIBLE,
-      y: 16,
+  });
+
+  it("falls back to the top-left padding when the note is larger than the board", () => {
+    expect(clampFloatingPosition(200, 200, 100, 100)).toEqual({ x: 16, y: 16 });
+  });
+});
+
+describe("floatingBrainDumpSizeForText", () => {
+  it("keeps a short note at the minimum size", () => {
+    expect(floatingBrainDumpSizeForText("Buy milk")).toEqual({
+      width: FLOATING_BRAIN_DUMP_MIN_WIDTH,
+      height: FLOATING_BRAIN_DUMP_MIN_HEIGHT,
     });
+  });
+
+  it("grows with the text and stops at the cap", () => {
+    const medium = floatingBrainDumpSizeForText(
+      Array.from({ length: 10 }, () => "a line of thought").join("\n"),
+    );
+    expect(medium.height).toBeGreaterThan(FLOATING_BRAIN_DUMP_MIN_HEIGHT);
+    expect(medium.height).toBeLessThan(FLOATING_BRAIN_DUMP_MAX_HEIGHT);
+
+    expect(floatingBrainDumpSizeForText("x".repeat(20000))).toEqual({
+      width: FLOATING_BRAIN_DUMP_MAX_WIDTH,
+      height: FLOATING_BRAIN_DUMP_MAX_HEIGHT,
+    });
+  });
+
+  it("never exceeds the board", () => {
+    const size = floatingBrainDumpSizeForText("x".repeat(20000), 300, 260);
+    expect(size).toEqual({ width: 268, height: 228 });
   });
 });
 
 describe("nextCascadePosition", () => {
   it("offsets each new note and wraps near the viewport edge", () => {
-    const first = nextCascadePosition([], 400, 300);
+    const first = nextCascadePosition([], 900, 700);
     expect(first).toEqual({ x: 96, y: 120 });
 
     const second = nextCascadePosition(
@@ -80,8 +113,8 @@ describe("nextCascadePosition", () => {
           zIndex: 1,
         },
       ],
-      400,
-      300,
+      900,
+      700,
     );
     expect(second).toEqual({ x: 120, y: 144 });
   });
@@ -122,8 +155,8 @@ describe("createFloatingFromDraft", () => {
     const dump = createFloatingFromDraft(
       { text: "  Ideas  ", tagIds: [2] },
       [],
-      400,
-      300,
+      900,
+      700,
     );
     expect(dump).toMatchObject({
       text: "  Ideas  ",
@@ -138,7 +171,7 @@ describe("createFloatingFromDraft", () => {
   });
 
   it("returns null for blank drafts", () => {
-    expect(createFloatingFromDraft({ text: "   ", tagIds: [] }, [], 400, 300)).toBeNull();
+    expect(createFloatingFromDraft({ text: "   ", tagIds: [] }, [], 900, 700)).toBeNull();
   });
 });
 
@@ -156,9 +189,9 @@ describe("reclampFloatingDumps", () => {
         zIndex: 1,
       },
     ];
-    expect(reclampFloatingDumps(dumps, 400, 300)[0]).toMatchObject({
-      x: 352,
-      y: 252,
+    expect(reclampFloatingDumps(dumps, 900, 700)[0]).toMatchObject({
+      x: 900 - FLOATING_BRAIN_DUMP_WIDTH - FLOATING_BRAIN_DUMP_PADDING,
+      y: 700 - FLOATING_BRAIN_DUMP_HEIGHT - FLOATING_BRAIN_DUMP_PADDING,
     });
   });
 });

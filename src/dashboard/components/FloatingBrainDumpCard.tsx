@@ -7,6 +7,9 @@ import {
 import {
   clampFloatingPosition,
   FLOATING_BRAIN_DUMP_HEIGHT,
+  FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT,
+  FLOATING_BRAIN_DUMP_MIN_HEIGHT,
+  FLOATING_BRAIN_DUMP_MIN_WIDTH,
   FLOATING_BRAIN_DUMP_PADDING,
   FLOATING_BRAIN_DUMP_WIDTH,
   FLOATING_STICKY_COLORS,
@@ -20,10 +23,7 @@ import { startPointerDrag } from "../lib/pointerDrag";
 import { BrainDumpSurface } from "./BrainDumpSurface";
 import { maximizeIcon, minimizeIcon, promoteIcon, trashIcon } from "./icons";
 
-const MIN_WIDTH = 220;
-const MIN_HEIGHT = 168;
 const KEYBOARD_RESIZE_STEP = 16;
-const MINIMISED_HEIGHT = 36;
 
 export function FloatingBrainDumpCard({
   dump,
@@ -69,13 +69,28 @@ export function FloatingBrainDumpCard({
   const displayY = dragOffset?.y ?? dump.y;
   const displayWidth = Math.max(
     resizePreview?.width ?? dump.width ?? FLOATING_BRAIN_DUMP_WIDTH,
-    MIN_WIDTH,
+    FLOATING_BRAIN_DUMP_MIN_WIDTH,
   );
   const displayHeight = dump.minimised
-    ? MINIMISED_HEIGHT
+    ? FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT
     : (resizePreview?.height ?? dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT);
   const expandedHeight = dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT;
   const summary = brainDumpSummary(dump.text);
+
+  const clampToBoard = (
+    x: number,
+    y: number,
+    noteWidth: number,
+    noteHeight: number,
+  ) =>
+    clampFloatingPosition(
+      x,
+      y,
+      viewportWidth || window.innerWidth,
+      viewportHeight || window.innerHeight,
+      noteWidth,
+      noteHeight,
+    );
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -87,33 +102,26 @@ export function FloatingBrainDumpCard({
     const originY = dump.y;
     const startX = event.clientX;
     const startY = event.clientY;
+    const rect = cardRef.current?.getBoundingClientRect();
+    const noteWidth = rect?.width ?? FLOATING_BRAIN_DUMP_WIDTH;
+    const noteHeight = rect?.height ?? FLOATING_BRAIN_DUMP_HEIGHT;
     let offset = { x: originX, y: originY };
 
     const commit = () => {
-      const width = viewportWidth || window.innerWidth;
-      const height = viewportHeight || window.innerHeight;
-      const noteWidth =
-        cardRef.current?.getBoundingClientRect().width ??
-        FLOATING_BRAIN_DUMP_WIDTH;
-      const clamped = clampFloatingPosition(
-        offset.x,
-        offset.y,
-        width,
-        height,
-        noteWidth,
-      );
       setDragOffset(null);
-      onPositionChange(clamped.x, clamped.y);
+      onPositionChange(offset.x, offset.y);
     };
 
     startPointerDrag(event, {
       startImmediately: true,
       onStart: () => undefined,
       onMove: (move) => {
-        offset = {
-          x: originX + (move.clientX - startX),
-          y: originY + (move.clientY - startY),
-        };
+        offset = clampToBoard(
+          originX + (move.clientX - startX),
+          originY + (move.clientY - startY),
+          noteWidth,
+          noteHeight,
+        );
         setDragOffset(offset);
       },
       onEnd: commit,
@@ -121,18 +129,20 @@ export function FloatingBrainDumpCard({
     });
   };
 
+  // Growth is bounded by the space left between the note and the board edge,
+  // so resizing can never push part of a note out of view.
   const clampSize = (width: number, height: number) => {
     const maxWidth = Math.max(
-      MIN_WIDTH,
-      (viewportWidth || window.innerWidth) - FLOATING_BRAIN_DUMP_PADDING * 2,
+      FLOATING_BRAIN_DUMP_MIN_WIDTH,
+      (viewportWidth || window.innerWidth) - dump.x - FLOATING_BRAIN_DUMP_PADDING,
     );
     const maxHeight = Math.max(
-      MIN_HEIGHT,
-      (viewportHeight || window.innerHeight) - FLOATING_BRAIN_DUMP_PADDING * 2,
+      FLOATING_BRAIN_DUMP_MIN_HEIGHT,
+      (viewportHeight || window.innerHeight) - dump.y - FLOATING_BRAIN_DUMP_PADDING,
     );
     return {
-      width: Math.min(Math.max(width, MIN_WIDTH), maxWidth),
-      height: Math.min(Math.max(height, MIN_HEIGHT), maxHeight),
+      width: Math.min(Math.max(width, FLOATING_BRAIN_DUMP_MIN_WIDTH), maxWidth),
+      height: Math.min(Math.max(height, FLOATING_BRAIN_DUMP_MIN_HEIGHT), maxHeight),
     };
   };
 
@@ -140,32 +150,12 @@ export function FloatingBrainDumpCard({
     const size = clampSize(width, height);
     setResizePreview(null);
     onSizeChange(size.width, size.height);
-    const repositioned = clampFloatingPosition(
-      dump.x,
-      dump.y,
-      viewportWidth || window.innerWidth,
-      viewportHeight || window.innerHeight,
-      size.width,
-    );
-    if (repositioned.x !== dump.x || repositioned.y !== dump.y) {
-      onPositionChange(repositioned.x, repositioned.y);
-    }
   };
 
   const commitWidth = (width: number) => {
     const size = clampSize(width, expandedHeight);
     setResizePreview(null);
     onSizeChange(size.width, expandedHeight);
-    const repositioned = clampFloatingPosition(
-      dump.x,
-      dump.y,
-      viewportWidth || window.innerWidth,
-      viewportHeight || window.innerHeight,
-      size.width,
-    );
-    if (repositioned.x !== dump.x || repositioned.y !== dump.y) {
-      onPositionChange(repositioned.x, repositioned.y);
-    }
   };
 
   const onResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {

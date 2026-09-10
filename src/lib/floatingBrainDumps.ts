@@ -5,7 +5,10 @@ import {
   useState,
 } from "react";
 import type { BrainDumpDraft } from "./brainDumpDraft";
-import { trimBrainDumpHtml } from "./brainDumpRichText";
+import {
+  brainDumpHtmlToPlainText,
+  trimBrainDumpHtml,
+} from "./brainDumpRichText";
 
 /** Calm paper tints for floating stickies (Nest journal palette). */
 export const FLOATING_STICKY_COLORS = [
@@ -50,31 +53,83 @@ export const FLOATING_BRAIN_DUMP_WIDTH = 280;
 export const FLOATING_BRAIN_DUMP_HEIGHT = 200;
 export const FLOATING_BRAIN_DUMP_PADDING = 16;
 export const FLOATING_BRAIN_DUMP_CASCADE = 24;
-/** Keep at least this much of a note visible when parked off-screen. */
-export const FLOATING_BRAIN_DUMP_MIN_VISIBLE = 48;
+/** Collapsed note height, used to keep minimised notes inside the board. */
+export const FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT = 36;
 export const FLOATING_BRAIN_DUMP_LAYER_BASE = 200;
+export const FLOATING_BRAIN_DUMP_MIN_WIDTH = 220;
+export const FLOATING_BRAIN_DUMP_MIN_HEIGHT = 168;
+export const FLOATING_BRAIN_DUMP_MAX_WIDTH = 460;
+export const FLOATING_BRAIN_DUMP_MAX_HEIGHT = 460;
+
+/** Text metrics of the floating surface: 0.9rem body text at line-height 1.35. */
+const FLOATING_TEXT_CHAR_WIDTH = 7.2;
+const FLOATING_TEXT_LINE_HEIGHT = 19.5;
+/** Header, tag row and text padding: the note space that never holds a line. */
+const FLOATING_TEXT_CHROME = 92;
+const FLOATING_TEXT_SIDE_PADDING = 24;
+
+function clampRange(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+// ponytail: character counts, not real font metrics — swap in canvas
+// measureText if proportional text makes notes visibly mis-sized.
+/** Sizes a new note to its text so short notes stay small and long ones open
+ * readable, up to a cap that still leaves the board usable. */
+export function floatingBrainDumpSizeForText(
+  text: string,
+  viewportWidth = Number.POSITIVE_INFINITY,
+  viewportHeight = Number.POSITIVE_INFINITY,
+): { width: number; height: number } {
+  const lines = brainDumpHtmlToPlainText(text).split("\n");
+  const longestLine = Math.max(0, ...lines.map((line) => line.length));
+  const maxWidth = Math.min(
+    FLOATING_BRAIN_DUMP_MAX_WIDTH,
+    viewportWidth - FLOATING_BRAIN_DUMP_PADDING * 2,
+  );
+  const width = clampRange(
+    Math.ceil(longestLine * FLOATING_TEXT_CHAR_WIDTH + FLOATING_TEXT_SIDE_PADDING),
+    FLOATING_BRAIN_DUMP_MIN_WIDTH,
+    maxWidth,
+  );
+  const charsPerLine = Math.max(
+    1,
+    Math.floor((width - FLOATING_TEXT_SIDE_PADDING) / FLOATING_TEXT_CHAR_WIDTH),
+  );
+  const wrappedLines = lines.reduce(
+    (total, line) => total + Math.max(1, Math.ceil(line.length / charsPerLine)),
+    0,
+  );
+  const height = clampRange(
+    Math.ceil(wrappedLines * FLOATING_TEXT_LINE_HEIGHT + FLOATING_TEXT_CHROME),
+    FLOATING_BRAIN_DUMP_MIN_HEIGHT,
+    Math.min(
+      FLOATING_BRAIN_DUMP_MAX_HEIGHT,
+      viewportHeight - FLOATING_BRAIN_DUMP_PADDING * 2,
+    ),
+  );
+  return { width, height };
+}
 
 export function floatingBrainDumpStackZIndex(zIndex: number) {
   return FLOATING_BRAIN_DUMP_LAYER_BASE + zIndex;
 }
 
+/** Notes stay wholly inside the board, so no part can be dragged out of sight. */
 export function clampFloatingPosition(
   x: number,
   y: number,
   viewportWidth: number,
   viewportHeight: number,
   noteWidth = FLOATING_BRAIN_DUMP_WIDTH,
+  noteHeight = FLOATING_BRAIN_DUMP_HEIGHT,
 ): { x: number; y: number } {
-  const minX = -noteWidth + FLOATING_BRAIN_DUMP_MIN_VISIBLE;
-  const maxX = viewportWidth - FLOATING_BRAIN_DUMP_MIN_VISIBLE;
-  const minY = FLOATING_BRAIN_DUMP_PADDING;
-  const maxY = Math.max(
-    minY,
-    viewportHeight - FLOATING_BRAIN_DUMP_MIN_VISIBLE,
-  );
+  const min = FLOATING_BRAIN_DUMP_PADDING;
+  const maxX = Math.max(min, viewportWidth - noteWidth - min);
+  const maxY = Math.max(min, viewportHeight - noteHeight - min);
   return {
-    x: Math.min(Math.max(x, minX), maxX),
-    y: Math.min(Math.max(y, minY), maxY),
+    x: Math.min(Math.max(x, min), maxX),
+    y: Math.min(Math.max(y, min), maxY),
   };
 }
 
@@ -87,19 +142,23 @@ export function nextCascadePosition(
   dumps: FloatingBrainDump[],
   viewportWidth: number,
   viewportHeight: number,
+  noteWidth = FLOATING_BRAIN_DUMP_WIDTH,
+  noteHeight = FLOATING_BRAIN_DUMP_HEIGHT,
 ): { x: number; y: number } {
+  const clamp = (x: number, y: number) =>
+    clampFloatingPosition(x, y, viewportWidth, viewportHeight, noteWidth, noteHeight);
   const last = dumps[dumps.length - 1];
   if (!last) {
-    return clampFloatingPosition(96, 120, viewportWidth, viewportHeight);
+    return clamp(96, 120);
   }
-  const maxX = viewportWidth - FLOATING_BRAIN_DUMP_MIN_VISIBLE;
+  const maxX = viewportWidth - noteWidth - FLOATING_BRAIN_DUMP_PADDING;
   let x = last.x + FLOATING_BRAIN_DUMP_CASCADE;
   let y = last.y + FLOATING_BRAIN_DUMP_CASCADE;
   if (x > maxX) {
     x = 96;
     y = last.y + FLOATING_BRAIN_DUMP_CASCADE;
   }
-  return clampFloatingPosition(x, y, viewportWidth, viewportHeight);
+  return clamp(x, y);
 }
 
 export function reclampFloatingDumps(
@@ -115,6 +174,9 @@ export function reclampFloatingDumps(
       viewportWidth,
       viewportHeight,
       dump.width ?? FLOATING_BRAIN_DUMP_WIDTH,
+      dump.minimised
+        ? FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT
+        : dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT,
     ),
   }));
 }
@@ -236,7 +298,18 @@ export function createFloatingFromDraft(
 ): FloatingBrainDump | null {
   const text = trimBrainDumpHtml(draft.text);
   if (!text) return null;
-  const { x, y } = nextCascadePosition(existing, viewportWidth, viewportHeight);
+  const { width, height } = floatingBrainDumpSizeForText(
+    draft.text,
+    viewportWidth,
+    viewportHeight,
+  );
+  const { x, y } = nextCascadePosition(
+    existing,
+    viewportWidth,
+    viewportHeight,
+    width,
+    height,
+  );
   return {
     id: createFloatingBrainDumpId(),
     text: draft.text,
@@ -245,6 +318,8 @@ export function createFloatingFromDraft(
     minimised: false,
     x,
     y,
+    width,
+    height,
     zIndex: nextZIndex(existing),
   };
 }
