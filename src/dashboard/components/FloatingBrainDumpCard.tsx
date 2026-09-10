@@ -24,6 +24,9 @@ import { BrainDumpSurface } from "./BrainDumpSurface";
 import { maximizeIcon, minimizeIcon, promoteIcon, trashIcon } from "./icons";
 
 const KEYBOARD_RESIZE_STEP = 16;
+// ponytail: 1000 is ~800 bring-to-fronts above FLOATING_BRAIN_DUMP_LAYER_BASE
+// (200). Past that a focused note can cover a lift; switch to nextZIndex if it shows up.
+const LIFTING_Z_INDEX = 1000;
 
 export function FloatingBrainDumpCard({
   dump,
@@ -34,12 +37,14 @@ export function FloatingBrainDumpCard({
   onTagsChange,
   onColorChange,
   onMinimisedChange,
-  onPositionChange,
   onSizeChange,
+  onMove,
+  onMoveEnd,
   onPromote,
   onRemove,
   onSubmit,
   onFocus,
+  overBoard = false,
 }: {
   dump: FloatingBrainDump;
   tags: Tag[];
@@ -49,12 +54,14 @@ export function FloatingBrainDumpCard({
   onTagsChange: (tagIds: number[]) => void;
   onColorChange: (color: FloatingStickyColor) => void;
   onMinimisedChange: (minimised: boolean) => void;
-  onPositionChange: (x: number, y: number) => void;
   onSizeChange: (width: number, height: number) => void;
+  onMove?: (clientX: number, clientY: number) => void;
+  onMoveEnd: (x: number, y: number, clientX: number, clientY: number) => void;
   onPromote: () => void;
   onRemove: () => void;
   onSubmit: () => void;
   onFocus: () => void;
+  overBoard?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -65,19 +72,22 @@ export function FloatingBrainDumpCard({
     height: number;
   } | null>(null);
 
+  const docked = dump.docked;
+  const lifting = docked && dragOffset !== null;
   const displayX = dragOffset?.x ?? dump.x;
   const displayY = dragOffset?.y ?? dump.y;
   const displayWidth = Math.max(
     resizePreview?.width ?? dump.width ?? FLOATING_BRAIN_DUMP_WIDTH,
     FLOATING_BRAIN_DUMP_MIN_WIDTH,
   );
-  const displayHeight = dump.minimised
+  const rowLike = dump.minimised || docked;
+  const displayHeight = rowLike
     ? FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT
     : (resizePreview?.height ?? dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT);
   const expandedHeight = dump.height ?? FLOATING_BRAIN_DUMP_HEIGHT;
   const summary = brainDumpSummary(dump.text);
 
-  const clampToBoard = (
+  const clampToViewport = (
     x: number,
     y: number,
     noteWidth: number,
@@ -98,31 +108,41 @@ export function FloatingBrainDumpCard({
     event.preventDefault();
     onFocus();
 
-    const originX = dump.x;
-    const originY = dump.y;
+    const rect = cardRef.current?.getBoundingClientRect();
+    const originX = docked ? (rect?.left ?? dump.x) : dump.x;
+    const originY = docked ? (rect?.top ?? dump.y) : dump.y;
     const startX = event.clientX;
     const startY = event.clientY;
-    const rect = cardRef.current?.getBoundingClientRect();
-    const noteWidth = rect?.width ?? FLOATING_BRAIN_DUMP_WIDTH;
-    const noteHeight = rect?.height ?? FLOATING_BRAIN_DUMP_HEIGHT;
+    const noteWidth = docked
+      ? (dump.width ?? FLOATING_BRAIN_DUMP_WIDTH)
+      : (rect?.width ?? FLOATING_BRAIN_DUMP_WIDTH);
+    const noteHeight = docked
+      ? FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT
+      : (rect?.height ?? FLOATING_BRAIN_DUMP_HEIGHT);
     let offset = { x: originX, y: originY };
+    let pointer = { x: startX, y: startY };
+    let moved = false;
 
     const commit = () => {
       setDragOffset(null);
-      onPositionChange(offset.x, offset.y);
+      if (!moved) return;
+      onMoveEnd(offset.x, offset.y, pointer.x, pointer.y);
     };
 
     startPointerDrag(event, {
-      startImmediately: true,
+      startImmediately: !docked,
       onStart: () => undefined,
       onMove: (move) => {
-        offset = clampToBoard(
+        moved = true;
+        pointer = { x: move.clientX, y: move.clientY };
+        offset = clampToViewport(
           originX + (move.clientX - startX),
           originY + (move.clientY - startY),
           noteWidth,
           noteHeight,
         );
         setDragOffset(offset);
+        onMove?.(move.clientX, move.clientY);
       },
       onEnd: commit,
       onCancel: commit,
@@ -219,22 +239,33 @@ export function FloatingBrainDumpCard({
     }
   };
 
+  const inFlow = docked && !lifting;
+  const showMinimisedChrome = docked || dump.minimised;
+
   return (
     <div
       ref={cardRef}
       className={`floating-brain-dump${
         dump.minimised ? " floating-brain-dump--minimised" : ""
-      }`}
+      }${docked ? " floating-brain-dump--docked" : ""}${
+        lifting ? " floating-brain-dump--lifting" : ""
+      }${overBoard ? " floating-brain-dump--over-board" : ""}`}
       data-color={dump.color}
-      style={{
-        left: displayX,
-        top: displayY,
-        width: displayWidth,
-        height: displayHeight,
-        zIndex: floatingBrainDumpStackZIndex(dump.zIndex),
-      }}
+      style={
+        inFlow
+          ? undefined
+          : {
+              left: displayX,
+              top: displayY,
+              width: displayWidth,
+              height: displayHeight,
+              zIndex: lifting
+                ? LIFTING_Z_INDEX
+                : floatingBrainDumpStackZIndex(dump.zIndex),
+            }
+      }
     >
-      {dump.minimised ? (
+      {showMinimisedChrome ? (
         <div className="brain-dump-surface brain-dump-surface--floating brain-dump-surface--floating-minimised">
           <header
             className="brain-dump-surface__head brain-dump-surface__head--draggable"
@@ -246,15 +277,27 @@ export function FloatingBrainDumpCard({
               </span>
             </div>
             <div className="brain-dump-surface__head-end">
-              <button
-                type="button"
-                className="brain-dump-surface__action"
-                aria-label="Expand floating brain dump"
-                title="Expand"
-                onClick={() => onMinimisedChange(false)}
-              >
-                {maximizeIcon}
-              </button>
+              {docked ? (
+                <button
+                  type="button"
+                  className="brain-dump-surface__action brain-dump-surface__action--danger"
+                  aria-label="Remove floating brain dump"
+                  title="Remove"
+                  onClick={onRemove}
+                >
+                  {trashIcon}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="brain-dump-surface__action"
+                  aria-label="Expand floating brain dump"
+                  title="Expand"
+                  onClick={() => onMinimisedChange(false)}
+                >
+                  {maximizeIcon}
+                </button>
+              )}
             </div>
           </header>
         </div>
@@ -330,20 +373,22 @@ export function FloatingBrainDumpCard({
           />
         </>
       )}
-      <button
-        type="button"
-        className={`floating-brain-dump__resize${
-          dump.minimised ? " floating-brain-dump__resize--horizontal" : ""
-        }`}
-        aria-label={
-          dump.minimised
-            ? "Resize floating brain dump width"
-            : "Resize floating brain dump"
-        }
-        title={dump.minimised ? "Resize width" : "Resize"}
-        onPointerDown={onResizePointerDown}
-        onKeyDown={onResizeKeyDown}
-      />
+      {!docked && (
+        <button
+          type="button"
+          className={`floating-brain-dump__resize${
+            dump.minimised ? " floating-brain-dump__resize--horizontal" : ""
+          }`}
+          aria-label={
+            dump.minimised
+              ? "Resize floating brain dump width"
+              : "Resize floating brain dump"
+          }
+          title={dump.minimised ? "Resize width" : "Resize"}
+          onPointerDown={onResizePointerDown}
+          onKeyDown={onResizeKeyDown}
+        />
+      )}
     </div>
   );
 }

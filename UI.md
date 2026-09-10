@@ -67,9 +67,16 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
-  color persists in `nest.floating-brain-dumps`. The top-right
-  `.floating-brain-dumps-toggle` hides or restores every sticky without
-  minimising or changing its saved state.
+  color persists in `nest.floating-brain-dumps`. The Note Board is
+  `.floating-note-board` (minimised: `--minimised`), always on the overlay
+  with a warm ruled ink fill; its geometry persists in `nest.floating-note-board`.
+  Docked drafts are `.floating-brain-dump--docked` rows inside it; a drag in
+  progress adds `--lifting`. Hovering a free sticky over the expanded board
+  hides that sticky (`--over-board`) and shows a
+  `.floating-note-board__preview` row; the minimised bar is not a
+  drop target. The top-right
+  `.floating-brain-dumps-toggle` hides or restores
+  free stickies without minimising them or hiding the Note Board.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
   `.insight-ledger`, and `.insight-pulses`. Range is remembered in
@@ -157,9 +164,9 @@ Invariants that are easy to break:
 - History browsing reuses the same editor read-only. `setEditable(!readOnly,
   false)` must keep `emitUpdate` false, or leaving history publishes the
   displayed saved dump into the live draft.
-- Minimising a sticky or hiding the board unmounts the surface, destroying its
-  editor, selection, and undo stack. Expanding rebuilds from `text` with the
-  caret at the start.
+- Minimising a sticky, docking it on the Note Board, or hiding free stickies
+  unmounts the surface, destroying its editor, selection, and undo stack.
+  Expanding or dragging it out rebuilds from `text` with the caret at the start.
 
 ## Third-party editor behaviour
 

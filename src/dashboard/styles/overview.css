@@ -481,6 +481,90 @@
   pointer-events: none;
 }
 
+.floating-note-board {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #ece5d8 20%, #2d251e);
+  border-radius: 14px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 27px,
+      color-mix(in srgb, #ece5d8 7%, transparent) 27px 28px
+    ),
+    #2d251e;
+  color: #ece5d8;
+  box-shadow: var(--shadow);
+}
+
+.floating-note-board.is-drop-target {
+  border-color: color-mix(in srgb, var(--dump) 58%, #ece5d8);
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 2px color-mix(in srgb, var(--dump) 34%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--dump) 16%, transparent);
+}
+
+.floating-note-board > .brain-dump-surface__head {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+.floating-note-board--minimised > .brain-dump-surface__head {
+  min-height: 100%;
+}
+
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__head-end {
+  flex: 0 0 34px;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.floating-note-board > .brain-dump-surface__head .floating-brain-dump__summary,
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action {
+  color: #ece5d8;
+}
+
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:hover,
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:focus-visible {
+  color: #fff;
+  background: color-mix(in srgb, #ece5d8 14%, transparent);
+}
+
+.floating-note-board > .floating-brain-dump__resize {
+  color: color-mix(in srgb, #ece5d8 70%, transparent);
+}
+
+.floating-note-board__preview {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.floating-note-board__rows {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 0 6px 6px;
+  overflow: auto;
+}
+
+.floating-note-board__empty {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed color-mix(in srgb, #ece5d8 20%, transparent);
+  border-radius: 9px;
+  color: color-mix(in srgb, #ece5d8 58%, transparent);
+  font-size: 0.78rem;
+}
+
 .floating-brain-dumps-toggle {
   position: fixed;
   top: 16px;
@@ -555,6 +639,43 @@
 
 .floating-brain-dump--minimised {
   height: 36px;
+}
+
+.floating-brain-dump.floating-brain-dump--docked {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__head {
+  min-height: 100%;
+  padding: 2px 6px;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__head-end {
+  flex: 0 0 24px;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__action {
+  width: 20px;
+  height: 20px;
+}
+
+.floating-brain-dump.floating-brain-dump--lifting {
+  position: fixed;
+  box-shadow: var(--shadow);
+}
+
+.floating-brain-dump--over-board {
+  visibility: hidden;
 }
 
 .floating-brain-dump[data-color="paper"] {
@@ -673,6 +794,26 @@
 }
 
 .floating-brain-dump--minimised .floating-brain-dump__resize::after {
+  top: 50%;
+  right: 4px;
+  bottom: auto;
+  width: 4px;
+  height: 12px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-left: 1.5px solid currentColor;
+  transform: translateY(-50%);
+}
+
+.floating-note-board--minimised .floating-brain-dump__resize {
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  height: auto;
+  cursor: ew-resize;
+}
+
+.floating-note-board--minimised .floating-brain-dump__resize::after {
   top: 50%;
   right: 4px;
   bottom: auto;

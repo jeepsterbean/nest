@@ -195,6 +195,17 @@ a saved dump's Tags, and fork a saved dump into a new unsaved floating draft
 (text and Tags). Overview drafts can be peeled into movable floating drafts and
 resized from their lower-right corner. A saved brain dump being browsed in
 Overview can also be copied into a new floating draft.
+A **Note Board** sits on the same overlay as those floating drafts, on every
+Section: a moveable, resizeable frame that is always present, even when empty.
+Dragging a floating draft onto the expanded board docks that draft as a row
+(the collapsed summary, with no expand). The minimised bar is not a drop
+target. While the draft is held over the expanded board, the sticky itself is
+hidden and a preview row appears in the list. Dragging a row out restores the
+draft as a free sticky at the drop point, still expanded or minimised as it
+was, snapped fully on screen. The board
+itself can be minimised to a single row labelled Note Board, which counts the
+rows it is hiding. Hiding stickies still only hides free drafts; docked rows
+stay in the board.
 _Avoid_: note, journal entry, title (brain dumps have no title field)
 
 **Tag**:

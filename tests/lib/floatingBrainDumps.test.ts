@@ -4,7 +4,10 @@ import {
   isBrainDumpSubmitShortcut,
 } from "../../src/lib/brainDumpDraft";
 import {
+  clampDumpToViewport,
   clampFloatingPosition,
+  clampNoteBoardSize,
+  DEFAULT_FLOATING_NOTE_BOARD,
   floatingBrainDumpSizeForText,
   createFloatingDumpWriter,
   createFloatingFromDraft,
@@ -13,15 +16,21 @@ import {
   FLOATING_BRAIN_DUMP_MAX_HEIGHT,
   FLOATING_BRAIN_DUMP_MAX_WIDTH,
   FLOATING_BRAIN_DUMP_MIN_HEIGHT,
+  FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT,
   FLOATING_BRAIN_DUMP_MIN_WIDTH,
   FLOATING_BRAIN_DUMP_PADDING,
   FLOATING_BRAIN_DUMP_WIDTH,
+  FLOATING_NOTE_BOARD_MIN_HEIGHT,
+  FLOATING_NOTE_BOARD_MIN_WIDTH,
   type FloatingBrainDump,
   nextCascadePosition,
   nextZIndex,
   parseFloatingBrainDump,
+  parseFloatingNoteBoard,
   parseFloatingStickyColor,
+  pointInRect,
   reclampFloatingDumps,
+  reclampNoteBoard,
 } from "../../src/lib/floatingBrainDumps";
 
 const enter = {
@@ -68,6 +77,32 @@ describe("clampFloatingPosition", () => {
   });
 });
 
+describe("clampDumpToViewport", () => {
+  it("clamps an expanded undock using the restored height, not the row height", () => {
+    const dump = {
+      minimised: false,
+      width: 280,
+      height: 200,
+    };
+    expect(clampDumpToViewport(dump, 16, 999, 900, 700)).toEqual({
+      x: 16,
+      y: 700 - 200 - FLOATING_BRAIN_DUMP_PADDING,
+    });
+  });
+
+  it("clamps a minimised undock to the collapsed height", () => {
+    const dump = {
+      minimised: true,
+      width: 280,
+      height: 200,
+    };
+    expect(clampDumpToViewport(dump, 16, 999, 900, 700)).toEqual({
+      x: 16,
+      y: 700 - FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT - FLOATING_BRAIN_DUMP_PADDING,
+    });
+  });
+});
+
 describe("floatingBrainDumpSizeForText", () => {
   it("keeps a short note at the minimum size", () => {
     expect(floatingBrainDumpSizeForText("Buy milk")).toEqual({
@@ -108,6 +143,7 @@ describe("nextCascadePosition", () => {
           tagIds: [],
           color: "paper",
           minimised: false,
+          docked: false,
           x: first.x,
           y: first.y,
           zIndex: 1,
@@ -124,28 +160,7 @@ describe("nextZIndex", () => {
   it("returns one above the current top note", () => {
     expect(nextZIndex([])).toBe(1);
     expect(
-      nextZIndex([
-        {
-          id: "a",
-          text: "",
-          tagIds: [],
-          color: "paper",
-          minimised: false,
-          x: 0,
-          y: 0,
-          zIndex: 2,
-        },
-        {
-          id: "b",
-          text: "",
-          tagIds: [],
-          color: "sky",
-          minimised: false,
-          x: 0,
-          y: 0,
-          zIndex: 5,
-        },
-      ]),
+      nextZIndex([{ zIndex: 2 }, { zIndex: 5 }]),
     ).toBe(6);
   });
 });
@@ -163,6 +178,7 @@ describe("createFloatingFromDraft", () => {
       tagIds: [2],
       color: DEFAULT_FLOATING_STICKY_COLOR,
       minimised: false,
+      docked: false,
       x: 96,
       y: 120,
       zIndex: 1,
@@ -184,6 +200,7 @@ describe("reclampFloatingDumps", () => {
         tagIds: [],
         color: "paper" as const,
         minimised: false,
+        docked: false,
         x: 999,
         y: 999,
         zIndex: 1,
@@ -192,6 +209,26 @@ describe("reclampFloatingDumps", () => {
     expect(reclampFloatingDumps(dumps, 900, 700)[0]).toMatchObject({
       x: 900 - FLOATING_BRAIN_DUMP_WIDTH - FLOATING_BRAIN_DUMP_PADDING,
       y: 700 - FLOATING_BRAIN_DUMP_HEIGHT - FLOATING_BRAIN_DUMP_PADDING,
+    });
+  });
+
+  it("leaves docked notes where they were stored", () => {
+    const dumps = [
+      {
+        id: "a",
+        text: "note",
+        tagIds: [],
+        color: "paper" as const,
+        minimised: false,
+        docked: true,
+        x: 999,
+        y: 999,
+        zIndex: 1,
+      },
+    ];
+    expect(reclampFloatingDumps(dumps, 900, 700)[0]).toMatchObject({
+      x: 999,
+      y: 999,
     });
   });
 });
@@ -227,6 +264,7 @@ describe("createFloatingDumpWriter", () => {
     tagIds: [],
     color: "paper",
     minimised: false,
+    docked: false,
     x: 0,
     y: 0,
     zIndex: 1,
@@ -296,6 +334,7 @@ describe("parseFloatingBrainDump", () => {
     expect(parseFloatingBrainDump(base)).toMatchObject({
       color: "paper",
       minimised: false,
+      docked: false,
     });
     expect(parseFloatingBrainDump({ ...base, color: "lilac" })).toMatchObject({
       color: "lilac",
@@ -306,6 +345,86 @@ describe("parseFloatingBrainDump", () => {
     ).toMatchObject({
       color: "paper",
       minimised: true,
+    });
+    expect(
+      parseFloatingBrainDump({ ...base, docked: true }),
+    ).toMatchObject({
+      docked: true,
+    });
+  });
+});
+
+describe("pointInRect", () => {
+  it("includes the edge and rejects points outside", () => {
+    const rect = { left: 10, top: 20, right: 40, bottom: 50 };
+    expect(pointInRect(10, 20, rect)).toBe(true);
+    expect(pointInRect(40, 50, rect)).toBe(true);
+    expect(pointInRect(9, 30, rect)).toBe(false);
+    expect(pointInRect(25, 51, rect)).toBe(false);
+  });
+});
+
+describe("parseFloatingNoteBoard", () => {
+  it("rejects malformed stored boards", () => {
+    expect(parseFloatingNoteBoard(null)).toBeNull();
+    expect(parseFloatingNoteBoard({ x: 1 })).toBeNull();
+  });
+
+  it("reads geometry and defaults minimised off", () => {
+    expect(
+      parseFloatingNoteBoard({
+        x: 16,
+        y: 64,
+        width: 280,
+        height: 200,
+        zIndex: 0,
+      }),
+    ).toEqual({
+      x: 16,
+      y: 64,
+      width: 280,
+      height: 200,
+      minimised: false,
+      zIndex: 0,
+    });
+    expect(
+      parseFloatingNoteBoard({
+        ...DEFAULT_FLOATING_NOTE_BOARD,
+        minimised: true,
+      }),
+    ).toMatchObject({ minimised: true });
+  });
+});
+
+describe("reclampNoteBoard", () => {
+  it("keeps a minimised board's stored height while clamping it on screen", () => {
+    const next = reclampNoteBoard(
+      {
+        x: 999,
+        y: 999,
+        width: 280,
+        height: 200,
+        minimised: true,
+        zIndex: 0,
+      },
+      900,
+      700,
+    );
+    expect(next.height).toBe(200);
+    expect(next.x).toBe(900 - 280 - FLOATING_BRAIN_DUMP_PADDING);
+    expect(next.y).toBe(
+      700 - FLOATING_BRAIN_DUMP_MINIMISED_HEIGHT - FLOATING_BRAIN_DUMP_PADDING,
+    );
+  });
+});
+
+describe("clampNoteBoardSize", () => {
+  it("stops at the minimum expanded size", () => {
+    expect(
+      clampNoteBoardSize(10, 10, 16, 64, 900, 700, false),
+    ).toEqual({
+      width: FLOATING_NOTE_BOARD_MIN_WIDTH,
+      height: FLOATING_NOTE_BOARD_MIN_HEIGHT,
     });
   });
 });

@@ -45,12 +45,17 @@ export function FloatingBrainDumpsProvider({
   const [submitting, setSubmitting] = useState(false);
   const {
     dumps,
+    board,
     hidden,
     toggleHidden,
     addDump,
     updateDump,
     removeDump,
+    dockDump,
+    undockDump,
+    updateBoard,
     bringToFront,
+    bringBoardToFront,
     reclampToBoard,
   } = useFloatingBrainDumps();
 
@@ -121,6 +126,7 @@ export function FloatingBrainDumpsProvider({
       {children}
       <FloatingBrainDumpsBoard
         dumps={dumps}
+        board={board}
         tags={tags}
         hidden={hidden}
         onToggleHidden={toggleHidden}
@@ -132,10 +138,14 @@ export function FloatingBrainDumpsProvider({
         onSizeChange={(id, width, height) =>
           updateDump(id, { width, height })
         }
+        onDock={dockDump}
+        onUndock={undockDump}
+        onBoardChange={updateBoard}
         onPromote={promoteFloatingDump}
         onRemove={removeDump}
         onSubmit={(dump) => void submitFloatingDump(dump)}
         onBringToFront={bringToFront}
+        onBringBoardToFront={bringBoardToFront}
         onViewportResize={handleViewportResize}
       />
     </FloatingBrainDumpsContext.Provider>
