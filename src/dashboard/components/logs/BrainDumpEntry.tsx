@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
+import { brainDumpSummary } from "../../../lib/brainDumpRichText";
 import { updateBrainDumpTags } from "../../../lib/commands";
 import type { BrainDump } from "../../../lib/types";
 import { floatingDraftIcon, tagsIcon } from "../icons";
 import { BrainDumpTags } from "../BrainDumpTags";
 import { useDashboardData } from "../../context/DashboardDataContext";
 import { useFloatingBrainDumpsContext } from "../../context/FloatingBrainDumpsContext";
+import { SavedBrainDumpPopover, type SavedBrainDumpPosition } from "../SavedBrainDump";
 
 export function BrainDumpEntry({
   dump,
@@ -16,11 +18,12 @@ export function BrainDumpEntry({
   onToggle: () => void;
 }) {
   const { tags, mutate } = useDashboardData();
+  const [popoverPosition, setPopoverPosition] = useState<SavedBrainDumpPosition | null>(null);
   const { forkToFloating } = useFloatingBrainDumpsContext();
   const [editingTags, setEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState<number[]>([]);
   const [savingTags, setSavingTags] = useState(false);
-  const title = dump.text.trim().split("\n")[0] || "Brain dump";
+  const summary = brainDumpSummary(dump.text);
 
   const startTagEdit = () => {
     setTagDraft(dump.tags.map((tag) => tag.id));
@@ -42,6 +45,16 @@ export function BrainDumpEntry({
     });
   };
 
+  const openDump = (event: MouseEvent<HTMLButtonElement>) => {
+    setPopoverPosition({ x: event.clientX, y: event.clientY });
+    if (!expanded) onToggle();
+  };
+
+  const closeDump = () => {
+    setPopoverPosition(null);
+    if (expanded) onToggle();
+  };
+
   return (
     <div className="event-dump">
       <div className="event-dump__head">
@@ -49,12 +62,22 @@ export function BrainDumpEntry({
           type="button"
           className="event-dump__toggle"
           aria-expanded={expanded}
-          onClick={onToggle}
+          aria-haspopup="dialog"
+          onClick={openDump}
         >
           <span className="event-dump__chevron" aria-hidden="true">
             {expanded ? "▾" : "▸"}
           </span>
-          <span className="event-dump__title">{title}</span>
+          {dump.tags.length > 0 ? (
+            <span className="event-dump__inline-tags" aria-label="Brain dump tags">
+              {dump.tags.map((tag) => (
+                <span key={tag.id} title={tag.name}>
+                  {tag.name}
+                </span>
+              ))}
+            </span>
+          ) : null}
+          <span className="event-dump__title">{summary}</span>
         </button>
         <button
           type="button"
@@ -92,16 +115,13 @@ export function BrainDumpEntry({
             </button>
           </div>
         </div>
-      ) : (
-        dump.tags.length > 0 && (
-          <div className="event-dump__tags" aria-label="Brain dump tags">
-            {dump.tags.map((tag) => (
-              <span key={tag.id} title={tag.name}>{tag.name}</span>
-            ))}
-          </div>
-        )
-      )}
-      {expanded && <p className="event-dump__text">{dump.text}</p>}
+      ) : null}
+      <SavedBrainDumpPopover
+        dump={dump}
+        open={expanded}
+        position={popoverPosition}
+        onClose={closeDump}
+      />
     </div>
   );
 }

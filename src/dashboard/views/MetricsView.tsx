@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   addMetricToPulse,
   createMetric,
@@ -86,6 +86,9 @@ export function MetricsView() {
   const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [metricIconPickerId, setMetricIconPickerId] = useState<number | null>(null);
+  // Held by whichever control owns the open picker. Testing the shared class
+  // instead let a click on the other control keep both pickers open at once.
+  const openIconControlRef = useRef<HTMLDivElement | null>(null);
   const nowMs = useCurrentTime();
 
   const metricRename = useInlineRename({
@@ -110,8 +113,7 @@ export function MetricsView() {
   useEffect(() => {
     if (!iconPickerOpen && metricIconPickerId === null) return;
     const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (target?.closest(".pulse-icon-control, .metric-icon-control")) return;
+      if (openIconControlRef.current?.contains(event.target as Node)) return;
       setIconPickerOpen(false);
       setMetricIconPickerId(null);
     };
@@ -350,7 +352,10 @@ export function MetricsView() {
             {selectedPulse ? (
               <>
                 <header className="pulse-detail__head">
-                  <div className="pulse-icon-control">
+                  <div
+                    className="pulse-icon-control"
+                    ref={iconPickerOpen ? openIconControlRef : null}
+                  >
                     <button
                       type="button"
                       className="pulse-icon-trigger"
@@ -468,7 +473,14 @@ export function MetricsView() {
                 return (
                   <li className="pulse-metric" key={metric.id}>
                     <div className="metric-identity">
-                      <div className="metric-icon-control">
+                      <div
+                        className="metric-icon-control"
+                        ref={
+                          metricIconPickerId === metric.id
+                            ? openIconControlRef
+                            : null
+                        }
+                      >
                         <button
                           type="button"
                           className="metric-icon-trigger"

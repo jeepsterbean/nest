@@ -87,29 +87,19 @@
   flex-direction: column;
 }
 
-/* Tiny top-center tab — the primary grab for moving the undecorated window. */
+/* Invisible full-width strip along the top edge — the grab for moving the
+   undecorated window. Height stays under the smallest top gutter (the brain
+   dump head's 8px) so it never swallows a click meant for a control. */
 .popup__drag {
   position: absolute;
   top: 0;
-  left: 50%;
+  right: 0;
+  left: 0;
   z-index: 5;
-  width: 28px;
-  height: 10px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 70%, transparent);
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
-  background: color-mix(in srgb, var(--surface-2) 88%, var(--muted));
-  box-shadow: 0 1px 2px rgba(60, 48, 30, 0.08);
-  transform: translateX(-50%);
+  height: 8px;
   cursor: grab;
 }
 
 .popup__drag:active {
   cursor: grabbing;
-}
-
-.popup__drag:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }

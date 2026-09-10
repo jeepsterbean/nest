@@ -1,0 +1,395 @@
+/* ---------- Shared bits ---------- */
+
+.menu-select {
+  position: relative;
+  min-width: 0;
+}
+
+.menu-select__trigger {
+  display: grid;
+  width: 100%;
+  min-height: 36px;
+  grid-template-columns: minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 82%, var(--surface-2));
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.menu-select__trigger:has(.menu-select__marker) {
+  grid-template-columns: 7px minmax(0, 1fr) 12px;
+}
+
+.menu-select__trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.menu-select__trigger:focus-visible {
+  border-color: var(--accent);
+  background: var(--surface);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.menu-select__trigger[aria-expanded="true"] {
+  background: var(--surface);
+}
+
+.menu-select__trigger:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.62;
+}
+
+.menu-select__value,
+.menu-select__placeholder,
+.menu-select__option > span:not(.menu-select__marker):not(.menu-select__check) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-select__placeholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.menu-select__marker,
+.menu-select__chevron,
+.menu-select__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-select__chevron {
+  color: var(--muted);
+  transition: transform 0.14s ease;
+}
+
+.menu-select__chevron svg,
+.menu-select__check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.menu-select__trigger[aria-expanded="true"] .menu-select__chevron {
+  transform: rotate(180deg);
+}
+
+.menu-select__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.menu-select__menu {
+  position: fixed;
+  z-index: 81;
+  display: grid;
+  gap: 1px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
+  box-shadow:
+    0 18px 42px -30px rgba(60, 48, 30, 0.46),
+    0 1px 4px rgba(60, 48, 30, 0.07);
+}
+
+.menu-select__menu--up {
+  transform: translateY(-100%);
+}
+
+.menu-select__option {
+  display: grid;
+  width: 100%;
+  min-height: 26px;
+  grid-template-columns: minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-select__option:has(.menu-select__marker) {
+  grid-template-columns: 7px minmax(0, 1fr) 12px;
+}
+
+.menu-select__option:hover,
+.menu-select__option:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.menu-select__option:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.menu-select__option.is-selected {
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface));
+  color: var(--accent);
+}
+
+.menu-select__check {
+  color: var(--accent);
+}
+
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  outline: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rating-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 23px;
+  height: 21px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rating-pill--v1 { background: color-mix(in srgb, var(--rating-1) 18%, transparent); color: var(--rating-1); }
+.rating-pill--v2 { background: color-mix(in srgb, var(--rating-2) 18%, transparent); color: var(--rating-2); }
+.rating-pill--v3 { background: color-mix(in srgb, var(--rating-3) 20%, transparent); color: var(--rating-3); }
+.rating-pill--v4 { background: color-mix(in srgb, var(--rating-4) 18%, transparent); color: var(--rating-4); }
+.rating-pill--v5 { background: color-mix(in srgb, var(--rating-5) 18%, transparent); color: var(--rating-5); }
+
+.dash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 30px 16px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.dash-empty strong {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+/* ---------- Shared chrome ---------- */
+
+/* One segmented control for every section: Tasks, Logs, Insights, Metrics. */
+.dash-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 10px;
+  margin: 0 0 14px;
+}
+
+.dash-section__head .dash-toolbar {
+  margin: 0;
+}
+
+.view-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.view-toggle__btn {
+  min-width: 38px;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-toggle__btn:hover {
+  color: var(--ink);
+}
+
+.view-toggle__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.view-toggle__btn--active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
+}
+
+.task-status-filter {
+  position: relative;
+}
+
+.task-status-filter__trigger {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.task-status-filter__trigger::-webkit-details-marker {
+  display: none;
+}
+
+.task-status-filter__trigger svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s;
+}
+
+.task-status-filter[open] .task-status-filter__trigger {
+  color: var(--ink);
+}
+
+.task-status-filter[open] .task-status-filter__trigger svg {
+  transform: rotate(180deg);
+}
+
+.task-status-filter__trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.task-table-sort {
+  width: 166px;
+}
+
+.task-table-sort .menu-select__trigger {
+  min-height: 30px;
+  background: var(--surface-2);
+  font-size: 11.5px;
+}
+
+.task-status-filter__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 188px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.task-status-filter__option {
+  display: grid;
+  min-height: 34px;
+  grid-template-columns: 15px 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-status-filter__option:hover {
+  background: var(--surface-2);
+}
+
+.task-status-filter__option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.task-status-filter__option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.task-status-filter__count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filled accent CTA — the "submit new item" button. Size/spacing stay
+   per-instance (each sits in a differently-sized row); color, hover,
+   disabled, and focus behavior are shared so they don't drift again. */
+.btn-accent {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.btn-accent:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.btn-accent:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn-accent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

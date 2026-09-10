@@ -4,16 +4,19 @@ Nest is a private self-care desktop app: Tauri 2 + React + TypeScript on the
 frontend, Rust + SQLite on the backend. Prefer the smallest change that
 preserves calm, private, flow-friendly behavior.
 
-## Read order
+## Context routing
 
-1. **[`.impeccable.md`](./.impeccable.md)** — how it should feel
-2. **[`CONTEXT.md`](./CONTEXT.md)** — domain language and view behavior
-3. **[`UI.md`](./UI.md)** — Nest CSS/component/layout hooks when touching
-   dashboard or popup code
-4. **[`.agents/standards/coding-standards.md`](./.agents/standards/coding-standards.md)** —
-   project-agnostic coding process
-5. **[`.agents/standards/ui-standards.md`](./.agents/standards/ui-standards.md)** —
-   project-agnostic UI craft
+Read the source relevant to the task before changing it. Do not read every
+reference by default.
+
+| Task | Read |
+|---|---|
+| Any implementation | `.agents/standards/coding-standards.md` |
+| Product behavior, domain words, status, Phase, Timer, or Popup | `CONTEXT.md` |
+| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
+| Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
+| Rust, SQLite, IPC, types, migrations, or Task lifecycle | the matching sections below |
+| Open product work | the relevant backlog or `FEATURE-REQUESTS.md` |
 
 ## Which Nest doc to edit
 
@@ -22,20 +25,15 @@ preserves calm, private, flow-friendly behavior.
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | CSS hooks, component constraints, layout constants | `UI.md` |
+| Brain dump editor invariants or library behavior | `docs/editor.md` |
 | Closing, parking, or adding durable open work | `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` |
 | Incoming ideas awaiting triage | `FEATURE-REQUESTS.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
 | Non-obvious implementation constraints | code comments |
 
 Project-agnostic process rules live under `.agents/standards/`, which
-`.claude/standards/` and `.codex/standards/` expose through symlinks. Keep Nest
-feature and path details in root documentation.
-
-Keep domain behavior in `CONTEXT.md`, feel and design principles in
-`.impeccable.md`, and implementation names such as classes, file paths, props,
-and layout constants in `UI.md`. Open work belongs in the backlogs rather than
-`CONTEXT.md`. Design skills read `.impeccable.md`, so keep it short and
-qualitative.
+`.claude/standards/` and `.codex/standards/` expose through symlinks. Keep
+each fact in its closest authoritative source and link to it elsewhere.
 
 ## Package manager
 
@@ -108,16 +106,19 @@ qualitative.
   last-hour summary plus dump capture; Calendar is the Day/Week timetable;
   Insights is the ranged Phase mix, per-day Worked time grouped by status as
   of that day's end, and Metric check-in scores; Logs is filtered history.
-- Tasks UI layouts are Kanban and Table only. Table is the default; the last
+- Tasks UI layouts are Table and Map only. Table is the default; the last
   chosen layout is remembered (`nest:task-view`). Table column order and widths
-  persist (`nest:task-table`). `taskGraph` / `TaskGraphProjection` indexes
-  Parent/Child and Blocker/Dependent edges for those layouts and the detail
-  panel; it is not a canvas view.
+  persist (`nest:task-table`); Map placement and pan/zoom persist
+  (`nest:task-map-v2`, `nest:task-map-view`). `taskGraph` /
+  `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
+  both layouts and the detail panel. The Map is a pan/zoom canvas that draws
+  those edges as an SVG overlay; its hooks and constants live in `UI.md`.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view
   components.
-- Styles: dashboard in `src/dashboard/Dashboard.css`, popup in
+- Styles: dashboard CSS is imported through `src/dashboard/Dashboard.css`, with
+  section files under `src/dashboard/styles/`; popup CSS lives in
   `src/popup/PopupContent.css` and `src/popup/Popup.css`. Prefer extending
   existing class patterns over inventing parallel systems. Do not add a CSS
   framework unless explicitly requested.
@@ -149,3 +150,5 @@ qualitative.
   - `cargo check` when a full test run is disproportionate
 - There is no separate JS lint script today; rely on TypeScript strictness and
   tests. Do not add ESLint or Prettier unless requested.
+- For Brain dump editor changes and editor dependency upgrades, use
+  `.agents/skills/brain-dump-text-editor/SKILL.md`.

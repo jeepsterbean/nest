@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
-import { isQuietPhase } from "../lib/period";
+import { isQuietPhase, phaseIcon, phaseName } from "../lib/period";
 import { formatTime, shiftDayMs } from "../lib/time";
 import {
   groupByDay,
@@ -22,6 +22,7 @@ function timelineMarkLabel(
   event: TimelineLogEvent,
   pulses: Pulse[],
   tasks: Task[],
+  phases: Phase[],
 ) {
   switch (event.kind) {
     case "metrics": {
@@ -33,6 +34,8 @@ function timelineMarkLabel(
     }
     case "dump":
       return "Brain dump";
+    case "phase":
+      return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
     case "work-start":
       return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
     case "work-stop":
@@ -44,12 +47,14 @@ function TimelineMark({
   event,
   pulses,
   tasks,
+  phases,
 }: {
   event: TimelineLogEvent;
   pulses: Pulse[];
   tasks: Task[];
+  phases: Phase[];
 }) {
-  const label = timelineMarkLabel(event, pulses, tasks);
+  const label = timelineMarkLabel(event, pulses, tasks, phases);
   const pulse =
     event.kind === "metrics" && event.checkIn.pulseId !== null
       ? pulses.find((item) => item.id === event.checkIn.pulseId)
@@ -66,6 +71,14 @@ function TimelineMark({
         <NestIcon name={pulse?.icon ?? "activity"} />
       ) : event.kind === "dump" ? (
         <NestIcon name="notes" />
+      ) : event.kind === "phase" ? (
+        <NestIcon
+          name={phaseIcon(
+            event.checkIn.phaseId,
+            phases,
+            event.checkIn.phaseLabel,
+          )}
+        />
       ) : event.kind === "work-start" ? (
         <PlayMarkIcon />
       ) : (
@@ -80,7 +93,9 @@ const eventKey = (event: TimelineLogEvent) =>
     ? `metrics-${event.checkIn.id}`
     : event.kind === "dump"
       ? `dump-${event.dump.id}`
-      : `${event.kind}-${event.stretch.id}`;
+      : event.kind === "phase"
+        ? `phase-${event.checkIn.id}`
+        : `${event.kind}-${event.stretch.id}`;
 
 export function DayExportButton({
   label,
@@ -204,7 +219,12 @@ export const LogsTimeline = memo(function LogsTimeline({
                   </time>
                 </div>
                 <div className="logs-chrono__event">
-                  <TimelineMark event={event} pulses={pulses} tasks={tasks} />
+                  <TimelineMark
+                    event={event}
+                    pulses={pulses}
+                    tasks={tasks}
+                    phases={phases}
+                  />
                   <LogEventDetail
                     event={event}
                     phases={phases}

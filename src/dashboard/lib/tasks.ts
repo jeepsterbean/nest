@@ -44,11 +44,6 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: "Cancelled",
 };
 
-export const TASK_STATUS_FILTERS = TASK_STATUSES.map((status) => ({
-  key: status,
-  label: TASK_STATUS_LABEL[status],
-}));
-
 export type TaskTableSort = "updated" | "status";
 
 const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {

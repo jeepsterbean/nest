@@ -32,6 +32,10 @@ hooks, and layout constants belong in the project's root documentation.
 - Keep destructive actions explicit and recoverable where practical.
 - Preserve user input across navigation and changes in presentation.
 - Never start a drag from a nested interactive control.
+- Dismiss menus and popovers by testing a ref the component owns, never a
+  shared class selector. The same component can be mounted several times at
+  once, and `closest('.shared-class')` then reads another instance's element as
+  "inside", so the popover never closes.
 
 ## Cleanup
 

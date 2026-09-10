@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
+import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
@@ -49,6 +50,7 @@ import { phaseName, phaseTone } from "../dashboard/lib/period";
 import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
+import { useTileIcons } from "../dashboard/hooks/useTileIcons";
 import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
@@ -62,16 +64,15 @@ import {
   useBrainDumpDraft,
   useRecentBrainDumpHistory,
 } from "../lib/brainDumpDraft";
+import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
-import {
-  BrainDumpTags,
-  useComposerTagProps,
-} from "../dashboard/components/BrainDumpTags";
+import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
+import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 
@@ -96,9 +97,7 @@ type LoadState = {
 
 const loadTodayStretches = (nowMs: number = Date.now()) => {
   const now = Math.floor(nowMs / 1000);
-  const from = Math.floor(
-    new Date(nowMs).setHours(0, 0, 0, 0) / 1000,
-  );
+  const from = Math.floor(new Date(nowMs).setHours(0, 0, 0, 0) / 1000);
   return listTaskWorkStretches(from, now + 1);
 };
 
@@ -195,6 +194,30 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   return !(target as Element).closest(
     "button, [role='listbox'], a, input, textarea",
   );
+}
+
+export type PopupPanelId = "clock" | "tasks" | "dump";
+
+export const POPUP_PANELS: { id: PopupPanelId; label: string }[] = [
+  { id: "clock", label: "Timer" },
+  { id: "tasks", label: "Tasks" },
+  { id: "dump", label: "Brain dump" },
+];
+
+/** Keep in sync with --popup-stub-width in PopupContent.css. */
+const POPUP_STUB_WIDTH = 20;
+
+/** Hidden panels shrink to their stub rail; the rest keep their full width. */
+export function popupPanelColumns(hidden: Set<PopupPanelId>): string {
+  return POPUP_PANELS.map(({ id }) =>
+    hidden.has(id) ? `${POPUP_STUB_WIDTH}px` : "minmax(0, 1fr)",
+  ).join(" ");
+}
+
+/** The window sheds a whole panel per hidden id, keeping only its stub rail. */
+export function popupWindowWidth(fullWidth: number, hiddenCount: number) {
+  const panelWidth = fullWidth / POPUP_PANELS.length;
+  return fullWidth - hiddenCount * (panelWidth - POPUP_STUB_WIDTH);
 }
 
 /** Close an open overlay when the pointer lands outside its keep-alive root. */
@@ -339,7 +362,12 @@ export function PopupTopPanel({
               aria-hidden="true"
               focusable="false"
             >
-              <circle className="combined-timer__bezel" cx="50" cy="50" r="46" />
+              <circle
+                className="combined-timer__bezel"
+                cx="50"
+                cy="50"
+                r="46"
+              />
               {remainingRatio > 0 && (
                 <circle
                   className="combined-timer__sweep"
@@ -448,7 +476,7 @@ function setHeldMetricDue(
  */
 function PopupBrainDump({
   tags,
-  textareaRef,
+  editorRef,
   busy,
   onBusyChange,
   onError,
@@ -456,7 +484,7 @@ function PopupBrainDump({
   onTabForward,
 }: {
   tags: Tag[];
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  editorRef: RefObject<HTMLElement | null>;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
   onError: (error: string | null) => void;
@@ -464,7 +492,9 @@ function PopupBrainDump({
   onTabForward: () => void;
 }) {
   const [draft, setDraft] = useBrainDumpDraft();
-  const history = useRecentBrainDumpHistory(draft.text, onError);
+  const icons = useTileIcons();
+  const draftRevision = `${draft.text}\n${draft.tagIds.join(",")}`;
+  const history = useRecentBrainDumpHistory(draft.text, onError, draftRevision);
   const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
   const handleTagsChange = useCallback(
     (tagIds: number[]) => setDraft((current) => ({ ...current, tagIds })),
@@ -472,12 +502,11 @@ function PopupBrainDump({
   );
 
   const submitDraft = async () => {
-    const text = trimBrainDumpDraft(draft);
-    if (busy || !text) return;
+    if (busy || !trimBrainDumpDraft(draft)) return;
     onBusyChange(true);
     onError(null);
     try {
-      await submitBrainDump(text, draft.tagIds);
+      await submitBrainDump(draft.text, draft.tagIds);
       setDraft({ text: "", tagIds: [] });
       await history.refresh();
       await emit("data-changed");
@@ -489,59 +518,55 @@ function PopupBrainDump({
   };
 
   return (
-    <>
-      <BrainDumpHistoryControls
-        canViewPrevious={history.canViewPrevious}
-        canViewNext={history.canViewNext}
-        onPrevious={history.showPrevious}
-        onNext={history.showNext}
-        submittedAt={history.viewingDump?.createdAt}
-      />
-      <textarea
-        ref={textareaRef}
-        id="popup-brain-dump"
-        className="combined-input"
-        aria-label={
-          history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+    <BrainDumpSurface
+      className="brain-dump-surface--popup"
+      text={history.text}
+      tagIds={tagProps.selectedIds}
+      tags={tagProps.tags}
+      readOnly={history.viewingHistory}
+      tagsDisabled={history.viewingHistory}
+      headerStart={
+        <span className="brain-dump-surface__header-icon" aria-hidden="true">
+          <NestIcon name={icons.brainDump} />
+        </span>
+      }
+      textareaLabel={
+        history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+      }
+      headerEnd={
+        <BrainDumpHistoryControls
+          canViewPrevious={history.canViewPrevious}
+          canViewNext={history.canViewNext}
+          onPrevious={history.showPrevious}
+          onNext={history.showNext}
+          submittedAt={history.viewingDump?.createdAt}
+        />
+      }
+      onTextChange={(text) => setDraft((current) => ({ ...current, text }))}
+      onTagsChange={handleTagsChange}
+      dismissPopupsOnOutsideInteraction
+      onKeyDown={(event) => {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          if (event.shiftKey) onTabBack();
+          else onTabForward();
+          return;
         }
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        value={history.text}
-        readOnly={history.viewingHistory}
-        onChange={(event) =>
-          setDraft((current) => ({ ...current, text: event.target.value }))
+        if (
+          !history.viewingHistory &&
+          isBrainDumpSubmitShortcut({
+            key: event.key,
+            metaKey: event.metaKey,
+            ctrlKey: event.ctrlKey,
+            isComposing: event.nativeEvent.isComposing,
+          })
+        ) {
+          event.preventDefault();
+          void submitDraft();
         }
-        onKeyDown={(event) => {
-          if (event.key === "Tab") {
-            event.preventDefault();
-            if (event.shiftKey) onTabBack();
-            else onTabForward();
-            return;
-          }
-          if (
-            !history.viewingHistory &&
-            isBrainDumpSubmitShortcut({
-              key: event.key,
-              metaKey: event.metaKey,
-              ctrlKey: event.ctrlKey,
-              isComposing: event.nativeEvent.isComposing,
-            })
-          ) {
-            event.preventDefault();
-            void submitDraft();
-          }
-        }}
-      />
-
-      <BrainDumpTags
-        tags={tagProps.tags}
-        selectedIds={tagProps.selectedIds}
-        disabled={history.viewingHistory}
-        onChange={handleTagsChange}
-      />
-    </>
+      }}
+      editorRef={editorRef}
+    />
   );
 }
 
@@ -563,8 +588,18 @@ function PopupContent({
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
+  // Per-summon only: the body remounts on every summon, so all three panels
+  // come back on their own without persisting or resetting anything here.
+  const [hiddenPanels, setHiddenPanels] = useState<Set<PopupPanelId>>(
+    () => new Set(),
+  );
+  // Measured before anything collapses. The backend restores the configured
+  // size on every hide, so a freshly summoned popup is always at full width.
+  const fullPopupSizeRef = useRef<{ width: number; height: number } | null>(
+    null,
+  );
   const taskInputRef = useRef<HTMLInputElement | null>(null);
-  const brainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const brainDumpRef = useRef<HTMLElement | null>(null);
   const pulseButtonsRef = useRef<HTMLDivElement | null>(null);
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -573,15 +608,29 @@ function PopupContent({
   const taskScrollThumbRef = useRef<HTMLDivElement | null>(null);
   const liveTasksRef = useRef<HTMLDivElement | null>(null);
   const stickToLiveRef = useRef(true);
+  useEffect(() => {
+    const full = (fullPopupSizeRef.current ??= {
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    });
+    void getCurrentWindow()
+      .setSize(
+        new LogicalSize(
+          popupWindowWidth(full.width, hiddenPanels.size),
+          full.height,
+        ),
+      )
+      .catch((error) => console.error("nest popup resize failed", error));
+  }, [hiddenPanels]);
+
   const isLoaded = loaded !== null;
   const enabledPulseButtons = () =>
     pulseButtonsRef.current?.querySelectorAll<HTMLButtonElement>(
       "button:not(:disabled)",
     );
   const hiddenPulseIds = readHiddenPulseIds();
-  const visiblePulses = loaded?.pulses.filter(
-    (pulse) => !hiddenPulseIds.has(pulse.id),
-  ) ?? [];
+  const visiblePulses =
+    loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
@@ -594,7 +643,7 @@ function PopupContent({
   // Nobody's working: nudge the row that would start one, active first.
   const nudgeTaskId =
     workingTasks.length === 0
-      ? (idleActiveTasks[0] ?? upNextTasks[0])?.id ?? null
+      ? ((idleActiveTasks[0] ?? upNextTasks[0])?.id ?? null)
       : null;
   const recentClosed = recentlyClosedTasks(loaded?.tasks ?? [], nowMs);
   const recentClosedKey = recentClosed.map((task) => task.id).join(",");
@@ -636,11 +685,31 @@ function PopupContent({
       listPhases(true),
       latestPhaseCheckIn(),
     ])
-      .then(([metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase]) => {
-        if (cancelled) return;
-        setLoaded({ metrics, pulses, tasks, workStretches, timer, tags, phases, latestPhase });
-        setError(null);
-      })
+      .then(
+        ([
+          metrics,
+          pulses,
+          tasks,
+          workStretches,
+          timer,
+          tags,
+          phases,
+          latestPhase,
+        ]) => {
+          if (cancelled) return;
+          setLoaded({
+            metrics,
+            pulses,
+            tasks,
+            workStretches,
+            timer,
+            tags,
+            phases,
+            latestPhase,
+          });
+          setError(null);
+        },
+      )
       .catch((e) => {
         if (!cancelled) setError(String(e));
       });
@@ -682,8 +751,7 @@ function PopupContent({
       const brainDump = brainDumpRef.current;
       if (brainDump) {
         brainDump.focus();
-        const end = brainDump.value.length;
-        brainDump.setSelectionRange(end, end);
+        setContentEditableCaretToEnd(brainDump);
       }
     });
   }, [isLoaded]);
@@ -895,9 +963,7 @@ function PopupContent({
       // Reconcile as soon as create commits so a later start/stretch failure
       // cannot hide the row and leave a retryable draft (duplicate tasks).
       setLoaded((current) =>
-        current
-          ? { ...current, tasks: [...current.tasks, task] }
-          : current,
+        current ? { ...current, tasks: [...current.tasks, task] } : current,
       );
       setTaskTitle("");
       setAddingTask(false);
@@ -975,9 +1041,15 @@ function PopupContent({
   }
 
   const currentPhaseName = loaded.latestPhase
-    ? phaseName(loaded.latestPhase.phaseId, loaded.phases, loaded.latestPhase.phaseLabel)
+    ? phaseName(
+        loaded.latestPhase.phaseId,
+        loaded.phases,
+        loaded.latestPhase.phaseLabel,
+      )
     : null;
-  const isDoing = currentPhaseName ? phaseTone(currentPhaseName) === "doing" : false;
+  const isDoing = currentPhaseName
+    ? phaseTone(currentPhaseName) === "doing"
+    : false;
 
   const workingCount = workingTasks.length;
   // Working tasks lead as hero rows: the one thing the popup wants you to
@@ -1090,10 +1162,7 @@ function PopupContent({
     </li>
   );
   const renderClosedRow = (task: Task) => (
-    <li
-      className={`now-task now-task--${task.status}`}
-      key={task.id}
-    >
+    <li className={`now-task now-task--${task.status}`} key={task.id}>
       <div className="now-task__mark now-task__lead" aria-hidden="true">
         {task.status === "completed" ? <CheckIcon /> : <CancelledMark />}
       </div>
@@ -1118,152 +1187,160 @@ function PopupContent({
         <ul className="now-hero-list">{workingTasks.map(renderHeroRow)}</ul>
       )}
       <div className="now-card__scroller">
-      <div
-        className="now-card__tasks"
-        ref={taskListRef}
-        onScroll={() => {
-          const list = taskListRef.current;
-          const live = liveTasksRef.current;
-          if (list && live) {
-            stickToLiveRef.current = list.scrollTop >= live.offsetTop - 2;
-          }
-          syncTaskListThumb();
-        }}
-      >
-        {recentClosed.length > 0 && (
-          <section
-            className="now-group now-group--closed"
-            aria-labelledby="popup-done-tasks"
-          >
-            <header className="now-group__head">
-              <h2 id="popup-done-tasks">Done</h2>
-              <span>{recentClosed.length}</span>
-            </header>
-            <ul className="now-list">{recentClosed.map(renderClosedRow)}</ul>
-          </section>
-        )}
-        <div className="now-card__live" ref={liveTasksRef}>
-          <section className="now-group" aria-labelledby="popup-active-tasks">
-          <header className="now-group__head">
-            <h2 id="popup-active-tasks">Active</h2>
-            <span>{activeTasks.length}</span>
-            {workingCount > 0 && (
-              <button
-                type="button"
-                tabIndex={-1}
-                className="now-group__rest"
-                aria-label={`Rest — stop ${workingCount} working ${workingCount === 1 ? "task" : "tasks"}`}
-                title="Rest — stop all working tasks"
-                disabled={submitting}
-                onClick={() => void restAllWorking()}
-              >
-                <NestIcon name="moon" />
-              </button>
-            )}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="now-group__add"
-              aria-label="Add active task"
-              aria-expanded={addingTask}
-              title="Add active task"
-              onClick={() => {
-                setAddingTask((open) => !open);
-                if (!addingTask) {
-                  requestAnimationFrame(() => taskInputRef.current?.focus());
-                }
-              }}
-            >
-              +
-            </button>
-          </header>
-          {addingTask && (
-            <div className="now-task now-task--composer">
-              <input
-                ref={taskInputRef}
-                tabIndex={-1}
-                aria-label="New active task"
-                autoComplete="off"
-                disabled={submitting}
-                placeholder="Add an active task…"
-                value={taskTitle}
-                onChange={(event) => setTaskTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void addTask(event.metaKey || event.ctrlKey);
-                  } else if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setAddingTask(false);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="Create task"
-                title="Create task"
-                disabled={submitting || !taskTitle.trim()}
-                onClick={() => void addTask()}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="Create and start task"
-                title="Create and start (⌘↵)"
-                disabled={submitting || !taskTitle.trim()}
-                onClick={() => void addTask(true)}
-              >
-                <PlayIcon />
-              </button>
-            </div>
-          )}
-          {idleActiveTasks.length === 0 ? (
-            <p
-              className={`now-card__empty${
-                boardSort.overId === EMPTY_ACTIVE_ROW ? " is-drop-target" : ""
-              }`}
-              {...boardSort.rowProps(EMPTY_ACTIVE_ROW)}
-            >
-              {workingTasks.length > 0
-                ? "Nothing else active right now."
-                : "Nothing active right now."}
-            </p>
-          ) : (
-            <ul className="now-list">{idleActiveTasks.map(renderTaskRow)}</ul>
-          )}
-        </section>
-        <section
-          className="now-group now-group--up-next"
-          aria-labelledby="popup-up-next-tasks"
+        <div
+          className="now-card__tasks"
+          ref={taskListRef}
+          onScroll={() => {
+            const list = taskListRef.current;
+            const live = liveTasksRef.current;
+            if (list && live) {
+              stickToLiveRef.current = list.scrollTop >= live.offsetTop - 2;
+            }
+            syncTaskListThumb();
+          }}
         >
-          <header className="now-group__head">
-            <h2 id="popup-up-next-tasks">Up next</h2>
-            <span>{upNextTasks.length}</span>
-          </header>
-          {upNextTasks.length === 0 ? (
-            <p
-              className={`now-card__empty${
-                boardSort.overId === EMPTY_UP_NEXT_ROW ? " is-drop-target" : ""
-              }`}
-              {...boardSort.rowProps(EMPTY_UP_NEXT_ROW)}
+          {recentClosed.length > 0 && (
+            <section
+              className="now-group now-group--closed"
+              aria-labelledby="popup-done-tasks"
             >
-              Nothing queued up next.
-            </p>
-          ) : (
-            <ul className="now-list">{upNextTasks.map(renderTaskRow)}</ul>
+              <header className="now-group__head">
+                <h2 id="popup-done-tasks">Done</h2>
+                <span>{recentClosed.length}</span>
+              </header>
+              <ul className="now-list">{recentClosed.map(renderClosedRow)}</ul>
+            </section>
           )}
-        </section>
+          <div className="now-card__live" ref={liveTasksRef}>
+            <section className="now-group" aria-labelledby="popup-active-tasks">
+              <header className="now-group__head">
+                <h2 id="popup-active-tasks">Active</h2>
+                <span>{activeTasks.length}</span>
+                {workingCount > 0 && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="now-group__rest"
+                    aria-label={`Rest — stop ${workingCount} working ${workingCount === 1 ? "task" : "tasks"}`}
+                    title="Rest — stop all working tasks"
+                    disabled={submitting}
+                    onClick={() => void restAllWorking()}
+                  >
+                    <NestIcon name="moon" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="now-group__add"
+                  aria-label="Add active task"
+                  aria-expanded={addingTask}
+                  title="Add active task"
+                  onClick={() => {
+                    setAddingTask((open) => !open);
+                    if (!addingTask) {
+                      requestAnimationFrame(() =>
+                        taskInputRef.current?.focus(),
+                      );
+                    }
+                  }}
+                >
+                  +
+                </button>
+              </header>
+              {addingTask && (
+                <div className="now-task now-task--composer">
+                  <input
+                    ref={taskInputRef}
+                    tabIndex={-1}
+                    aria-label="New active task"
+                    autoComplete="off"
+                    disabled={submitting}
+                    placeholder="Add an active task…"
+                    value={taskTitle}
+                    onChange={(event) => setTaskTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void addTask(event.metaKey || event.ctrlKey);
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setAddingTask(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label="Create task"
+                    title="Create task"
+                    disabled={submitting || !taskTitle.trim()}
+                    onClick={() => void addTask()}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label="Create and start task"
+                    title="Create and start (⌘↵)"
+                    disabled={submitting || !taskTitle.trim()}
+                    onClick={() => void addTask(true)}
+                  >
+                    <PlayIcon />
+                  </button>
+                </div>
+              )}
+              {idleActiveTasks.length === 0 ? (
+                <p
+                  className={`now-card__empty${
+                    boardSort.overId === EMPTY_ACTIVE_ROW
+                      ? " is-drop-target"
+                      : ""
+                  }`}
+                  {...boardSort.rowProps(EMPTY_ACTIVE_ROW)}
+                >
+                  {workingTasks.length > 0
+                    ? "Nothing else active right now."
+                    : "Nothing active right now."}
+                </p>
+              ) : (
+                <ul className="now-list">
+                  {idleActiveTasks.map(renderTaskRow)}
+                </ul>
+              )}
+            </section>
+            <section
+              className="now-group now-group--up-next"
+              aria-labelledby="popup-up-next-tasks"
+            >
+              <header className="now-group__head">
+                <h2 id="popup-up-next-tasks">Up next</h2>
+                <span>{upNextTasks.length}</span>
+              </header>
+              {upNextTasks.length === 0 ? (
+                <p
+                  className={`now-card__empty${
+                    boardSort.overId === EMPTY_UP_NEXT_ROW
+                      ? " is-drop-target"
+                      : ""
+                  }`}
+                  {...boardSort.rowProps(EMPTY_UP_NEXT_ROW)}
+                >
+                  Nothing queued up next.
+                </p>
+              ) : (
+                <ul className="now-list">{upNextTasks.map(renderTaskRow)}</ul>
+              )}
+            </section>
+          </div>
         </div>
-      </div>
-      <div
-        className="now-card__scroll-thumb"
-        ref={taskScrollThumbRef}
-        aria-hidden="true"
-      />
+        <div
+          className="now-card__scroll-thumb"
+          ref={taskScrollThumbRef}
+          aria-hidden="true"
+        />
       </div>
     </section>
   );
@@ -1278,9 +1355,43 @@ function PopupContent({
         timerRemainingSeconds(loaded.timer.nextDueAt, nowMs) /
           (loaded.timer.intervalMinutes * 60),
       );
+  const togglePanel = (id: PopupPanelId) =>
+    setHiddenPanels((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const hideButton = (id: PopupPanelId, label: string) => (
+    <button
+      type="button"
+      tabIndex={-1}
+      className="popup-panel__hide"
+      aria-label={`Hide ${label}`}
+      title={`Hide ${label}`}
+      onClick={() => togglePanel(id)}
+    >
+      <CancelledMark />
+    </button>
+  );
+
+  const panelStub = (id: PopupPanelId, label: string) => (
+    <button
+      type="button"
+      tabIndex={-1}
+      className="popup-stub"
+      aria-label={`Show ${label}`}
+      title={`Show ${label}`}
+      onClick={() => togglePanel(id)}
+    >
+      <ExpandIcon />
+    </button>
+  );
+
   return (
     <div
       className="popup-workspace"
+      style={{ gridTemplateColumns: popupPanelColumns(hiddenPanels) }}
       onPointerDownCapture={(event) => {
         const target = event.target;
         // Anchor (circle + list), not full-height __main — clock chrome counts as away.
@@ -1304,73 +1415,90 @@ function PopupContent({
         }
       }}
     >
-      <aside className="popup-clock">
-        <PopupTopPanel
-          timerDue={timerDue}
-          countdown={countdown}
-          remainingRatio={remainingRatio}
-          timerPickerOpen={timerPickerOpen}
-          schedulingTimer={schedulingTimer}
-          selectedInterval={loaded.timer.intervalMinutes}
-          timerButtonRef={timerButtonRef}
-          dashboardButtonRef={dashboardButtonRef}
-          onTimerPickerOpenChange={setTimerPickerOpen}
-          onSelectInterval={(minutes) => void applyTimer(minutes)}
-          onTimerPrevious={() => {
-            const buttons = enabledPulseButtons();
-            const previous = buttons?.item((buttons?.length ?? 0) - 1);
-            (previous ?? brainDumpRef.current)?.focus();
-          }}
-          onDashboardNext={() => brainDumpRef.current?.focus()}
-          onOpenDashboard={() => void openDashboard()}
-        />
-      </aside>
+      {hiddenPanels.has("clock") ? (
+        panelStub("clock", "Timer")
+      ) : (
+        <aside className="popup-clock">
+          {hideButton("clock", "Timer")}
+          <PopupTopPanel
+            timerDue={timerDue}
+            countdown={countdown}
+            remainingRatio={remainingRatio}
+            timerPickerOpen={timerPickerOpen}
+            schedulingTimer={schedulingTimer}
+            selectedInterval={loaded.timer.intervalMinutes}
+            timerButtonRef={timerButtonRef}
+            dashboardButtonRef={dashboardButtonRef}
+            onTimerPickerOpenChange={setTimerPickerOpen}
+            onSelectInterval={(minutes) => void applyTimer(minutes)}
+            onTimerPrevious={() => {
+              const buttons = enabledPulseButtons();
+              const previous = buttons?.item((buttons?.length ?? 0) - 1);
+              (previous ?? brainDumpRef.current)?.focus();
+            }}
+            onDashboardNext={() => brainDumpRef.current?.focus()}
+            onOpenDashboard={() => void openDashboard()}
+          />
+        </aside>
+      )}
 
-      <main className="popup-tasks">
-        <AmbientVisualizer
-          active={isDoing}
-          style={backgroundStyle}
-          tuning={backgroundTuning}
-        />
-        <MetricCheckIn
-          metrics={loaded.metrics}
-          pulses={visiblePulses}
-          submitting={submitting}
-          due={metricDue}
-          emptyCopy={
-            loaded.pulses.length
-              ? "No pulses are shown in the popup. Turn one on in Metrics."
-              : "Create a pulse in the Metrics dashboard."
-          }
-          onComplete={completePopup}
-          pulseButtonsRef={pulseButtonsRef}
-          selectedPulseButtonRef={selectedPulseButtonRef}
-          onTabBack={() => brainDumpRef.current?.focus()}
-          onTabForward={() => timerButtonRef.current?.focus()}
-        />
+      {hiddenPanels.has("tasks") ? (
+        panelStub("tasks", "Tasks")
+      ) : (
+        <main className="popup-tasks">
+          {hideButton("tasks", "Tasks")}
+          <AmbientVisualizer
+            active={isDoing}
+            style={backgroundStyle}
+            tuning={backgroundTuning}
+          />
+          <MetricCheckIn
+            metrics={loaded.metrics}
+            pulses={visiblePulses}
+            submitting={submitting}
+            due={metricDue}
+            emptyCopy={
+              loaded.pulses.length
+                ? "No pulses are shown in the popup. Turn one on in Metrics."
+                : "Create a pulse in the Metrics dashboard."
+            }
+            onComplete={completePopup}
+            pulseButtonsRef={pulseButtonsRef}
+            selectedPulseButtonRef={selectedPulseButtonRef}
+            onTabBack={() => brainDumpRef.current?.focus()}
+            onTabForward={() => timerButtonRef.current?.focus()}
+          />
 
-        {taskView}
-      </main>
+          {taskView}
+        </main>
+      )}
 
-      <section className="popup-dump" aria-label="Brain dump">
-        <PopupBrainDump
-          tags={loaded?.tags ?? EMPTY_TAGS}
-          textareaRef={brainDumpRef}
-          busy={submitting}
-          onBusyChange={setSubmitting}
-          onError={setError}
-          onTabBack={() => dashboardButtonRef.current?.focus()}
-          onTabForward={() =>
-            (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus()
-          }
-        />
+      {hiddenPanels.has("dump") ? (
+        panelStub("dump", "Brain dump")
+      ) : (
+        <section className="popup-dump" aria-label="Brain dump">
+          {hideButton("dump", "Brain dump")}
+          <PopupBrainDump
+            tags={loaded?.tags ?? EMPTY_TAGS}
+            editorRef={brainDumpRef}
+            busy={submitting}
+            onBusyChange={setSubmitting}
+            onError={setError}
+            onTabBack={() => dashboardButtonRef.current?.focus()}
+            onTabForward={() =>
+              (
+                selectedPulseButtonRef.current ?? timerButtonRef.current
+              )?.focus()
+            }
+          />
 
-        {error && (
-          <div className="popup-workspace__error" role="alert">
-            {error}
-          </div>
-        )}
-      </section>
+          {error && (
+            <div className="popup-workspace__error" role="alert">
+              {error}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

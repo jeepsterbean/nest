@@ -7,12 +7,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   createFloatingFromDraft,
   useFloatingBrainDumps,
   type FloatingBrainDump,
 } from "../../lib/floatingBrainDumps";
 import { submitBrainDump } from "../../lib/commands";
+import { trimBrainDumpHtml } from "../../lib/brainDumpRichText";
 import {
   getBrainDumpDraft,
   setBrainDumpDraft,
@@ -43,10 +45,17 @@ export function FloatingBrainDumpsProvider({
   const [submitting, setSubmitting] = useState(false);
   const {
     dumps,
+    board,
+    hidden,
+    toggleHidden,
     addDump,
     updateDump,
     removeDump,
+    dockDump,
+    undockDump,
+    updateBoard,
     bringToFront,
+    bringBoardToFront,
     reclampToBoard,
   } = useFloatingBrainDumps();
 
@@ -83,19 +92,27 @@ export function FloatingBrainDumpsProvider({
     (dump: FloatingBrainDump) => {
       const mainDraft = getBrainDumpDraft();
       const mainEmpty = !trimBrainDumpDraft(mainDraft);
-      setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
-      if (mainEmpty) removeDump(dump.id);
-      else updateDump(dump.id, { text: mainDraft.text, tagIds: mainDraft.tagIds });
+      // Commit the swap synchronously so a rapid second click sees the updated
+      // sticky content instead of reusing the pre-swap snapshot.
+      flushSync(() => {
+        setBrainDumpDraft({ text: dump.text, tagIds: dump.tagIds });
+        if (mainEmpty) removeDump(dump.id);
+        else {
+          updateDump(dump.id, {
+            text: mainDraft.text,
+            tagIds: mainDraft.tagIds,
+          });
+        }
+      });
     },
     [removeDump, updateDump],
   );
 
   const submitFloatingDump = useCallback(
     async (dump: FloatingBrainDump) => {
-      const text = dump.text.trim();
-      if (!text || submitting) return;
+      if (!trimBrainDumpHtml(dump.text) || submitting) return;
       setSubmitting(true);
-      const ok = await mutate(() => submitBrainDump(text, dump.tagIds));
+      const ok = await mutate(() => submitBrainDump(dump.text, dump.tagIds));
       if (ok) removeDump(dump.id);
       setSubmitting(false);
     },
@@ -109,18 +126,26 @@ export function FloatingBrainDumpsProvider({
       {children}
       <FloatingBrainDumpsBoard
         dumps={dumps}
+        board={board}
         tags={tags}
+        hidden={hidden}
+        onToggleHidden={toggleHidden}
         onTextChange={(id, text) => updateDump(id, { text })}
         onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
         onColorChange={(id, color) => updateDump(id, { color })}
+        onMinimisedChange={(id, minimised) => updateDump(id, { minimised })}
         onPositionChange={(id, x, y) => updateDump(id, { x, y })}
         onSizeChange={(id, width, height) =>
           updateDump(id, { width, height })
         }
+        onDock={dockDump}
+        onUndock={undockDump}
+        onBoardChange={updateBoard}
         onPromote={promoteFloatingDump}
         onRemove={removeDump}
         onSubmit={(dump) => void submitFloatingDump(dump)}
         onBringToFront={bringToFront}
+        onBringBoardToFront={bringBoardToFront}
         onViewportResize={handleViewportResize}
       />
     </FloatingBrainDumpsContext.Provider>

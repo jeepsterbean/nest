@@ -2,7 +2,7 @@ import { moveItem } from "../../lib/reorder";
 
 export const TASK_VIEWS = [
   { key: "table", label: "Table" },
-  { key: "kanban", label: "Kanban" },
+  { key: "map", label: "Map" },
 ] as const;
 
 export type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
@@ -58,7 +58,7 @@ const clampWidth = (minWidth: number, width: number) =>
 /** Table is the default Tasks layout. An unknown stored value falls back. */
 export const readTaskView = (storage: TaskStorage = localStorage): TaskViewKey => {
   const stored = storage.getItem(TASK_VIEW_KEY);
-  return stored === "kanban" || stored === "table" ? stored : "table";
+  return stored === "map" || stored === "table" ? stored : "table";
 };
 
 export const writeTaskView = (

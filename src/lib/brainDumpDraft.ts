@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listBrainDumps } from "./commands";
+import { trimBrainDumpHtml } from "./brainDumpRichText";
 import { subscribeTauriEvent } from "./tauriListen";
 import type { BrainDump } from "./types";
 
@@ -64,24 +65,13 @@ function updateDraft(draft: BrainDumpDraft) {
   subscribers.forEach((subscriber) => subscriber(draft));
 }
 
-function receiveDraft(draft: BrainDumpDraft) {
-  updateDraft(draft);
-  storeDraft(draft);
-}
-
 function startSync() {
   if (!channel && typeof BroadcastChannel !== "undefined") {
     try {
       channel = new BroadcastChannel(CHANNEL_NAME);
-      channel.onmessage = (event: MessageEvent<unknown>) => {
-        const draft = event.data as Partial<BrainDumpDraft> | null;
-        if (typeof draft?.text === "string" && Array.isArray(draft.tagIds)) {
-          receiveDraft({
-            text: draft.text,
-            tagIds: draft.tagIds.filter((id): id is number => Number.isInteger(id)),
-          });
-        }
-      };
+      // A delayed notification must read the latest draft, never write an
+      // older snapshot back into storage and reset the typing window's caret.
+      channel.onmessage = () => updateDraft(readDraft());
     } catch {
       channel = null;
     }
@@ -97,7 +87,7 @@ function startSync() {
 }
 
 export function trimBrainDumpDraft(draft: BrainDumpDraft) {
-  return draft.text.trim();
+  return trimBrainDumpHtml(draft.text);
 }
 
 export function isBrainDumpSubmitShortcut(event: {
@@ -137,6 +127,15 @@ export function adjacentBrainDumpIndex(
   return Math.max(-1, Math.min(index + direction, historyLength - 1));
 }
 
+export function historyIndexForDraftRevisionChange(
+  historyIndex: number,
+  previousRevision: string,
+  nextRevision: string,
+) {
+  if (previousRevision === nextRevision) return historyIndex;
+  return historyIndex < 0 ? historyIndex : -1;
+}
+
 export function brainDumpHistoryDirection(event: {
   key: string;
   metaKey: boolean;
@@ -151,9 +150,11 @@ export function brainDumpHistoryDirection(event: {
 export function useRecentBrainDumpHistory(
   draftText: string,
   onError: (error: string) => void,
+  draftRevision = draftText,
 ) {
   const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const lastDraftRevisionRef = useRef(draftRevision);
 
   const refresh = useCallback(async () => {
     try {
@@ -173,6 +174,17 @@ export function useRecentBrainDumpHistory(
   useEffect(() => {
     if (historyIndex >= brainDumps.length) setHistoryIndex(-1);
   }, [brainDumps.length, historyIndex]);
+
+  useEffect(() => {
+    const nextHistoryIndex = historyIndexForDraftRevisionChange(
+      historyIndex,
+      lastDraftRevisionRef.current,
+      draftRevision,
+    );
+    lastDraftRevisionRef.current = draftRevision;
+    if (nextHistoryIndex === historyIndex) return;
+    setHistoryIndex(nextHistoryIndex);
+  }, [draftRevision]);
 
   useEffect(() => {
     const navigateHistory = (event: KeyboardEvent) => {
@@ -203,6 +215,7 @@ export function useRecentBrainDumpHistory(
       setHistoryIndex((index) =>
         adjacentBrainDumpIndex(index, -1, brainDumps.length),
       ),
+    stopViewingHistory: () => setHistoryIndex(-1),
     refresh,
   };
 }
@@ -218,8 +231,9 @@ export function setBrainDumpDraft(
 ) {
   startSync();
   const next = typeof update === "function" ? update(currentDraft) : update;
-  receiveDraft(next);
-  channel?.postMessage(next);
+  storeDraft(next);
+  updateDraft(next);
+  channel?.postMessage(null);
 }
 
 export function useBrainDumpDraft() {
@@ -228,7 +242,7 @@ export function useBrainDumpDraft() {
   useEffect(() => {
     startSync();
     subscribers.add(setLocalDraft);
-    receiveDraft(readDraft());
+    updateDraft(readDraft());
     return () => {
       subscribers.delete(setLocalDraft);
     };

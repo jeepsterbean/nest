@@ -37,12 +37,8 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { windowInsight } from "../lib/insights";
-import { LOG_EVENT_BATCH_SIZE } from "../lib/logs";
-import {
-  buildRawLog,
-  phaseCheckInsInRange,
-  type TimelineLogEvent,
-} from "../lib/timeline";
+import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
+import { type TimelineLogEvent } from "../lib/timeline";
 import { startOfDayMs } from "../lib/time";
 import {
   canHideTile,
@@ -79,7 +75,7 @@ const EMPTY_COPY: Record<
 > = {
   timeline: {
     title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
+    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -146,12 +142,17 @@ export function OverviewView({
       typeof window !== "undefined" &&
       window.matchMedia("(max-width: 860px)").matches,
   );
-  const mainDumpRef = useRef<HTMLTextAreaElement | null>(null);
+  const mainDumpRef = useRef<HTMLElement | null>(null);
   const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
   const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
   const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
   const [metricSubmitting, setMetricSubmitting] = useState(false);
-  const brainDumpHistory = useRecentBrainDumpHistory(brainDumpText, setError);
+  const brainDumpDraftRevision = `${brainDumpText}\n${brainDumpTagIds.join(",")}`;
+  const brainDumpHistory = useRecentBrainDumpHistory(
+    brainDumpText,
+    setError,
+    brainDumpDraftRevision,
+  );
   const composerTagProps = useComposerTagProps(
     tags,
     brainDumpTagIds,
@@ -196,28 +197,23 @@ export function OverviewView({
     );
   }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
-  const dayTimelineEvents = useMemo(() => {
-    const eventPhaseCheckIns = phaseCheckInsInRange(
-      phaseCheckIns,
-      dayFromSec,
-    );
-    const raw = buildRawLog(
-      checkIns,
-      eventPhaseCheckIns,
+  const dayTimelineEvents = useMemo(
+    () =>
+      buildLogExportEvents(
+        checkIns,
+        phaseCheckIns,
+        brainDumps,
+        taskWorkStretches,
+        dayFromSec,
+      ).filter((event) => event.at >= dayFromSec),
+    [
       brainDumps,
+      checkIns,
+      dayFromSec,
+      phaseCheckIns,
       taskWorkStretches,
-    );
-    return raw.filter(
-      (event): event is TimelineLogEvent =>
-        event.kind !== "phase" && event.at >= dayFromSec,
-    );
-  }, [
-    brainDumps,
-    checkIns,
-    dayFromSec,
-    phaseCheckIns,
-    taskWorkStretches,
-  ]);
+    ],
+  );
 
   const timelineEvents = useMemo(
     () =>
@@ -255,10 +251,11 @@ export function OverviewView({
   }, []);
 
   const submitOverviewDump = async () => {
-    const text = trimBrainDumpDraft(brainDumpDraft);
-    if (!text || brainDumpSubmitting) return;
+    if (!trimBrainDumpDraft(brainDumpDraft) || brainDumpSubmitting) return;
     setBrainDumpSubmitting(true);
-    const ok = await mutate(() => submitBrainDump(text, brainDumpTagIds));
+    const ok = await mutate(() =>
+      submitBrainDump(brainDumpDraft.text, brainDumpTagIds),
+    );
     if (ok) {
       setBrainDumpDraft({ text: "", tagIds: [] });
       await brainDumpHistory.refresh();
@@ -288,7 +285,7 @@ export function OverviewView({
   }, [brainDumpHistory.viewingDump, forkToFloating]);
 
   const onMainDumpKeyDown = (
-    event: React.KeyboardEvent<HTMLTextAreaElement>,
+    event: React.KeyboardEvent<HTMLElement>,
     minimised = false,
   ) => {
     if (brainDumpHistory.viewingHistory) return;
@@ -473,6 +470,7 @@ export function OverviewView({
     if (tile.id === "brainDump") {
       return loaded ? (
         <BrainDumpSurface
+          layout="overview"
           className={
             tile.minimised
               ? "brain-dump-surface--compact"
@@ -511,13 +509,15 @@ export function OverviewView({
           onTagsChange={handleTagsChange}
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
-          textareaRef={mainDumpRef}
+          dismissPopupsOnOutsideInteraction
+          editorRef={mainDumpRef}
         />
       ) : null;
     }
 
     return (
       <MetricCheckIn
+        layout="overview"
         metrics={metrics}
         pulses={visiblePulses}
         submitting={metricSubmitting}

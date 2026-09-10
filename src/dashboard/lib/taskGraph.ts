@@ -1,7 +1,7 @@
 import type { Task, TaskDependency } from "../../lib/types";
 
 /** In-memory indexes for Parent/Child and Blocker/Dependent edges.
- * Used by kanban, table, and detail — not a visual graph canvas. */
+ * Used by map, table, and detail — not a visual graph canvas. */
 export type TaskGraphProjection = {
   byId: Map<number, Task>;
   childrenByParent: Map<number, Task[]>;

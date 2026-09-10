@@ -61,14 +61,40 @@ the total. It keeps counting if Working now is left on. The Working now control
 shows the current stretch; the total is every stretch added up. The total has
 its own column in the Tasks table and sits in the detail panel, on every Task
 whatever its status — unlike the control, which is only on Active Tasks.
-Table is the default Tasks layout (Kanban is the other); last choice is
-remembered. Both layouts show one persisted status at a time — Backlog, Up next,
-Active, Completed, Cancelled — via a toggle; first visit is Active. New tasks
-are created in the status being viewed. The **Tasks scope sidebar** starts
-collapsed.
+Table is the default Tasks layout (Map is the other); last choice is
+remembered. The table filters by any set of persisted statuses — Backlog, Up
+next, Active, Completed, Cancelled — with Open / Closed / All presets; first
+visit is Open. New tasks are created Active. The **Tasks scope sidebar** belongs to the table;
+the Map has none. The "Add an active task" composer is in both layouts — above
+the table, and at the top of the Map sidebar.
 Table columns can be reordered and resized. Working now is started
-from the detail panel or Kanban, not from the table.
+from the detail panel, not from the table or the Map.
 _Avoid_: Session, stopwatch, in progress
+
+**Map**:
+The other Tasks layout: a free-form canvas the user arranges by hand, drawn
+like a data model. Each placed Task is an **entity box** — a title header over
+attribute rows (status, scope, value / effort, and parent, children or blocked
+by when they apply). The canvas is far larger than the screen and is panned by
+dragging bare canvas, zoomed with the wheel about the pointer or with the
+corner zoom controls; pan and zoom are remembered. Open Tasks wait in the **Map
+sidebar**; dragging one onto the canvas drops it wherever the pointer is, and
+clicking it drops it in view. Boxes go anywhere and may overlap; a box's
+position is only the user's arrangement and never creates or implies a
+relation. Connectors are
+right-angled and arrowed: solid from Parent to child, dashed from Blocker to
+the Task it blocks. Completed and Cancelled boxes stay on the Map, dimmed, so a
+chain still reads end to end; drag a box back to the sidebar, or use its remove
+button, to take it off. Relations are added and removed in the detail panel,
+not on the Map. Positions live in the browser, keyed by Task id, and are
+dropped when the Task is deleted.
+_Avoid_: Board (that word means the Overview tiles), Canvas, Kanban
+
+**Map sidebar**:
+The panel floating over the Map canvas: an "Add an active task" row above the
+list of open Tasks not yet placed. It collapses to a button showing that count.
+The Map is not scope-filtered — the sidebar lists every open Task.
+_Avoid_: Sidebar (alone — that word means the Section switcher), tray, backlog
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.
@@ -154,12 +180,32 @@ _Avoid_: Check-in popup
 
 **Brain dump**:
 An unstructured captured thought stored on its own, with zero or more Tags.
+Its text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
+and collapsible lists. Saved checklist boxes show their recorded state in
+history and Logs; edit the content by forking it into a draft.
+Expanding a saved dump in Logs opens a read-only sticky 12px to the right of
+the cursor, centered at its height, and it closes on an outside click or Escape.
+It has no editing or action controls; collapsible
+lists are unfolded for reading. Settings → Brain dump shows compact saved-sticky
+previews that open that same sticky, newest first, filtered by the past 1, 3, or 7 days and by Tag.
+The range defaults to 7 days and measures back from the current time.
 Overview and the popup share the text and selected-tag draft, and independently
 browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can edit
 a saved dump's Tags, and fork a saved dump into a new unsaved floating draft
 (text and Tags). Overview drafts can be peeled into movable floating drafts and
 resized from their lower-right corner. A saved brain dump being browsed in
 Overview can also be copied into a new floating draft.
+A **Note Board** sits on the same overlay as those floating drafts, on every
+Section: a moveable, resizeable frame that is always present, even when empty.
+Dragging a floating draft onto the expanded board docks that draft as a row
+(the collapsed summary, with no expand). The minimised bar is not a drop
+target. While the draft is held over the expanded board, the sticky itself is
+hidden and a preview row appears in the list. Dragging a row out restores the
+draft as a free sticky at the drop point, still expanded or minimised as it
+was, snapped fully on screen. The board
+itself can be minimised to a single row labelled Note Board, which counts the
+rows it is hiding. Hiding stickies still only hides free drafts; docked rows
+stay in the board.
 _Avoid_: note, journal entry, title (brain dumps have no title field)
 
 **Tag**:
@@ -198,7 +244,8 @@ Reminders start Active. Text is capped so one line fits the board.
 _Avoid_: Tip, prompt, notification
 
 **Tasks scope sidebar**:
-The Scopes filter panel inside the Tasks Section. It starts collapsed.
+The Scopes filter panel beside the Tasks table. It starts collapsed, and the
+Map does not show it.
 _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
@@ -211,8 +258,9 @@ _Avoid_: Preferences, admin
 **Logs**:
 The history Section. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. One segmented control switches
-Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks events on a
-day rail (Phase changes stay off the line; the gutter shows the active Phase).
+Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks happenings and settled Phase changes on a
+day rail (raw attention flicker stays off; the gutter shows the Phase in force
+at each mark).
 Brain dumps, Phases, Metrics, and Raw are day-grouped lists (Raw is the mixed
 feed, including Working now starts and stops). Phases always uses the
 60-second settle collapse (a burst lands on the Phase it settled on; if that
@@ -224,12 +272,12 @@ Each Phase has separate icon and color controls in Settings,
 with a broad preset palette and custom color picker; those choices drive the
 Greetings board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
 and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,
-and Working now start/stop icons sit directly on the timeline line.
+Phase, and Working now start/stop icons sit directly on the timeline line.
 Logs does not show the day strip or outcome stats. Events are grouped by day;
 Phase totals end at midnight for past days and at the current time for Today.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same
 height as brain dumps and Working now marks. Brain dumps
-match that row height until expanded. Pulse, Metric, and brain dump icons stand
+keep that row height when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
 in for names. The filters are the only chrome at the top of Logs.
 _Avoid_: Journal
 
@@ -279,7 +327,7 @@ _Avoid_: Journal
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
 - "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
-- "sidebar" for two panels — resolved: **Sidebar** is the Section switcher; the Scopes filter in Tasks is the **Tasks scope sidebar**.
+- "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
 
