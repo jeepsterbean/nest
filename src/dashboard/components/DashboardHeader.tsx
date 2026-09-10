@@ -18,6 +18,7 @@ import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } fr
 import { phaseColor, phaseIcon, phaseName } from "../lib/period";
 import { NestIcon } from "./PulseIcon";
 import {
+  assistantIcon,
   calendarIcon,
   chevronDownIcon,
   clockIcon,
@@ -35,6 +36,7 @@ export type DashboardView =
   | "insights"
   | "logs"
   | "tasks"
+  | "assistant"
   | "settings";
 
 const VIEWS = [
@@ -43,6 +45,7 @@ const VIEWS = [
   { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "logs", label: "Logs", icon: logsIcon },
   { key: "tasks", label: "Tasks", icon: tasksIcon },
+  { key: "assistant", label: "Assistant", icon: assistantIcon },
   { key: "settings", label: "Settings", icon: settingsIcon },
 ] as const;
 

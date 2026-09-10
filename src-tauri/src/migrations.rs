@@ -917,6 +917,50 @@ INSERT INTO reminders (text, active, created_at) VALUES
   ('Start for just two minutes', 1, 0);
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE assistant_prompts (
+  id           INTEGER PRIMARY KEY,
+  title        TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 80),
+  instructions TEXT NOT NULL CHECK (length(trim(instructions)) BETWEEN 1 AND 12000),
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+);
+
+CREATE TABLE assistant_conversations (
+  id                  INTEGER PRIMARY KEY,
+  title               TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 80),
+  prompt_id           INTEGER REFERENCES assistant_prompts(id) ON DELETE SET NULL,
+  prompt_title        TEXT NOT NULL,
+  prompt_instructions TEXT NOT NULL,
+  model                TEXT NOT NULL CHECK (model IN ('gpt-5.6-luna', 'gpt-5.6-terra')),
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+
+CREATE TABLE assistant_messages (
+  id              INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES assistant_conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT NOT NULL CHECK (length(trim(content)) BETWEEN 1 AND 24000),
+  created_at      INTEGER NOT NULL
+);
+
+CREATE INDEX idx_assistant_conversations_updated_at
+ON assistant_conversations(updated_at DESC, id DESC);
+
+CREATE INDEX idx_assistant_messages_conversation
+ON assistant_messages(conversation_id, id);
+
+INSERT INTO assistant_prompts (title, instructions, created_at, updated_at)
+VALUES (
+  'Task companion',
+  'You are a calm, practical thinking partner. Use the supplied Active Tasks as context. Help the user understand what feels stuck, identify Blockers, break the problem into small concrete actions, and choose one manageable next step. Ask one focused question when essential context is missing. Offer suggestions for the user to review rather than claiming to change their Tasks.',
+  0,
+  0
+);
+"#,
+        ),
     ])
 }
 
@@ -929,6 +973,42 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn seeds_assistant_prompt_and_preserves_conversation_snapshots() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+
+        let prompt: (i64, String, String) = conn
+            .query_row(
+                "SELECT id, title, instructions FROM assistant_prompts",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(prompt.1, "Task companion");
+        assert!(prompt.2.contains("Active Tasks"));
+
+        conn.execute(
+            "INSERT INTO assistant_conversations \
+             (title, prompt_id, prompt_title, prompt_instructions, model, created_at, updated_at) \
+             VALUES ('A hard morning', ?1, ?2, ?3, 'gpt-5.6-luna', 1, 1)",
+            rusqlite::params![prompt.0, prompt.1, prompt.2],
+        )
+        .unwrap();
+        conn.execute("DELETE FROM assistant_prompts WHERE id = ?1", [prompt.0])
+            .unwrap();
+
+        let snapshot: (Option<i64>, String) = conn
+            .query_row(
+                "SELECT prompt_id, prompt_title FROM assistant_conversations",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(snapshot, (None, "Task companion".into()));
+    }
 
     #[test]
     fn seeds_reminders_for_greetings_board() {

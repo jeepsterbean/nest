@@ -21,6 +21,7 @@ import { InsightsView } from "./views/InsightsView";
 import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
 import { SettingsView } from "./views/SettingsView";
+import { AssistantView } from "./views/AssistantView";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -95,6 +96,7 @@ function DashboardInner() {
           {view === "insights" && <InsightsView />}
           {view === "logs" && <LogsView />}
           {view === "tasks" && <TasksView />}
+          {view === "assistant" && <AssistantView />}
           {view === "settings" && <SettingsView />}
         </div>
         <ScopeMenu />

@@ -214,19 +214,19 @@ the five most recently used unselected Tags; its overflow menu lists every Tag.
 Deleting a Tag removes it from every historical brain dump.
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The six
-are Overview, Calendar, Insights, Logs, Tasks, and Settings. Overview shows the
+One primary destination in the dashboard, chosen from the **Sidebar**. The seven
+are Overview, Calendar, Insights, Logs, Tasks, Assistant, and Settings. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
 title —
 the Sidebar already names where you are. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these six)
+_Avoid_: View, screen (for these seven)
 
 **Sidebar**:
 The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
-Tasks, Settings).
+Tasks, Assistant, Settings).
 _Avoid_: Nav, rail (for this strip)
 
 **Greetings board**:
@@ -242,6 +242,17 @@ A short line the user owns in Settings. Active Reminders rotate on the
 Greetings board; Inactive ones stay in Settings but are skipped there. New
 Reminders start Active. Text is capped so one line fits the board.
 _Avoid_: Tip, prompt, notification
+
+**Assistant**:
+The dashboard Section for private, reflective chats backed by OpenAI. Chat uses
+the selected editable system prompt plus read-only context from the current
+Active Tasks, including Working now, Scope, Parent, and unresolved Blockers.
+The user chooses GPT-5.6 Luna or GPT-5.6 Terra when starting a chat. Prompt
+edits apply to new chats; each existing chat keeps the prompt text it began
+with. Chat titles start from the first message and remain editable. Prompts,
+titles, and messages stay in Nest's local database. Each model request sends
+the current chat and Active Task context to OpenAI. The Assistant suggests next
+actions and never changes Tasks.
 
 **Tasks scope sidebar**:
 The Scopes filter panel beside the Tasks table. It starts collapsed, and the
@@ -325,11 +336,11 @@ _Avoid_: Journal
   the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "view" for Overview / Calendar / Insights / Logs / Tasks / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a segmented destination inside Settings or Assistant.
 
 ## Timer
 

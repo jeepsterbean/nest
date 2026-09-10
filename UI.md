@@ -86,6 +86,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   when unset; migrates legacy `layout` + `rawFilter`). Phases is always
   aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
   rows (`LogsEvents`); Timeline keeps `.logs-chrono`.
+- Assistant: `.dash-section--assistant` with Chat / Config panes via
+  `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
+  thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
+  and editor. Chat titles use `useInlineRename`. Composer and prompt drafts
+  persist in `nest:assistant-chat-drafts` and `nest:assistant-prompt-drafts`.
+  The Rust boundary streams OpenAI output and appends current Active Task
+  context; the renderer never receives the API key.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`

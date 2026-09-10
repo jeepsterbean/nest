@@ -152,6 +152,46 @@ pub struct Reminder {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssistantPrompt {
+    pub id: i64,
+    pub title: String,
+    pub instructions: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantConversation {
+    pub id: i64,
+    pub title: String,
+    pub prompt_id: Option<i64>,
+    pub prompt_title: String,
+    pub model: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantMessage {
+    pub id: i64,
+    pub conversation_id: i64,
+    pub role: String,
+    pub content: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantTurn {
+    pub conversation: AssistantConversation,
+    pub user_message: AssistantMessage,
+    pub assistant_message: AssistantMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskWorkStretch {
     pub id: i64,
     pub task_id: i64,

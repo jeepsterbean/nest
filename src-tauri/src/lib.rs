@@ -1,4 +1,5 @@
 mod activity;
+mod assistant;
 mod timer;
 mod commands;
 mod db;
@@ -1323,6 +1324,18 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            assistant::assistant_api_key_configured,
+            assistant::set_assistant_api_key,
+            assistant::delete_assistant_api_key,
+            assistant::list_assistant_prompts,
+            assistant::create_assistant_prompt,
+            assistant::update_assistant_prompt,
+            assistant::delete_assistant_prompt,
+            assistant::list_assistant_conversations,
+            assistant::list_assistant_messages,
+            assistant::rename_assistant_conversation,
+            assistant::delete_assistant_conversation,
+            assistant::send_assistant_message,
             commands::list_reminders,
             commands::create_reminder,
             commands::update_reminder_text,
