@@ -4,16 +4,19 @@ Nest is a private self-care desktop app: Tauri 2 + React + TypeScript on the
 frontend, Rust + SQLite on the backend. Prefer the smallest change that
 preserves calm, private, flow-friendly behavior.
 
-## Read order
+## Context routing
 
-1. **[`.impeccable.md`](./.impeccable.md)** — how it should feel
-2. **[`CONTEXT.md`](./CONTEXT.md)** — domain language and view behavior
-3. **[`UI.md`](./UI.md)** — Nest CSS/component/layout hooks when touching
-   dashboard or popup code
-4. **[`.agents/standards/coding-standards.md`](./.agents/standards/coding-standards.md)** —
-   project-agnostic coding process
-5. **[`.agents/standards/ui-standards.md`](./.agents/standards/ui-standards.md)** —
-   project-agnostic UI craft
+Read the source relevant to the task before changing it. Do not read every
+reference by default.
+
+| Task | Read |
+|---|---|
+| Any implementation | `.agents/standards/coding-standards.md` |
+| Product behavior, domain words, status, Phase, Timer, or Popup | `CONTEXT.md` |
+| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
+| Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
+| Rust, SQLite, IPC, types, migrations, or Task lifecycle | the matching sections below |
+| Open product work | the relevant backlog or `FEATURE-REQUESTS.md` |
 
 ## Which Nest doc to edit
 
@@ -22,21 +25,15 @@ preserves calm, private, flow-friendly behavior.
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | CSS hooks, component constraints, layout constants | `UI.md` |
-| Library behavior found only by reading its source | `UI.md` |
+| Brain dump editor invariants or library behavior | `docs/editor.md` |
 | Closing, parking, or adding durable open work | `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` |
 | Incoming ideas awaiting triage | `FEATURE-REQUESTS.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
 | Non-obvious implementation constraints | code comments |
 
 Project-agnostic process rules live under `.agents/standards/`, which
-`.claude/standards/` and `.codex/standards/` expose through symlinks. Keep Nest
-feature and path details in root documentation.
-
-Keep domain behavior in `CONTEXT.md`, feel and design principles in
-`.impeccable.md`, and implementation names such as classes, file paths, props,
-and layout constants in `UI.md`. Open work belongs in the backlogs rather than
-`CONTEXT.md`. Design skills read `.impeccable.md`, so keep it short and
-qualitative.
+`.claude/standards/` and `.codex/standards/` expose through symlinks. Keep
+each fact in its closest authoritative source and link to it elsewhere.
 
 ## Package manager
 
@@ -153,20 +150,5 @@ qualitative.
   - `cargo check` when a full test run is disproportionate
 - There is no separate JS lint script today; rely on TypeScript strictness and
   tests. Do not add ESLint or Prettier unless requested.
-- Vitest runs in the `node` environment, so caret placement, focus, selection,
-  and bubble menu visibility have no automated coverage. Do not add jsdom or
-  happy-dom to cover them: neither reproduces WKWebView caret behavior, so a
-  green run would only buy false confidence. Verify those by hand.
-- After changing `BrainDumpSurface` or its editor helpers, run the manual pass
-  that the two long-standing caret bugs would have failed:
-  1. Two stickies plus the Overview dump open; click into each and type. The
-     caret lands every time.
-  2. Click twice inside one editor. The caret lands where clicked.
-  3. Select text, press B, then click outside. The formatting menu closes.
-  4. Select text in one sticky, then click into another. The first menu closes.
-  5. Minimise and expand a sticky. Its text survives.
-  6. Type in the popup with the dashboard open. The main dump mirrors it and
-     the popup caret stays put.
-- Bumping `@tiptap/*` or `prosemirror-*` invalidates the source references in
-  `UI.md` under "Third-party editor behaviour". Re-read every claim there
-  against the new source in the same change.
+- For Brain dump editor changes and editor dependency upgrades, use
+  `.agents/skills/brain-dump-text-editor/SKILL.md`.
