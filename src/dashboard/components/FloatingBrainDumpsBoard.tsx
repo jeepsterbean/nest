@@ -13,6 +13,8 @@ import { floatingDraftIcon, xIcon } from "./icons";
 export function FloatingBrainDumpsBoard({
   dumps,
   tags,
+  hidden,
+  onToggleHidden,
   onTextChange,
   onTagsChange,
   onColorChange,
@@ -27,6 +29,8 @@ export function FloatingBrainDumpsBoard({
 }: {
   dumps: FloatingBrainDump[];
   tags: Tag[];
+  hidden: boolean;
+  onToggleHidden: () => void;
   onTextChange: (id: string, text: string) => void;
   onTagsChange: (id: string, tagIds: number[]) => void;
   onColorChange: (id: string, color: FloatingStickyColor) => void;
@@ -40,7 +44,6 @@ export function FloatingBrainDumpsBoard({
   onViewportResize: (width: number, height: number) => void;
 }) {
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-  const [hidden, setHidden] = useState(false);
 
   const handleResize = useCallback(
     (width: number, height: number) => {
@@ -61,7 +64,7 @@ export function FloatingBrainDumpsBoard({
           aria-pressed={!hidden}
           aria-label={hidden ? "Show sticky notes" : "Hide sticky notes"}
           title={hidden ? "Show sticky notes" : "Hide sticky notes"}
-          onClick={() => setHidden((isHidden) => !isHidden)}
+          onClick={onToggleHidden}
         >
           <span className="floating-brain-dumps-toggle__note" aria-hidden="true">
             {floatingDraftIcon}

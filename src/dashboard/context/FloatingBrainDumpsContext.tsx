@@ -45,6 +45,8 @@ export function FloatingBrainDumpsProvider({
   const [submitting, setSubmitting] = useState(false);
   const {
     dumps,
+    hidden,
+    toggleHidden,
     addDump,
     updateDump,
     removeDump,
@@ -120,6 +122,8 @@ export function FloatingBrainDumpsProvider({
       <FloatingBrainDumpsBoard
         dumps={dumps}
         tags={tags}
+        hidden={hidden}
+        onToggleHidden={toggleHidden}
         onTextChange={(id, text) => updateDump(id, { text })}
         onTagsChange={(id, tagIds) => updateDump(id, { tagIds })}
         onColorChange={(id, color) => updateDump(id, { color })}

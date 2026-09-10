@@ -253,6 +253,7 @@ export function useFloatingBrainDumps() {
   const [dumps, setDumps] = useState<FloatingBrainDump[]>(() =>
     readFloatingBrainDumps(),
   );
+  const [hidden, setHidden] = useState(false);
   const writerRef = useRef<ReturnType<typeof createFloatingDumpWriter> | null>(
     null,
   );
@@ -283,6 +284,12 @@ export function useFloatingBrainDumps() {
 
   const addDump = useCallback((dump: FloatingBrainDump) => {
     setDumps((current) => [...current, dump]);
+    // A new sticky must never land in the void: creating one reveals the board.
+    setHidden(false);
+  }, []);
+
+  const toggleHidden = useCallback(() => {
+    setHidden((isHidden) => !isHidden);
   }, []);
 
   const bringToFront = useCallback((id: string) => {
@@ -312,6 +319,8 @@ export function useFloatingBrainDumps() {
 
   return {
     dumps,
+    hidden,
+    toggleHidden,
     addDump,
     updateDump,
     removeDump,
