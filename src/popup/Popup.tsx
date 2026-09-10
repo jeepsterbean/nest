@@ -74,12 +74,9 @@ function Popup() {
 
   return (
     <div className="popup">
-      <button
-        type="button"
-        tabIndex={-1}
+      <div
         className="popup__drag"
-        aria-label="Move window"
-        title="Drag to move"
+        aria-hidden="true"
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.preventDefault();

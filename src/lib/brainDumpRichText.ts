@@ -239,6 +239,9 @@ export const brainDumpEditorExtensions = [
           attributes: {
             fontSize: {
               default: null,
+              // A fresh line starts as body text; only the split-off text of an
+              // existing line keeps the size it was already rendered at.
+              keepOnSplit: false,
               parseHTML: (element) =>
                 explicitBrainDumpFontSize((element as HTMLElement).style.fontSize),
               renderHTML: (attributes) => {
@@ -249,6 +252,14 @@ export const brainDumpEditorExtensions = [
           },
         },
       ];
+    },
+  }),
+  Extension.create({
+    name: "brainDumpPlainNewLine",
+    // Tiptap keeps the active marks across a split, so a bolded line would keep
+    // bolding every line after it. Emptying the splittable set drops them all.
+    onBeforeCreate() {
+      this.editor.extensionManager.splittableMarks = [];
     },
   }),
   Extension.create({

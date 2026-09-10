@@ -10,6 +10,8 @@ import {
   adjacentTimerInterval,
   holdMetricDue,
   isPopupWindowDragTarget,
+  popupPanelColumns,
+  popupWindowWidth,
   PopupTopPanel,
   shouldCloseOverlayOnFocusLeave,
   shouldDismissOnPointerDown,
@@ -180,5 +182,27 @@ describe("holdMetricDue", () => {
     expect(holdMetricDue(true, false, false)).toBe(true);
     expect(holdMetricDue(true, true, true)).toBe(false);
     expect(holdMetricDue(true, false, true)).toBe(false);
+  });
+});
+
+describe("popupPanelColumns", () => {
+  it("shrinks only the hidden panels and keeps column order", () => {
+    expect(popupPanelColumns(new Set())).toBe(
+      "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
+    );
+    expect(popupPanelColumns(new Set(["clock"]))).toBe(
+      "20px minmax(0, 1fr) minmax(0, 1fr)",
+    );
+    expect(popupPanelColumns(new Set(["clock", "dump"]))).toBe(
+      "20px minmax(0, 1fr) 20px",
+    );
+  });
+});
+
+describe("popupWindowWidth", () => {
+  it("sheds a panel's width per hidden panel, keeping its stub", () => {
+    expect(popupWindowWidth(1140, 0)).toBe(1140);
+    expect(popupWindowWidth(1140, 1)).toBe(780);
+    expect(popupWindowWidth(1140, 3)).toBe(60);
   });
 });

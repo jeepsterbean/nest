@@ -5,7 +5,68 @@
   min-width: 0;
   flex: 1;
   min-height: 0;
+  /* Inline style overrides this once a panel is hidden. */
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Collapsed panel: a rail the width of its column, clicked to bring it back. */
+.popup-stub {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.popup-stub:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.popup-stub svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Sits above panel content and stays out of sight until that panel is hovered,
+   so the three columns keep their uncluttered resting state. */
+.popup-panel__hide {
+  position: absolute;
+  top: 9px;
+  right: 7px;
+  z-index: 6;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--border-strong));
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.popup-clock:hover .popup-panel__hide,
+.popup-tasks:hover .popup-panel__hide,
+.popup-dump:hover .popup-panel__hide,
+.popup-panel__hide:focus-visible {
+  opacity: 1;
+}
+
+.popup-panel__hide:hover {
+  color: var(--danger);
+}
+
+.popup-panel__hide svg {
+  width: 13px;
+  height: 13px;
 }
 
 .popup-workspace--loading {
@@ -15,6 +76,7 @@
 }
 
 .popup-clock {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -749,7 +811,7 @@
 
 .brain-dump-surface--popup .brain-dump-surface__head {
   min-height: 36px;
-  padding: 8px 10px 0 14px;
+  padding: 8px 28px 0 14px;
 }
 
 .brain-dump-surface--popup .brain-dump-surface__input {
