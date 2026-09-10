@@ -159,4 +159,54 @@ describe("daily Logs export", () => {
     expect(markdown).toContain("Brain dump — Tags: reflection");
     expect(markdown).toContain("> First line\n  > Second line");
   });
+
+  it("keeps settled Resting on the Timeline so Scoping-only dumps cannot hide away time", () => {
+    const phase = (
+      id: number,
+      createdAt: number,
+      phaseId: number,
+    ): PhaseCheckIn => ({
+      id,
+      createdAt,
+      phaseId,
+      phaseLabel: null,
+    });
+    const SCOPING = 2;
+    const RESTING = 4;
+    const events = buildLogExportEvents(
+      [],
+      [
+        phase(1, 100, SCOPING),
+        phase(2, 200, RESTING),
+        phase(3, 900, SCOPING),
+      ],
+      [
+        {
+          id: 1,
+          createdAt: 110,
+          text: "planning",
+          tags: [],
+        },
+        {
+          id: 2,
+          createdAt: 910,
+          text: "back",
+          tags: [],
+        },
+      ],
+      [],
+      0,
+    );
+
+    expect(
+      events
+        .filter((event) => event.kind === "phase")
+        .map((event) => event.checkIn.phaseId),
+    ).toEqual([SCOPING, RESTING, SCOPING]);
+    expect(
+      events
+        .filter((event) => event.kind === "phase")
+        .map((event) => event.at),
+    ).toEqual([900, 200, 100]);
+  });
 });

@@ -247,8 +247,9 @@ _Avoid_: Preferences, admin
 **Logs**:
 The history Section. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. One segmented control switches
-Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks events on a
-day rail (Phase changes stay off the line; the gutter shows the active Phase).
+Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks happenings and settled Phase changes on a
+day rail (raw attention flicker stays off; the gutter shows the Phase in force
+at each mark).
 Brain dumps, Phases, Metrics, and Raw are day-grouped lists (Raw is the mixed
 feed, including Working now starts and stops). Phases always uses the
 60-second settle collapse (a burst lands on the Phase it settled on; if that
@@ -260,7 +261,7 @@ Each Phase has separate icon and color controls in Settings,
 with a broad preset palette and custom color picker; those choices drive the
 Greetings board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
 and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,
-and Working now start/stop icons sit directly on the timeline line.
+Phase, and Working now start/stop icons sit directly on the timeline line.
 Logs does not show the day strip or outcome stats. Events are grouped by day;
 Phase totals end at midnight for past days and at the current time for Today.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same

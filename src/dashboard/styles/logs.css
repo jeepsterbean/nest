@@ -170,6 +170,10 @@
   --event-color: var(--doing);
 }
 
+.logs-chrono__row--phase {
+  --event-color: var(--phase-color, var(--phase));
+}
+
 .logs-chrono__row:hover {
   background: color-mix(in srgb, var(--muted) 5%, var(--surface));
 }
@@ -187,6 +191,10 @@
 }
 
 .logs-chrono__event .log-detail--metrics .event__icon {
+  display: none;
+}
+
+.logs-chrono__event .log-detail--phase .event__icon {
   display: none;
 }
 

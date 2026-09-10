@@ -78,6 +78,7 @@ export function writeLogsPreferences(
   storage.setItem(LOGS_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
+/** Mixed Timeline / export feed: happenings plus settled Phase changes. */
 export function buildLogExportEvents(
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],

@@ -37,12 +37,8 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { windowInsight } from "../lib/insights";
-import { LOG_EVENT_BATCH_SIZE } from "../lib/logs";
-import {
-  buildRawLog,
-  phaseCheckInsInRange,
-  type TimelineLogEvent,
-} from "../lib/timeline";
+import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
+import { type TimelineLogEvent } from "../lib/timeline";
 import { startOfDayMs } from "../lib/time";
 import {
   canHideTile,
@@ -79,7 +75,7 @@ const EMPTY_COPY: Record<
 > = {
   timeline: {
     title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
+    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -201,28 +197,23 @@ export function OverviewView({
     );
   }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
-  const dayTimelineEvents = useMemo(() => {
-    const eventPhaseCheckIns = phaseCheckInsInRange(
-      phaseCheckIns,
-      dayFromSec,
-    );
-    const raw = buildRawLog(
-      checkIns,
-      eventPhaseCheckIns,
+  const dayTimelineEvents = useMemo(
+    () =>
+      buildLogExportEvents(
+        checkIns,
+        phaseCheckIns,
+        brainDumps,
+        taskWorkStretches,
+        dayFromSec,
+      ).filter((event) => event.at >= dayFromSec),
+    [
       brainDumps,
+      checkIns,
+      dayFromSec,
+      phaseCheckIns,
       taskWorkStretches,
-    );
-    return raw.filter(
-      (event): event is TimelineLogEvent =>
-        event.kind !== "phase" && event.at >= dayFromSec,
-    );
-  }, [
-    brainDumps,
-    checkIns,
-    dayFromSec,
-    phaseCheckIns,
-    taskWorkStretches,
-  ]);
+    ],
+  );
 
   const timelineEvents = useMemo(
     () =>

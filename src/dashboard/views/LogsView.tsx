@@ -38,7 +38,7 @@ const EMPTY_COPY: Record<LogsViewKey, { title: string; body: string }> = {
   },
   timeline: {
     title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
+    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -164,32 +164,29 @@ export function LogsView() {
   );
 
   const timelineEvents = useMemo(
-    () => rawEvents.filter((event) => event.kind !== "phase"),
-    [rawEvents],
-  );
-
-  const exportEventsByDay = useMemo(
     () =>
-      new Map(
-        groupByDay(
-          buildLogExportEvents(
-            checkIns,
-            phaseCheckIns,
-            brainDumps,
-            taskWorkStretches,
-            historyFromSec,
-          ),
-          nowMs,
-        ).map((day) => [day.key, day.events]),
+      buildLogExportEvents(
+        checkIns,
+        phaseCheckIns,
+        brainDumps,
+        taskWorkStretches,
+        historyFromSec,
       ),
     [
       brainDumps,
       checkIns,
       historyFromSec,
-      nowMs,
       phaseCheckIns,
       taskWorkStretches,
     ],
+  );
+
+  const exportEventsByDay = useMemo(
+    () =>
+      new Map(
+        groupByDay(timelineEvents, nowMs).map((day) => [day.key, day.events]),
+      ),
+    [nowMs, timelineEvents],
   );
 
   const listEvents = useMemo((): RawLogEvent[] => {
