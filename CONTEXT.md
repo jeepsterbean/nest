@@ -252,7 +252,8 @@ edits apply to new chats; each existing chat keeps the prompt text it began
 with. Chat titles start from the first message and remain editable. Prompts,
 titles, and messages stay in Nest's local database. Each model request sends
 the current chat and Active Task context to OpenAI. The Assistant suggests next
-actions and never changes Tasks.
+actions and never changes Tasks. Nest retains a sent message when OpenAI cannot
+complete its reply, and marks any partial reply as incomplete.
 
 **Tasks scope sidebar**:
 The Scopes filter panel beside the Tasks table. It starts collapsed, and the

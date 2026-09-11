@@ -961,6 +961,9 @@ VALUES (
 );
 "#,
         ),
+        M::up(
+            "ALTER TABLE assistant_messages ADD COLUMN incomplete_reason TEXT;",
+        ),
     ])
 }
 
@@ -1108,7 +1111,9 @@ mod tests {
         // after the sort_order slot with no sort_order column. Stop there
         // rather than rewinding from latest, so appending migrations later
         // neither retargets this test nor re-runs a one-shot migration.
-        migrations().to_version(&mut conn, SORT_ORDER_VERSION).unwrap();
+        migrations()
+            .to_version(&mut conn, SORT_ORDER_VERSION)
+            .unwrap();
         conn.execute_batch("ALTER TABLE tasks DROP COLUMN sort_order;")
             .unwrap();
 

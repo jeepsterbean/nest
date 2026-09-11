@@ -251,7 +251,7 @@ export function AssistantView() {
         {
           conversationId: selectedConversationId,
           promptId: selectedConversation === null ? selectedPrompt?.id ?? null : null,
-          model,
+          model: selectedConversation === null ? model : null,
           content,
         },
         (delta) => setStreamedResponse((current) => current + delta),
@@ -512,6 +512,11 @@ export function AssistantView() {
                       {message.role === "assistant" ? "Assistant" : "You"}
                     </span>
                     <div>{message.content}</div>
+                    {message.incompleteReason && (
+                      <p className="assistant-message__incomplete">
+                        Response incomplete: {message.incompleteReason}
+                      </p>
+                    )}
                   </article>
                 ))
               )}

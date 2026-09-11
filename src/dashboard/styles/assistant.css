@@ -320,6 +320,12 @@
   text-transform: uppercase;
 }
 
+.assistant-message__incomplete {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .assistant-message--user {
   width: auto;
   max-width: min(82%, 620px);

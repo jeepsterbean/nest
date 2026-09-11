@@ -4,7 +4,7 @@ Track user-facing product work: behaviors, flows, and capabilities the app
 should gain or change. Describe outcomes only — no implementation details,
 APIs, schema, or code structure.
 
-- rearrange elements to look more aesthetic
+## P1 Currently when i start my session, it might take a while for me to switch my mind back into the right mode. like, what am i supposed to be doing? we should have a mechanism to keep track of this at a glance.
 
 ## Brain dump
 - Keep a minimised floating Brain dump's expand button visible at every width; reserve its space and clip overflowing summary text to the remaining width.
@@ -15,6 +15,7 @@ APIs, schema, or code structure.
 
 ## Task section
 - add task time feature
+- user never ever states the value and effort. need to think about how to encourage user to use it more
 - refine the visuals
 
 ## Dashboard sections

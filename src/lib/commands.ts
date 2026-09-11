@@ -88,7 +88,7 @@ export function sendAssistantMessage(
   input: {
     conversationId: number | null;
     promptId: number | null;
-    model: AssistantModel;
+    model: AssistantModel | null;
     content: string;
   },
   onDelta: (delta: string) => void,

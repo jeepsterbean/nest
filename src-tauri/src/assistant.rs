@@ -1,4 +1,7 @@
-use std::sync::Mutex;
+use std::{
+    sync::{LazyLock, Mutex},
+    time::Duration,
+};
 
 use futures_util::StreamExt;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -20,11 +23,28 @@ const MAX_PROMPT_CHARS: usize = 12_000;
 const MAX_MESSAGE_CHARS: usize = 24_000;
 const MAX_API_KEY_CHARS: usize = 512;
 const HISTORY_MESSAGE_LIMIT: i64 = 40;
+const OPENAI_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const OPENAI_IDLE_TIMEOUT: Duration = Duration::from_secs(45);
+const INCOMPLETE_RESPONSE_MESSAGE: &str = "The response ended before any text arrived.";
 
 const PROMPT_COLUMNS: &str = "id, title, instructions, created_at, updated_at";
 const CONVERSATION_COLUMNS: &str =
     "id, title, prompt_id, prompt_title, model, created_at, updated_at";
-const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, created_at";
+const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, incomplete_reason, created_at";
+
+/// Held for the whole of a send so two in-flight turns cannot read each other's
+/// history as empty and then save their replies in completion order.
+// ponytail: one global lock — per-conversation locks if parallel chats ever stream at once.
+static SEND_LOCK: LazyLock<futures_util::lock::Mutex<()>> =
+    LazyLock::new(futures_util::lock::Mutex::default);
+
+static OPENAI_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .connect_timeout(OPENAI_CONNECT_TIMEOUT)
+        .read_timeout(OPENAI_IDLE_TIMEOUT)
+        .build()
+        .expect("OpenAI HTTP client configuration is valid")
+});
 
 #[derive(Debug)]
 struct ConversationRequest {
@@ -34,6 +54,17 @@ struct ConversationRequest {
     prompt_instructions: String,
     model: String,
     history: Vec<AssistantMessage>,
+}
+
+struct StartedTurn {
+    conversation_id: i64,
+    user_message_id: i64,
+}
+
+enum StreamEvent {
+    Delta(String),
+    Incomplete(String),
+    Failed(String),
 }
 
 #[derive(Debug, Serialize)]
@@ -64,9 +95,15 @@ fn keyring_entry() -> Result<keyring::Entry> {
 }
 
 fn assistant_api_key() -> Result<String> {
-    keyring_entry()?
-        .get_password()
-        .map_err(|_| assistant_error("add an OpenAI API key in Config before starting a chat"))
+    match keyring_entry()?.get_password() {
+        Ok(key) if !key.trim().is_empty() => Ok(key),
+        Ok(_) | Err(keyring::Error::NoEntry) => Err(assistant_error(
+            "add an OpenAI API key in Config before starting a chat",
+        )),
+        Err(error) => Err(assistant_error(format!(
+            "could not read the API key: {error}"
+        ))),
+    }
 }
 
 fn normalized(value: String, label: &str, max_chars: usize) -> Result<String> {
@@ -120,7 +157,8 @@ fn map_message(row: &Row<'_>) -> rusqlite::Result<AssistantMessage> {
         conversation_id: row.get(1)?,
         role: row.get(2)?,
         content: row.get(3)?,
-        created_at: row.get(4)?,
+        incomplete_reason: row.get(4)?,
+        created_at: row.get(5)?,
     })
 }
 
@@ -157,7 +195,7 @@ fn conversation_request(
     conn: &Connection,
     conversation_id: Option<i64>,
     prompt_id: Option<i64>,
-    model: String,
+    new_conversation_model: Option<String>,
 ) -> Result<ConversationRequest> {
     if let Some(id) = conversation_id {
         let (prompt_id, prompt_title, prompt_instructions, model) = conn
@@ -187,7 +225,9 @@ fn conversation_request(
         prompt_id: Some(prompt.id),
         prompt_title: prompt.title,
         prompt_instructions: prompt.instructions,
-        model: valid_model(model)?,
+        model: valid_model(new_conversation_model.ok_or_else(|| {
+            AppError::InvalidInput("choose a model before starting a chat".into())
+        })?)?,
         history: Vec::new(),
     })
 }
@@ -283,7 +323,7 @@ fn take_event(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
     Some(event)
 }
 
-fn parse_delta(event: &[u8]) -> Result<Option<String>> {
+fn parse_stream_event(event: &[u8]) -> Result<Option<StreamEvent>> {
     let event = std::str::from_utf8(event)
         .map_err(|error| assistant_error(format!("OpenAI sent invalid text: {error}")))?;
     let data = event
@@ -297,17 +337,26 @@ fn parse_delta(event: &[u8]) -> Result<Option<String>> {
     let value: Value = serde_json::from_str(&data)
         .map_err(|error| assistant_error(format!("OpenAI sent an invalid event: {error}")))?;
     match value.get("type").and_then(Value::as_str) {
-        Some("response.output_text.delta") => Ok(value
+        Some("response.output_text.delta") | Some("response.refusal.delta") => Ok(value
             .get("delta")
             .and_then(Value::as_str)
-            .map(str::to_string)),
+            .map(|delta| StreamEvent::Delta(delta.to_string()))),
+        Some("response.incomplete") => Ok(Some(StreamEvent::Incomplete(
+            value
+                .pointer("/response/incomplete_details/reason")
+                .or_else(|| value.pointer("/incomplete_details/reason"))
+                .and_then(Value::as_str)
+                .unwrap_or("The response ended early")
+                .to_string(),
+        ))),
         Some("error") | Some("response.failed") => {
             let message = value
-                .pointer("/error/message")
+                .pointer("/response/error/message")
+                .or_else(|| value.pointer("/error/message"))
                 .or_else(|| value.get("message"))
                 .and_then(Value::as_str)
                 .unwrap_or("OpenAI could not complete the response");
-            Err(assistant_error(message))
+            Ok(Some(StreamEvent::Failed(message.to_string())))
         }
         _ => Ok(None),
     }
@@ -326,12 +375,11 @@ fn openai_error(status: reqwest::StatusCode, body: &str) -> AppError {
     assistant_error(message)
 }
 
-fn persist_turn(
+fn start_turn(
     conn: &mut Connection,
     request: ConversationRequest,
     user_content: String,
-    assistant_content: String,
-) -> Result<AssistantTurn> {
+) -> Result<StartedTurn> {
     let now = now_unix_secs();
     let tx = conn.transaction()?;
     let conversation_id = if let Some(id) = request.id {
@@ -366,17 +414,42 @@ fn persist_turn(
         params![conversation_id, user_content, now],
     )?;
     let user_message_id = tx.last_insert_rowid();
-    tx.execute(
-        "INSERT INTO assistant_messages (conversation_id, role, content, created_at) \
-         VALUES (?1, 'assistant', ?2, ?3)",
-        params![conversation_id, assistant_content, now],
-    )?;
-    let assistant_message_id = tx.last_insert_rowid();
     tx.commit()?;
 
+    Ok(StartedTurn {
+        conversation_id,
+        user_message_id,
+    })
+}
+
+fn finish_turn(
+    conn: &mut Connection,
+    started: StartedTurn,
+    assistant_content: String,
+    incomplete_reason: Option<String>,
+) -> Result<AssistantTurn> {
+    // assistant_messages.content is CHECK-constrained to a non-blank string,
+    // so a whitespace-only reply needs the placeholder too.
+    let content = if assistant_content.trim().is_empty() {
+        INCOMPLETE_RESPONSE_MESSAGE.to_string()
+    } else {
+        assistant_content
+    };
+    conn.execute(
+        "INSERT INTO assistant_messages (conversation_id, role, content, incomplete_reason, created_at) \
+         VALUES (?1, 'assistant', ?2, ?3, ?4)",
+        params![
+            started.conversation_id,
+            content,
+            incomplete_reason,
+            now_unix_secs(),
+        ],
+    )?;
+    let assistant_message_id = conn.last_insert_rowid();
+
     Ok(AssistantTurn {
-        conversation: fetch_conversation(conn, conversation_id)?,
-        user_message: fetch_message(conn, user_message_id)?,
+        conversation: fetch_conversation(conn, started.conversation_id)?,
+        user_message: fetch_message(conn, started.user_message_id)?,
         assistant_message: fetch_message(conn, assistant_message_id)?,
     })
 }
@@ -534,12 +607,13 @@ pub async fn send_assistant_message(
     state: State<'_, Mutex<Connection>>,
     conversation_id: Option<i64>,
     prompt_id: Option<i64>,
-    model: String,
+    model: Option<String>,
     content: String,
     on_event: Channel<AssistantStreamEvent>,
 ) -> Result<AssistantTurn> {
     let content = normalized(content, "message", MAX_MESSAGE_CHARS)?;
     let api_key = assistant_api_key()?;
+    let _send_guard = SEND_LOCK.lock().await;
     let (request, task_context) = {
         let conn = state.lock().unwrap();
         (
@@ -563,57 +637,111 @@ pub async fn send_assistant_message(
         "stream": true
     });
 
-    let response = reqwest::Client::new()
+    let started = {
+        let mut conn = state.lock().unwrap();
+        start_turn(&mut conn, request, content.clone())?
+    };
+
+    let response = match OPENAI_CLIENT
         .post(OPENAI_API_URL)
         .bearer_auth(api_key)
         .json(&body)
         .send()
         .await
-        .map_err(|error| assistant_error(format!("could not reach OpenAI: {error}")))?;
+    {
+        Ok(response) => response,
+        Err(error) => {
+            let mut conn = state.lock().unwrap();
+            return finish_turn(
+                &mut conn,
+                started,
+                String::new(),
+                Some(format!("Could not reach OpenAI: {error}")),
+            );
+        }
+    };
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        return Err(openai_error(status, &body));
+        let mut conn = state.lock().unwrap();
+        return finish_turn(
+            &mut conn,
+            started,
+            String::new(),
+            Some(openai_error(status, &body).to_string()),
+        );
     }
 
     let mut stream = response.bytes_stream();
     let mut buffer = Vec::new();
     let mut assistant_content = String::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| {
-            assistant_error(format!("OpenAI response was interrupted: {error}"))
-        })?;
-        buffer.extend_from_slice(&chunk);
-        while let Some(event) = take_event(&mut buffer) {
-            if let Some(delta) = parse_delta(&event)? {
-                assistant_content.push_str(&delta);
-                on_event
-                    .send(AssistantStreamEvent { delta })
-                    .map_err(|error| {
-                        assistant_error(format!("could not display the response: {error}"))
-                    })?;
+    let mut incomplete_reason = None;
+    let mut stream_ended = false;
+    'stream: loop {
+        match stream.next().await {
+            Some(Ok(chunk)) => buffer.extend_from_slice(&chunk),
+            Some(Err(error)) => {
+                incomplete_reason = Some(format!("OpenAI response was interrupted: {error}"));
+                break;
+            }
+            // A well-formed stream ends on a delimiter; append one so a final
+            // event that arrived without it drains through the same path.
+            None => {
+                stream_ended = true;
+                buffer.extend_from_slice(b"\n\n");
             }
         }
-    }
-    if !buffer.is_empty() {
-        if let Some(delta) = parse_delta(&buffer)? {
-            assistant_content.push_str(&delta);
-            on_event
-                .send(AssistantStreamEvent { delta })
-                .map_err(|error| {
-                    assistant_error(format!("could not display the response: {error}"))
-                })?;
+        while let Some(event) = take_event(&mut buffer) {
+            match parse_stream_event(&event) {
+                Ok(Some(StreamEvent::Delta(delta))) => {
+                    let remaining =
+                        MAX_MESSAGE_CHARS.saturating_sub(assistant_content.chars().count());
+                    let truncated = delta.chars().count() > remaining;
+                    let delta: String = delta.chars().take(remaining).collect();
+                    assistant_content.push_str(&delta);
+                    if on_event.send(AssistantStreamEvent { delta }).is_err() {
+                        incomplete_reason =
+                            Some("The response stream ended because this window closed.".into());
+                        break 'stream;
+                    }
+                    if truncated {
+                        incomplete_reason =
+                            Some("The response reached Nest's saved-message limit.".into());
+                        break 'stream;
+                    }
+                }
+                Ok(Some(StreamEvent::Incomplete(reason)))
+                | Ok(Some(StreamEvent::Failed(reason))) => {
+                    incomplete_reason = Some(reason);
+                    break 'stream;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    incomplete_reason =
+                        Some(format!("OpenAI sent an invalid stream event: {error}"));
+                    break 'stream;
+                }
+            }
+        }
+        if stream_ended {
+            break;
         }
     }
-    let assistant_content = normalized(assistant_content, "assistant response", MAX_MESSAGE_CHARS)?;
+    if assistant_content.trim().is_empty() && incomplete_reason.is_none() {
+        incomplete_reason = Some("OpenAI returned no text.".into());
+    }
 
     let mut conn = state.lock().unwrap();
-    persist_turn(&mut conn, request, content, assistant_content)
+    finish_turn(&mut conn, started, assistant_content, incomplete_reason)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{active_task_context, conversation_title, parse_delta, response_instructions};
+    use super::{
+        active_task_context, conversation_title, finish_turn, parse_stream_event,
+        response_instructions, start_turn, ConversationRequest, StreamEvent,
+        INCOMPLETE_RESPONSE_MESSAGE,
+    };
     use crate::migrations::migrations;
     use rusqlite::Connection;
 
@@ -646,11 +774,70 @@ mod tests {
     #[test]
     fn parses_stream_deltas_and_makes_short_chat_titles() {
         let event = br#"data: {"type":"response.output_text.delta","delta":"Small step"}"#;
-        assert_eq!(parse_delta(event).unwrap().as_deref(), Some("Small step"));
+        assert!(matches!(
+            parse_stream_event(event).unwrap(),
+            Some(StreamEvent::Delta(delta)) if delta == "Small step"
+        ));
+        let incomplete = br#"data: {"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}"#;
+        assert!(matches!(
+            parse_stream_event(incomplete).unwrap(),
+            Some(StreamEvent::Incomplete(reason)) if reason == "max_output_tokens"
+        ));
         assert_eq!(
             conversation_title("\n  Begin here\nthen continue"),
             "Begin here"
         );
         assert!(conversation_title(&"a".repeat(100)).ends_with('…'));
+    }
+
+    #[test]
+    fn retains_the_sent_message_and_marks_an_incomplete_reply() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let started = start_turn(
+            &mut conn,
+            ConversationRequest {
+                id: None,
+                prompt_id: Some(1),
+                prompt_title: "Task companion".into(),
+                prompt_instructions: "Be calm.".into(),
+                model: "gpt-5.6-luna".into(),
+                history: Vec::new(),
+            },
+            "I need a next step".into(),
+        )
+        .unwrap();
+
+        let turn = finish_turn(
+            &mut conn,
+            started,
+            "Start with a glass of water.".into(),
+            Some("max_output_tokens".into()),
+        )
+        .unwrap();
+
+        assert_eq!(turn.user_message.content, "I need a next step");
+        assert_eq!(
+            turn.assistant_message.incomplete_reason.as_deref(),
+            Some("max_output_tokens")
+        );
+
+        // A blank reply has to reach the placeholder: assistant_messages.content
+        // rejects a whitespace-only string.
+        let started = start_turn(
+            &mut conn,
+            ConversationRequest {
+                id: Some(turn.conversation.id),
+                prompt_id: Some(1),
+                prompt_title: "Task companion".into(),
+                prompt_instructions: "Be calm.".into(),
+                model: "gpt-5.6-luna".into(),
+                history: Vec::new(),
+            },
+            "Anything else?".into(),
+        )
+        .unwrap();
+        let blank = finish_turn(&mut conn, started, "  \n ".into(), None).unwrap();
+        assert_eq!(blank.assistant_message.content, INCOMPLETE_RESPONSE_MESSAGE);
     }
 }
