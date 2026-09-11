@@ -244,7 +244,8 @@ Reminders start Active. Text is capped so one line fits the board.
 _Avoid_: Tip, prompt, notification
 
 **Assistant**:
-The dashboard Section for private, reflective chats backed by OpenAI. Chat uses
+The dashboard Section for private, reflective chats backed by OpenAI. The
+OpenAI API key is saved in Config and stored in the system keychain. Chat uses
 the selected editable system prompt plus read-only context from the current
 Active Tasks, including Working now, Scope, Parent, and unresolved Blockers.
 The user chooses GPT-5.6 Luna or GPT-5.6 Terra when starting a chat. Prompt
@@ -360,20 +361,24 @@ _Avoid_: Journal
 - When the timer runs out, the Metric scoring panel holds a gold due treatment
   until a Metric check-in is saved. Restarting the clock or submitting a brain
   dump does not clear it.
-- The popup is two columns. Left: remaining time on a clock face
-  (click to pick an interval) and the Active / Up next task list, sized for
-  three rows with extra tasks scrolling. Completed and Cancelled Tasks from
-  the last 60 minutes sit above Active; the list opens on Active, and
-  scrolling up reveals them so they can be returned to Active. Active rows
-  have Up next to the left of Complete. Right: brain dump above Metric scoring.
+- The popup has the Timer bar across the top (countdown, interval, and a line
+  that drains with the remaining time; click the countdown to pick an
+  interval) and an icon-only tab strip down the left with two tabs. Tasks and
+  metrics holds Metric scoring above the Active / Up next task list; extra
+  tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
+  above Active; the list opens on Active, and scrolling up reveals them so
+  they can be returned to Active. Active rows have Up next to the left of
+  Complete. Brain dump holds the brain dump. A due popup opens on Tasks and
+  metrics, a manual one on Brain dump. A gold dot on Tasks and metrics marks
+  a Metric check-in still owed.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
-- Tab intentionally cycles through Brain dump, visible Pulses, Timer, and
-  Dashboard. Task controls are pointer-only; Metric ratings use the 1–5 number
-  shortcuts. This compact focus loop intentionally does not provide keyboard
-  access to task actions.
+- Tab (or Shift+Tab) toggles between the two popup tabs and ⌘1 / ⌘2 pick one
+  directly; each switch focuses that tab's entry (the selected Pulse, or the
+  brain dump). Timer, Dashboard, and task controls are pointer-only; Metric
+  ratings use the 1–5 number shortcuts.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

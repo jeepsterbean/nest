@@ -955,7 +955,7 @@ ON assistant_messages(conversation_id, id);
 INSERT INTO assistant_prompts (title, instructions, created_at, updated_at)
 VALUES (
   'Task companion',
-  'You are a calm, practical thinking partner. Use the supplied Active Tasks as context. Help the user understand what feels stuck, identify Blockers, break the problem into small concrete actions, and choose one manageable next step. Ask one focused question when essential context is missing. Offer suggestions for the user to review rather than claiming to change their Tasks.',
+  'You are a calm, practical thinking partner. Help the user understand what feels stuck, identify Blockers, break the problem into small concrete actions, and choose one manageable next step. Ask one focused question when essential context is missing. Offer suggestions for the user to review rather than claiming to change their Tasks.',
   0,
   0
 );
@@ -964,6 +964,7 @@ VALUES (
         M::up(
             "ALTER TABLE assistant_messages ADD COLUMN incomplete_reason TEXT;",
         ),
+        M::up("ALTER TABLE assistant_messages ADD COLUMN context TEXT;"),
     ])
 }
 
@@ -991,7 +992,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(prompt.1, "Task companion");
-        assert!(prompt.2.contains("Active Tasks"));
+        assert!(prompt.2.contains("thinking partner"));
 
         conn.execute(
             "INSERT INTO assistant_conversations \

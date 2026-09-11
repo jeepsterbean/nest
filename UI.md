@@ -91,8 +91,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
   and editor. Chat titles use `useInlineRename`. Composer and prompt drafts
   persist in `nest:assistant-chat-drafts` and `nest:assistant-prompt-drafts`.
-  The Rust boundary streams OpenAI output and appends current Active Task
-  context; the renderer never receives the API key.
+  Config pairs `.assistant-context-config` (context detail and message order)
+  with the saved-prompt workspace; context selections and layout persist in
+  `nest:assistant-context`. The Rust boundary streams OpenAI output; each user
+  message stores its selected context snapshot and the renderer never receives
+  the API key; without a keyring platform-store feature the key never reaches
+  the system keychain and Send stays disabled after restart.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`

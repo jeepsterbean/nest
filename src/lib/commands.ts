@@ -90,6 +90,8 @@ export function sendAssistantMessage(
     promptId: number | null;
     model: AssistantModel | null;
     content: string;
+    context: string | null;
+    timezoneOffsetMinutes: number;
   },
   onDelta: (delta: string) => void,
 ): Promise<AssistantTurn> {

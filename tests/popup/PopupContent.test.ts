@@ -10,8 +10,7 @@ import {
   adjacentTimerInterval,
   holdMetricDue,
   isPopupWindowDragTarget,
-  popupPanelColumns,
-  popupWindowWidth,
+  nextPopupTab,
   PopupTopPanel,
   shouldCloseOverlayOnFocusLeave,
   shouldDismissOnPointerDown,
@@ -38,11 +37,8 @@ const props: ComponentProps<typeof PopupTopPanel> = {
   schedulingTimer: false,
   selectedInterval: 15,
   timerButtonRef: createRef(),
-  dashboardButtonRef: createRef(),
   onTimerPickerOpenChange: vi.fn(),
   onSelectInterval: vi.fn(),
-  onTimerPrevious: vi.fn(),
-  onDashboardNext: vi.fn(),
   onOpenDashboard: vi.fn(),
 };
 
@@ -185,24 +181,32 @@ describe("holdMetricDue", () => {
   });
 });
 
-describe("popupPanelColumns", () => {
-  it("shrinks only the hidden panels and keeps column order", () => {
-    expect(popupPanelColumns(new Set())).toBe(
-      "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
-    );
-    expect(popupPanelColumns(new Set(["clock"]))).toBe(
-      "20px minmax(0, 1fr) minmax(0, 1fr)",
-    );
-    expect(popupPanelColumns(new Set(["clock", "dump"]))).toBe(
-      "20px minmax(0, 1fr) 20px",
-    );
+describe("nextPopupTab", () => {
+  type Mods = Partial<
+    Record<"metaKey" | "ctrlKey" | "altKey" | "isComposing", boolean>
+  >;
+  const key = (k: string, mods: Mods = {}) => ({
+    key: k,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    isComposing: false,
+    ...mods,
   });
-});
 
-describe("popupWindowWidth", () => {
-  it("sheds a panel's width per hidden panel, keeping its stub", () => {
-    expect(popupWindowWidth(1140, 0)).toBe(1140);
-    expect(popupWindowWidth(1140, 1)).toBe(780);
-    expect(popupWindowWidth(1140, 3)).toBe(60);
+  it("flips between the two tabs on Tab", () => {
+    expect(nextPopupTab(key("Tab"), "now")).toBe("dump");
+    expect(nextPopupTab(key("Tab"), "dump")).toBe("now");
+    expect(nextPopupTab(key("Tab", { isComposing: true }), "now")).toBeNull();
+    expect(nextPopupTab(key("Tab", { ctrlKey: true }), "now")).toBeNull();
+  });
+
+  it("maps ⌘1 / ⌘2 to tabs and ignores everything else", () => {
+    const cmd = { metaKey: true };
+    expect(nextPopupTab(key("1", cmd), "dump")).toBe("now");
+    expect(nextPopupTab(key("2", cmd), "now")).toBe("dump");
+    expect(nextPopupTab(key("3", cmd), "now")).toBeNull();
+    expect(nextPopupTab(key("a", cmd), "now")).toBeNull();
+    expect(nextPopupTab(key("1"), "now")).toBeNull();
   });
 });

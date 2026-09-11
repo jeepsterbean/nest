@@ -976,26 +976,6 @@ fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
-/// A collapsed panel leaves the popup narrower than it was configured. Widen it
-/// back while hidden so the next summon measures and centres the full window.
-fn restore_popup_size(app: &tauri::AppHandle) {
-    let Some(size) = app
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|window| window.label == "popup")
-        .map(|window| tauri::LogicalSize::new(window.width, window.height))
-    else {
-        return;
-    };
-    if let Some(window) = app.get_webview_window("popup") {
-        if let Err(e) = window.set_size(size) {
-            append_diagnostic_log(format!("popup_restore_size_failed error={e}"));
-        }
-    }
-}
-
 fn hide_popup(app: &tauri::AppHandle, reason: &str) {
     #[cfg(target_os = "macos")]
     hide_popup_panel(app, reason);
@@ -1008,8 +988,6 @@ fn hide_popup(app: &tauri::AppHandle, reason: &str) {
         }
         let _ = reason;
     }
-
-    restore_popup_size(app);
 }
 
 #[cfg(not(target_os = "macos"))]

@@ -88,8 +88,8 @@
 }
 
 /* Invisible full-width strip along the top edge — the grab for moving the
-   undecorated window. Height stays under the smallest top gutter (the brain
-   dump head's 8px) so it never swallows a click meant for a control. */
+   undecorated window. Height stays under the Timer bar's 10px top padding so
+   it never swallows a click meant for a control. */
 .popup__drag {
   position: absolute;
   top: 0;

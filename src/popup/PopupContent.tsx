@@ -7,7 +7,6 @@ import {
   type RefObject,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
-import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
@@ -51,6 +50,7 @@ import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
 import { useTileIcons } from "../dashboard/hooks/useTileIcons";
+import type { TileId } from "../dashboard/lib/overviewGrid";
 import { workedSecondsToday } from "../dashboard/lib/workTimeline";
 import {
   groupTasksByStatus,
@@ -196,28 +196,31 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   );
 }
 
-export type PopupPanelId = "clock" | "tasks" | "dump";
+export type PopupTabId = "now" | "dump";
 
-export const POPUP_PANELS: { id: PopupPanelId; label: string }[] = [
-  { id: "clock", label: "Timer" },
-  { id: "tasks", label: "Tasks" },
-  { id: "dump", label: "Brain dump" },
-];
+export const POPUP_TABS = [
+  { id: "now", label: "Tasks and metrics", tileIcon: "tasks" },
+  { id: "dump", label: "Brain dump", tileIcon: "brainDump" },
+] as const satisfies ReadonlyArray<{
+  id: PopupTabId;
+  label: string;
+  tileIcon: TileId;
+}>;
 
-/** Keep in sync with --popup-stub-width in PopupContent.css. */
-const POPUP_STUB_WIDTH = 20;
-
-/** Hidden panels shrink to their stub rail; the rest keep their full width. */
-export function popupPanelColumns(hidden: Set<PopupPanelId>): string {
-  return POPUP_PANELS.map(({ id }) =>
-    hidden.has(id) ? `${POPUP_STUB_WIDTH}px` : "minmax(0, 1fr)",
-  ).join(" ");
-}
-
-/** The window sheds a whole panel per hidden id, keeping only its stub rail. */
-export function popupWindowWidth(fullWidth: number, hiddenCount: number) {
-  const panelWidth = fullWidth / POPUP_PANELS.length;
-  return fullWidth - hiddenCount * (panelWidth - POPUP_STUB_WIDTH);
+/** Tab / Shift+Tab flip between the two tabs; ⌘1 / ⌘2 pick one by position. */
+export function nextPopupTab(
+  event: Pick<
+    KeyboardEvent,
+    "key" | "metaKey" | "ctrlKey" | "altKey" | "isComposing"
+  >,
+  current: PopupTabId,
+): PopupTabId | null {
+  if (event.isComposing || event.ctrlKey || event.altKey) return null;
+  if (event.key === "Tab" && !event.metaKey) {
+    return current === "now" ? "dump" : "now";
+  }
+  if (!event.metaKey) return null;
+  return POPUP_TABS[Number(event.key) - 1]?.id ?? null;
 }
 
 /** Close an open overlay when the pointer lands outside its keep-alive root. */
@@ -259,11 +262,8 @@ export function PopupTopPanel({
   schedulingTimer,
   selectedInterval,
   timerButtonRef,
-  dashboardButtonRef,
   onTimerPickerOpenChange,
   onSelectInterval,
-  onTimerPrevious,
-  onDashboardNext,
   onOpenDashboard,
 }: {
   timerDue: boolean;
@@ -274,11 +274,8 @@ export function PopupTopPanel({
   schedulingTimer: boolean;
   selectedInterval: number;
   timerButtonRef: RefObject<HTMLButtonElement | null>;
-  dashboardButtonRef: RefObject<HTMLButtonElement | null>;
   onTimerPickerOpenChange: (open: boolean) => void;
   onSelectInterval: (minutes: number) => void;
-  onTimerPrevious: () => void;
-  onDashboardNext: () => void;
   onOpenDashboard: () => void;
 }) {
   const [pendingInterval, setPendingInterval] = useState<number | null>(null);
@@ -295,7 +292,7 @@ export function PopupTopPanel({
 
   return (
     <header
-      className="combined-timer"
+      className={timerDue ? "combined-timer combined-timer--due" : "combined-timer"}
       onPointerDown={(event) => {
         if (event.button !== 0 || !isPopupWindowDragTarget(event.target)) {
           return;
@@ -317,17 +314,12 @@ export function PopupTopPanel({
           }
         }}
       >
-        {/* Anchor is circle-sized so the picker overlays the face. Positioning
-            against full-height __main puts it below the popup (clipped). */}
+        {/* The picker positions against the trigger, so it drops just below. */}
         <div className="combined-timer__anchor">
           <button
             ref={timerButtonRef}
             type="button"
-            className={
-              timerDue
-                ? "combined-timer__trigger combined-timer__trigger--due"
-                : "combined-timer__trigger"
-            }
+            className="combined-timer__trigger"
             aria-haspopup="listbox"
             aria-expanded={timerPickerOpen}
             aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
@@ -345,45 +337,15 @@ export function PopupTopPanel({
                 event.preventDefault();
                 setPendingInterval(null);
                 onTimerPickerOpenChange(false);
-              } else if (event.key === "Tab") {
-                if (event.shiftKey) {
-                  event.preventDefault();
-                  onTimerPrevious();
-                } else if (pendingInterval !== null) {
-                  onSelectInterval(pendingInterval);
-                  setPendingInterval(null);
-                }
               }
             }}
           >
-            <svg
-              className="combined-timer__face"
-              viewBox="0 0 100 100"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle
-                className="combined-timer__bezel"
-                cx="50"
-                cy="50"
-                r="46"
-              />
-              {remainingRatio > 0 && (
-                <circle
-                  className="combined-timer__sweep"
-                  cx="50"
-                  cy="50"
-                  r="46"
-                  pathLength={1}
-                  strokeDasharray={1}
-                  strokeDashoffset={1 - remainingRatio}
-                  transform="rotate(-90 50 50)"
-                />
-              )}
-            </svg>
             <strong className="combined-timer__value" role="timer">
               {countdown}
             </strong>
+            <span className="combined-timer__interval">
+              {selectedInterval} min
+            </span>
           </button>
           {timerPickerOpen && (
             <div
@@ -410,21 +372,22 @@ export function PopupTopPanel({
         </div>
       </div>
       <button
-        ref={dashboardButtonRef}
         type="button"
         className="combined-dashboard-link"
         aria-label="Open dashboard"
         title="Open dashboard"
-        onKeyDown={(event) => {
-          if (event.key === "Tab" && !event.shiftKey) {
-            event.preventDefault();
-            onDashboardNext();
-          }
-        }}
         onClick={onOpenDashboard}
       >
         <ExpandIcon />
       </button>
+      <span className="combined-timer__track" aria-hidden="true">
+        {remainingRatio > 0 && (
+          <span
+            className="combined-timer__sweep"
+            style={{ transform: `scaleX(${remainingRatio})` }}
+          />
+        )}
+      </span>
     </header>
   );
 }
@@ -480,16 +443,12 @@ function PopupBrainDump({
   busy,
   onBusyChange,
   onError,
-  onTabBack,
-  onTabForward,
 }: {
   tags: Tag[];
   editorRef: RefObject<HTMLElement | null>;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
   onError: (error: string | null) => void;
-  onTabBack: () => void;
-  onTabForward: () => void;
 }) {
   const [draft, setDraft] = useBrainDumpDraft();
   const icons = useTileIcons();
@@ -546,12 +505,6 @@ function PopupBrainDump({
       onTagsChange={handleTagsChange}
       dismissPopupsOnOutsideInteraction
       onKeyDown={(event) => {
-        if (event.key === "Tab") {
-          event.preventDefault();
-          if (event.shiftKey) onTabBack();
-          else onTabForward();
-          return;
-        }
         if (
           !history.viewingHistory &&
           isBrainDumpSubmitShortcut({
@@ -588,46 +541,34 @@ function PopupContent({
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
-  // Per-summon only: the body remounts on every summon, so all three panels
-  // come back on their own without persisting or resetting anything here.
-  const [hiddenPanels, setHiddenPanels] = useState<Set<PopupPanelId>>(
-    () => new Set(),
-  );
-  // Measured before anything collapses. The backend restores the configured
-  // size on every hide, so a freshly summoned popup is always at full width.
-  const fullPopupSizeRef = useRef<{ width: number; height: number } | null>(
-    null,
-  );
+  // Per-summon: the body remounts on every summon and the first load picks
+  // the tab from whether the Timer is due.
+  const [tab, setTab] = useState<PopupTabId>("dump");
+  const icons = useTileIcons();
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLElement | null>(null);
-  const pulseButtonsRef = useRef<HTMLDivElement | null>(null);
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dashboardButtonRef = useRef<HTMLButtonElement | null>(null);
   const taskListRef = useRef<HTMLDivElement | null>(null);
   const taskScrollThumbRef = useRef<HTMLDivElement | null>(null);
   const liveTasksRef = useRef<HTMLDivElement | null>(null);
   const stickToLiveRef = useRef(true);
+
   useEffect(() => {
-    const full = (fullPopupSizeRef.current ??= {
-      width: document.documentElement.clientWidth,
-      height: document.documentElement.clientHeight,
-    });
-    void getCurrentWindow()
-      .setSize(
-        new LogicalSize(
-          popupWindowWidth(full.width, hiddenPanels.size),
-          full.height,
-        ),
-      )
-      .catch((error) => console.error("nest popup resize failed", error));
-  }, [hiddenPanels]);
+    const switchTab = (event: KeyboardEvent) => {
+      const next = nextPopupTab(event, tab);
+      if (!next) return;
+      // Capture phase, stopped here: Tab never reaches a control's own
+      // handler or the browser's focus walk, so it only ever switches views.
+      event.preventDefault();
+      event.stopPropagation();
+      setTab(next);
+    };
+    window.addEventListener("keydown", switchTab, true);
+    return () => window.removeEventListener("keydown", switchTab, true);
+  }, [tab]);
 
   const isLoaded = loaded !== null;
-  const enabledPulseButtons = () =>
-    pulseButtonsRef.current?.querySelectorAll<HTMLButtonElement>(
-      "button:not(:disabled)",
-    );
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
@@ -697,6 +638,9 @@ function PopupContent({
           latestPhase,
         ]) => {
           if (cancelled) return;
+          // A due Timer summons the popup for Metric scoring; a manual
+          // summon is usually for capturing a thought.
+          setTab(isTimerDue(timer, Date.now()) ? "now" : "dump");
           setLoaded({
             metrics,
             pulses,
@@ -748,13 +692,18 @@ function PopupContent({
   useEffect(() => {
     if (!isLoaded) return;
     requestAnimationFrame(() => {
+      if (tab === "now") {
+        // Focus inside the Metrics panel is what routes the 1–5 shortcuts.
+        (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
+        return;
+      }
       const brainDump = brainDumpRef.current;
       if (brainDump) {
         brainDump.focus();
         setContentEditableCaretToEnd(brainDump);
       }
     });
-  }, [isLoaded]);
+  }, [isLoaded, tab]);
 
   const syncTaskListThumb = () => {
     const list = taskListRef.current;
@@ -1355,43 +1304,9 @@ function PopupContent({
         timerRemainingSeconds(loaded.timer.nextDueAt, nowMs) /
           (loaded.timer.intervalMinutes * 60),
       );
-  const togglePanel = (id: PopupPanelId) =>
-    setHiddenPanels((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-
-  const hideButton = (id: PopupPanelId, label: string) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      className="popup-panel__hide"
-      aria-label={`Hide ${label}`}
-      title={`Hide ${label}`}
-      onClick={() => togglePanel(id)}
-    >
-      <CancelledMark />
-    </button>
-  );
-
-  const panelStub = (id: PopupPanelId, label: string) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      className="popup-stub"
-      aria-label={`Show ${label}`}
-      title={`Show ${label}`}
-      onClick={() => togglePanel(id)}
-    >
-      <ExpandIcon />
-    </button>
-  );
-
   return (
     <div
       className="popup-workspace"
-      style={{ gridTemplateColumns: popupPanelColumns(hiddenPanels) }}
       onPointerDownCapture={(event) => {
         const target = event.target;
         // Anchor (circle + list), not full-height __main — clock chrome counts as away.
@@ -1415,89 +1330,82 @@ function PopupContent({
         }
       }}
     >
-      {hiddenPanels.has("clock") ? (
-        panelStub("clock", "Timer")
-      ) : (
-        <aside className="popup-clock">
-          {hideButton("clock", "Timer")}
-          <PopupTopPanel
-            timerDue={timerDue}
-            countdown={countdown}
-            remainingRatio={remainingRatio}
-            timerPickerOpen={timerPickerOpen}
-            schedulingTimer={schedulingTimer}
-            selectedInterval={loaded.timer.intervalMinutes}
-            timerButtonRef={timerButtonRef}
-            dashboardButtonRef={dashboardButtonRef}
-            onTimerPickerOpenChange={setTimerPickerOpen}
-            onSelectInterval={(minutes) => void applyTimer(minutes)}
-            onTimerPrevious={() => {
-              const buttons = enabledPulseButtons();
-              const previous = buttons?.item((buttons?.length ?? 0) - 1);
-              (previous ?? brainDumpRef.current)?.focus();
-            }}
-            onDashboardNext={() => brainDumpRef.current?.focus()}
-            onOpenDashboard={() => void openDashboard()}
-          />
-        </aside>
-      )}
+      <PopupTopPanel
+        timerDue={timerDue}
+        countdown={countdown}
+        remainingRatio={remainingRatio}
+        timerPickerOpen={timerPickerOpen}
+        schedulingTimer={schedulingTimer}
+        selectedInterval={loaded.timer.intervalMinutes}
+        timerButtonRef={timerButtonRef}
+        onTimerPickerOpenChange={setTimerPickerOpen}
+        onSelectInterval={(minutes) => void applyTimer(minutes)}
+        onOpenDashboard={() => void openDashboard()}
+      />
 
-      {hiddenPanels.has("tasks") ? (
-        panelStub("tasks", "Tasks")
-      ) : (
-        <main className="popup-tasks">
-          {hideButton("tasks", "Tasks")}
-          <AmbientVisualizer
-            active={isDoing}
-            style={backgroundStyle}
-            tuning={backgroundTuning}
-          />
-          <MetricCheckIn
-            metrics={loaded.metrics}
-            pulses={visiblePulses}
-            submitting={submitting}
-            due={metricDue}
-            emptyCopy={
-              loaded.pulses.length
-                ? "No pulses are shown in the popup. Turn one on in Metrics."
-                : "Create a pulse in the Metrics dashboard."
-            }
-            onComplete={completePopup}
-            pulseButtonsRef={pulseButtonsRef}
-            selectedPulseButtonRef={selectedPulseButtonRef}
-            onTabBack={() => brainDumpRef.current?.focus()}
-            onTabForward={() => timerButtonRef.current?.focus()}
-          />
+      <nav className="popup-tabs" aria-label="Popup tabs">
+        {POPUP_TABS.map(({ id, label, tileIcon }, index) => (
+          <button
+            key={id}
+            type="button"
+            tabIndex={-1}
+            className={`popup-tabs__tab${
+              id === "now" && metricDue ? " popup-tabs__tab--due" : ""
+            }`}
+            aria-label={label}
+            aria-pressed={tab === id}
+            aria-keyshortcuts={`Meta+${index + 1}`}
+            title={`${label} (⌘${index + 1})`}
+            onClick={() => setTab(id)}
+          >
+            <NestIcon name={icons[tileIcon]} />
+          </button>
+        ))}
+      </nav>
 
-          {taskView}
-        </main>
-      )}
+      {/* Both panes stay mounted so a half-scored Pulse, an open task
+          composer and the task list's scroll survive a tab switch. */}
+      <main className="popup-pane popup-tasks" hidden={tab !== "now"}>
+        <AmbientVisualizer
+          active={isDoing}
+          style={backgroundStyle}
+          tuning={backgroundTuning}
+        />
+        <MetricCheckIn
+          metrics={loaded.metrics}
+          pulses={visiblePulses}
+          submitting={submitting}
+          due={metricDue}
+          emptyCopy={
+            loaded.pulses.length
+              ? "No pulses are shown in the popup. Turn one on in Metrics."
+              : "Create a pulse in the Metrics dashboard."
+          }
+          onComplete={completePopup}
+          selectedPulseButtonRef={selectedPulseButtonRef}
+        />
 
-      {hiddenPanels.has("dump") ? (
-        panelStub("dump", "Brain dump")
-      ) : (
-        <section className="popup-dump" aria-label="Brain dump">
-          {hideButton("dump", "Brain dump")}
-          <PopupBrainDump
-            tags={loaded?.tags ?? EMPTY_TAGS}
-            editorRef={brainDumpRef}
-            busy={submitting}
-            onBusyChange={setSubmitting}
-            onError={setError}
-            onTabBack={() => dashboardButtonRef.current?.focus()}
-            onTabForward={() =>
-              (
-                selectedPulseButtonRef.current ?? timerButtonRef.current
-              )?.focus()
-            }
-          />
+        {taskView}
+      </main>
 
-          {error && (
-            <div className="popup-workspace__error" role="alert">
-              {error}
-            </div>
-          )}
-        </section>
+      <section
+        className="popup-pane popup-dump"
+        aria-label="Brain dump"
+        hidden={tab !== "dump"}
+      >
+        <PopupBrainDump
+          tags={loaded?.tags ?? EMPTY_TAGS}
+          editorRef={brainDumpRef}
+          busy={submitting}
+          onBusyChange={setSubmitting}
+          onError={setError}
+        />
+      </section>
+
+      {error && (
+        <div className="popup-workspace__error" role="alert">
+          {error}
+        </div>
       )}
     </div>
   );
