@@ -5,7 +5,7 @@ use std::{
 
 use futures_util::StreamExt;
 use rusqlite::{params, Connection, OptionalExtension, Row};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{ipc::Channel, State};
 
@@ -30,7 +30,7 @@ const INCOMPLETE_RESPONSE_MESSAGE: &str = "The response ended before any text ar
 
 const PROMPT_COLUMNS: &str = "id, title, instructions, created_at, updated_at";
 const CONVERSATION_COLUMNS: &str =
-    "id, title, prompt_id, prompt_title, model, created_at, updated_at";
+    "id, title, model, created_at, updated_at";
 const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, context, incomplete_reason, created_at";
 
 /// Held for the whole of a send so two in-flight turns cannot read each other's
@@ -50,11 +50,19 @@ static OPENAI_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
 #[derive(Debug)]
 struct ConversationRequest {
     id: Option<i64>,
-    prompt_id: Option<i64>,
-    prompt_title: String,
-    prompt_instructions: String,
     model: String,
     history: Vec<AssistantMessage>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendAssistantMessageRequest {
+    conversation_id: Option<i64>,
+    model: String,
+    content: String,
+    context: Option<String>,
+    system_instructions: Option<String>,
+    timezone_offset_minutes: i32,
 }
 
 struct StartedTurn {
@@ -132,11 +140,9 @@ fn map_conversation(row: &Row<'_>) -> rusqlite::Result<AssistantConversation> {
     Ok(AssistantConversation {
         id: row.get(0)?,
         title: row.get(1)?,
-        prompt_id: row.get(2)?,
-        prompt_title: row.get(3)?,
-        model: row.get(4)?,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        model: row.get(2)?,
+        created_at: row.get(3)?,
+        updated_at: row.get(4)?,
     })
 }
 
@@ -187,26 +193,18 @@ fn conversation_request(
     model: String,
 ) -> Result<ConversationRequest> {
     let model = valid_model(model)?;
-    if let Some(id) = conversation_id {
-        conn.query_row("SELECT id FROM assistant_conversations WHERE id = ?1", [id], |row| row.get::<_, i64>(0))
-            .optional()?
-            .ok_or_else(|| AppError::NotFound(format!("assistant conversation {id}")))?;
-        return Ok(ConversationRequest {
-            id: Some(id),
-            prompt_id: None,
-            prompt_title: String::new(),
-            prompt_instructions: String::new(),
-            model,
-            history: recent_messages(conn, id)?,
-        });
-    }
-    Ok(ConversationRequest {
-        id: None,
-        prompt_id: None,
-        prompt_title: String::new(),
-        prompt_instructions: String::new(),
-        model,
-        history: Vec::new(),
+    Ok(match conversation_id {
+        Some(id) => {
+            // start_turn runs only after OpenAI answers, so a chat deleted in the
+            // other window has to fail here, before a billed request goes out.
+            fetch_conversation(conn, id)?;
+            ConversationRequest {
+                id: Some(id),
+                model,
+                history: recent_messages(conn, id)?,
+            }
+        }
+        None => ConversationRequest { id: None, model, history: Vec::new() },
     })
 }
 
@@ -214,28 +212,29 @@ fn recent_messages(conn: &Connection, conversation_id: i64) -> Result<Vec<Assist
     let mut stmt = conn.prepare(&format!(
         "SELECT {MESSAGE_COLUMNS} FROM (\
            SELECT {MESSAGE_COLUMNS} FROM assistant_messages \
-           WHERE conversation_id = ?1 ORDER BY id DESC LIMIT ?2\
+           WHERE conversation_id = ?1
+             AND NOT (incomplete_reason IS NOT NULL AND content = ?3)
+           ORDER BY id DESC LIMIT ?2\
          ) ORDER BY id ASC"
     ))?;
     let messages = stmt
-        .query_map(params![conversation_id, HISTORY_MESSAGE_LIMIT], map_message)?
+        .query_map(params![conversation_id, HISTORY_MESSAGE_LIMIT, INCOMPLETE_RESPONSE_MESSAGE], map_message)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(messages)
 }
 
-fn local_message_content(message: &AssistantMessage, timezone_offset_minutes: i32) -> String {
-    let local_seconds = message.created_at - i64::from(timezone_offset_minutes) * 60;
+fn clock_prefix(unix_seconds: i64, timezone_offset_minutes: i32) -> String {
+    let local_seconds = unix_seconds - i64::from(timezone_offset_minutes) * 60;
     let minute = local_seconds.div_euclid(60).rem_euclid(24 * 60);
-    format!(
-        "{:02}:{:02}  {}",
-        minute / 60,
-        minute % 60,
-        message.context.as_deref().unwrap_or(&message.content),
-    )
+    format!("{:02}:{:02}  ", minute / 60, minute % 60)
 }
 
-fn request_instructions(system_instructions: Option<&str>) -> String {
-    system_instructions.unwrap_or_default().to_string()
+fn local_message_content(message: &AssistantMessage, timezone_offset_minutes: i32) -> String {
+    format!(
+        "{}{}",
+        clock_prefix(message.created_at, timezone_offset_minutes),
+        message.context.as_deref().unwrap_or(&message.content),
+    )
 }
 
 fn conversation_title(content: &str) -> String {
@@ -332,8 +331,8 @@ fn start_turn(
     let tx = conn.transaction()?;
     let conversation_id = if let Some(id) = request.id {
         let updated = tx.execute(
-            "UPDATE assistant_conversations SET updated_at = ?1 WHERE id = ?2",
-            params![now, id],
+            "UPDATE assistant_conversations SET model = ?1, updated_at = ?2 WHERE id = ?3",
+            params![request.model, now, id],
         )?;
         if updated == 0 {
             return Err(AppError::NotFound(format!("assistant conversation {id}")));
@@ -346,9 +345,9 @@ fn start_turn(
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
             params![
                 conversation_title(&user_content),
-                request.prompt_id,
-                request.prompt_title,
-                request.prompt_instructions,
+                Option::<i64>::None,
+                "",
+                "",
                 request.model,
                 now,
             ],
@@ -404,13 +403,7 @@ fn finish_turn(
 
 #[tauri::command]
 pub fn assistant_api_key_configured() -> bool {
-    keyring_entry()
-        .and_then(|entry| {
-            entry
-                .get_password()
-                .map_err(|error| assistant_error(error.to_string()))
-        })
-        .is_ok_and(|key| !key.trim().is_empty())
+    assistant_api_key().is_ok()
 }
 
 #[tauri::command]
@@ -553,14 +546,17 @@ pub fn delete_assistant_conversation(state: State<'_, Mutex<Connection>>, id: i6
 #[tauri::command]
 pub async fn send_assistant_message(
     state: State<'_, Mutex<Connection>>,
-    conversation_id: Option<i64>,
-    model: Option<String>,
-    content: String,
-    context: Option<String>,
-    system_instructions: Option<String>,
-    timezone_offset_minutes: i32,
+    request: SendAssistantMessageRequest,
     on_event: Channel<AssistantStreamEvent>,
 ) -> Result<AssistantTurn> {
+    let SendAssistantMessageRequest {
+        conversation_id,
+        model,
+        content,
+        context,
+        system_instructions,
+        timezone_offset_minutes,
+    } = request;
     let content = normalized(content, "message", MAX_MESSAGE_CHARS)?;
     let context = context.map(|value| normalized(value, "context", MAX_CONTEXT_CHARS)).transpose()?;
     let system_instructions = system_instructions
@@ -570,7 +566,6 @@ pub async fn send_assistant_message(
     if !(-14 * 60..=14 * 60).contains(&timezone_offset_minutes) {
         return Err(AppError::InvalidInput("timezone offset must be within 14 hours of UTC".into()));
     }
-    let model = model.ok_or_else(|| AppError::InvalidInput("choose a model before sending".into()))?;
     let api_key = assistant_api_key()?;
     let _send_guard = SEND_LOCK.lock().await;
     let request = {
@@ -584,22 +579,15 @@ pub async fn send_assistant_message(
         .map(|message| json!({ "role": &message.role, "content": local_message_content(message, timezone_offset_minutes) }))
         .collect::<Vec<_>>();
     let outbound_content = context.as_deref().unwrap_or(&content);
-    let now = now_unix_secs();
-    let minute = (now - i64::from(timezone_offset_minutes) * 60).div_euclid(60).rem_euclid(24 * 60);
-    input.push(json!({ "role": "user", "content": format!("{:02}:{:02}  {outbound_content}", minute / 60, minute % 60) }));
+    input.push(json!({ "role": "user", "content": format!("{}{}", clock_prefix(now_unix_secs(), timezone_offset_minutes), outbound_content) }));
     let body = json!({
         "model": &request.model,
-        "instructions": request_instructions(system_instructions.as_deref()),
+        "instructions": system_instructions.unwrap_or_default(),
         "input": input,
         "max_output_tokens": 2_000,
         "store": false,
         "stream": true
     });
-
-    let started = {
-        let mut conn = state.lock().unwrap();
-        start_turn(&mut conn, request, content.clone(), context)?
-    };
 
     let response = match OPENAI_CLIENT
         .post(OPENAI_API_URL)
@@ -609,27 +597,18 @@ pub async fn send_assistant_message(
         .await
     {
         Ok(response) => response,
-        Err(error) => {
-            let mut conn = state.lock().unwrap();
-            return finish_turn(
-                &mut conn,
-                started,
-                String::new(),
-                Some(format!("Could not reach OpenAI: {error}")),
-            );
-        }
+        Err(error) => return Err(assistant_error(format!("Could not reach OpenAI: {error}"))),
     };
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        let mut conn = state.lock().unwrap();
-        return finish_turn(
-            &mut conn,
-            started,
-            String::new(),
-            Some(openai_error(status, &body).to_string()),
-        );
+        return Err(openai_error(status, &body));
     }
+
+    let started = {
+        let mut conn = state.lock().unwrap();
+        start_turn(&mut conn, request, content.clone(), context)?
+    };
 
     let mut stream = response.bytes_stream();
     let mut buffer = Vec::new();
@@ -697,18 +676,12 @@ pub async fn send_assistant_message(
 #[cfg(test)]
 mod tests {
     use super::{
-        conversation_title, finish_turn, local_message_content, parse_stream_event,
-        request_instructions, start_turn, AssistantMessage, ConversationRequest, StreamEvent,
+        conversation_title, finish_turn, local_message_content, parse_stream_event, recent_messages,
+        start_turn, AssistantMessage, ConversationRequest, StreamEvent,
         INCOMPLETE_RESPONSE_MESSAGE,
     };
     use crate::migrations::migrations;
     use rusqlite::Connection;
-
-    #[test]
-    fn uses_only_system_instructions() {
-        assert_eq!(request_instructions(Some("Guard.")), "Guard.");
-        assert_eq!(request_instructions(None), "");
-    }
 
     #[test]
     fn prefixes_saved_context_with_local_time() {
@@ -746,9 +719,6 @@ mod tests {
             &mut conn,
             ConversationRequest {
                 id: None,
-                prompt_id: Some(1),
-                prompt_title: "Task companion".into(),
-                prompt_instructions: "Be calm.".into(),
                 model: "gpt-5.6-luna".into(),
                 history: Vec::new(),
             },
@@ -778,9 +748,6 @@ mod tests {
             &mut conn,
             ConversationRequest {
                 id: Some(turn.conversation.id),
-                prompt_id: Some(1),
-                prompt_title: "Task companion".into(),
-                prompt_instructions: "Be calm.".into(),
                 model: "gpt-5.6-luna".into(),
                 history: Vec::new(),
             },
@@ -788,7 +755,14 @@ mod tests {
             None,
         )
         .unwrap();
-        let blank = finish_turn(&mut conn, started, "  \n ".into(), None).unwrap();
+        let blank = finish_turn(
+            &mut conn,
+            started,
+            "  \n ".into(),
+            Some("OpenAI returned no text.".into()),
+        )
+        .unwrap();
         assert_eq!(blank.assistant_message.content, INCOMPLETE_RESPONSE_MESSAGE);
+        assert_eq!(recent_messages(&conn, turn.conversation.id).unwrap().len(), 3);
     }
 }

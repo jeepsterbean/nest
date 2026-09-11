@@ -165,8 +165,6 @@ pub struct AssistantPrompt {
 pub struct AssistantConversation {
     pub id: i64,
     pub title: String,
-    pub prompt_id: Option<i64>,
-    pub prompt_title: String,
     pub model: String,
     pub created_at: i64,
     pub updated_at: i64,

@@ -14,6 +14,7 @@ import {
   sampleData,
 } from "../../../src/dashboard/lib/assistantContext";
 import { buildTaskGraph } from "../../../src/dashboard/lib/taskGraph";
+import { formatTime } from "../../../src/dashboard/lib/time";
 import type { BrainDump, Metric, MetricCheckInWithRatings, Task } from "../../../src/lib/types";
 
 const task = (id: number, status: Task["status"] = "active"): Task => ({
@@ -50,6 +51,19 @@ describe("assistant context", () => {
     expect(formatDumps(dumps, "window:15", 3_600)).not.toContain("older thought");
     expect(formatDumps(dumps, "window:15", 10_000)).toBe("");
     expect(formatMetrics(metrics, checkIns, "last:1")).toContain("focus 4");
+  });
+
+  it("stamps rows from before today with their day, so a count option cannot pass them off as today", () => {
+    const now = new Date(2026, 8, 11, 14, 0).getTime() / 1000;
+    const today = new Date(2026, 8, 11, 13, 58).getTime() / 1000;
+    const yesterday = new Date(2026, 8, 10, 9, 5).getTime() / 1000;
+    const dumps: BrainDump[] = [
+      { id: 1, createdAt: today, text: "fresh thought", tags: [] },
+      { id: 2, createdAt: yesterday, text: "old thought", tags: [] },
+    ];
+    const output = formatDumps(dumps, "last:2", now);
+    expect(output).toContain(`- ${formatTime(today)}  fresh thought`);
+    expect(output).toContain(`- Yesterday ${formatTime(yesterday)}  old thought`);
   });
 
   it("labels options and rejects shapes a signal cannot use", () => {

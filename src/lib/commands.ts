@@ -27,6 +27,9 @@ import type {
 
 /** Greetings-board line length at the 600px dashboard minimum. */
 export const MAX_REMINDER_CHARS = 27;
+export const MAX_ASSISTANT_TITLE_CHARS = 80;
+export const MAX_ASSISTANT_PROMPT_CHARS = 12_000;
+export const MAX_ASSISTANT_MESSAGE_CHARS = 24_000;
 
 export function assistantApiKeyConfigured(): Promise<boolean> {
   return invoke("assistant_api_key_configured");
@@ -87,7 +90,7 @@ export function deleteAssistantConversation(id: number): Promise<void> {
 export function sendAssistantMessage(
   input: {
     conversationId: number | null;
-    model: AssistantModel | null;
+    model: AssistantModel;
     content: string;
     context: string | null;
     systemInstructions: string | null;
@@ -97,7 +100,7 @@ export function sendAssistantMessage(
 ): Promise<AssistantTurn> {
   const onEvent = new Channel<AssistantStreamEvent>();
   onEvent.onmessage = (event) => onDelta(event.delta);
-  return invoke("send_assistant_message", { ...input, onEvent });
+  return invoke("send_assistant_message", { request: input, onEvent });
 }
 
 export function listReminders(): Promise<Reminder[]> {

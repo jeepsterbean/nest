@@ -1430,7 +1430,7 @@ function PopupContent({
           hidden={tab !== "assistant"}
         >
           <DashboardDataProvider>
-            <AssistantView chatOnly onOpenDashboard={() => void showDashboard()} />
+            <AssistantView chatOnly />
           </DashboardDataProvider>
         </section>
       )}

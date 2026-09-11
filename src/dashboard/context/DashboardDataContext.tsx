@@ -47,7 +47,7 @@ import { historyStartSec } from "../lib/time";
 /** How many calendar days of history Calendar and Insights can page through. */
 export const HISTORY_WINDOW_DAYS = 30;
 
-type DashboardData = {
+export type DashboardData = {
   tasks: Task[];
   taskDependencies: TaskDependency[];
   taskStatusEvents: TaskStatusEvent[];

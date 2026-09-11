@@ -1,4 +1,15 @@
 import { useRef, useState, type FormEvent } from "react";
+import {
+  createAssistantPrompt,
+  deleteAssistantPrompt,
+  updateAssistantPrompt,
+  MAX_ASSISTANT_PROMPT_CHARS,
+  MAX_ASSISTANT_TITLE_CHARS,
+} from "../../lib/commands";
+import type { AssistantPrompt } from "../../lib/types";
+import type { DashboardData } from "../context/DashboardDataContext";
+import { plusIcon, trashIcon } from "../components/icons";
+import { readPromptDrafts, writePromptDrafts, type PromptDraft } from "../lib/assistant";
 import { MenuSelect } from "../components/MenuSelect";
 import {
   DEFAULT_SYSTEM_INSTRUCTIONS,
@@ -24,6 +35,7 @@ import {
 } from "../lib/assistantContext";
 
 type StoreConfig = (update: (current: AssistantConfig) => AssistantConfig) => void;
+const NEW_PROMPT_TEXT = "What would you like help with?";
 
 const TASK_DETAIL_LABELS: Record<keyof TaskDetail, string> = {
   status: "Status",
@@ -48,7 +60,8 @@ const UNIT_OPTIONS: Record<Exclude<Signal, "tasks">, { value: RangeUnit; label: 
   phase: [{ value: "minutes", label: "minutes" }],
 };
 
-// Signal data loaded in the dashboard covers days, so a day is the widest window worth offering.
+// Chat reads the dashboard's 30-day history (HISTORY_WINDOW_DAYS): a count option is the newest N
+// within it, never older. A day is the widest window worth offering.
 const MAX_AMOUNT: Record<RangeUnit, number> = { count: 50, minutes: 24 * 60 };
 const maxAmount = (signal: Signal, unit: RangeUnit) =>
   signal === "dumps" && unit === "count" ? MAX_CONTEXT_DUMPS : MAX_AMOUNT[unit];
@@ -190,11 +203,13 @@ function OptionEditor({
 export function SignalSection({
   signal,
   config,
+  data,
   storeConfig,
   onDefaultChange,
 }: {
   signal: Signal;
   config: AssistantConfig;
+  data: DashboardData;
   storeConfig: StoreConfig;
   onDefaultChange: (signal: Signal, id: string | null) => void;
 }) {
@@ -207,7 +222,10 @@ export function SignalSection({
   const saved = options.find((option) => option.id === draft?.id) ?? null;
   const previewKey = draft ? draftKey(signal, draft) : null;
   const now = Math.floor(Date.now() / 1000);
-  const output = previewKey ? formatSignal(signal, previewKey, sampleData(now), config.taskDetail, now) : "";
+  const samples = sampleData(now);
+  const usesLiveData = signal !== "tasks";
+  const previewData = signal === "tasks" ? samples : data;
+  const output = previewKey ? formatSignal(signal, previewKey, previewData, config.taskDetail, now) : "";
   const { menu } = SIGNAL_LABELS[signal];
 
   const storeOptions = (update: (current: SignalOption[]) => SignalOption[]) => storeConfig((current) => ({
@@ -341,14 +359,18 @@ export function SignalSection({
 
       <div className="assistant-config__preview">
         <div className="assistant-config__intro">
-          <strong>{draft?.name.trim() ? `${menu} · ${draft.name.trim()}` : "Sample output"}</strong>
+          <strong>{draft?.name.trim() ? `${menu} · ${draft.name.trim()}` : usesLiveData ? "Current records" : "Sample output"}</strong>
         </div>
         <pre className="assistant-output">
-          {!draft
+          {!data.loaded && usesLiveData
+            ? "Loading current records…"
+            : !draft
             ? "Select or add an option to preview it."
             : !previewKey
               ? "Finish configuring this option to preview it."
-              : output || "No sample records fall in this option, so it sends nothing."}
+              : output || (usesLiveData
+                ? "No current records fall in this option, so it sends nothing."
+                : "No sample records fall in this option, so it sends nothing.")}
         </pre>
       </div>
     </div>
@@ -369,7 +391,7 @@ export function SystemInstructionsSection({
       </div>
       <textarea
         value={config.systemInstructions}
-        maxLength={12_000}
+        maxLength={MAX_ASSISTANT_PROMPT_CHARS}
         aria-label="System instructions"
         onChange={(event) => storeConfig((current) => ({ ...current, systemInstructions: event.target.value }))}
       />
@@ -381,6 +403,145 @@ export function SystemInstructionsSection({
       >
         Reset to default
       </button>
+    </div>
+  );
+}
+
+export function PromptSection({
+  prompts,
+  selectedPromptId,
+  onSelectPrompt,
+  onPromptsChange,
+  onError,
+}: {
+  prompts: AssistantPrompt[];
+  selectedPromptId: number | null;
+  onSelectPrompt: (id: number | null) => void;
+  onPromptsChange: (prompts: AssistantPrompt[]) => void;
+  onError: (error: unknown) => void;
+}) {
+  const [drafts, setDrafts] = useState(readPromptDrafts);
+  const [saving, setSaving] = useState(false);
+  const selectedPrompt = prompts.find((prompt) => prompt.id === selectedPromptId) ?? null;
+  const draft = selectedPrompt
+    ? drafts[String(selectedPrompt.id)] ?? selectedPrompt
+    : null;
+  const changed = selectedPrompt !== null && draft !== null &&
+    (selectedPrompt.title !== draft.title || selectedPrompt.instructions !== draft.instructions);
+
+  const storeDrafts = (update: (current: Record<string, PromptDraft>) => Record<string, PromptDraft>) => {
+    setDrafts((current) => {
+      const next = update(current);
+      writePromptDrafts(next);
+      return next;
+    });
+  };
+
+  const addPrompt = async () => {
+    try {
+      const created = await createAssistantPrompt("New prompt", NEW_PROMPT_TEXT);
+      onPromptsChange([created, ...prompts]);
+      onSelectPrompt(created.id);
+    } catch (error) {
+      onError(error);
+    }
+  };
+
+  const savePrompt = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedPrompt || !draft) return;
+    setSaving(true);
+    try {
+      const updated = await updateAssistantPrompt(selectedPrompt.id, draft.title, draft.instructions);
+      onPromptsChange(prompts.map((prompt) => prompt.id === updated.id ? updated : prompt));
+      storeDrafts((current) => {
+        const next = { ...current };
+        delete next[String(updated.id)];
+        return next;
+      });
+    } catch (error) {
+      onError(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removePrompt = async () => {
+    if (!selectedPrompt || !window.confirm(`Delete “${selectedPrompt.title}”?`)) return;
+    try {
+      await deleteAssistantPrompt(selectedPrompt.id);
+      onPromptsChange(prompts.filter((prompt) => prompt.id !== selectedPrompt.id));
+      onSelectPrompt(null);
+      storeDrafts((current) => {
+        const next = { ...current };
+        delete next[String(selectedPrompt.id)];
+        return next;
+      });
+    } catch (error) {
+      onError(error);
+    }
+  };
+
+  return (
+    <div className="assistant-prompt-workspace">
+      <aside className="assistant-list assistant-prompt-list" aria-label="System prompts">
+        <button type="button" className="assistant-new" onClick={() => void addPrompt()}>
+          <span aria-hidden="true">{plusIcon}</span>
+          New prompt
+        </button>
+        <div className="assistant-list__scroll">
+          {prompts.map((prompt) => (
+            <button
+              key={prompt.id}
+              type="button"
+              className={prompt.id === selectedPromptId ? "assistant-prompt-row assistant-prompt-row--active" : "assistant-prompt-row"}
+              onClick={() => onSelectPrompt(prompt.id)}
+            >
+              {drafts[String(prompt.id)]?.title || prompt.title}
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {selectedPrompt && draft ? (
+        <form className="assistant-prompt-editor" onSubmit={savePrompt}>
+          <label>
+            <span>Name</span>
+            <input
+              value={draft.title}
+              maxLength={MAX_ASSISTANT_TITLE_CHARS}
+              onChange={(event) => storeDrafts((current) => ({
+                ...current,
+                [String(selectedPrompt.id)]: { ...draft, title: event.target.value },
+              }))}
+            />
+          </label>
+          <label className="assistant-prompt-editor__instructions">
+            <span>Prompt text</span>
+            <textarea
+              value={draft.instructions}
+              maxLength={MAX_ASSISTANT_PROMPT_CHARS}
+              onChange={(event) => storeDrafts((current) => ({
+                ...current,
+                [String(selectedPrompt.id)]: { ...draft, instructions: event.target.value },
+              }))}
+            />
+          </label>
+          <div className="assistant-prompt-editor__actions">
+            <button type="button" className="assistant-delete" onClick={() => void removePrompt()}>
+              {trashIcon}
+              Delete
+            </button>
+            <button type="submit" className="btn-accent" disabled={!changed || !draft.title.trim() || !draft.instructions.trim() || saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="assistant-prompt-empty">
+          <p>Create a prompt to shape the assistant.</p>
+        </div>
+      )}
     </div>
   );
 }

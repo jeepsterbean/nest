@@ -95,11 +95,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   chat and the chat switcher in one row, followed by a four-control context
   row sized for the Popup pane. Popup Chat uses compact 28px controls and
   reduced thread/composer type without changing Dashboard Assistant sizing.
-  Config has a fixed left sidebar: Chat contains the four signals and Prompt;
-  System contains System instructions and Layout. The API key is in Settings →
-  Assistant. Signal and Layout sections use `.assistant-signal`: a fixed 320px
-  controls rail on the left and a `.assistant-output` sample preview on the
-  right at every dashboard width.
+  Config has a fixed icon-only left sidebar for Chat and System. The selected
+  group’s `ViewToggle` stays at the top-left: Chat contains the four signals
+  and Prompt; System contains System instructions and Layout. The API key is
+  in Settings → Assistant. Signal and Layout sections use `.assistant-signal`:
+  a fixed 320px controls rail on the left and a `.assistant-output` sample
+  preview on the right at every dashboard width.
   Option lists, defaults, Task detail, System
   instructions and the template persist in `nest:assistant-context`. The Rust boundary streams OpenAI output; each user
   message stores its selected context snapshot and the renderer never receives

@@ -147,8 +147,6 @@ export type AssistantPrompt = {
 export type AssistantConversation = {
   id: number;
   title: string;
-  promptId: number | null;
-  promptTitle: string;
   model: AssistantModel;
   createdAt: number;
   updatedAt: number;

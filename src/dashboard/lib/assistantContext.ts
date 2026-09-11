@@ -10,7 +10,11 @@ import type {
 import { foldIdleIntoOffline, phaseName } from "./period";
 import { buildTaskGraph, type TaskGraphProjection } from "./taskGraph";
 import { phaseSessionTotals, phaseSessionsInWindow } from "./timeline";
-import { formatCompactDuration, formatTime, formatWorkedTime } from "./time";
+import { dayLabel, formatCompactDuration, formatTime, formatWorkedTime, startOfDayMs } from "./time";
+
+/** Count options and task dates reach back days; a bare clock time would read as today. */
+export const formatStamp = (ts: number, now: number) =>
+  startOfDayMs(ts) === startOfDayMs(now) ? formatTime(ts) : `${dayLabel(ts, now * 1000)} ${formatTime(ts)}`;
 
 export type Signal = "dumps" | "metrics" | "phase" | "tasks";
 export const SIGNALS: readonly Signal[] = ["dumps", "metrics", "phase", "tasks"];
@@ -140,7 +144,9 @@ function recentRows<T extends { createdAt: number }>(rows: T[], option: RecentOp
     : sorted.filter((row) => row.createdAt >= now - option.minutes * 60);
 }
 
-export function formatTasks(tasks: Task[], graph: TaskGraphProjection, key: string, detail: TaskDetail) {
+export function formatTasks(
+  tasks: Task[], graph: TaskGraphProjection, key: string, detail: TaskDetail, now = Math.floor(Date.now() / 1000),
+) {
   const groups = parseTaskOption(key);
   if (!groups) return "";
   const selected = tasks.filter((task) =>
@@ -156,8 +162,8 @@ export function formatTasks(tasks: Task[], graph: TaskGraphProjection, key: stri
     if (detail.value && task.value !== null) fields.push(`value: ${task.value}`);
     if (detail.effort && task.effort !== null) fields.push(`effort: ${task.effort}`);
     if (detail.workedTime) fields.push(`worked time: ${formatWorkedTime(task.workedSeconds)}`);
-    if (detail.created) fields.push(`created: ${formatTime(task.createdAt)}`);
-    if (detail.updated) fields.push(`updated: ${formatTime(task.updatedAt)}`);
+    if (detail.created) fields.push(`created: ${formatStamp(task.createdAt, now)}`);
+    if (detail.updated) fields.push(`updated: ${formatStamp(task.updatedAt, now)}`);
     if (fields.length) lines.push(`  ${fields.join(" · ")}`);
     if (detail.description && task.description.trim()) lines.push(`  ${task.description.trim()}`);
     if (detail.blockers) {
@@ -192,14 +198,14 @@ export function formatDumps(dumps: BrainDump[], key: string, now = Math.floor(Da
   if (inRange.length === 0) return "";
   const rows = inRange.slice(0, MAX_CONTEXT_DUMPS);
   const trimmed = rows.length < inRange.length ? ` · newest ${rows.length} of ${inRange.length}` : "";
-  return `Brain dumps · ${describeOption("dumps", key).toLowerCase()}${trimmed}\n${rows.map((dump) => `- ${formatTime(dump.createdAt)}  ${brainDumpPlainTextLines(dump.text).join(" ")}`).join("\n")}`;
+  return `Brain dumps · ${describeOption("dumps", key).toLowerCase()}${trimmed}\n${rows.map((dump) => `- ${formatStamp(dump.createdAt, now)}  ${brainDumpPlainTextLines(dump.text).join(" ")}`).join("\n")}`;
 }
 
 export function formatMetrics(metrics: Metric[], checkIns: MetricCheckInWithRatings[], key: string, now = Math.floor(Date.now() / 1000)) {
   const option = parseRecentOption(key);
   const rows = option ? recentRows(checkIns, option, now) : [];
   if (rows.length === 0) return "";
-  return `Metrics · ${describeOption("metrics", key).toLowerCase()}\n${rows.map((checkIn) => `- ${formatTime(checkIn.createdAt)}  ${checkIn.ratings.map((rating) => `${metrics.find((metric) => metric.id === rating.metricId)?.name ?? `Metric ${rating.metricId}`} ${rating.value}`).join("  ")}`).join("\n")}`;
+  return `Metrics · ${describeOption("metrics", key).toLowerCase()}\n${rows.map((checkIn) => `- ${formatStamp(checkIn.createdAt, now)}  ${checkIn.ratings.map((rating) => `${metrics.find((metric) => metric.id === rating.metricId)?.name ?? `Metric ${rating.metricId}`} ${rating.value}`).join("  ")}`).join("\n")}`;
 }
 
 export type AssistantContextData = {
@@ -215,7 +221,7 @@ export type AssistantContextData = {
 export function formatSignal(
   signal: Signal, key: string, data: AssistantContextData, detail: TaskDetail, now = Math.floor(Date.now() / 1000),
 ) {
-  if (signal === "tasks") return formatTasks(data.tasks, data.taskGraph, key, detail);
+  if (signal === "tasks") return formatTasks(data.tasks, data.taskGraph, key, detail, now);
   if (signal === "phase") return formatPhase(data.phases, data.phaseCheckIns, key, now);
   if (signal === "dumps") return formatDumps(data.brainDumps, key, now);
   return formatMetrics(data.metrics, data.checkIns, key, now);

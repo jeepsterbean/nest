@@ -456,37 +456,63 @@
 .assistant-config {
   display: grid;
   min-height: 0;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 
 .assistant-config__sections {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 18px 12px;
+  padding: 18px 11px;
   overflow: auto;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 62%, var(--surface));
 }
 
-.assistant-config__sections strong {
-  margin: 4px 6px 0;
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.assistant-config__sections .view-toggle {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+.assistant-config__group-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
   padding: 0;
+  border: 0;
+  border-radius: 10px;
   background: transparent;
+  color: var(--muted);
+  cursor: pointer;
 }
 
-.assistant-config__sections .view-toggle__btn {
-  text-align: left;
+.assistant-config__group-button:hover,
+.assistant-config__group-button:focus-visible {
+  color: var(--ink);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.assistant-config__group-button--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.assistant-config__group-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.assistant-config__content {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.assistant-config__tabs {
+  padding: 12px 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.assistant-config__tabs .view-toggle__btn {
   white-space: nowrap;
 }
 

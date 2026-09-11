@@ -1627,40 +1627,57 @@ pub fn list_metric_check_ins(
     to: i64,
 ) -> Result<Vec<MetricCheckInWithRatings>> {
     let conn = state.lock().unwrap();
+    query_metric_check_ins(&conn, from, to)
+}
 
+fn query_metric_check_ins(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+) -> Result<Vec<MetricCheckInWithRatings>> {
     let mut ci_stmt = conn.prepare(
         "SELECT id, created_at, pulse_id, pulse_name FROM metric_check_ins \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
-    let check_ins: Vec<MetricCheckIn> = ci_stmt
+    let mut result: Vec<MetricCheckInWithRatings> = ci_stmt
         .query_map(params![from, to], |row| {
-            Ok(MetricCheckIn {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                pulse_id: row.get(2)?,
-                pulse_name: row.get(3)?,
+            Ok(MetricCheckInWithRatings {
+                check_in: MetricCheckIn {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    pulse_id: row.get(2)?,
+                    pulse_name: row.get(3)?,
+                },
+                ratings: Vec::new(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    let positions: HashMap<i64, usize> = result
+        .iter()
+        .enumerate()
+        .map(|(index, item)| (item.check_in.id, index))
+        .collect();
 
+    // Join on the same range rather than IN (ids...): one query, and a 30-day
+    // range can't outgrow SQLite's bound-parameter limit.
     let mut r_stmt = conn.prepare(
-        "SELECT check_in_id, metric_id, value FROM metric_ratings WHERE check_in_id = ?1",
+        "SELECT r.check_in_id, r.metric_id, r.value FROM metric_ratings r \
+         JOIN metric_check_ins ci ON ci.id = r.check_in_id \
+         WHERE ci.created_at >= ?1 AND ci.created_at < ?2 \
+         ORDER BY r.check_in_id, r.metric_id",
     )?;
-    let mut result = Vec::with_capacity(check_ins.len());
-    for ci in check_ins {
-        let ratings: Vec<MetricRating> = r_stmt
-            .query_map(params![ci.id], |row| {
-                Ok(MetricRating {
-                    check_in_id: row.get(0)?,
-                    metric_id: row.get(1)?,
-                    value: row.get(2)?,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        result.push(MetricCheckInWithRatings {
-            check_in: ci,
-            ratings,
-        });
+    let ratings = r_stmt.query_map(params![from, to], |row| {
+        Ok(MetricRating {
+            check_in_id: row.get(0)?,
+            metric_id: row.get(1)?,
+            value: row.get(2)?,
+        })
+    })?;
+    for rating in ratings {
+        let rating = rating?;
+        if let Some(index) = positions.get(&rating.check_in_id) {
+            result[*index].ratings.push(rating);
+        }
     }
     Ok(result)
 }
@@ -2040,6 +2057,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn lists_brain_dumps_with_their_own_tags() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 1), (2, 'Idea', 2)",
+            [],
+        )
+        .unwrap();
+
+        record_brain_dump(&mut conn, "early".into(), &[1], 0).unwrap();
+        record_brain_dump(&mut conn, "mixed".into(), &[2, 1], 100).unwrap();
+        record_brain_dump(&mut conn, "bound".into(), &[2], 500).unwrap();
+        record_brain_dump(&mut conn, "later".into(), &[1], 900).unwrap();
+
+        let listed = query_brain_dumps(&conn, 0, 500, None).unwrap();
+        let shape: Vec<(&str, Vec<&str>)> = listed
+            .iter()
+            .map(|dump| {
+                (
+                    dump.text.as_str(),
+                    dump.tags.iter().map(|tag| tag.name.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            vec![("mixed", vec!["Idea", "Work"]), ("early", vec!["Work"])]
+        );
+
+        let limited = query_brain_dumps(&conn, 0, 500, Some(1)).unwrap();
+        assert_eq!(limited[0].text, "mixed");
+        assert_eq!(
+            limited[0]
+                .tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Idea", "Work"]
+        );
+    }
+
     fn task_database() -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
@@ -2408,6 +2468,40 @@ mod tests {
 
         assert!(super::set_task_order(&conn, &[1, 1]).is_err());
         assert!(super::set_task_order(&conn, &[99]).is_err());
+    }
+
+    #[test]
+    fn lists_metric_check_ins_with_their_own_ratings() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO metrics (id, name, created_at) VALUES (10, 'Energy', 1), (11, 'Mood', 2);
+             INSERT INTO metric_check_ins (id, created_at) \
+             VALUES (1, 100), (2, 200), (3, 900), (4, 500), (5, 0);
+             INSERT INTO metric_ratings (check_in_id, metric_id, value) \
+             VALUES (1, 11, 2), (1, 10, 4), (2, 10, 5), (3, 10, 1), (4, 10, 3), (5, 11, 1);",
+        )
+        .unwrap();
+
+        let listed = super::query_metric_check_ins(&conn, 0, 500).unwrap();
+        let shape: Vec<(i64, Vec<(i64, i32)>)> = listed
+            .iter()
+            .map(|item| {
+                (
+                    item.check_in.id,
+                    item.ratings.iter().map(|r| (r.metric_id, r.value)).collect(),
+                )
+            })
+            .collect();
+        // [from, to): 0 is in, 500 is out, and ratings stay on their own check-in.
+        assert_eq!(
+            shape,
+            vec![
+                (2, vec![(10, 5)]),
+                (1, vec![(10, 4), (11, 2)]),
+                (5, vec![(11, 1)]),
+            ]
+        );
     }
 
     #[test]

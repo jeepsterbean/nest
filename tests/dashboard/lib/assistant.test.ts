@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  hasAssistantConfigRequest,
   readAssistantConfig,
-  requestAssistantConfig,
-  takeAssistantConfigRequest,
   readAssistantPane,
   readChatDrafts,
   readPromptDrafts,
@@ -19,22 +16,8 @@ const memory = () => {
   return {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value),
-    removeItem: (key: string) => values.delete(key),
   };
 };
-
-describe("assistant config requests", () => {
-  it("hands one section from the popup to the dashboard", () => {
-    const storage = memory();
-    expect(hasAssistantConfigRequest(storage)).toBe(false);
-    requestAssistantConfig("prompt", storage);
-    expect(hasAssistantConfigRequest(storage)).toBe(true);
-    expect(takeAssistantConfigRequest(storage)).toBe("prompt");
-    expect(takeAssistantConfigRequest(storage)).toBeNull();
-    storage.setItem("nest:assistant-config-request", "gone");
-    expect(takeAssistantConfigRequest(storage)).toBeNull();
-  });
-});
 
 describe("assistant preferences and drafts", () => {
   it("restores the pane and both kinds of draft", () => {

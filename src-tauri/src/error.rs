@@ -17,7 +17,7 @@ pub enum AppError {
     #[error("invalid input: {0}")]
     InvalidInput(String),
 
-    #[error("assistant error: {0}")]
+    #[error("{0}")]
     Assistant(String),
 }
 

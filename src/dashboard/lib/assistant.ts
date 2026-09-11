@@ -26,8 +26,12 @@ export const CONFIG_SECTIONS = [
   { key: "layout", label: "Layout" },
 ] as const;
 
-export const CHAT_CONFIG_SECTIONS = CONFIG_SECTIONS.slice(0, 5);
-export const SYSTEM_CONFIG_SECTIONS = CONFIG_SECTIONS.slice(5);
+export const SYSTEM_CONFIG_SECTIONS = CONFIG_SECTIONS.filter(({ key }) =>
+  key === "system" || key === "layout",
+);
+export const CHAT_CONFIG_SECTIONS = CONFIG_SECTIONS.filter(
+  ({ key }) => !SYSTEM_CONFIG_SECTIONS.some((section) => section.key === key),
+);
 
 export type ConfigSection = (typeof CONFIG_SECTIONS)[number]["key"];
 
@@ -47,29 +51,7 @@ const PROMPT_DRAFTS_KEY = "nest:assistant-prompt-drafts";
 // Kept from the earlier context-preferences shape so saved Task detail carries over.
 const CONFIG_KEY = "nest:assistant-context";
 
-const CONFIG_REQUEST_KEY = "nest:assistant-config-request";
-
-type AssistantStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-
-/** The popup has no Config pane, so it leaves the section for the dashboard to open. */
-export function requestAssistantConfig(
-  section: ConfigSection,
-  storage: AssistantStorage = localStorage,
-) {
-  storage.setItem(CONFIG_REQUEST_KEY, section);
-}
-
-export function hasAssistantConfigRequest(storage: AssistantStorage = localStorage) {
-  return storage.getItem(CONFIG_REQUEST_KEY) !== null;
-}
-
-export function takeAssistantConfigRequest(
-  storage: AssistantStorage = localStorage,
-): ConfigSection | null {
-  const requested = storage.getItem(CONFIG_REQUEST_KEY);
-  storage.removeItem(CONFIG_REQUEST_KEY);
-  return CONFIG_SECTIONS.find(({ key }) => key === requested)?.key ?? null;
-}
+type AssistantStorage = Pick<Storage, "getItem" | "setItem">;
 
 export function readAssistantPane(
   storage: AssistantStorage = localStorage,

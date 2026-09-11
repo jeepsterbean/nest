@@ -68,8 +68,10 @@ preselected on every new chat. With no default, the menu starts at none.
 | Tasks | any mix of Working now / Active / Up next / Backlog | Working now · Active · Active + Up next · Active + Up next + Backlog |
 
 An option is `{ id, name, key }`. The key is what it covers: `last:3`,
-`window:60` (minutes), `active+up_next`. Windows cap at 1440 minutes, matching
-the history the dashboard loads. The block sent to the model is headed by the
+`window:60` (minutes), `active+up_next`. Windows cap at 1440 minutes. Chat
+reads only the history the dashboard loads (`HISTORY_WINDOW_DAYS`, 30 days), so
+"last N" means the newest N within the last 30 days; older records never reach
+chat, even though the Brain dump composer's history can show them. The block sent to the model is headed by the
 key's description ("Brain dumps · last 3"), never the name, so a name cannot
 misstate the range.
 
@@ -84,7 +86,9 @@ what it covers is filled in and saved; editing an existing option works the
 same way, with Revert instead of Discard.
 
 Phase renders as totals over the window, matching how Logs summarises Phase.
-The other three render as lists, newest first.
+The other three render as lists, newest first. A row from an earlier day
+carries its day ("Yesterday 9:05 AM"): a count option can reach back days, and
+a bare clock time would pass the record off as today.
 
 ## Task detail
 
@@ -112,12 +116,12 @@ Settings → Assistant holds the OpenAI key. Assistant Config has a sidebar:
 | System: System instructions | One text sent as instructions on every request. |
 | System: Layout | The template editor with insertable tokens, beside the final output: instructions and input exactly as OpenAI receives them for a new chat. |
 
-Previews render against sample data (`sampleData(now)` in
-`src/dashboard/lib/assistantContext.ts`), not live records: what a message
-carries depends on its selections, so a stable sample shows every option's
-shape side by side. Sample records are timed back from the current clock; a
-fixed sample day made "last 1h" list clock times that read as hours old. The
-Layout preview uses each signal's default.
+The Brain dump, Metric, and Phase previews render the current records the
+dashboard has loaded, using the option being edited. Tasks renders against
+sample data (`sampleData(now)` in `src/dashboard/lib/assistantContext.ts`), so
+a stable sample shows every option's shape side by side. Sample records are
+timed back from the current clock; a fixed sample day made "last 1h" list clock
+times that read as hours old. The Layout preview uses each signal's default.
 
 ## Chat view
 
