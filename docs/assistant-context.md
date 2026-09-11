@@ -6,69 +6,91 @@ Metric check-in.
 
 ## The model
 
-A sent message is built from ordered **parts**. Each part renders its own text
-independently; the sent message is their concatenation.
+A request to OpenAI has two parts:
 
-Four parts draw on Nest data — Task, Phase, Brain dump, Metric — and each one
-is off by default. One part is the text typed in the composer. The user may
-add literal text parts anywhere between them.
+- **instructions** — Config's System instructions only.
+- **input** — earlier turns of the chat, then this message rendered through
+  the Layout template, stamped with the local `HH:MM`.
+
+The template is text with tokens. Each signal token is replaced by that
+signal's block for the option selected on this message; `{message}` is the
+typed text:
 
 ```
-Tasks · active
-  Ship the map view
-    status: active · scope: nest
-    blocked by: Fix the pan jitter
-  Write the migration
-    status: active · scope: nest
+{tasks}
 
-Phase · last 1h
-  Doing 34m · Scoping 15m · Resting 8m · Offline 3m
+{phase}
+
+{dumps}
+
+{metrics}
+
+{message}
+```
+
+renders, with Tasks · Active and Dumps · Last 3 selected, as:
+
+```
+14:05  Tasks · active
+- Ship the map view
+  status: active · scope: Nest
+  blocked by: Fix the pan jitter
 
 Brain dumps · last 3
-  13:58  the api refactor is bigger than I thought
-  12:40  remember to check the migration order
-  11:02  feeling scattered, too many tabs
+- 1:58 PM  the api refactor is bigger than I thought
+- 1:37 PM  remember to check the migration order
+- 1:13 PM  feeling scattered, too many tabs open
 
-Metrics · last 1h
-  14:02  focus 5  control 3  energy 4
-  13:15  focus 4  control 3  energy 4
-
-──
-what should I pick up next?
+What should I pick up next?
 ```
 
-Every turn is assembled the same way. There is no first-turn special case and
-no conversation-level context state: each message carries whatever was selected
-when it was sent, or nothing.
+- A signal with nothing selected, or with no records in range, renders empty,
+  and the blank lines around it fold to one gap.
+- A template without `{message}` still sends the message, appended at the end.
+- Every turn is assembled the same way; there is no first-turn special case.
 
-What is stored is text, not a query. Sending runs the selection once and saves
-the complete assembled user input on that message; nothing re-runs it later. A
-block attached at turn three still shows turn three's figures when the model
-reads it at turn ten. Selecting the source again is what gives the model
-current data.
+What is stored is text, not a query. Sending renders once and saves the
+complete input on the message's `context` column; nothing re-runs it later.
+Selecting the source again is what gives the model current data.
 
-## Sources and selections
+## Signals and options
 
-Each source has one selection, chosen per message. `None` is the default.
+Each signal — Brain dump, Metric, Phase, Tasks — has a user-edited list of
+named options. The chat's menu for that signal offers exactly those options,
+by name, plus none. One option per signal may be marked **default**: it is
+preselected on every new chat. With no default, the menu starts at none.
 
-| Source | Selections |
-|---|---|
-| Task | none · active · working now · active + up next · active + up next + backlog |
-| Phase | none · last 15m · last 30m · last 1h |
-| Brain dump | none · last 1/3/5 · last 15m · 30m · 1h · 3h |
-| Metric | none · last 1/2/3 check-ins · last 15m · 30m · 1h |
+| Signal | What an option covers | Seeded options |
+|---|---|---|
+| Brain dump | last N dumps · last N minutes | 1 · 3 · 5 · 15m · 1h · 3h |
+| Metric | last N check-ins · last N minutes | 1 · 3 · 30m · 1h |
+| Phase | last N minutes | 15m · 30m · 1h |
+| Tasks | any mix of Working now / Active / Up next / Backlog | Working now · Active · Active + Up next · Active + Up next + Backlog |
 
-Phase renders as aggregated totals over the window, matching how Logs
-summarises Phase. The other three render as lists, newest first.
+An option is `{ id, name, key }`. The key is what it covers: `last:3`,
+`window:60` (minutes), `active+up_next`. Windows cap at 1440 minutes, matching
+the history the dashboard loads. The block sent to the model is headed by the
+key's description ("Brain dumps · last 3"), never the name, so a name cannot
+misstate the range.
 
-Rendering is fixed for Phase, Brain dump and Metric — their records carry
-almost nothing to choose between. Task is the exception, below.
+Brain dumps cap at `MAX_CONTEXT_DUMPS` (20) per message, newest first,
+because dumps run long and a wide window could otherwise flood the input. A
+trimmed block says so in its heading ("Brain dumps · last 3h · newest 20 of
+34"), and the Brain dump section notes the cap. Count options for Brain dump
+stop at the cap too.
+
+Adding an option starts from its name alone. It stays an unsaved draft until
+what it covers is filled in and saved; editing an existing option works the
+same way, with Revert instead of Discard.
+
+Phase renders as totals over the window, matching how Logs summarises Phase.
+The other three render as lists, newest first.
 
 ## Task detail
 
-Task rendering is configurable, because a Task has many attributes and most
-questions need few of them. The title is always included; everything else is a
-toggle:
+A Task has many attributes and most questions need few of them. The title is
+always included; everything else is one global set of toggles in the Tasks
+section, applied whichever option picked the Tasks:
 
 ```
 status · scope · description · blockers · parent · children
@@ -79,136 +101,65 @@ value · effort · worked time · created · updated
 unresolved Blocker list, so a separate toggle could only produce a
 contradiction.
 
-Detail is one global set, not per message. The dropdown row picks *which*
-Tasks; Config decides *what* each one shows.
+## Config view
 
-## Layout
+Settings → Assistant holds the OpenAI key. Assistant Config has a sidebar:
 
-The order of parts, and what sits between them, is user-configured. A layout is
-an ordered list where each entry is either a source block or literal text:
+| Section | What it holds |
+|---|---|
+| Chat: Brain dump · Metric · Phase · Tasks | The option list with defaults, a name field to start a new option, the option editor, and the exact block the option being edited renders. Tasks adds the detail toggles. |
+| Chat: Prompt | The saved message-text library and editor. Selecting one fills the composer. |
+| System: System instructions | One text sent as instructions on every request. |
+| System: Layout | The template editor with insertable tokens, beside the final output: instructions and input exactly as OpenAI receives them for a new chat. |
 
-```ts
-type LayoutPart =
-  | { kind: "block"; block: "task" | "phase" | "dump" | "metric" | "message" }
-  | { kind: "text"; text: string };
-```
-
-- `message` is required and appears exactly once.
-- A source block set to `none` renders nothing and leaves no gap.
-- Text parts always render, whatever the blocks around them do. They are for
-  standing framing ("Answer in two sentences"), and the preview shows exactly
-  what a given arrangement produces, so a stranded separator is visible before
-  it is ever sent.
-
-Default: the four source blocks, then `message`.
-
-Reordering uses the existing `useListSort` hook (`src/dashboard/hooks/useListSort.ts`),
-the same drag behaviour as the Pulse and Metric lists.
+Previews render against sample data (`sampleData(now)` in
+`src/dashboard/lib/assistantContext.ts`), not live records: what a message
+carries depends on its selections, so a stable sample shows every option's
+shape side by side. Sample records are timed back from the current clock; a
+fixed sample day made "last 1h" list clock times that read as hours old. The
+Layout preview uses each signal's default.
 
 ## Chat view
 
-One row of four dropdowns above the composer, terse labels:
+One row of four menus above the composer, one per signal. Selections are not
+persisted: a new chat resets them to the defaults, and changing a default in
+Config also moves the current selection.
 
-```
-┌───────────────────────────────────────────────────────────────────┐
-│  Tasks [Active ▾]   Phase [1h ▾]   Dumps [3 ▾]   Metrics [1h ▾]   │
-├───────────────────────────────────────────────────────────────────┤
-│  Message Assistant                                                │
-│  [Thinking partner ▾]                       [5.6 Luna ▾]    [→]   │
-└───────────────────────────────────────────────────────────────────┘
-```
+Selecting a Prompt replaces the composer draft with that Prompt's saved text.
 
-Prompt and model move into the composer and stay live on every turn. The
-current `assistant-chat__toolbar` branch that renders them read-only once a
-conversation exists is removed — prompt is per message now, like everything
-else.
-
-Dropdowns use the existing `MenuSelect`. Selections persist in localStorage
-beside the pane and drafts already there.
-
-In the thread, a message with extra Nest data or literal layout text shows a
+In the thread, a message whose input differs from the typed text shows a
 collapsed chip, expandable to audit exactly what was sent.
-
-## Config view
-
-A preview browser. Pick a source, pick a selection, read the exact text that
-selection produces against live data. No editing, no saving, no naming.
-
-Two sections beyond that:
-
-- **Task detail** — the toggles above, with the preview updating live.
-- **Layout** — the ordered part list, drag to reorder, text parts editable in
-  place, with a preview of the whole assembled message.
-
-Prompts keep their existing list-and-editor.
 
 ## Storage
 
-One migration:
+`assistant_messages.context` holds the rendered input as sent. It is the only
+durable artifact: it makes the transcript honest about what the model saw.
 
-```sql
-ALTER TABLE assistant_messages ADD COLUMN context TEXT;
-```
-
-That column holds the assembled context text as sent, separate from the typed
-message. It is the only durable artifact: it makes the transcript honest about
-what the model actually saw.
-
-Everything else is configuration and lives in localStorage next to
-`nest:assistant-pane` and `nest:assistant-chat-drafts`:
-
-- current dropdown selections
-- Task detail toggles
-- layout
-
-No preset table, no settings row, no per-source tables.
+Everything else is configuration in localStorage under
+`nest:assistant-context`: option lists and defaults, Task detail, System
+instructions, and the template. Each field falls back to its default on its
+own, so Task detail from the earlier shape carries over.
 
 ## Backend
 
-Context is assembled in TypeScript. The queries already exist and take the
-ranges these selections need:
+Context is rendered in TypeScript from data the dashboard already loads.
+Phase aggregation reuses `phaseSessionsInWindow`, `phaseSessionTotals` and
+`foldIdleIntoOffline` from `src/dashboard/lib/timeline.ts`, the same fold
+Logs uses.
 
-- `list_brain_dumps(from, to, limit)` — covers both the count and window forms
-- `list_metric_check_ins(from, to)` — check-ins with ratings attached
-- `list_phase_check_ins(from, to)` — already includes the checkpoint before the
-  range, so an ongoing Phase carries into the window
-- `list_tasks()` — filtered by status client-side
-
-Phase aggregation reuses `phaseSessions`, `phaseSessionTotals` and
-`foldIdleIntoOffline` from `src/dashboard/lib/timeline.ts`, the same fold Logs
-uses. Reimplementing that in Rust would duplicate subtle behaviour — leading
-phase carry-in, gap handling, idle folding — for no gain.
-
-Rust changes are small:
-
-- `send_assistant_message` takes `context: Option<String>`, stored on the user
-  message by `start_turn`.
-- Each message in the request input is prefixed with its local `HH:MM`, so the
-  model can reason about elapsed time. The frontend passes its UTC offset with
-  the send; formatting is integer arithmetic on `created_at`, which avoids a
-  date dependency (`Cargo.toml` has none today).
-- `instructions` carries the selected prompt alone.
-- `active_task_context` and `response_instructions` are deleted. Their
-  hardcoded injection guard moves into prompt text, where the user owns it.
+`send_assistant_message` takes `context` (stored on the user message) and
+`system_instructions` (the complete request instructions, not stored). Each
+message in the request input is prefixed with its local `HH:MM`.
 
 ## Out of scope
 
-Dropped deliberately, listed so they are not re-derived:
-
-- **Presets** — saved named combinations of prompt and selections. The
-  dropdowns remember their last values; revisit only if that proves annoying.
-- **A global preamble** — one always-applied text above the prompt. The
-  selected prompt is the system instructions, full stop.
-- **Configurable rendering for Phase, Brain dump and Metric.**
-- **A template language** for block shape. Layout ordering plus text parts
-  covers the cases raised; a template engine does not earn its cost.
-- **Per-source libraries of saved, named selections.** The selections are short
-  fixed lists; a library over an enum is ceremony.
+- **Presets** — saved combinations of prompt and selections.
+- **Configurable rendering for Phase, Brain dump and Metric** — their records
+  carry almost nothing to choose between.
+- **Per-option Task detail** — one global set covers the questions raised.
 
 ## Known ceiling
 
-Context blocks replay on every subsequent turn, so attaching a wide selection
-across ten turns re-sends ten blocks. `HISTORY_MESSAGE_LIMIT` (40 messages)
-bounds it, and nothing has hit that bound yet. If it bites, the fix is to
-replay only the most recent block per source and drop superseded ones — the
-`context` column already stores what is needed to do that.
+Context replays on every subsequent turn, so attaching a wide selection across
+ten turns re-sends ten blocks. `HISTORY_MESSAGE_LIMIT` (40 messages) bounds
+it. If it bites, replay only the most recent block per signal.

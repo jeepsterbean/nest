@@ -22,6 +22,7 @@ import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
+import { hasAssistantConfigRequest } from "./lib/assistant";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -42,6 +43,16 @@ function DashboardInner() {
   // During Doing, Overview drops the Greetings board so the ambient work
   // surface takes the top of the content area. Timer stays on the Popup.
   const showGreetings = view === "overview" && !isDoing;
+
+  // The popup's Config notices reveal this window; AssistantView takes the request.
+  useEffect(() => {
+    const openRequestedAssistantConfig = () => {
+      if (hasAssistantConfigRequest()) setView("assistant");
+    };
+    openRequestedAssistantConfig();
+    window.addEventListener("focus", openRequestedAssistantConfig);
+    return () => window.removeEventListener("focus", openRequestedAssistantConfig);
+  }, []);
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -96,7 +107,7 @@ function DashboardInner() {
           {view === "insights" && <InsightsView />}
           {view === "logs" && <LogsView />}
           {view === "tasks" && <TasksView />}
-          {view === "assistant" && <AssistantView />}
+          {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
           {view === "settings" && <SettingsView />}
         </div>
         <ScopeMenu />

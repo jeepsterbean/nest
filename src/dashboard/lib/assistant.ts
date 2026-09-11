@@ -1,7 +1,12 @@
 import type { AssistantModel } from "../../lib/types";
 import {
-  DEFAULT_ASSISTANT_CONTEXT,
-  type AssistantContextPreferences,
+  DEFAULT_ASSISTANT_CONFIG,
+  DEFAULT_TASK_DETAIL,
+  SIGNALS,
+  isValidOption,
+  type AssistantConfig,
+  type SignalOption,
+  type TaskDetail,
 } from "./assistantContext";
 
 export const ASSISTANT_PANES = [
@@ -10,6 +15,21 @@ export const ASSISTANT_PANES = [
 ] as const;
 
 export type AssistantPane = (typeof ASSISTANT_PANES)[number]["key"];
+
+export const CONFIG_SECTIONS = [
+  { key: "dumps", label: "Brain dump" },
+  { key: "metrics", label: "Metric" },
+  { key: "phase", label: "Phase" },
+  { key: "tasks", label: "Tasks" },
+  { key: "prompt", label: "Prompt" },
+  { key: "system", label: "System instructions" },
+  { key: "layout", label: "Layout" },
+] as const;
+
+export const CHAT_CONFIG_SECTIONS = CONFIG_SECTIONS.slice(0, 5);
+export const SYSTEM_CONFIG_SECTIONS = CONFIG_SECTIONS.slice(5);
+
+export type ConfigSection = (typeof CONFIG_SECTIONS)[number]["key"];
 
 export const ASSISTANT_MODELS: readonly {
   value: AssistantModel;
@@ -24,9 +44,32 @@ export type PromptDraft = { title: string; instructions: string };
 const PANE_KEY = "nest:assistant-pane";
 const CHAT_DRAFTS_KEY = "nest:assistant-chat-drafts";
 const PROMPT_DRAFTS_KEY = "nest:assistant-prompt-drafts";
-const CONTEXT_KEY = "nest:assistant-context";
+// Kept from the earlier context-preferences shape so saved Task detail carries over.
+const CONFIG_KEY = "nest:assistant-context";
 
-type AssistantStorage = Pick<Storage, "getItem" | "setItem">;
+const CONFIG_REQUEST_KEY = "nest:assistant-config-request";
+
+type AssistantStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/** The popup has no Config pane, so it leaves the section for the dashboard to open. */
+export function requestAssistantConfig(
+  section: ConfigSection,
+  storage: AssistantStorage = localStorage,
+) {
+  storage.setItem(CONFIG_REQUEST_KEY, section);
+}
+
+export function hasAssistantConfigRequest(storage: AssistantStorage = localStorage) {
+  return storage.getItem(CONFIG_REQUEST_KEY) !== null;
+}
+
+export function takeAssistantConfigRequest(
+  storage: AssistantStorage = localStorage,
+): ConfigSection | null {
+  const requested = storage.getItem(CONFIG_REQUEST_KEY);
+  storage.removeItem(CONFIG_REQUEST_KEY);
+  return CONFIG_SECTIONS.find(({ key }) => key === requested)?.key ?? null;
+}
 
 export function readAssistantPane(
   storage: AssistantStorage = localStorage,
@@ -97,42 +140,55 @@ export function writePromptDrafts(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export function readAssistantContext(
+/** Each field falls back on its own, so an older stored shape keeps whatever still fits. */
+export function readAssistantConfig(
   storage: AssistantStorage = localStorage,
-): AssistantContextPreferences {
+): AssistantConfig {
   try {
-    const value: unknown = JSON.parse(storage.getItem(CONTEXT_KEY) ?? "null");
-    if (!isObject(value)) return DEFAULT_ASSISTANT_CONTEXT;
-    const selection = <T extends string>(key: string, fallback: T, choices: readonly T[]) =>
-      typeof value[key] === "string" && choices.includes(value[key] as T) ? value[key] as T : fallback;
+    const value: unknown = JSON.parse(storage.getItem(CONFIG_KEY) ?? "null");
+    if (!isObject(value)) return DEFAULT_ASSISTANT_CONFIG;
+    const storedSignals = isObject(value.signals) ? value.signals : {};
+    const signals = Object.fromEntries(SIGNALS.map((signal) => {
+      const stored = storedSignals[signal];
+      if (!isObject(stored) || !Array.isArray(stored.options)) {
+        return [signal, DEFAULT_ASSISTANT_CONFIG.signals[signal]];
+      }
+      const options: SignalOption[] = [];
+      for (const option of stored.options) {
+        if (
+          isObject(option) &&
+          typeof option.id === "string" && option.id !== "" &&
+          !options.some((item) => item.id === option.id) &&
+          typeof option.name === "string" && option.name.trim() !== "" &&
+          typeof option.key === "string" && isValidOption(signal, option.key)
+        ) {
+          options.push({ id: option.id, name: option.name, key: option.key });
+        }
+      }
+      const defaultOption = options.some((option) => option.id === stored.defaultOption)
+        ? stored.defaultOption as string
+        : null;
+      return [signal, { options, defaultOption }];
+    })) as AssistantConfig["signals"];
     const taskDetail = isObject(value.taskDetail) ? value.taskDetail : null;
-    const detail = taskDetail
-      ? Object.fromEntries(Object.keys(DEFAULT_ASSISTANT_CONTEXT.taskDetail).map((key) => [key, taskDetail[key] === true]))
-      : DEFAULT_ASSISTANT_CONTEXT.taskDetail;
-    const layout = Array.isArray(value.layout) ? value.layout.filter((part): part is AssistantContextPreferences["layout"][number] =>
-      isObject(part) && Number.isSafeInteger(part.id) &&
-      ((part.kind === "block" && ["task", "phase", "dump", "metric", "message"].includes(String(part.block))) ||
-        (part.kind === "text" && typeof part.text === "string")),
-    ) : [];
-    if (layout.filter((part) => part.kind === "block" && part.block === "message").length !== 1) {
-      return DEFAULT_ASSISTANT_CONTEXT;
-    }
     return {
-      tasks: selection("tasks", "none", ["none", "active", "workingNow", "activeUpNext", "activeUpNextBacklog"]),
-      phase: selection("phase", "none", ["none", "15m", "30m", "1h"]),
-      dumps: selection("dumps", "none", ["none", "last1", "last3", "last5", "15m", "30m", "1h", "3h"]),
-      metrics: selection("metrics", "none", ["none", "last1", "last2", "last3", "15m", "30m", "1h"]),
-      taskDetail: detail as AssistantContextPreferences["taskDetail"],
-      layout,
+      signals,
+      taskDetail: taskDetail
+        ? Object.fromEntries(Object.keys(DEFAULT_TASK_DETAIL).map((key) => [key, taskDetail[key] === true])) as TaskDetail
+        : DEFAULT_TASK_DETAIL,
+      systemInstructions: typeof value.systemInstructions === "string"
+        ? value.systemInstructions
+        : DEFAULT_ASSISTANT_CONFIG.systemInstructions,
+      template: typeof value.template === "string" ? value.template : DEFAULT_ASSISTANT_CONFIG.template,
     };
   } catch {
-    return DEFAULT_ASSISTANT_CONTEXT;
+    return DEFAULT_ASSISTANT_CONFIG;
   }
 }
 
-export function writeAssistantContext(
-  preferences: AssistantContextPreferences,
+export function writeAssistantConfig(
+  config: AssistantConfig,
   storage: AssistantStorage = localStorage,
 ) {
-  storage.setItem(CONTEXT_KEY, JSON.stringify(preferences));
+  storage.setItem(CONFIG_KEY, JSON.stringify(config));
 }

@@ -183,29 +183,34 @@ describe("holdMetricDue", () => {
 
 describe("nextPopupTab", () => {
   type Mods = Partial<
-    Record<"metaKey" | "ctrlKey" | "altKey" | "isComposing", boolean>
+    Record<"metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing", boolean>
   >;
   const key = (k: string, mods: Mods = {}) => ({
     key: k,
     metaKey: false,
     ctrlKey: false,
     altKey: false,
+    shiftKey: false,
     isComposing: false,
     ...mods,
   });
 
-  it("flips between the two tabs on Tab", () => {
+  it("cycles through the popup tabs on Tab", () => {
     expect(nextPopupTab(key("Tab"), "now")).toBe("dump");
-    expect(nextPopupTab(key("Tab"), "dump")).toBe("now");
+    expect(nextPopupTab(key("Tab"), "dump")).toBe("assistant");
+    expect(nextPopupTab(key("Tab"), "assistant")).toBe("now");
+    expect(nextPopupTab(key("Tab", { shiftKey: true }), "now")).toBe("assistant");
+    expect(nextPopupTab(key("Tab", { shiftKey: true }), "assistant")).toBe("dump");
     expect(nextPopupTab(key("Tab", { isComposing: true }), "now")).toBeNull();
     expect(nextPopupTab(key("Tab", { ctrlKey: true }), "now")).toBeNull();
   });
 
-  it("maps ⌘1 / ⌘2 to tabs and ignores everything else", () => {
+  it("maps ⌘1–3 to tabs and ignores everything else", () => {
     const cmd = { metaKey: true };
     expect(nextPopupTab(key("1", cmd), "dump")).toBe("now");
     expect(nextPopupTab(key("2", cmd), "now")).toBe("dump");
-    expect(nextPopupTab(key("3", cmd), "now")).toBeNull();
+    expect(nextPopupTab(key("3", cmd), "now")).toBe("assistant");
+    expect(nextPopupTab(key("4", cmd), "now")).toBeNull();
     expect(nextPopupTab(key("a", cmd), "now")).toBeNull();
     expect(nextPopupTab(key("1"), "now")).toBeNull();
   });

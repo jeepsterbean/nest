@@ -87,10 +87,10 @@ export function deleteAssistantConversation(id: number): Promise<void> {
 export function sendAssistantMessage(
   input: {
     conversationId: number | null;
-    promptId: number | null;
     model: AssistantModel | null;
     content: string;
     context: string | null;
+    systemInstructions: string | null;
     timezoneOffsetMinutes: number;
   },
   onDelta: (delta: string) => void,

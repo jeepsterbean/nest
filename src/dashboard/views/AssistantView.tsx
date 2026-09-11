@@ -9,7 +9,6 @@ import {
 import {
   assistantApiKeyConfigured,
   createAssistantPrompt,
-  deleteAssistantApiKey,
   deleteAssistantConversation,
   deleteAssistantPrompt,
   listAssistantConversations,
@@ -17,7 +16,6 @@ import {
   listAssistantPrompts,
   renameAssistantConversation,
   sendAssistantMessage,
-  setAssistantApiKey,
   updateAssistantPrompt,
 } from "../../lib/commands";
 import type {
@@ -35,44 +33,41 @@ import {
   trashIcon,
 } from "../components/icons";
 import { useInlineRename } from "../hooks/useInlineRename";
-import { useListSort } from "../hooks/useListSort";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
   ASSISTANT_MODELS,
   ASSISTANT_PANES,
+  CHAT_CONFIG_SECTIONS,
+  SYSTEM_CONFIG_SECTIONS,
+  readAssistantConfig,
   readAssistantPane,
-  readAssistantContext,
   readChatDrafts,
   readPromptDrafts,
+  requestAssistantConfig,
+  takeAssistantConfigRequest,
+  writeAssistantConfig,
   writeAssistantPane,
-  writeAssistantContext,
   writeChatDrafts,
   writePromptDrafts,
   type AssistantPane,
+  type ConfigSection,
   type PromptDraft,
 } from "../lib/assistant";
 import {
-  buildAssistantContext,
-  type AssistantContextPreferences,
-  type TaskDetail,
+  SIGNALS,
+  SIGNAL_LABELS,
+  buildAssistantMessage,
+  defaultSelection,
+  type AssistantConfig,
+  type Signal,
 } from "../lib/assistantContext";
+import {
+  LayoutSection,
+  SignalSection,
+  SystemInstructionsSection,
+} from "./AssistantConfigSections";
 
-const NEW_PROMPT_INSTRUCTIONS =
-  "You are a calm, practical thinking partner. Help the user find one clear next step.";
-
-const TASK_DETAIL_LABELS: Record<keyof TaskDetail, string> = {
-  status: "Status",
-  scope: "Scope",
-  description: "Description",
-  blockers: "Blockers",
-  parent: "Parent",
-  children: "Children",
-  value: "Value",
-  effort: "Effort",
-  workedTime: "Worked time",
-  created: "Created",
-  updated: "Updated",
-};
+const NEW_PROMPT_TEXT = "What would you like help with?";
 
 function errorMessage(error: unknown) {
   return String(error).replace(/^assistant error:\s*/i, "");
@@ -84,23 +79,33 @@ function withoutKey<T>(record: Record<string, T>, key: string) {
   return next;
 }
 
-export function AssistantView() {
+export function AssistantView({
+  chatOnly = false,
+  onOpenDashboard,
+  onOpenSettings,
+}: {
+  chatOnly?: boolean;
+  onOpenDashboard?: () => void;
+  onOpenSettings?: () => void;
+}) {
   const dashboardData = useDashboardData();
-  const [pane, setPane] = useState<AssistantPane>(readAssistantPane);
+  const [pane, setPane] = useState<AssistantPane>(() =>
+    chatOnly ? "chat" : readAssistantPane(),
+  );
   const [prompts, setPrompts] = useState<AssistantPrompt[]>([]);
   const [conversations, setConversations] = useState<AssistantConversation[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [model, setModel] = useState<AssistantModel>("gpt-5.6-luna");
-  const [contextPreferences, setContextPreferences] = useState(readAssistantContext);
+  const [config, setConfig] = useState(readAssistantConfig);
+  const [selection, setSelection] = useState(() => defaultSelection(config));
+  const [configSection, setConfigSection] = useState<ConfigSection>("dumps");
   const [chatDrafts, setChatDrafts] = useState(readChatDrafts);
   const [promptDrafts, setPromptDrafts] = useState(readPromptDrafts);
-  const [apiKey, setApiKey] = useState("");
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
-  const [savingKey, setSavingKey] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [sending, setSending] = useState(false);
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
@@ -121,7 +126,7 @@ export function AssistantView() {
       setSelectedPromptId((current) =>
         current !== null && nextPrompts.some((prompt) => prompt.id === current)
           ? current
-          : nextPrompts[0]?.id ?? null,
+          : null,
       );
     } catch (loadError) {
       setError(errorMessage(loadError));
@@ -133,6 +138,22 @@ export function AssistantView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The popup and dashboard each hold a copy of the drafts, and the popup's
+  // Config notices leave a section for the dashboard; catch up on window focus.
+  useEffect(() => {
+    const syncWithOtherWindow = () => {
+      setChatDrafts(readChatDrafts());
+      const section = chatOnly ? null : takeAssistantConfigRequest();
+      if (!section) return;
+      writeAssistantPane("config");
+      setPane("config");
+      setConfigSection(section);
+    };
+    syncWithOtherWindow();
+    window.addEventListener("focus", syncWithOtherWindow);
+    return () => window.removeEventListener("focus", syncWithOtherWindow);
+  }, [chatOnly]);
 
   useEffect(() => {
     if (selectedConversationId === null) {
@@ -181,34 +202,45 @@ export function AssistantView() {
     : String(selectedConversationId);
   const chatDraft = chatDrafts[chatDraftKey] ?? "";
 
-  const storeContextPreferences = (update: (current: AssistantContextPreferences) => AssistantContextPreferences) => {
-    setContextPreferences((current) => {
+  const storeConfig = (update: (current: AssistantConfig) => AssistantConfig) => {
+    setConfig((current) => {
       const next = update(current);
-      writeAssistantContext(next);
+      writeAssistantConfig(next);
       return next;
     });
   };
 
-  const layoutSort = useListSort(
-    "assistant-layout",
-    contextPreferences.layout.map((part) => part.id),
-    (ids) => storeContextPreferences((current) => ({
+  // A new default applies to the chat being composed too, not only the next new chat.
+  const setSignalDefault = (signal: Signal, key: string | null) => {
+    storeConfig((current) => ({
       ...current,
-      layout: ids.map((id) => current.layout.find((part) => part.id === id)!).filter(Boolean),
-    })),
-    "button, input, textarea, select, .menu-select",
-  );
+      signals: { ...current.signals, [signal]: { ...current.signals[signal], defaultOption: key } },
+    }));
+    setSelection((current) => ({ ...current, [signal]: key }));
+  };
 
   const selectPane = (next: AssistantPane) => {
     writeAssistantPane(next);
     setPane(next);
   };
 
+  const openConfig = (section: ConfigSection) => {
+    if (chatOnly) {
+      requestAssistantConfig(section);
+      onOpenDashboard?.();
+      return;
+    }
+    setConfigSection(section);
+    selectPane("config");
+  };
+
   const storeChatDrafts = (
     update: (current: Record<string, string>) => Record<string, string>,
   ) => {
-    setChatDrafts((current) => {
-      const next = update(current);
+    setChatDrafts(() => {
+      // Start from storage, not this window's copy, so drafts saved by the
+      // other window survive.
+      const next = update(readChatDrafts());
       writeChatDrafts(next);
       return next;
     });
@@ -251,6 +283,7 @@ export function AssistantView() {
     if (sending) return;
     setSelectedConversationId(null);
     setMessages([]);
+    setSelection(defaultSelection(config));
     setError(null);
   };
 
@@ -258,6 +291,13 @@ export function AssistantView() {
     if (sending) return;
     setSelectedConversationId(id);
     setError(null);
+  };
+
+  const selectPrompt = (id: number) => {
+    const prompt = prompts.find((item) => item.id === id);
+    if (!prompt) return;
+    setSelectedPromptId(id);
+    storeChatDrafts((current) => ({ ...current, [chatDraftKey]: prompt.instructions }));
   };
 
   const removeConversation = async (conversation: AssistantConversation) => {
@@ -280,24 +320,23 @@ export function AssistantView() {
     if (
       !content ||
       sending ||
-      !apiKeyConfigured ||
-      (selectedConversation === null && selectedPrompt === null)
+      !apiKeyConfigured
     ) return;
 
     setSending(true);
     setPendingUserMessage(content);
     setStreamedResponse("");
     setError(null);
-    const assistantContext = buildAssistantContext(dashboardData, contextPreferences, content);
+    const outbound = buildAssistantMessage(dashboardData, config, selection, content);
     storeChatDrafts((current) => withoutKey(current, chatDraftKey));
     try {
       const turn = await sendAssistantMessage(
         {
           conversationId: selectedConversationId,
-          promptId: selectedPrompt?.id ?? null,
           model,
           content,
-          context: assistantContext.context,
+          context: outbound === content ? null : outbound,
+          systemInstructions: config.systemInstructions.trim() || null,
           timezoneOffsetMinutes: new Date().getTimezoneOffset(),
         },
         (delta) => setStreamedResponse((current) => current + delta),
@@ -322,35 +361,9 @@ export function AssistantView() {
     }
   };
 
-  const saveApiKey = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!apiKey.trim()) return;
-    setSavingKey(true);
-    setError(null);
-    try {
-      await setAssistantApiKey(apiKey);
-      setApiKey("");
-      setApiKeyConfigured(true);
-    } catch (saveError) {
-      setError(errorMessage(saveError));
-    } finally {
-      setSavingKey(false);
-    }
-  };
-
-  const removeApiKey = async () => {
-    if (!window.confirm("Remove the OpenAI API key from the system keychain?")) return;
-    try {
-      await deleteAssistantApiKey();
-      setApiKeyConfigured(false);
-    } catch (deleteError) {
-      setError(errorMessage(deleteError));
-    }
-  };
-
   const addPrompt = async () => {
     try {
-      const created = await createAssistantPrompt("New prompt", NEW_PROMPT_INSTRUCTIONS);
+      const created = await createAssistantPrompt("New prompt", NEW_PROMPT_TEXT);
       setPrompts((current) => [created, ...current]);
       setSelectedPromptId(created.id);
     } catch (createError) {
@@ -390,14 +403,14 @@ export function AssistantView() {
 
   const removePrompt = async () => {
     if (!selectedPrompt) return;
-    if (!window.confirm(`Delete “${selectedPrompt.title}”? Existing chats will keep their copy.`)) {
+    if (!window.confirm(`Delete “${selectedPrompt.title}”?`)) {
       return;
     }
     try {
       await deleteAssistantPrompt(selectedPrompt.id);
       const next = prompts.filter((prompt) => prompt.id !== selectedPrompt.id);
       setPrompts(next);
-      setSelectedPromptId(next[0]?.id ?? null);
+      setSelectedPromptId(null);
       storePromptDrafts((current) => withoutKey(current, String(selectedPrompt.id)));
     } catch (deleteError) {
       setError(errorMessage(deleteError));
@@ -414,14 +427,16 @@ export function AssistantView() {
 
   return (
     <section className="dash-section dash-section--assistant">
-      <header className="dash-section__head assistant-head">
-        <ViewToggle
-          value={pane}
-          options={ASSISTANT_PANES}
-          label="Assistant pane"
-          onChange={selectPane}
-        />
-      </header>
+      {!chatOnly && (
+        <header className="dash-section__head assistant-head">
+          <ViewToggle
+            value={pane}
+            options={ASSISTANT_PANES}
+            label="Assistant pane"
+            onChange={selectPane}
+          />
+        </header>
+      )}
 
       {error && (
         <div className="assistant-error" role="alert">
@@ -432,9 +447,9 @@ export function AssistantView() {
         </div>
       )}
 
-      <div className="assistant-slot" hidden={pane !== "chat"}>
+      <div className="assistant-slot" hidden={!chatOnly && pane !== "chat"}>
         <div className="assistant-workspace">
-          <aside className="assistant-list" aria-label="Past chats">
+          {!chatOnly && <aside className="assistant-list" aria-label="Past chats">
             <button
               type="button"
               className="assistant-new"
@@ -504,14 +519,52 @@ export function AssistantView() {
                 <p className="assistant-list__empty">Your chats will gather here.</p>
               )}
             </div>
-          </aside>
+          </aside>}
 
           <div className="assistant-chat">
+            {chatOnly && (
+              <div className="assistant-popup-chat-picker">
+                <button
+                  type="button"
+                  className="assistant-new"
+                  disabled={sending}
+                  onClick={startNewChat}
+                >
+                  <span aria-hidden="true">{plusIcon}</span>
+                  New chat
+                </button>
+                <MenuSelect
+                  value={selectedConversationId === null ? "" : String(selectedConversationId)}
+                  options={conversations.map((conversation) => ({
+                    value: String(conversation.id),
+                    label: conversation.title,
+                  }))}
+                  placeholder="New chat"
+                  ariaLabel="Past chats"
+                  onChange={(value) => selectConversation(Number(value))}
+                />
+              </div>
+            )}
             <div className="assistant-chat__toolbar">
-              <MenuSelect value={contextPreferences.tasks} options={[{ value: "none", label: "Tasks" }, { value: "active", label: "Tasks · Active" }, { value: "workingNow", label: "Tasks · Working now" }, { value: "activeUpNext", label: "Tasks · Active + up next" }, { value: "activeUpNextBacklog", label: "Tasks · Open" }]} placeholder="Tasks" ariaLabel="Task context" onChange={(tasks) => storeContextPreferences((current) => ({ ...current, tasks: tasks as AssistantContextPreferences["tasks"] }))} />
-              <MenuSelect value={contextPreferences.phase} options={[{ value: "none", label: "Phase" }, { value: "15m", label: "Phase · 15m" }, { value: "30m", label: "Phase · 30m" }, { value: "1h", label: "Phase · 1h" }]} placeholder="Phase" ariaLabel="Phase context" onChange={(phase) => storeContextPreferences((current) => ({ ...current, phase: phase as AssistantContextPreferences["phase"] }))} />
-              <MenuSelect value={contextPreferences.dumps} options={[{ value: "none", label: "Dumps" }, { value: "last1", label: "Dumps · 1" }, { value: "last3", label: "Dumps · 3" }, { value: "last5", label: "Dumps · 5" }, { value: "15m", label: "Dumps · 15m" }, { value: "30m", label: "Dumps · 30m" }, { value: "1h", label: "Dumps · 1h" }, { value: "3h", label: "Dumps · 3h" }]} placeholder="Dumps" ariaLabel="Brain dump context" onChange={(dumps) => storeContextPreferences((current) => ({ ...current, dumps: dumps as AssistantContextPreferences["dumps"] }))} />
-              <MenuSelect value={contextPreferences.metrics} options={[{ value: "none", label: "Metrics" }, { value: "last1", label: "Metrics · 1" }, { value: "last2", label: "Metrics · 2" }, { value: "last3", label: "Metrics · 3" }, { value: "15m", label: "Metrics · 15m" }, { value: "30m", label: "Metrics · 30m" }, { value: "1h", label: "Metrics · 1h" }]} placeholder="Metrics" ariaLabel="Metric context" onChange={(metrics) => storeContextPreferences((current) => ({ ...current, metrics: metrics as AssistantContextPreferences["metrics"] }))} />
+              {SIGNALS.map((signal) => {
+                const { menu, section } = SIGNAL_LABELS[signal];
+                return (
+                  <MenuSelect
+                    key={signal}
+                    value={selection[signal] ?? ""}
+                    options={[
+                      { value: "", label: menu },
+                      ...config.signals[signal].options.map((option) => ({
+                        value: option.id,
+                        label: `${menu} · ${option.name}`,
+                      })),
+                    ]}
+                    placeholder={menu}
+                    ariaLabel={`${section} context`}
+                    onChange={(value) => setSelection((current) => ({ ...current, [signal]: value || null }))}
+                  />
+                );
+              })}
             </div>
 
             <div className="assistant-thread" aria-live="polite">
@@ -562,14 +615,16 @@ export function AssistantView() {
             </div>
 
             <form className="assistant-composer" onSubmit={submitMessage}>
-              {!apiKeyConfigured && (
-                <button type="button" className="assistant-composer__notice" onClick={() => selectPane("config")}>
-                  Add an OpenAI API key in Config
+              {!apiKeyConfigured && (onOpenSettings ? (
+                <button type="button" className="assistant-composer__notice" onClick={onOpenSettings}>
+                  Add an OpenAI API key in Settings
                 </button>
-              )}
-              {apiKeyConfigured && prompts.length === 0 && selectedConversation === null && (
-                <button type="button" className="assistant-composer__notice" onClick={() => selectPane("config")}>
-                  Create a system prompt in Config
+              ) : (
+                <span className="assistant-composer__notice">Add an OpenAI API key in Settings</span>
+              ))}
+              {apiKeyConfigured && prompts.length === 0 && (
+                <button type="button" className="assistant-composer__notice" onClick={() => openConfig("prompt")}>
+                  Create a prompt in Config
                 </button>
               )}
               <textarea
@@ -593,10 +648,10 @@ export function AssistantView() {
               <MenuSelect
                 value={selectedPromptId === null ? "" : String(selectedPromptId)}
                 options={prompts.map((prompt) => ({ value: String(prompt.id), label: prompt.title }))}
-                placeholder="Choose a prompt"
-                ariaLabel="System prompt"
+                placeholder="Prompt"
+                ariaLabel="Prompt"
                 className="assistant-composer__prompt"
-                onChange={(value) => setSelectedPromptId(Number(value))}
+                onChange={(value) => value && selectPrompt(Number(value))}
               />
               <MenuSelect value={model} options={[...ASSISTANT_MODELS]} placeholder="Choose a model" ariaLabel="OpenAI model" className="assistant-composer__model" onChange={(value) => setModel(value as AssistantModel)} />
               <button type="submit" className="assistant-send" disabled={!canSend} aria-label="Send message">
@@ -607,109 +662,44 @@ export function AssistantView() {
         </div>
       </div>
 
-      <div className="assistant-slot" hidden={pane !== "config"}>
+      {!chatOnly && <div className="assistant-slot" hidden={pane !== "config"}>
         <div className="assistant-config">
-          <form className="assistant-key" onSubmit={saveApiKey}>
-            <div>
-              <strong>OpenAI key</strong>
-              <span>
-                {apiKeyConfigured ? "Connected · saved in your system keychain" : "Required for chat"}
-              </span>
-            </div>
-            <input
-              type="password"
-              value={apiKey}
-              autoComplete="off"
-              placeholder={apiKeyConfigured ? "Replace API key" : "sk-…"}
-              aria-label={apiKeyConfigured ? "Replace OpenAI API key" : "OpenAI API key"}
-              onChange={(event) => setApiKey(event.target.value)}
+          <aside className="assistant-config__sections" aria-label="Assistant config">
+            <strong>Chat</strong>
+            <ViewToggle
+              value={configSection}
+              options={CHAT_CONFIG_SECTIONS}
+              label="Chat config"
+              onChange={setConfigSection}
             />
-            <button type="submit" className="btn-accent" disabled={!apiKey.trim() || savingKey}>
-              {savingKey ? "Saving…" : apiKeyConfigured ? "Replace" : "Save key"}
-            </button>
-            {apiKeyConfigured && (
-              <button type="button" className="assistant-key__remove" onClick={() => void removeApiKey()}>
-                Remove
-              </button>
-            )}
-          </form>
-          <p className="assistant-privacy">
-            Each message sends this chat and the Nest information you select to OpenAI. Chat history stays in Nest.
-          </p>
+            <strong>System</strong>
+            <ViewToggle
+              value={configSection}
+              options={SYSTEM_CONFIG_SECTIONS}
+              label="System config"
+              onChange={setConfigSection}
+            />
+          </aside>
 
-          <div className="assistant-config__workspace">
-            <aside className="assistant-context-config" aria-label="Message context">
-              <div className="assistant-context-config__head">
-                <strong>Message context</strong>
-                <span>Choose what Nest shares with OpenAI.</span>
-              </div>
-              <div className="assistant-context-config__group">
-                <strong>Task detail</strong>
-                <div className="assistant-context-config__toggles">
-                  {(Object.keys(contextPreferences.taskDetail) as (keyof TaskDetail)[]).map((field) => (
-                    <label key={field}>
-                      <input
-                        type="checkbox"
-                        checked={contextPreferences.taskDetail[field]}
-                        onChange={() => storeContextPreferences((current) => ({
-                          ...current,
-                          taskDetail: {
-                            ...current.taskDetail,
-                            [field]: !current.taskDetail[field],
-                          },
-                        }))}
-                      />
-                      {TASK_DETAIL_LABELS[field]}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="assistant-context-config__layout">
-                <div>
-                  <strong>Message order</strong>
-                  <span>Drag a row to reorder it.</span>
-                </div>
-                {contextPreferences.layout.map((part) => (
-                  <div key={part.id} className="assistant-layout-row" {...layoutSort.rowProps(part.id)}>
-                    {part.kind === "block" ? (
-                      <span>{part.block === "message" ? "Your message" : `${part.block[0]?.toUpperCase()}${part.block.slice(1)}`}</span>
-                    ) : (
-                      <>
-                        <input
-                          aria-label="Context text"
-                          value={part.text}
-                          onChange={(event) => storeContextPreferences((current) => ({
-                            ...current,
-                            layout: current.layout.map((item) =>
-                              item.id === part.id && item.kind === "text"
-                                ? { ...item, text: event.target.value }
-                                : item,
-                            ),
-                          }))}
-                        />
-                        <button type="button" aria-label="Remove context text" onClick={() => storeContextPreferences((current) => ({
-                          ...current,
-                          layout: current.layout.filter((item) => item.id !== part.id),
-                        }))}>
-                          ×
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-                <button type="button" className="assistant-context-config__add" onClick={() => storeContextPreferences((current) => ({
-                  ...current,
-                  layout: [...current.layout, {
-                    id: Math.max(0, ...current.layout.map((part) => part.id)) + 1,
-                    kind: "text",
-                    text: "",
-                  }],
-                }))}>
-                  Add text
-                </button>
-              </div>
-            </aside>
+          {(SIGNALS as readonly string[]).includes(configSection) && (
+            <SignalSection
+              key={configSection}
+              signal={configSection as Signal}
+              config={config}
+              storeConfig={storeConfig}
+              onDefaultChange={setSignalDefault}
+            />
+          )}
 
+          {configSection === "system" && (
+            <SystemInstructionsSection config={config} storeConfig={storeConfig} />
+          )}
+
+          {configSection === "layout" && (
+            <LayoutSection config={config} storeConfig={storeConfig} />
+          )}
+
+          {configSection === "prompt" && (
             <div className="assistant-prompt-workspace">
               <aside className="assistant-list assistant-prompt-list" aria-label="System prompts">
                 <button type="button" className="assistant-new" onClick={() => void addPrompt()}>
@@ -745,14 +735,13 @@ export function AssistantView() {
                     />
                   </label>
                   <label className="assistant-prompt-editor__instructions">
-                    <span>System prompt</span>
+                    <span>Prompt text</span>
                     <textarea
                       value={promptDraft.instructions}
                       maxLength={12_000}
                       onChange={(event) => updatePromptDraft({ instructions: event.target.value })}
                     />
                   </label>
-                  <p>Choose any Nest information to include beside the composer.</p>
                   <div className="assistant-prompt-editor__actions">
                     <button type="button" className="assistant-delete" onClick={() => void removePrompt()}>
                       {trashIcon}
@@ -773,9 +762,9 @@ export function AssistantView() {
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

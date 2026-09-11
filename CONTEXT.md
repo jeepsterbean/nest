@@ -174,8 +174,8 @@ starts that cycle from now.
 _Avoid_: Check-in, schedule
 
 **Popup**:
-The window the Timer (or ⌘⇧E) opens. It is for scoring Metrics and capturing
-a brain dump, not a stored record.
+The window the Timer (or ⌘⇧E) opens. It is for scoring Metrics, capturing a
+brain dump, and quick Assistant chats; it is not a stored record.
 _Avoid_: Check-in popup
 
 **Brain dump**:
@@ -245,16 +245,18 @@ _Avoid_: Tip, prompt, notification
 
 **Assistant**:
 The dashboard Section for private, reflective chats backed by OpenAI. The
-OpenAI API key is saved in Config and stored in the system keychain. Chat uses
-the selected editable system prompt plus read-only context from the current
-Active Tasks, including Working now, Scope, Parent, and unresolved Blockers.
+OpenAI API key is saved in Settings and stored in the system keychain. System
+instructions apply to every request; a selected Prompt fills the user message
+composer and is never sent as system instructions. Chat uses read-only context
+from the current Active Tasks, including Working now, Scope, Parent, and
+unresolved Blockers.
 The user chooses GPT-5.6 Luna or GPT-5.6 Terra when starting a chat. Prompt
-edits apply to new chats; each existing chat keeps the prompt text it began
-with. Chat titles start from the first message and remain editable. Prompts,
-titles, and messages stay in Nest's local database. Each model request sends
-the current chat and Active Task context to OpenAI. The Assistant suggests next
-actions and never changes Tasks. Nest retains a sent message when OpenAI cannot
-complete its reply, and marks any partial reply as incomplete.
+edits apply when selected. Chat titles start from the first message and remain
+editable. Prompts, titles, and messages stay in Nest's local database. Each
+model request sends the current chat and Active Task context to OpenAI. The
+Assistant suggests next actions and never changes Tasks. Nest retains a sent
+message when OpenAI cannot complete its reply, and marks any partial reply as
+incomplete.
 
 **Tasks scope sidebar**:
 The Scopes filter panel beside the Tasks table. It starts collapsed, and the
@@ -363,21 +365,21 @@ _Avoid_: Journal
   dump does not clear it.
 - The popup has the Timer bar across the top (countdown, interval, and a line
   that drains with the remaining time; click the countdown to pick an
-  interval) and an icon-only tab strip down the left with two tabs. Tasks and
+  interval) and an icon-only tab strip down the left with three tabs. Tasks and
   metrics holds Metric scoring above the Active / Up next task list; extra
   tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
   above Active; the list opens on Active, and scrolling up reveals them so
   they can be returned to Active. Active rows have Up next to the left of
-  Complete. Brain dump holds the brain dump. A due popup opens on Tasks and
-  metrics, a manual one on Brain dump. A gold dot on Tasks and metrics marks
-  a Metric check-in still owed.
+  Complete. Brain dump holds the brain dump. Assistant holds the same Chat
+  workspace as the dashboard; Assistant setup stays in the dashboard. A due
+  popup opens on Tasks and metrics, a manual one on Brain dump. A gold dot on
+  Tasks and metrics marks a Metric check-in still owed.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
-- Tab (or Shift+Tab) toggles between the two popup tabs and ⌘1 / ⌘2 pick one
-  directly; each switch focuses that tab's entry (the selected Pulse, or the
-  brain dump). Timer, Dashboard, and task controls are pointer-only; Metric
+- Tab (or Shift+Tab) cycles the three popup tabs and ⌘1 / ⌘2 / ⌘3 pick one
+  directly. Timer, Dashboard, and task controls are pointer-only; Metric
   ratings use the 1–5 number shortcuts.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when

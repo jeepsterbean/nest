@@ -69,12 +69,17 @@ import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
+import { assistantIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
+import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
+import { AssistantView } from "../dashboard/views/AssistantView";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
+import "../dashboard/styles/shared-controls.css";
+import "../dashboard/styles/assistant.css";
 
 /** Stable identity so the composer's tag memo holds before tags load. */
 const EMPTY_TAGS: Tag[] = [];
@@ -196,28 +201,30 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   );
 }
 
-export type PopupTabId = "now" | "dump";
+export type PopupTabId = "now" | "dump" | "assistant";
 
 export const POPUP_TABS = [
   { id: "now", label: "Tasks and metrics", tileIcon: "tasks" },
   { id: "dump", label: "Brain dump", tileIcon: "brainDump" },
+  { id: "assistant", label: "Chat assistant", tileIcon: "assistant" },
 ] as const satisfies ReadonlyArray<{
   id: PopupTabId;
   label: string;
-  tileIcon: TileId;
+  tileIcon: TileId | "assistant";
 }>;
 
-/** Tab / Shift+Tab flip between the two tabs; ⌘1 / ⌘2 pick one by position. */
+/** Tab / Shift+Tab cycle popup tabs; ⌘1–3 pick one by position. */
 export function nextPopupTab(
   event: Pick<
     KeyboardEvent,
-    "key" | "metaKey" | "ctrlKey" | "altKey" | "isComposing"
+    "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing"
   >,
   current: PopupTabId,
 ): PopupTabId | null {
   if (event.isComposing || event.ctrlKey || event.altKey) return null;
   if (event.key === "Tab" && !event.metaKey) {
-    return current === "now" ? "dump" : "now";
+    const step = event.shiftKey ? POPUP_TABS.length - 1 : 1;
+    return POPUP_TABS[(POPUP_TABS.findIndex((tab) => tab.id === current) + step) % POPUP_TABS.length]?.id ?? null;
   }
   if (!event.metaKey) return null;
   return POPUP_TABS[Number(event.key) - 1]?.id ?? null;
@@ -544,9 +551,11 @@ function PopupContent({
   // Per-summon: the body remounts on every summon and the first load picks
   // the tab from whether the Timer is due.
   const [tab, setTab] = useState<PopupTabId>("dump");
+  const [assistantOpened, setAssistantOpened] = useState(false);
   const icons = useTileIcons();
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLElement | null>(null);
+  const assistantPaneRef = useRef<HTMLElement | null>(null);
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
   const taskListRef = useRef<HTMLDivElement | null>(null);
@@ -562,11 +571,16 @@ function PopupContent({
       // handler or the browser's focus walk, so it only ever switches views.
       event.preventDefault();
       event.stopPropagation();
-      setTab(next);
+      selectTab(next);
     };
     window.addEventListener("keydown", switchTab, true);
     return () => window.removeEventListener("keydown", switchTab, true);
   }, [tab]);
+
+  const selectTab = (next: PopupTabId) => {
+    if (next === "assistant") setAssistantOpened(true);
+    setTab(next);
+  };
 
   const isLoaded = loaded !== null;
   const hiddenPulseIds = readHiddenPulseIds();
@@ -695,6 +709,12 @@ function PopupContent({
       if (tab === "now") {
         // Focus inside the Metrics panel is what routes the 1–5 shortcuts.
         (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
+        return;
+      }
+      if (tab === "assistant") {
+        const composer = assistantPaneRef.current?.querySelector("textarea");
+        composer?.focus();
+        composer?.setSelectionRange(composer.value.length, composer.value.length);
         return;
       }
       const brainDump = brainDumpRef.current;
@@ -1356,15 +1376,15 @@ function PopupContent({
             aria-pressed={tab === id}
             aria-keyshortcuts={`Meta+${index + 1}`}
             title={`${label} (⌘${index + 1})`}
-            onClick={() => setTab(id)}
+            onClick={() => selectTab(id)}
           >
-            <NestIcon name={icons[tileIcon]} />
+            {tileIcon === "assistant" ? assistantIcon : <NestIcon name={icons[tileIcon]} />}
           </button>
         ))}
       </nav>
 
-      {/* Both panes stay mounted so a half-scored Pulse, an open task
-          composer and the task list's scroll survive a tab switch. */}
+      {/* Task and Brain dump stay mounted so their drafts survive a tab switch.
+          Assistant waits for its first visit so startup never reads Keychain. */}
       <main className="popup-pane popup-tasks" hidden={tab !== "now"}>
         <AmbientVisualizer
           active={isDoing}
@@ -1401,6 +1421,19 @@ function PopupContent({
           onError={setError}
         />
       </section>
+
+      {assistantOpened && (
+        <section
+          ref={assistantPaneRef}
+          className="popup-pane popup-assistant"
+          aria-label="Chat assistant"
+          hidden={tab !== "assistant"}
+        >
+          <DashboardDataProvider>
+            <AssistantView chatOnly onOpenDashboard={() => void showDashboard()} />
+          </DashboardDataProvider>
+        </section>
+      )}
 
       {error && (
         <div className="popup-workspace__error" role="alert">

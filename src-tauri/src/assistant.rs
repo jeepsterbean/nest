@@ -184,10 +184,8 @@ fn fetch_message(conn: &Connection, id: i64) -> Result<AssistantMessage> {
 fn conversation_request(
     conn: &Connection,
     conversation_id: Option<i64>,
-    prompt_id: i64,
     model: String,
 ) -> Result<ConversationRequest> {
-    let prompt = fetch_prompt(conn, prompt_id)?;
     let model = valid_model(model)?;
     if let Some(id) = conversation_id {
         conn.query_row("SELECT id FROM assistant_conversations WHERE id = ?1", [id], |row| row.get::<_, i64>(0))
@@ -195,18 +193,18 @@ fn conversation_request(
             .ok_or_else(|| AppError::NotFound(format!("assistant conversation {id}")))?;
         return Ok(ConversationRequest {
             id: Some(id),
-            prompt_id: Some(prompt.id),
-            prompt_title: prompt.title,
-            prompt_instructions: prompt.instructions,
+            prompt_id: None,
+            prompt_title: String::new(),
+            prompt_instructions: String::new(),
             model,
             history: recent_messages(conn, id)?,
         });
     }
     Ok(ConversationRequest {
         id: None,
-        prompt_id: Some(prompt.id),
-        prompt_title: prompt.title,
-        prompt_instructions: prompt.instructions,
+        prompt_id: None,
+        prompt_title: String::new(),
+        prompt_instructions: String::new(),
         model,
         history: Vec::new(),
     })
@@ -234,6 +232,10 @@ fn local_message_content(message: &AssistantMessage, timezone_offset_minutes: i3
         minute % 60,
         message.context.as_deref().unwrap_or(&message.content),
     )
+}
+
+fn request_instructions(system_instructions: Option<&str>) -> String {
+    system_instructions.unwrap_or_default().to_string()
 }
 
 fn conversation_title(content: &str) -> String {
@@ -552,25 +554,28 @@ pub fn delete_assistant_conversation(state: State<'_, Mutex<Connection>>, id: i6
 pub async fn send_assistant_message(
     state: State<'_, Mutex<Connection>>,
     conversation_id: Option<i64>,
-    prompt_id: Option<i64>,
     model: Option<String>,
     content: String,
     context: Option<String>,
+    system_instructions: Option<String>,
     timezone_offset_minutes: i32,
     on_event: Channel<AssistantStreamEvent>,
 ) -> Result<AssistantTurn> {
     let content = normalized(content, "message", MAX_MESSAGE_CHARS)?;
     let context = context.map(|value| normalized(value, "context", MAX_CONTEXT_CHARS)).transpose()?;
+    let system_instructions = system_instructions
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| normalized(value, "system instructions", MAX_PROMPT_CHARS))
+        .transpose()?;
     if !(-14 * 60..=14 * 60).contains(&timezone_offset_minutes) {
         return Err(AppError::InvalidInput("timezone offset must be within 14 hours of UTC".into()));
     }
-    let prompt_id = prompt_id.ok_or_else(|| AppError::InvalidInput("choose a prompt before sending".into()))?;
     let model = model.ok_or_else(|| AppError::InvalidInput("choose a model before sending".into()))?;
     let api_key = assistant_api_key()?;
     let _send_guard = SEND_LOCK.lock().await;
     let request = {
         let conn = state.lock().unwrap();
-        conversation_request(&conn, conversation_id, prompt_id, model)?
+        conversation_request(&conn, conversation_id, model)?
     };
 
     let mut input = request
@@ -584,7 +589,7 @@ pub async fn send_assistant_message(
     input.push(json!({ "role": "user", "content": format!("{:02}:{:02}  {outbound_content}", minute / 60, minute % 60) }));
     let body = json!({
         "model": &request.model,
-        "instructions": &request.prompt_instructions,
+        "instructions": request_instructions(system_instructions.as_deref()),
         "input": input,
         "max_output_tokens": 2_000,
         "store": false,
@@ -693,11 +698,17 @@ pub async fn send_assistant_message(
 mod tests {
     use super::{
         conversation_title, finish_turn, local_message_content, parse_stream_event,
-        start_turn, AssistantMessage, ConversationRequest, StreamEvent,
+        request_instructions, start_turn, AssistantMessage, ConversationRequest, StreamEvent,
         INCOMPLETE_RESPONSE_MESSAGE,
     };
     use crate::migrations::migrations;
     use rusqlite::Connection;
+
+    #[test]
+    fn uses_only_system_instructions() {
+        assert_eq!(request_instructions(Some("Guard.")), "Guard.");
+        assert_eq!(request_instructions(None), "");
+    }
 
     #[test]
     fn prefixes_saved_context_with_local_time() {
