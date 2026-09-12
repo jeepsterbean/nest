@@ -9,11 +9,14 @@ vi.mock("../../src/popup/windowDrag", () => ({
 import {
   adjacentTimerInterval,
   holdMetricDue,
+  initialPopupTab,
   isPopupWindowDragTarget,
   nextPopupTab,
   PopupTopPanel,
+  readLastPopupTab,
   shouldCloseOverlayOnFocusLeave,
   shouldDismissOnPointerDown,
+  writeLastPopupTab,
 } from "../../src/popup/PopupContent";
 import {
   firstScorablePulse,
@@ -196,22 +199,66 @@ describe("nextPopupTab", () => {
   });
 
   it("cycles through the popup tabs on Tab", () => {
+    expect(nextPopupTab(key("Tab"), "overview")).toBe("now");
     expect(nextPopupTab(key("Tab"), "now")).toBe("dump");
     expect(nextPopupTab(key("Tab"), "dump")).toBe("assistant");
-    expect(nextPopupTab(key("Tab"), "assistant")).toBe("now");
-    expect(nextPopupTab(key("Tab", { shiftKey: true }), "now")).toBe("assistant");
-    expect(nextPopupTab(key("Tab", { shiftKey: true }), "assistant")).toBe("dump");
+    expect(nextPopupTab(key("Tab"), "assistant")).toBe("overview");
+    expect(nextPopupTab(key("Tab", { shiftKey: true }), "overview")).toBe(
+      "assistant",
+    );
+    expect(nextPopupTab(key("Tab", { shiftKey: true }), "assistant")).toBe(
+      "dump",
+    );
     expect(nextPopupTab(key("Tab", { isComposing: true }), "now")).toBeNull();
     expect(nextPopupTab(key("Tab", { ctrlKey: true }), "now")).toBeNull();
   });
 
-  it("maps ⌘1–3 to tabs and ignores everything else", () => {
+  it("maps ⌘1–4 to tabs and ignores everything else", () => {
     const cmd = { metaKey: true };
-    expect(nextPopupTab(key("1", cmd), "dump")).toBe("now");
-    expect(nextPopupTab(key("2", cmd), "now")).toBe("dump");
-    expect(nextPopupTab(key("3", cmd), "now")).toBe("assistant");
-    expect(nextPopupTab(key("4", cmd), "now")).toBeNull();
+    expect(nextPopupTab(key("1", cmd), "dump")).toBe("overview");
+    expect(nextPopupTab(key("2", cmd), "now")).toBe("now");
+    expect(nextPopupTab(key("3", cmd), "now")).toBe("dump");
+    expect(nextPopupTab(key("4", cmd), "now")).toBe("assistant");
+    expect(nextPopupTab(key("5", cmd), "now")).toBeNull();
     expect(nextPopupTab(key("a", cmd), "now")).toBeNull();
     expect(nextPopupTab(key("1"), "now")).toBeNull();
+  });
+});
+
+describe("initialPopupTab", () => {
+  it("opens Overview when the timer is due", () => {
+    expect(initialPopupTab(true, "dump")).toBe("overview");
+    expect(initialPopupTab(true, null)).toBe("overview");
+  });
+
+  it("restores the last tab when the timer is not due", () => {
+    expect(initialPopupTab(false, "now")).toBe("now");
+    expect(initialPopupTab(false, "assistant")).toBe("assistant");
+    expect(initialPopupTab(false, "overview")).toBe("overview");
+  });
+
+  it("falls back to Brain dump when storage is missing or invalid", () => {
+    expect(initialPopupTab(false, null)).toBe("dump");
+    expect(initialPopupTab(false, "")).toBe("dump");
+    expect(initialPopupTab(false, "nope")).toBe("dump");
+  });
+});
+
+describe("last popup tab storage", () => {
+  it("round-trips a user-chosen tab through fake storage", () => {
+    let value: string | null = null;
+    const storage = {
+      getItem: () => value,
+      setItem: (_key: string, next: string) => {
+        value = next;
+      },
+    };
+
+    expect(readLastPopupTab(storage)).toBeNull();
+    writeLastPopupTab("now", storage);
+    expect(readLastPopupTab(storage)).toBe("now");
+    expect(initialPopupTab(false, readLastPopupTab(storage))).toBe("now");
+    writeLastPopupTab("overview", storage);
+    expect(initialPopupTab(false, readLastPopupTab(storage))).toBe("overview");
   });
 });

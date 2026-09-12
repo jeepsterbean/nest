@@ -365,22 +365,26 @@ _Avoid_: Journal
   dump does not clear it.
 - The popup has the Timer bar across the top (countdown, interval, and a line
   that drains with the remaining time; click the countdown to pick an
-  interval) and an icon-only tab strip down the left with three tabs. Tasks and
+  interval) and an icon-only tab strip down the left with four tabs. Overview
+  shows Brain dump on the left and Tasks and metrics on the right. Tasks and
   metrics holds Metric scoring above the Active / Up next task list; extra
   tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
   above Active; the list opens on Active, and scrolling up reveals them so
   they can be returned to Active. Active rows have Up next to the left of
   Complete. Brain dump holds the brain dump. Assistant holds the same Chat
   workspace as the dashboard; Assistant setup stays in the dashboard. A due
-  popup opens on Tasks and metrics, a manual one on Brain dump. A gold dot on
-  Tasks and metrics marks a Metric check-in still owed.
+  popup opens on Overview; a manual one opens on the last tab you chose
+  (Brain dump the first time). Choosing a tab yourself remembers it; a
+  timer-triggered Overview does not. Overview focuses the brain dump. A gold
+  dot on Overview and on Tasks and metrics marks a Metric check-in still owed.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup.
-- Tab (or Shift+Tab) cycles the three popup tabs and ⌘1 / ⌘2 / ⌘3 pick one
-  directly. Timer, Dashboard, and task controls are pointer-only; Metric
-  ratings use the 1–5 number shortcuts.
+- Tab (or Shift+Tab) cycles the four popup tabs and ⌘1 / ⌘2 / ⌘3 / ⌘4 pick
+  Overview, Tasks and metrics, Brain dump, and Chat directly. Timer,
+  Dashboard, and task controls are pointer-only; Metric ratings use the 1–5
+  number shortcuts.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

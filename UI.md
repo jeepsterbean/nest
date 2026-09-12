@@ -106,6 +106,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   message stores its selected context snapshot and the renderer never receives
   the API key; without a keyring platform-store feature the key never reaches
   the system keychain and Send stays disabled after restart.
+- Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a
+  grid with the Timer across the top and a 48px `.popup-tabs` strip on the
+  left. Single-section tabs keep `.popup-pane` at 472px (the old inner width)
+  and centre it so the extra width stays empty on both sides. Overview
+  (`.popup-workspace--overview`) is two equal columns: Brain dump
+  (`grid-area: left`) and Tasks and metrics (`grid-area: right`). Last chosen
+  tab persists in `nest:popup-tab`.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`

@@ -11,6 +11,14 @@
     / 48px minmax(0, 1fr);
 }
 
+/* Brain dump left, Tasks and metrics right. Timer still spans the full width. */
+.popup-workspace--overview {
+  grid-template:
+    "timer timer timer" auto
+    "tabs left right" minmax(0, 1fr)
+    / 48px minmax(0, 1fr) minmax(0, 1fr);
+}
+
 .popup-workspace--loading {
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
@@ -80,8 +88,25 @@
 
 /* ---------- Panes ---------- */
 
+/* 472px is the old inner width (520 − 48px tab strip), centred in the
+   extra space so single-section tabs do not stretch to 1040. */
 .popup-pane {
   grid-area: pane;
+  width: 472px;
+  justify-self: center;
+}
+
+.popup-workspace--overview .popup-pane {
+  width: auto;
+  justify-self: stretch;
+}
+
+.popup-workspace--overview .popup-dump {
+  grid-area: left;
+}
+
+.popup-workspace--overview .popup-tasks {
+  grid-area: right;
 }
 
 /* Panes set their own display, which would otherwise beat [hidden]. */

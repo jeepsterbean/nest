@@ -69,7 +69,7 @@ import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
-import { assistantIcon } from "../dashboard/components/icons";
+import { assistantIcon, overviewIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
@@ -201,19 +201,54 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   );
 }
 
-export type PopupTabId = "now" | "dump" | "assistant";
+export type PopupTabId = "overview" | "now" | "dump" | "assistant";
 
 export const POPUP_TABS = [
+  { id: "overview", label: "Overview", tileIcon: "overview" },
   { id: "now", label: "Tasks and metrics", tileIcon: "tasks" },
   { id: "dump", label: "Brain dump", tileIcon: "brainDump" },
   { id: "assistant", label: "Chat assistant", tileIcon: "assistant" },
 ] as const satisfies ReadonlyArray<{
   id: PopupTabId;
   label: string;
-  tileIcon: TileId | "assistant";
+  tileIcon: TileId | "overview" | "assistant";
 }>;
 
-/** Tab / Shift+Tab cycle popup tabs; ⌘1–3 pick one by position. */
+const POPUP_TAB_KEY = "nest:popup-tab";
+
+type PopupTabStorage = Pick<Storage, "getItem" | "setItem">;
+
+/** Last tab the user chose; missing or unavailable storage reads as null. */
+export function readLastPopupTab(storage: PopupTabStorage = localStorage) {
+  try {
+    return storage.getItem(POPUP_TAB_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Persist a user-chosen tab across summons. Timer-opened Overview does not write. */
+export function writeLastPopupTab(
+  tab: PopupTabId,
+  storage: PopupTabStorage = localStorage,
+) {
+  try {
+    storage.setItem(POPUP_TAB_KEY, tab);
+  } catch {
+    // Keep callers working when browser storage is unavailable.
+  }
+}
+
+/** Due Timer opens Overview; otherwise restore the last valid tab, else Brain dump. */
+export function initialPopupTab(
+  timerDue: boolean,
+  lastTab: string | null,
+): PopupTabId {
+  if (timerDue) return "overview";
+  return POPUP_TABS.find((tab) => tab.id === lastTab)?.id ?? "dump";
+}
+
+/** Tab / Shift+Tab cycle popup tabs; ⌘1–4 pick one by position. */
 export function nextPopupTab(
   event: Pick<
     KeyboardEvent,
@@ -548,8 +583,8 @@ function PopupContent({
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
   const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
-  // Per-summon: the body remounts on every summon and the first load picks
-  // the tab from whether the Timer is due.
+  // Per-summon: the body remounts on every summon. First load picks Overview
+  // when the Timer is due, otherwise the last tab the user chose.
   const [tab, setTab] = useState<PopupTabId>("dump");
   const [assistantOpened, setAssistantOpened] = useState(false);
   const icons = useTileIcons();
@@ -580,6 +615,7 @@ function PopupContent({
   const selectTab = (next: PopupTabId) => {
     if (next === "assistant") setAssistantOpened(true);
     setTab(next);
+    writeLastPopupTab(next);
   };
 
   const isLoaded = loaded !== null;
@@ -652,9 +688,9 @@ function PopupContent({
           latestPhase,
         ]) => {
           if (cancelled) return;
-          // A due Timer summons the popup for Metric scoring; a manual
-          // summon is usually for capturing a thought.
-          setTab(isTimerDue(timer, Date.now()) ? "now" : "dump");
+          setTab(
+            initialPopupTab(isTimerDue(timer, Date.now()), readLastPopupTab()),
+          );
           setLoaded({
             metrics,
             pulses,
@@ -705,7 +741,10 @@ function PopupContent({
 
   useEffect(() => {
     if (!isLoaded) return;
-    requestAnimationFrame(() => {
+    let cancelled = false;
+    let frames = 0;
+    const focusTab = () => {
+      if (cancelled) return;
       if (tab === "now") {
         // Focus inside the Metrics panel is what routes the 1–5 shortcuts.
         (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
@@ -713,16 +752,28 @@ function PopupContent({
       }
       if (tab === "assistant") {
         const composer = assistantPaneRef.current?.querySelector("textarea");
+        if (!composer && frames++ < 30) {
+          requestAnimationFrame(focusTab);
+          return;
+        }
         composer?.focus();
         composer?.setSelectionRange(composer.value.length, composer.value.length);
         return;
       }
       const brainDump = brainDumpRef.current;
-      if (brainDump) {
-        brainDump.focus();
-        setContentEditableCaretToEnd(brainDump);
+      if (!brainDump) {
+        // TipTap mounts a frame later (`immediatelyRender: false`), so Overview
+        // and Brain dump retry until the editor DOM exists.
+        if (frames++ < 30) requestAnimationFrame(focusTab);
+        return;
       }
-    });
+      brainDump.focus();
+      setContentEditableCaretToEnd(brainDump);
+    };
+    requestAnimationFrame(focusTab);
+    return () => {
+      cancelled = true;
+    };
   }, [isLoaded, tab]);
 
   const syncTaskListThumb = () => {
@@ -1326,7 +1377,11 @@ function PopupContent({
       );
   return (
     <div
-      className="popup-workspace"
+      className={
+        tab === "overview"
+          ? "popup-workspace popup-workspace--overview"
+          : "popup-workspace"
+      }
       onPointerDownCapture={(event) => {
         const target = event.target;
         // Anchor (circle + list), not full-height __main — clock chrome counts as away.
@@ -1370,7 +1425,9 @@ function PopupContent({
             type="button"
             tabIndex={-1}
             className={`popup-tabs__tab${
-              id === "now" && metricDue ? " popup-tabs__tab--due" : ""
+              (id === "now" || id === "overview") && metricDue
+                ? " popup-tabs__tab--due"
+                : ""
             }`}
             aria-label={label}
             aria-pressed={tab === id}
@@ -1378,14 +1435,19 @@ function PopupContent({
             title={`${label} (⌘${index + 1})`}
             onClick={() => selectTab(id)}
           >
-            {tileIcon === "assistant" ? assistantIcon : <NestIcon name={icons[tileIcon]} />}
+            {tileIcon === "overview"
+              ? overviewIcon
+              : tileIcon === "assistant"
+                ? assistantIcon
+                : <NestIcon name={icons[tileIcon]} />}
           </button>
         ))}
       </nav>
 
       {/* Task and Brain dump stay mounted so their drafts survive a tab switch.
-          Assistant waits for its first visit so startup never reads Keychain. */}
-      <main className="popup-pane popup-tasks" hidden={tab !== "now"}>
+          Assistant mounts on its first visit, so an unvisited Chat tab loads
+          no prompts or history. */}
+      <main className="popup-pane popup-tasks" hidden={tab !== "now" && tab !== "overview"}>
         <AmbientVisualizer
           active={isDoing}
           style={backgroundStyle}
@@ -1411,7 +1473,7 @@ function PopupContent({
       <section
         className="popup-pane popup-dump"
         aria-label="Brain dump"
-        hidden={tab !== "dump"}
+        hidden={tab !== "dump" && tab !== "overview"}
       >
         <PopupBrainDump
           tags={loaded?.tags ?? EMPTY_TAGS}
