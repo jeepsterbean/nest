@@ -214,6 +214,7 @@
 }
 
 .assistant-chat {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -312,13 +313,123 @@
 }
 
 .assistant-message__role {
-  display: block;
-  margin-bottom: 6px;
   color: var(--muted);
   font-size: 10.5px;
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.assistant-message__head {
+  display: flex;
+  min-height: 18px;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.assistant-message__open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.assistant-message__open:hover,
+.assistant-message__open:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.assistant-sent-message {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  width: min(460px, 82%);
+  flex-direction: column;
+  border-left: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: -18px 0 36px -26px rgba(50, 43, 33, 0.6);
+}
+
+.assistant-sent-message__head {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assistant-sent-message__head button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.assistant-sent-message__head button:hover,
+.assistant-sent-message__head button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.assistant-sent-message__head svg {
+  width: 14px;
+  height: 14px;
+}
+
+.assistant-sent-message__body {
+  display: grid;
+  gap: 22px;
+  overflow: auto;
+  padding: 18px 20px 28px;
+}
+
+.assistant-sent-message__body section {
+  display: grid;
+  gap: 7px;
+}
+
+.assistant-sent-message__body h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.assistant-sent-message__body pre {
+  margin: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .assistant-message__incomplete {

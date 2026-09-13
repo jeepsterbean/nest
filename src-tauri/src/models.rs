@@ -177,7 +177,8 @@ pub struct AssistantMessage {
     pub conversation_id: i64,
     pub role: String,
     pub content: String,
-    pub context: Option<String>,
+    pub sent_message: Option<String>,
+    pub system_instructions: Option<String>,
     pub incomplete_reason: Option<String>,
     pub created_at: i64,
 }

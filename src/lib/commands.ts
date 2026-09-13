@@ -92,7 +92,7 @@ export function sendAssistantMessage(
     conversationId: number | null;
     model: AssistantModel;
     content: string;
-    context: string | null;
+    sentMessage: string;
     systemInstructions: string | null;
     timezoneOffsetMinutes: number;
   },

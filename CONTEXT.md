@@ -254,7 +254,8 @@ The user chooses GPT-5.6 Luna or GPT-5.6 Terra when starting a chat. Prompt
 edits apply when selected. Chat titles start from the first message and remain
 editable. Prompts, titles, and messages stay in Nest's local database. The
 popup and dashboard share that saved history; each window keeps its own open
-chat. Each model request sends the current chat and Active Task context to
+chat. Each user message records the complete text and system instructions sent
+to the model. Each model request sends the current chat and Active Task context to
 OpenAI. The
 Assistant suggests next actions and never changes Tasks. Nest retains a sent
 message when OpenAI cannot complete its reply, and marks any partial reply as

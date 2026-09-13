@@ -157,7 +157,8 @@ export type AssistantMessage = {
   conversationId: number;
   role: "user" | "assistant";
   content: string;
-  context: string | null;
+  sentMessage: string | null;
+  systemInstructions: string | null;
   incompleteReason: string | null;
   createdAt: number;
 };

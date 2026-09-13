@@ -103,7 +103,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   preview on the right at every dashboard width.
   Option lists, defaults, Task detail, System
   instructions and the template persist in `nest:assistant-context`. The Rust boundary streams OpenAI output; each user
-  message stores its selected context snapshot and the renderer never receives
+  message stores its full sent message and system-instructions snapshot. Dashboard user messages have an `Open` control
+  that reveals that record in a right overlay panel; the renderer never receives
   the API key; without a keyring platform-store feature the key never reaches
   the system keychain and Send stays disabled after restart.
 - Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a

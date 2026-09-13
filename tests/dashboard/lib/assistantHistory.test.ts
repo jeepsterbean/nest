@@ -26,7 +26,8 @@ const message = (
   conversationId,
   role: id % 2 === 0 ? "assistant" : "user",
   content,
-  context: null,
+  sentMessage: null,
+  systemInstructions: null,
   incompleteReason: null,
   createdAt: id,
 });

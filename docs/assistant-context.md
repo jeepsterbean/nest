@@ -50,7 +50,7 @@ What should I pick up next?
 - Every turn is assembled the same way; there is no first-turn special case.
 
 What is stored is text, not a query. Sending renders once and saves the
-complete input on the message's `context` column; nothing re-runs it later.
+complete input on the message's `sent_message` column; nothing re-runs it later.
 Selecting the source again is what gives the model current data.
 
 ## Signals and options
@@ -132,13 +132,14 @@ Config also moves the current selection.
 
 Selecting a Prompt replaces the composer draft with that Prompt's saved text.
 
-In the thread, a message whose input differs from the typed text shows a
-collapsed chip, expandable to audit exactly what was sent.
+On the dashboard, every user message has an `Open` control that reveals its
+saved input in a right overlay panel.
 
 ## Storage
 
-`assistant_messages.context` holds the rendered input as sent. It is the only
-durable artifact: it makes the transcript honest about what the model saw.
+`assistant_messages.sent_message` holds the rendered input as sent, and each
+user message also snapshots `system_instructions`. Together they make the
+transcript honest about what the model saw.
 
 Everything else is configuration in localStorage under
 `nest:assistant-context`: option lists and defaults, Task detail, System
@@ -151,9 +152,9 @@ Context is rendered in TypeScript from data the dashboard already loads.
 Phase sessions reuse `phaseSessionsInWindow` from
 `src/dashboard/lib/timeline.ts`, the same collapse Logs uses.
 
-`send_assistant_message` takes `context` (stored on the user message) and
-`system_instructions` (the complete request instructions, not stored). Each
-message in the request input is prefixed with its local `HH:MM`.
+`send_assistant_message` takes `sent_message` and `system_instructions`, both
+stored on the user message. Each message in the request input is prefixed with
+its local `HH:MM`.
 
 Saved chats are shared SQLite. After a turn is saved, or a chat is renamed or
 deleted, Rust emits `assistant-history-changed` so both windows refresh the

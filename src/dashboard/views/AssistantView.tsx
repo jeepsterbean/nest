@@ -31,6 +31,7 @@ import {
   assistantIcon,
   settingsIcon,
   trashIcon,
+  xIcon,
 } from "../components/icons";
 import { subscribeTauriEvent } from "../../lib/tauriListen";
 import { useInlineRename } from "../hooks/useInlineRename";
@@ -107,6 +108,7 @@ export function AssistantView({
   const [sending, setSending] = useState(false);
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [streamedResponse, setStreamedResponse] = useState("");
+  const [openedMessage, setOpenedMessage] = useState<AssistantMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   const selectedConversationIdRef = useRef(selectedConversationId);
@@ -213,6 +215,10 @@ export function AssistantView({
     threadEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, pendingUserMessage, streamedResponse]);
 
+  useEffect(() => {
+    setOpenedMessage(null);
+  }, [selectedConversationId]);
+
   const chatDraftKey = selectedConversationId === null
     ? "new"
     : String(selectedConversationId);
@@ -284,6 +290,7 @@ export function AssistantView({
 
   const startNewChat = () => {
     if (sending) return;
+    setOpenedMessage(null);
     setSelectedConversationId(null);
     setMessages([]);
     setSelection(defaultSelection(config));
@@ -292,6 +299,7 @@ export function AssistantView({
 
   const selectConversation = (id: number) => {
     if (sending) return;
+    setOpenedMessage(null);
     const conversation = conversations.find((item) => item.id === id);
     if (conversation) setModel(conversation.model);
     setSelectedConversationId(id);
@@ -342,7 +350,7 @@ export function AssistantView({
           conversationId: selectedConversationId,
           model,
           content,
-          context: outbound === content ? null : outbound,
+          sentMessage: outbound,
           systemInstructions: config.systemInstructions.trim() || null,
           timezoneOffsetMinutes: new Date().getTimezoneOffset(),
         },
@@ -529,16 +537,23 @@ export function AssistantView({
                     key={message.id}
                     className={`assistant-message assistant-message--${message.role}`}
                   >
-                    <span className="assistant-message__role">
-                      {message.role === "assistant" ? "Assistant" : "You"}
-                    </span>
+                    <div className="assistant-message__head">
+                      <span className="assistant-message__role">
+                        {message.role === "assistant" ? "Assistant" : "You"}
+                      </span>
+                      {!chatOnly && message.role === "user" && message.sentMessage && (
+                        <button
+                          type="button"
+                          className="assistant-message__open"
+                          aria-label="Open message sent to Assistant"
+                          title="Open sent message"
+                          onClick={() => setOpenedMessage(message)}
+                        >
+                          Open
+                        </button>
+                      )}
+                    </div>
                     <div>{message.content}</div>
-                    {message.context && (
-                      <details className="assistant-message__context">
-                        <summary>Context sent</summary>
-                        <pre>{message.context}</pre>
-                      </details>
-                    )}
                     {message.incompleteReason && (
                       <p className="assistant-message__incomplete">
                         Response incomplete: {message.incompleteReason}
@@ -561,6 +576,41 @@ export function AssistantView({
               )}
               <div ref={threadEndRef} />
             </div>
+
+            {openedMessage && (
+              <aside
+                className="assistant-sent-message"
+                aria-label="Message sent to Assistant"
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setOpenedMessage(null);
+                }}
+              >
+                <header className="assistant-sent-message__head">
+                  <span>Sent to Assistant</span>
+                  <button
+                    type="button"
+                    aria-label="Close sent message"
+                    title="Close"
+                    autoFocus
+                    onClick={() => setOpenedMessage(null)}
+                  >
+                    {xIcon}
+                  </button>
+                </header>
+                <div className="assistant-sent-message__body">
+                  {openedMessage.systemInstructions && (
+                    <section>
+                      <h2>System instructions</h2>
+                      <pre>{openedMessage.systemInstructions}</pre>
+                    </section>
+                  )}
+                  <section>
+                    <h2>Message</h2>
+                    <pre>{openedMessage.sentMessage}</pre>
+                  </section>
+                </div>
+              </aside>
+            )}
 
             <form className="assistant-composer" onSubmit={submitMessage}>
               {!apiKeyConfigured && (onOpenSettings ? (

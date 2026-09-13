@@ -31,7 +31,7 @@ const INCOMPLETE_RESPONSE_MESSAGE: &str = "The response ended before any text ar
 const PROMPT_COLUMNS: &str = "id, title, instructions, created_at, updated_at";
 const CONVERSATION_COLUMNS: &str =
     "id, title, model, created_at, updated_at";
-const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, context, incomplete_reason, created_at";
+const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at";
 
 /// Held for the whole of a send so two in-flight turns cannot read each other's
 /// history as empty and then save their replies in completion order.
@@ -60,7 +60,7 @@ pub struct SendAssistantMessageRequest {
     conversation_id: Option<i64>,
     model: String,
     content: String,
-    context: Option<String>,
+    sent_message: String,
     system_instructions: Option<String>,
     timezone_offset_minutes: i32,
 }
@@ -158,9 +158,10 @@ fn map_message(row: &Row<'_>) -> rusqlite::Result<AssistantMessage> {
         conversation_id: row.get(1)?,
         role: row.get(2)?,
         content: row.get(3)?,
-        context: row.get(4)?,
-        incomplete_reason: row.get(5)?,
-        created_at: row.get(6)?,
+        sent_message: row.get(4)?,
+        system_instructions: row.get(5)?,
+        incomplete_reason: row.get(6)?,
+        created_at: row.get(7)?,
     })
 }
 
@@ -239,7 +240,7 @@ fn local_message_content(message: &AssistantMessage, timezone_offset_minutes: i3
     format!(
         "{}{}",
         clock_prefix(message.created_at, timezone_offset_minutes),
-        message.context.as_deref().unwrap_or(&message.content),
+        message.sent_message.as_deref().unwrap_or(&message.content),
     )
 }
 
@@ -331,7 +332,8 @@ fn start_turn(
     conn: &mut Connection,
     request: ConversationRequest,
     user_content: String,
-    context: Option<String>,
+    sent_message: String,
+    system_instructions: Option<String>,
 ) -> Result<StartedTurn> {
     let now = now_unix_secs();
     let tx = conn.transaction()?;
@@ -362,9 +364,10 @@ fn start_turn(
     };
 
     tx.execute(
-        "INSERT INTO assistant_messages (conversation_id, role, content, context, created_at) \
-         VALUES (?1, 'user', ?2, ?3, ?4)",
-        params![conversation_id, user_content, context, now],
+        "INSERT INTO assistant_messages \
+         (conversation_id, role, content, sent_message, system_instructions, created_at) \
+         VALUES (?1, 'user', ?2, ?3, ?4, ?5)",
+        params![conversation_id, user_content, sent_message, system_instructions, now],
     )?;
     let user_message_id = tx.last_insert_rowid();
     tx.commit()?;
@@ -573,12 +576,12 @@ pub async fn send_assistant_message(
         conversation_id,
         model,
         content,
-        context,
+        sent_message,
         system_instructions,
         timezone_offset_minutes,
     } = request;
     let content = normalized(content, "message", MAX_MESSAGE_CHARS)?;
-    let context = context.map(|value| normalized(value, "context", MAX_CONTEXT_CHARS)).transpose()?;
+    let sent_message = normalized(sent_message, "sent message", MAX_CONTEXT_CHARS)?;
     let system_instructions = system_instructions
         .filter(|value| !value.trim().is_empty())
         .map(|value| normalized(value, "system instructions", MAX_PROMPT_CHARS))
@@ -598,11 +601,10 @@ pub async fn send_assistant_message(
         .iter()
         .map(|message| json!({ "role": &message.role, "content": local_message_content(message, timezone_offset_minutes) }))
         .collect::<Vec<_>>();
-    let outbound_content = context.as_deref().unwrap_or(&content);
-    input.push(json!({ "role": "user", "content": format!("{}{}", clock_prefix(now_unix_secs(), timezone_offset_minutes), outbound_content) }));
+    input.push(json!({ "role": "user", "content": format!("{}{}", clock_prefix(now_unix_secs(), timezone_offset_minutes), sent_message) }));
     let body = json!({
         "model": &request.model,
-        "instructions": system_instructions.unwrap_or_default(),
+        "instructions": system_instructions.clone().unwrap_or_default(),
         "input": input,
         "max_output_tokens": 2_000,
         "store": false,
@@ -627,7 +629,7 @@ pub async fn send_assistant_message(
 
     let started = {
         let mut conn = state.lock().unwrap();
-        start_turn(&mut conn, request, content.clone(), context)?
+        start_turn(&mut conn, request, content.clone(), sent_message, system_instructions.clone())?
     };
 
     let mut stream = response.bytes_stream();
@@ -708,10 +710,11 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn prefixes_saved_context_with_local_time() {
+    fn prefixes_saved_message_with_local_time() {
         let message = AssistantMessage {
             id: 1, conversation_id: 1, role: "user".into(), content: "Typed".into(),
-            context: Some("Tasks · active\n\nTyped".into()), incomplete_reason: None, created_at: 0,
+            sent_message: Some("Tasks · active\n\nTyped".into()), system_instructions: None,
+            incomplete_reason: None, created_at: 0,
         };
         assert_eq!(local_message_content(&message, -60), "01:00  Tasks · active\n\nTyped");
     }
@@ -747,7 +750,8 @@ mod tests {
                 history: Vec::new(),
             },
             "I need a next step".into(),
-            Some("Tasks · active\n\nI need a next step".into()),
+            "Tasks · active\n\nI need a next step".into(),
+            Some("Be practical.".into()),
         )
         .unwrap();
 
@@ -760,7 +764,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(turn.user_message.content, "I need a next step");
-        assert!(turn.user_message.context.unwrap().contains("Tasks · active"));
+        assert!(turn.user_message.sent_message.unwrap().contains("Tasks · active"));
+        assert_eq!(turn.user_message.system_instructions.as_deref(), Some("Be practical."));
         assert_eq!(
             turn.assistant_message.incomplete_reason.as_deref(),
             Some("max_output_tokens")
@@ -775,6 +780,7 @@ mod tests {
                 model: "gpt-5.6-luna".into(),
                 history: Vec::new(),
             },
+            "Anything else?".into(),
             "Anything else?".into(),
             None,
         )

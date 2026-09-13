@@ -965,6 +965,15 @@ VALUES (
             "ALTER TABLE assistant_messages ADD COLUMN incomplete_reason TEXT;",
         ),
         M::up("ALTER TABLE assistant_messages ADD COLUMN context TEXT;"),
+        M::up(
+            r#"
+ALTER TABLE assistant_messages ADD COLUMN sent_message TEXT;
+ALTER TABLE assistant_messages ADD COLUMN system_instructions TEXT;
+UPDATE assistant_messages
+SET sent_message = COALESCE(context, content)
+WHERE role = 'user';
+"#,
+        ),
     ])
 }
 
@@ -1012,6 +1021,36 @@ mod tests {
             )
             .unwrap();
         assert_eq!(snapshot, (None, "Task companion".into()));
+    }
+
+    #[test]
+    fn backfills_saved_messages_from_the_legacy_context_column() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 47).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_conversations \
+             (id, title, prompt_title, prompt_instructions, model, created_at, updated_at) \
+             VALUES (1, 'A hard morning', '', '', 'gpt-5.6-luna', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assistant_messages (conversation_id, role, content, context, created_at) \
+             VALUES (1, 'user', 'Typed', 'Tasks · active\n\nTyped', 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+        let saved: (String, Option<String>) = conn
+            .query_row(
+                "SELECT sent_message, system_instructions FROM assistant_messages",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(saved, ("Tasks · active\n\nTyped".into(), None));
     }
 
     #[test]
