@@ -155,6 +155,13 @@ Phase sessions reuse `phaseSessionsInWindow` from
 `system_instructions` (the complete request instructions, not stored). Each
 message in the request input is prefixed with its local `HH:MM`.
 
+Saved chats are shared SQLite. After a turn is saved, or a chat is renamed or
+deleted, Rust emits `assistant-history-changed` so both windows refresh the
+list and the open thread. The emit happens before `send_assistant_message`
+returns, so a refresh that started mid-send must not replace the thread this
+window just wrote. Each window keeps its own selection. Window focus is a
+backup refresh, because the popup stays mounted while hidden.
+
 ## Out of scope
 
 - **Presets** — saved combinations of prompt and selections.

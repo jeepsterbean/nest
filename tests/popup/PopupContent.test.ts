@@ -12,6 +12,7 @@ import {
   initialPopupTab,
   isPopupWindowDragTarget,
   nextPopupTab,
+  popupAssistantMounted,
   PopupTopPanel,
   readLastPopupTab,
   shouldCloseOverlayOnFocusLeave,
@@ -241,6 +242,14 @@ describe("initialPopupTab", () => {
     expect(initialPopupTab(false, null)).toBe("dump");
     expect(initialPopupTab(false, "")).toBe("dump");
     expect(initialPopupTab(false, "nope")).toBe("dump");
+  });
+});
+
+describe("popupAssistantMounted", () => {
+  it("mounts Chat when that tab is already open, even before a click", () => {
+    expect(popupAssistantMounted("assistant", false)).toBe(true);
+    expect(popupAssistantMounted("dump", false)).toBe(false);
+    expect(popupAssistantMounted("dump", true)).toBe(true);
   });
 });
 

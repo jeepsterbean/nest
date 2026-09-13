@@ -248,6 +248,23 @@ export function defaultSelection(config: AssistantConfig): SignalSelection {
   };
 }
 
+/**
+ * Config is shared through localStorage, so the other window's edits reach a
+ * long-lived chat late. A newly saved default preselects itself here too, the
+ * way setting one in this window does; an untouched default leaves whatever
+ * this message already picked.
+ */
+export function adoptConfigDefaults(
+  previous: AssistantConfig, next: AssistantConfig, selection: SignalSelection,
+): SignalSelection {
+  return Object.fromEntries(SIGNALS.map((signal) => [
+    signal,
+    previous.signals[signal].defaultOption === next.signals[signal].defaultOption
+      ? selection[signal]
+      : next.signals[signal].defaultOption,
+  ])) as SignalSelection;
+}
+
 export function buildAssistantMessage(
   data: AssistantContextData, config: AssistantConfig, selection: SignalSelection, message: string,
   now = Math.floor(Date.now() / 1000),

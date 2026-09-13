@@ -112,7 +112,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   and centre it so the extra width stays empty on both sides. Overview
   (`.popup-workspace--overview`) is two equal columns: Brain dump
   (`grid-area: left`) and Tasks and metrics (`grid-area: right`). Last chosen
-  tab persists in `nest:popup-tab`.
+  tab persists in `nest:popup-tab`. Popup Assistant mounts the first time
+  Chat is the open tab, including when that tab is the restored default.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`

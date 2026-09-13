@@ -178,7 +178,7 @@ export function MenuSelect({
               })}
             </div>
           </>,
-          triggerRef.current?.closest(".dashboard") ?? document.body,
+          triggerRef.current?.closest(".dashboard, .popup") ?? document.body,
         )}
     </div>
   );

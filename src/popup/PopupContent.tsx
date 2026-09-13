@@ -248,6 +248,11 @@ export function initialPopupTab(
   return POPUP_TABS.find((tab) => tab.id === lastTab)?.id ?? "dump";
 }
 
+/** Chat stays unmounted until it is the open tab, including a restored default. */
+export function popupAssistantMounted(tab: PopupTabId, opened: boolean) {
+  return opened || tab === "assistant";
+}
+
 /** Tab / Shift+Tab cycle popup tabs; ⌘1–4 pick one by position. */
 export function nextPopupTab(
   event: Pick<
@@ -688,9 +693,12 @@ function PopupContent({
           latestPhase,
         ]) => {
           if (cancelled) return;
-          setTab(
-            initialPopupTab(isTimerDue(timer, Date.now()), readLastPopupTab()),
+          const nextTab = initialPopupTab(
+            isTimerDue(timer, Date.now()),
+            readLastPopupTab(),
           );
+          if (nextTab === "assistant") setAssistantOpened(true);
+          setTab(nextTab);
           setLoaded({
             metrics,
             pulses,
@@ -1445,8 +1453,8 @@ function PopupContent({
       </nav>
 
       {/* Task and Brain dump stay mounted so their drafts survive a tab switch.
-          Assistant mounts on its first visit, so an unvisited Chat tab loads
-          no prompts or history. */}
+          Assistant mounts the first time Chat is the open tab — including a
+          restored default — then stays mounted so it does not reload. */}
       <main className="popup-pane popup-tasks" hidden={tab !== "now" && tab !== "overview"}>
         <AmbientVisualizer
           active={isDoing}
@@ -1484,7 +1492,7 @@ function PopupContent({
         />
       </section>
 
-      {assistantOpened && (
+      {popupAssistantMounted(tab, assistantOpened) && (
         <section
           ref={assistantPaneRef}
           className="popup-pane popup-assistant"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ASSISTANT_CONFIG,
+  adoptConfigDefaults,
   DEFAULT_TASK_DETAIL,
   MAX_CONTEXT_DUMPS,
   buildAssistantMessage,
@@ -29,6 +30,25 @@ const SAMPLE_NOW = 1_800_000_000;
 const SAMPLE_DATA = sampleData(SAMPLE_NOW);
 
 describe("assistant context", () => {
+  it("takes a default saved in the other window without dropping this message's own picks", () => {
+    const withDefault = (signal: "dumps" | "tasks", defaultOption: string | null) => ({
+      ...DEFAULT_ASSISTANT_CONFIG,
+      signals: {
+        ...DEFAULT_ASSISTANT_CONFIG.signals,
+        [signal]: { ...DEFAULT_ASSISTANT_CONFIG.signals[signal], defaultOption },
+      },
+    });
+    const adopted = adoptConfigDefaults(
+      DEFAULT_ASSISTANT_CONFIG,
+      withDefault("dumps", "last:3"),
+      { ...noSelection, tasks: "active" },
+    );
+    expect(adopted.dumps).toBe("last:3");
+    expect(adopted.tasks).toBe("active");
+    expect(adoptConfigDefaults(withDefault("dumps", "last:3"), withDefault("dumps", null), adopted).dumps)
+      .toBeNull();
+  });
+
   it("formats the Tasks a group option picks, with derived readiness", () => {
     const tasks = [task(1), task(2, "up_next")];
     const graph = buildTaskGraph(tasks, [{ blockerTaskId: 2, blockedTaskId: 1, createdAt: 0 }]);

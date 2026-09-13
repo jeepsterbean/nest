@@ -32,6 +32,7 @@ import {
   settingsIcon,
   trashIcon,
 } from "../components/icons";
+import { subscribeTauriEvent } from "../../lib/tauriListen";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
@@ -49,8 +50,14 @@ import {
   type ConfigSection,
 } from "../lib/assistant";
 import {
+  ASSISTANT_HISTORY_CHANGED,
+  createAssistantHistoryRefresh,
+  shouldApplyAssistantHistory,
+} from "../lib/assistantHistory";
+import {
   SIGNALS,
   SIGNAL_LABELS,
+  adoptConfigDefaults,
   buildAssistantMessage,
   defaultSelection,
   type AssistantConfig,
@@ -102,16 +109,28 @@ export function AssistantView({
   const [streamedResponse, setStreamedResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+  const selectedConversationIdRef = useRef(selectedConversationId);
+  const sendingRef = useRef(sending);
+  const messagesRef = useRef(messages);
+  const configRef = useRef(config);
+  selectedConversationIdRef.current = selectedConversationId;
+  sendingRef.current = sending;
+  messagesRef.current = messages;
+  configRef.current = config;
+  const refreshHistory = useRef(
+    createAssistantHistoryRefresh({
+      listConversations: listAssistantConversations,
+      listMessages: listAssistantMessages,
+    }),
+  ).current;
 
   const load = useCallback(async () => {
     try {
-      const [nextPrompts, nextConversations, keyConfigured] = await Promise.all([
+      const [nextPrompts, keyConfigured] = await Promise.all([
         listAssistantPrompts(),
-        listAssistantConversations(),
         assistantApiKeyConfigured(),
       ]);
       setPrompts(nextPrompts);
-      setConversations(nextConversations);
       setApiKeyConfigured(keyConfigured);
       setSelectedPromptId((current) =>
         current !== null && nextPrompts.some((prompt) => prompt.id === current)
@@ -120,45 +139,75 @@ export function AssistantView({
       );
     } catch (loadError) {
       setError(errorMessage(loadError));
-    } finally {
-      setLoading(false);
     }
   }, []);
+
+  const syncHistory = useCallback(async () => {
+    const started = {
+      selectedConversationId: selectedConversationIdRef.current,
+      sending: sendingRef.current,
+    };
+    const hasThread = started.selectedConversationId !== null &&
+      messagesRef.current.some(
+        (message) => message.conversationId === started.selectedConversationId,
+      );
+    if (started.selectedConversationId !== null && !started.sending && !hasThread) {
+      setMessagesLoading(true);
+    }
+    try {
+      const next = await refreshHistory({
+        ...started,
+        messages: messagesRef.current,
+      });
+      if (!next) {
+        setMessagesLoading(false);
+        return;
+      }
+      const apply = shouldApplyAssistantHistory(started, {
+        selectedConversationId: selectedConversationIdRef.current,
+        sending: sendingRef.current,
+      });
+      setConversations(next.conversations);
+      if (apply.selection && next.selectedConversationId !== selectedConversationIdRef.current) {
+        setSelectedConversationId(next.selectedConversationId);
+      }
+      if (apply.messages) setMessages(next.messages);
+      setLoading(false);
+      setMessagesLoading(false);
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+      setLoading(false);
+      setMessagesLoading(false);
+    }
+  }, [refreshHistory]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // The popup and dashboard each hold a copy of the drafts; catch up on window focus.
   useEffect(() => {
-    const syncWithOtherWindow = () => setChatDrafts(readChatDrafts());
-    syncWithOtherWindow();
+    void syncHistory();
+  }, [syncHistory, selectedConversationId]);
+
+  // Drafts and config live in localStorage; saved chats are SQLite. Focus is the
+  // backup for all three, because the popup stays mounted while hidden.
+  useEffect(() => {
+    const syncWithOtherWindow = () => {
+      setChatDrafts(readChatDrafts());
+      const stored = readAssistantConfig();
+      setSelection((current) => adoptConfigDefaults(configRef.current, stored, current));
+      setConfig(stored);
+      void syncHistory();
+    };
+    setChatDrafts(readChatDrafts());
     window.addEventListener("focus", syncWithOtherWindow);
     return () => window.removeEventListener("focus", syncWithOtherWindow);
-  }, []);
+  }, [syncHistory]);
 
-  useEffect(() => {
-    if (selectedConversationId === null) {
-      setMessages([]);
-      setMessagesLoading(false);
-      return;
-    }
-    let current = true;
-    setMessagesLoading(true);
-    void listAssistantMessages(selectedConversationId)
-      .then((next) => {
-        if (current) setMessages(next);
-      })
-      .catch((loadError) => {
-        if (current) setError(errorMessage(loadError));
-      })
-      .finally(() => {
-        if (current) setMessagesLoading(false);
-      });
-    return () => {
-      current = false;
-    };
-  }, [selectedConversationId]);
+  useEffect(
+    () => subscribeTauriEvent(ASSISTANT_HISTORY_CHANGED, () => void syncHistory()),
+    [syncHistory],
+  );
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: "end" });

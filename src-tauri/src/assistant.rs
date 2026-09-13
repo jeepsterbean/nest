@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{ipc::Channel, State};
+use tauri::{ipc::Channel, AppHandle, Emitter, State};
 
 use crate::{
     error::{AppError, Result},
@@ -84,6 +84,12 @@ pub struct AssistantStreamEvent {
 
 fn assistant_error(message: impl Into<String>) -> AppError {
     AppError::Assistant(message.into())
+}
+
+fn emit_assistant_history_changed(app: &AppHandle) {
+    // The popup stays mounted while hidden, so it will not remount onto
+    // the latest SQLite rows. Both windows subscribe and refresh.
+    let _ = app.emit("assistant-history-changed", ());
 }
 
 fn keyring_entry() -> Result<keyring::Entry> {
@@ -518,33 +524,47 @@ pub fn list_assistant_messages(
 
 #[tauri::command]
 pub fn rename_assistant_conversation(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     title: String,
 ) -> Result<AssistantConversation> {
     let title = normalized(title, "chat title", MAX_TITLE_CHARS)?;
-    let conn = state.lock().unwrap();
-    let updated = conn.execute(
-        "UPDATE assistant_conversations SET title = ?1, updated_at = ?2 WHERE id = ?3",
-        params![title, now_unix_secs(), id],
-    )?;
-    if updated == 0 {
-        return Err(AppError::NotFound(format!("assistant conversation {id}")));
-    }
-    fetch_conversation(&conn, id)
+    let conversation = {
+        let conn = state.lock().unwrap();
+        let updated = conn.execute(
+            "UPDATE assistant_conversations SET title = ?1, updated_at = ?2 WHERE id = ?3",
+            params![title, now_unix_secs(), id],
+        )?;
+        if updated == 0 {
+            return Err(AppError::NotFound(format!("assistant conversation {id}")));
+        }
+        fetch_conversation(&conn, id)?
+    };
+    emit_assistant_history_changed(&app);
+    Ok(conversation)
 }
 
 #[tauri::command]
-pub fn delete_assistant_conversation(state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
-    let conn = state.lock().unwrap();
-    if conn.execute("DELETE FROM assistant_conversations WHERE id = ?1", [id])? == 0 {
+pub fn delete_assistant_conversation(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+) -> Result<()> {
+    let deleted = {
+        let conn = state.lock().unwrap();
+        conn.execute("DELETE FROM assistant_conversations WHERE id = ?1", [id])?
+    };
+    if deleted == 0 {
         return Err(AppError::NotFound(format!("assistant conversation {id}")));
     }
+    emit_assistant_history_changed(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn send_assistant_message(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     request: SendAssistantMessageRequest,
     on_event: Channel<AssistantStreamEvent>,
@@ -669,8 +689,12 @@ pub async fn send_assistant_message(
         incomplete_reason = Some("OpenAI returned no text.".into());
     }
 
-    let mut conn = state.lock().unwrap();
-    finish_turn(&mut conn, started, assistant_content, incomplete_reason)
+    let turn = {
+        let mut conn = state.lock().unwrap();
+        finish_turn(&mut conn, started, assistant_content, incomplete_reason)?
+    };
+    emit_assistant_history_changed(&app);
+    Ok(turn)
 }
 
 #[cfg(test)]
