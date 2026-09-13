@@ -149,31 +149,39 @@ export function formatTasks(
 ) {
   const groups = parseTaskOption(key);
   if (!groups) return "";
-  const selected = tasks.filter((task) =>
-    groups.some((group) => group === "workingNow" ? task.workingNow : task.status === group),
-  );
-  if (selected.length === 0) return "";
-  const lines = [`Tasks · ${describeOption("tasks", key).toLowerCase()}`];
-  for (const task of selected) {
-    lines.push(`- ${task.title}`);
-    const fields: string[] = [];
-    if (detail.status) fields.push(`status: ${task.status.replace("_", " ")}`);
-    if (detail.scope && task.scope) fields.push(`scope: ${task.scope}`);
-    if (detail.value && task.value !== null) fields.push(`value: ${task.value}`);
-    if (detail.effort && task.effort !== null) fields.push(`effort: ${task.effort}`);
-    if (detail.workedTime) fields.push(`worked time: ${formatWorkedTime(task.workedSeconds)}`);
-    if (detail.created) fields.push(`created: ${formatStamp(task.createdAt, now)}`);
-    if (detail.updated) fields.push(`updated: ${formatStamp(task.updatedAt, now)}`);
-    if (fields.length) lines.push(`  ${fields.join(" · ")}`);
-    if (detail.description && task.description.trim()) lines.push(`  ${task.description.trim()}`);
-    if (detail.blockers) {
-      const blockers = graph.blockersByTask.get(task.id)?.filter((item) => item.status !== "completed") ?? [];
-      lines.push(blockers.length ? `  blocked by: ${blockers.map((item) => item.title).join(", ")}` : "  ready");
-    }
-    if (detail.parent && task.parentTaskId !== null) lines.push(`  parent: ${graph.byId.get(task.parentTaskId)?.title ?? `Task ${task.parentTaskId}`}`);
-    if (detail.children) {
-      const children = graph.childrenByParent.get(task.id) ?? [];
-      if (children.length) lines.push(`  children: ${children.map((item) => item.title).join(", ")}`);
+  // Working now is a flag on an Active Task; when both groups are selected,
+  // list that Task only under working now so it is not repeated under active.
+  const includeWorkingNow = groups.includes("workingNow");
+  const lines: string[] = [];
+  for (const group of groups) {
+    const selected = tasks.filter((task) =>
+      group === "workingNow"
+        ? task.workingNow
+        : task.status === group && !(includeWorkingNow && task.workingNow),
+    );
+    if (!selected.length) continue;
+    lines.push((TASK_GROUPS.find((item) => item.key === group)?.label ?? group).toLowerCase());
+    for (const task of selected) {
+      lines.push(`- ${task.title}`);
+      const fields: string[] = [];
+      if (detail.status) fields.push(`status: ${task.status.replace("_", " ")}`);
+      if (detail.scope && task.scope) fields.push(`scope: ${task.scope}`);
+      if (detail.value && task.value !== null) fields.push(`value: ${task.value}`);
+      if (detail.effort && task.effort !== null) fields.push(`effort: ${task.effort}`);
+      if (detail.workedTime) fields.push(`worked time: ${formatWorkedTime(task.workedSeconds)}`);
+      if (detail.created) fields.push(`created: ${formatStamp(task.createdAt, now)}`);
+      if (detail.updated) fields.push(`updated: ${formatStamp(task.updatedAt, now)}`);
+      if (fields.length) lines.push(`  ${fields.join(" · ")}`);
+      if (detail.description && task.description.trim()) lines.push(`  ${task.description.trim()}`);
+      if (detail.blockers) {
+        const blockers = graph.blockersByTask.get(task.id)?.filter((item) => item.status !== "completed") ?? [];
+        lines.push(blockers.length ? `  blocked by: ${blockers.map((item) => item.title).join(", ")}` : "  ready");
+      }
+      if (detail.parent && task.parentTaskId !== null) lines.push(`  parent: ${graph.byId.get(task.parentTaskId)?.title ?? `Task ${task.parentTaskId}`}`);
+      if (detail.children) {
+        const children = graph.childrenByParent.get(task.id) ?? [];
+        if (children.length) lines.push(`  children: ${children.map((item) => item.title).join(", ")}`);
+      }
     }
   }
   return lines.join("\n");
@@ -296,10 +304,8 @@ export function joinInstructions(systemInstructions: string, promptInstructions:
   return [systemInstructions.trim(), promptInstructions.trim()].filter(Boolean).join("\n\n");
 }
 
-// Example records for Config previews: real data depends on what each message
-// selects, so previews show every option against the same sample records. They
-// are timed back from the real clock, or "last 1h" would list clock times that
-// read as hours old.
+// Test fixture: records timed back from a given clock so window options stay
+// in range. Config previews use live dashboard data instead.
 export const SAMPLE_MESSAGE = "What should I pick up next?";
 
 const samplePhases: Phase[] = ["Doing", "Scoping", "Resting", "Offline"].map((name, index) => ({

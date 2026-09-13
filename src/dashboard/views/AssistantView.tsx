@@ -741,7 +741,7 @@ export function AssistantView({
             )}
 
             {configSection === "layout" && (
-              <LayoutSection config={config} storeConfig={storeConfig} />
+              <LayoutSection config={config} data={dashboardData} storeConfig={storeConfig} />
             )}
 
             {configSection === "prompt" && (

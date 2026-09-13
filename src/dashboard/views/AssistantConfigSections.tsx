@@ -25,7 +25,6 @@ import {
   messageTimePrefix,
   parseRecentOption,
   parseTaskOption,
-  sampleData,
   type AssistantConfig,
   type Signal,
   type SignalOption,
@@ -222,10 +221,7 @@ export function SignalSection({
   const saved = options.find((option) => option.id === draft?.id) ?? null;
   const previewKey = draft ? draftKey(signal, draft) : null;
   const now = Math.floor(Date.now() / 1000);
-  const samples = sampleData(now);
-  const usesLiveData = signal !== "tasks";
-  const previewData = signal === "tasks" ? samples : data;
-  const output = previewKey ? formatSignal(signal, previewKey, previewData, config.taskDetail, now) : "";
+  const output = previewKey ? formatSignal(signal, previewKey, data, config.taskDetail, now) : "";
   const { menu } = SIGNAL_LABELS[signal];
 
   const storeOptions = (update: (current: SignalOption[]) => SignalOption[]) => storeConfig((current) => ({
@@ -359,18 +355,16 @@ export function SignalSection({
 
       <div className="assistant-config__preview">
         <div className="assistant-config__intro">
-          <strong>{draft?.name.trim() ? `${menu} · ${draft.name.trim()}` : usesLiveData ? "Current records" : "Sample output"}</strong>
+          <strong>{draft?.name.trim() ? `${menu} · ${draft.name.trim()}` : "Current records"}</strong>
         </div>
         <pre className="assistant-output">
-          {!data.loaded && usesLiveData
+          {!data.loaded
             ? "Loading current records…"
             : !draft
             ? "Select or add an option to preview it."
             : !previewKey
               ? "Finish configuring this option to preview it."
-              : output || (usesLiveData
-                ? "No current records fall in this option, so it sends nothing."
-                : "No sample records fall in this option, so it sends nothing.")}
+              : output || "No current records fall in this option, so it sends nothing."}
         </pre>
       </div>
     </div>
@@ -603,9 +597,11 @@ export function PromptSection({
 
 export function LayoutSection({
   config,
+  data,
   storeConfig,
 }: {
   config: AssistantConfig;
+  data: DashboardData;
   storeConfig: StoreConfig;
 }) {
   const templateRef = useRef<HTMLTextAreaElement | null>(null);
@@ -613,7 +609,7 @@ export function LayoutSection({
   const instructions = config.systemInstructions.trim();
   const now = Math.floor(Date.now() / 1000);
   const input = messageTimePrefix(now) +
-    buildAssistantMessage(sampleData(now), config, selection, SAMPLE_MESSAGE, now);
+    buildAssistantMessage(data, config, selection, SAMPLE_MESSAGE, now);
 
   const insertToken = (token: string) => {
     const field = templateRef.current;
@@ -678,7 +674,7 @@ export function LayoutSection({
         </div>
         <div className="assistant-output-part">
           <span>input · your message, stamped with the time you send it</span>
-          <pre className="assistant-output">{input}</pre>
+          <pre className="assistant-output">{data.loaded ? input : "Loading current records…"}</pre>
         </div>
       </div>
     </div>

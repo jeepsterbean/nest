@@ -99,8 +99,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   group’s `ViewToggle` stays at the top-left: Chat contains the four signals
   and Prompt; System contains System instructions and Layout. The API key is
   in Settings → Assistant. Signal and Layout sections use `.assistant-signal`:
-  a fixed 320px controls rail on the left and a `.assistant-output` sample
-  preview on the right at every dashboard width.
+  a fixed 320px controls rail on the left and a `.assistant-output` preview
+  of the current records on the right at every dashboard width.
   Option lists, defaults, Task detail, active System
   instructions and the template persist in `nest:assistant-context`; every Save also adds an immutable local instruction version. System instruction versions appear in a scrollable sidebar and open in a right panel. The Rust boundary streams OpenAI output; each user
   message stores its full sent message and system-instructions snapshot. Dashboard user messages have an `Open` control

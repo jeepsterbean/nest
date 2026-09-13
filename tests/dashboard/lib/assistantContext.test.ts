@@ -74,11 +74,23 @@ describe("assistant context", () => {
     const tasks = [task(1), task(2, "up_next")];
     const graph = buildTaskGraph(tasks, [{ blockerTaskId: 2, blockedTaskId: 1, createdAt: 0 }]);
     const output = formatTasks(tasks, graph, "active", { ...DEFAULT_TASK_DETAIL, description: true });
-    expect(output).toContain("Tasks · active");
+    expect(output.startsWith("active\n")).toBe(true);
     expect(output).toContain("blocked by: Unblock the task");
     expect(output).toContain("A useful detail");
     expect(output).not.toContain("- Unblock the task");
-    expect(formatTasks(tasks, graph, "active+up_next", DEFAULT_TASK_DETAIL)).toContain("- Unblock the task");
+    expect(formatTasks(tasks, graph, "active+up_next", DEFAULT_TASK_DETAIL)).toContain("up next\n- Unblock the task");
+  });
+
+  it("lists each selected Task group under its own heading", () => {
+    const tasks = [
+      task(1),
+      { ...task(3, "active"), title: "Tidy the desk", workingNow: false },
+      task(2, "up_next"),
+    ];
+    const graph = buildTaskGraph(tasks, []);
+    expect(formatTasks(tasks, graph, "workingNow+active", { ...DEFAULT_TASK_DETAIL, status: false, scope: false, blockers: false })).toBe(
+      ["working now", "- Plan the day", "active", "- Tidy the desk"].join("\n"),
+    );
   });
 
   it("formats newest dump and metric rows by count or window", () => {

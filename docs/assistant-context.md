@@ -31,7 +31,7 @@ typed text:
 renders, with Tasks · Active and Dumps · Last 3 selected, as:
 
 ```
-14:05  Tasks · active
+14:05  active
 - Ship the map view
   status: active · scope: Nest
   blocked by: Fix the pan jitter
@@ -72,9 +72,12 @@ An option is `{ id, name, key }`. The key is what it covers: `last:3`,
 `window:60` (minutes), `active+up_next`. Windows cap at 1440 minutes. Chat
 reads only the history the dashboard loads (`HISTORY_WINDOW_DAYS`, 30 days), so
 "last N" means the newest N within the last 30 days; older records never reach
-chat, even though the Brain dump composer's history can show them. The block sent to the model is headed by the
-key's description ("Brain dumps · last 3"), never the name, so a name cannot
-misstate the range.
+chat, even though the Brain dump composer's history can show them. Dumps, metrics and phase
+blocks are headed by the key's description ("Brain dumps · last 3"), never the
+name, so a name cannot misstate the range. A Tasks block lists each selected
+group under its own heading (`working now`, `active`, …). A Task that is
+Working now is listed only under that heading when the option includes it, so
+it is not repeated under Active.
 
 Brain dumps cap at `MAX_CONTEXT_DUMPS` (20) per message, newest first,
 because dumps run long and a wide window could otherwise flood the input. A
@@ -118,12 +121,10 @@ Settings → Assistant holds the OpenAI key. Assistant Config has a sidebar:
 | System: System instructions | One text sent as instructions on every request. |
 | System: Layout | The template editor with insertable tokens, beside the final output: instructions and input exactly as OpenAI receives them for a new chat. |
 
-The Brain dump, Metric, and Phase previews render the current records the
-dashboard has loaded, using the option being edited. Tasks renders against
-sample data (`sampleData(now)` in `src/dashboard/lib/assistantContext.ts`), so
-a stable sample shows every option's shape side by side. Sample records are
-timed back from the current clock; a fixed sample day made "last 1h" list clock
-times that read as hours old. The Layout preview uses each signal's default.
+Signal previews render the current records the dashboard has loaded, using the
+option being edited. The Layout preview uses each signal's default against
+those same records, with a sample typed message so the template has something
+to fold around.
 
 ## Chat view
 
