@@ -162,6 +162,14 @@ pub struct AssistantPrompt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssistantSystemInstructionVersion {
+    pub id: i64,
+    pub instructions: String,
+    pub saved_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssistantConversation {
     pub id: i64,
     pub title: String,

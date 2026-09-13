@@ -101,8 +101,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   in Settings → Assistant. Signal and Layout sections use `.assistant-signal`:
   a fixed 320px controls rail on the left and a `.assistant-output` sample
   preview on the right at every dashboard width.
-  Option lists, defaults, Task detail, System
-  instructions and the template persist in `nest:assistant-context`. The Rust boundary streams OpenAI output; each user
+  Option lists, defaults, Task detail, active System
+  instructions and the template persist in `nest:assistant-context`; every Save also adds an immutable local instruction version. System instruction versions appear in a scrollable sidebar and open in a right panel. The Rust boundary streams OpenAI output; each user
   message stores its full sent message and system-instructions snapshot. Dashboard user messages have an `Open` control
   that reveals that record in a right overlay panel; the renderer never receives
   the API key; without a keyring platform-store feature the key never reaches

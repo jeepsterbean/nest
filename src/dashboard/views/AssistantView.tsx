@@ -11,7 +11,9 @@ import {
   listAssistantConversations,
   listAssistantMessages,
   listAssistantPrompts,
+  listAssistantSystemInstructionVersions,
   renameAssistantConversation,
+  saveAssistantSystemInstructions,
   sendAssistantMessage,
   MAX_ASSISTANT_MESSAGE_CHARS,
   MAX_ASSISTANT_TITLE_CHARS,
@@ -21,6 +23,7 @@ import type {
   AssistantMessage,
   AssistantModel,
   AssistantPrompt,
+  AssistantSystemInstructionVersion,
 } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { ViewToggle } from "../components/ViewToggle";
@@ -100,6 +103,12 @@ export function AssistantView({
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [model, setModel] = useState<AssistantModel>("gpt-5.6-luna");
   const [config, setConfig] = useState(readAssistantConfig);
+  const [systemInstructionsDraft, setSystemInstructionsDraft] = useState(
+    config.systemInstructions,
+  );
+  const [systemInstructionVersions, setSystemInstructionVersions] = useState<
+    AssistantSystemInstructionVersion[]
+  >([]);
   const [selection, setSelection] = useState(() => defaultSelection(config));
   const [configSection, setConfigSection] = useState<ConfigSection>("dumps");
   const [chatDrafts, setChatDrafts] = useState(readChatDrafts);
@@ -129,11 +138,13 @@ export function AssistantView({
 
   const load = useCallback(async () => {
     try {
-      const [nextPrompts, keyConfigured] = await Promise.all([
+      const [nextPrompts, nextSystemInstructionVersions, keyConfigured] = await Promise.all([
         listAssistantPrompts(),
+        listAssistantSystemInstructionVersions(),
         assistantApiKeyConfigured(),
       ]);
       setPrompts(nextPrompts);
+      setSystemInstructionVersions(nextSystemInstructionVersions);
       setApiKeyConfigured(keyConfigured);
       setSelectedPromptId((current) =>
         current !== null && nextPrompts.some((prompt) => prompt.id === current)
@@ -199,7 +210,11 @@ export function AssistantView({
       setChatDrafts(readChatDrafts());
       const stored = readAssistantConfig();
       setSelection((current) => adoptConfigDefaults(configRef.current, stored, current));
+      setSystemInstructionsDraft((current) =>
+        current === configRef.current.systemInstructions ? stored.systemInstructions : current,
+      );
       setConfig(stored);
+      void listAssistantSystemInstructionVersions().then(setSystemInstructionVersions);
       void syncHistory();
     };
     setChatDrafts(readChatDrafts());
@@ -239,6 +254,17 @@ export function AssistantView({
       writeAssistantConfig(next);
       return next;
     });
+  };
+
+  const saveSystemInstructions = async () => {
+    try {
+      const saved = await saveAssistantSystemInstructions(systemInstructionsDraft);
+      storeConfig((current) => ({ ...current, systemInstructions: saved.instructions }));
+      setSystemInstructionVersions((current) => [saved, ...current]);
+      setSystemInstructionsDraft(saved.instructions);
+    } catch (saveError) {
+      setError(errorMessage(saveError));
+    }
   };
 
   // A new default applies to the chat being composed too, not only the next new chat.
@@ -706,7 +732,12 @@ export function AssistantView({
             )}
 
             {configSection === "system" && (
-              <SystemInstructionsSection config={config} storeConfig={storeConfig} />
+              <SystemInstructionsSection
+                draft={systemInstructionsDraft}
+                versions={systemInstructionVersions}
+                onDraftChange={setSystemInstructionsDraft}
+                onSave={() => void saveSystemInstructions()}
+              />
             )}
 
             {configSection === "layout" && (

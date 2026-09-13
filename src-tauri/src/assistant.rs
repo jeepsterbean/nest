@@ -11,7 +11,7 @@ use tauri::{ipc::Channel, AppHandle, Emitter, State};
 
 use crate::{
     error::{AppError, Result},
-    models::{AssistantConversation, AssistantMessage, AssistantPrompt, AssistantTurn},
+    models::{AssistantConversation, AssistantMessage, AssistantPrompt, AssistantSystemInstructionVersion, AssistantTurn},
     time::now_unix_secs,
 };
 
@@ -29,6 +29,7 @@ const OPENAI_IDLE_TIMEOUT: Duration = Duration::from_secs(45);
 const INCOMPLETE_RESPONSE_MESSAGE: &str = "The response ended before any text arrived.";
 
 const PROMPT_COLUMNS: &str = "id, title, instructions, created_at, updated_at";
+const SYSTEM_INSTRUCTION_VERSION_COLUMNS: &str = "id, instructions, saved_at";
 const CONVERSATION_COLUMNS: &str =
     "id, title, model, created_at, updated_at";
 const MESSAGE_COLUMNS: &str = "id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at";
@@ -139,6 +140,16 @@ fn map_prompt(row: &Row<'_>) -> rusqlite::Result<AssistantPrompt> {
         instructions: row.get(2)?,
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
+    })
+}
+
+fn map_system_instruction_version(
+    row: &Row<'_>,
+) -> rusqlite::Result<AssistantSystemInstructionVersion> {
+    Ok(AssistantSystemInstructionVersion {
+        id: row.get(0)?,
+        instructions: row.get(1)?,
+        saved_at: row.get(2)?,
     })
 }
 
@@ -494,6 +505,44 @@ pub fn delete_assistant_prompt(state: State<'_, Mutex<Connection>>, id: i64) -> 
 }
 
 #[tauri::command]
+pub fn list_assistant_system_instruction_versions(
+    state: State<'_, Mutex<Connection>>,
+) -> Result<Vec<AssistantSystemInstructionVersion>> {
+    let conn = state.lock().unwrap();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SYSTEM_INSTRUCTION_VERSION_COLUMNS} \
+         FROM assistant_system_instruction_versions ORDER BY saved_at DESC, id DESC"
+    ))?;
+    let versions = stmt
+        .query_map([], map_system_instruction_version)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(versions)
+}
+
+#[tauri::command]
+pub fn save_assistant_system_instructions(
+    state: State<'_, Mutex<Connection>>,
+    instructions: String,
+) -> Result<AssistantSystemInstructionVersion> {
+    let instructions = normalized(instructions, "system instructions", MAX_PROMPT_CHARS)?;
+    let conn = state.lock().unwrap();
+    let saved_at = now_unix_secs();
+    conn.execute(
+        "INSERT INTO assistant_system_instruction_versions (instructions, saved_at) VALUES (?1, ?2)",
+        params![instructions, saved_at],
+    )?;
+    conn.query_row(
+        &format!(
+            "SELECT {SYSTEM_INSTRUCTION_VERSION_COLUMNS} \
+             FROM assistant_system_instruction_versions WHERE id = ?1"
+        ),
+        [conn.last_insert_rowid()],
+        map_system_instruction_version,
+    )
+    .map_err(Into::into)
+}
+
+#[tauri::command]
 pub fn list_assistant_conversations(
     state: State<'_, Mutex<Connection>>,
 ) -> Result<Vec<AssistantConversation>> {
@@ -610,6 +659,7 @@ pub async fn send_assistant_message(
         "store": false,
         "stream": true
     });
+    crate::append_diagnostic_log(format!("assistant_request body={body}"));
 
     let response = match OPENAI_CLIENT
         .post(OPENAI_API_URL)
@@ -619,11 +669,15 @@ pub async fn send_assistant_message(
         .await
     {
         Ok(response) => response,
-        Err(error) => return Err(assistant_error(format!("Could not reach OpenAI: {error}"))),
+        Err(error) => {
+            crate::append_diagnostic_log(format!("assistant_response error={error}"));
+            return Err(assistant_error(format!("Could not reach OpenAI: {error}")));
+        }
     };
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
+        crate::append_diagnostic_log(format!("assistant_response status={status} body={body:?}"));
         return Err(openai_error(status, &body));
     }
 
@@ -690,6 +744,9 @@ pub async fn send_assistant_message(
     if assistant_content.trim().is_empty() && incomplete_reason.is_none() {
         incomplete_reason = Some("OpenAI returned no text.".into());
     }
+    crate::append_diagnostic_log(format!(
+        "assistant_response content={assistant_content:?} incomplete_reason={incomplete_reason:?}"
+    ));
 
     let turn = {
         let mut conn = state.lock().unwrap();

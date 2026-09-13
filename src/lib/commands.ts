@@ -4,6 +4,7 @@ import type {
   AssistantMessage,
   AssistantModel,
   AssistantPrompt,
+  AssistantSystemInstructionVersion,
   AssistantStreamEvent,
   AssistantTurn,
   BrainDump,
@@ -64,6 +65,16 @@ export function updateAssistantPrompt(
 
 export function deleteAssistantPrompt(id: number): Promise<void> {
   return invoke("delete_assistant_prompt", { id });
+}
+
+export function listAssistantSystemInstructionVersions(): Promise<AssistantSystemInstructionVersion[]> {
+  return invoke("list_assistant_system_instruction_versions");
+}
+
+export function saveAssistantSystemInstructions(
+  instructions: string,
+): Promise<AssistantSystemInstructionVersion> {
+  return invoke("save_assistant_system_instructions", { instructions });
 }
 
 export function listAssistantConversations(): Promise<AssistantConversation[]> {

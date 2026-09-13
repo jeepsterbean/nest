@@ -974,6 +974,18 @@ SET sent_message = COALESCE(context, content)
 WHERE role = 'user';
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE assistant_system_instruction_versions (
+  id           INTEGER PRIMARY KEY,
+  instructions TEXT NOT NULL CHECK (length(trim(instructions)) BETWEEN 1 AND 12000),
+  saved_at     INTEGER NOT NULL
+);
+
+CREATE INDEX idx_assistant_system_instruction_versions_saved_at
+ON assistant_system_instruction_versions(saved_at DESC, id DESC);
+"#,
+        ),
     ])
 }
 
@@ -1051,6 +1063,30 @@ mod tests {
             )
             .unwrap();
         assert_eq!(saved, ("Tasks · active\n\nTyped".into(), None));
+    }
+
+    #[test]
+    fn keeps_each_saved_system_instruction_version() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_system_instruction_versions (instructions, saved_at) \
+             VALUES ('First instruction', 1), ('Second instruction', 2)",
+            [],
+        )
+        .unwrap();
+
+        let versions: Vec<(String, i64)> = conn
+            .prepare(
+                "SELECT instructions, saved_at FROM assistant_system_instruction_versions \
+                 ORDER BY saved_at DESC, id DESC",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(versions, vec![("Second instruction".into(), 2), ("First instruction".into(), 1)]);
     }
 
     #[test]

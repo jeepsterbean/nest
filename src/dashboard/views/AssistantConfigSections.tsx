@@ -6,13 +6,12 @@ import {
   MAX_ASSISTANT_PROMPT_CHARS,
   MAX_ASSISTANT_TITLE_CHARS,
 } from "../../lib/commands";
-import type { AssistantPrompt } from "../../lib/types";
+import type { AssistantPrompt, AssistantSystemInstructionVersion } from "../../lib/types";
 import type { DashboardData } from "../context/DashboardDataContext";
-import { plusIcon, trashIcon } from "../components/icons";
+import { plusIcon, trashIcon, xIcon } from "../components/icons";
 import { readPromptDrafts, writePromptDrafts, type PromptDraft } from "../lib/assistant";
 import { MenuSelect } from "../components/MenuSelect";
 import {
-  DEFAULT_SYSTEM_INSTRUCTIONS,
   DEFAULT_TEMPLATE,
   MAX_CONTEXT_DUMPS,
   SAMPLE_MESSAGE,
@@ -33,6 +32,7 @@ import {
   type TaskDetail,
   type TaskGroup,
 } from "../lib/assistantContext";
+import { formatDate, formatTime } from "../lib/time";
 
 type StoreConfig = (update: (current: AssistantConfig) => AssistantConfig) => void;
 const NEW_PROMPT_TEXT = "What would you like help with?";
@@ -378,31 +378,86 @@ export function SignalSection({
 }
 
 export function SystemInstructionsSection({
-  config,
-  storeConfig,
+  draft,
+  versions,
+  onDraftChange,
+  onSave,
 }: {
-  config: AssistantConfig;
-  storeConfig: StoreConfig;
+  draft: string;
+  versions: AssistantSystemInstructionVersion[];
+  onDraftChange: (draft: string) => void;
+  onSave: () => void;
 }) {
+  const [selectedVersion, setSelectedVersion] = useState<AssistantSystemInstructionVersion | null>(null);
+
   return (
-    <div className="assistant-config__editor">
-      <div className="assistant-config__intro">
-        <strong>System instructions</strong>
+    <div className="assistant-system-instructions">
+      <aside className="assistant-system-instruction-versions" aria-label="Saved system instructions">
+        <strong>Saved</strong>
+        {versions.map((version) => (
+          <button
+            key={version.id}
+            type="button"
+            className="assistant-system-instruction-versions__item"
+            aria-label={`Open system instructions saved ${formatDate(version.savedAt)} at ${formatTime(version.savedAt)}`}
+            onClick={() => setSelectedVersion(version)}
+          >
+            {formatDate(version.savedAt)} · {formatTime(version.savedAt)}
+          </button>
+        ))}
+      </aside>
+      <div className="assistant-config__editor assistant-system-instructions__editor">
+        <div className="assistant-config__intro">
+          <strong>System instructions</strong>
+        </div>
+        <textarea
+          value={draft}
+          maxLength={MAX_ASSISTANT_PROMPT_CHARS}
+          aria-label="System instructions"
+          onChange={(event) => onDraftChange(event.target.value)}
+        />
+        <button
+          type="button"
+          className="btn-accent"
+          disabled={!draft.trim()}
+          onClick={onSave}
+        >
+          Save
+        </button>
       </div>
-      <textarea
-        value={config.systemInstructions}
-        maxLength={MAX_ASSISTANT_PROMPT_CHARS}
-        aria-label="System instructions"
-        onChange={(event) => storeConfig((current) => ({ ...current, systemInstructions: event.target.value }))}
-      />
-      <button
-        type="button"
-        className="assistant-config__reset"
-        disabled={config.systemInstructions === DEFAULT_SYSTEM_INSTRUCTIONS}
-        onClick={() => storeConfig((current) => ({ ...current, systemInstructions: DEFAULT_SYSTEM_INSTRUCTIONS }))}
-      >
-        Reset to default
-      </button>
+      {selectedVersion && (
+        <aside
+          className="assistant-system-instruction-panel"
+          aria-label="Saved system instructions"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setSelectedVersion(null);
+          }}
+        >
+          <header className="assistant-system-instruction-panel__head">
+            <span>{formatDate(selectedVersion.savedAt)} · {formatTime(selectedVersion.savedAt)}</span>
+            <button
+              type="button"
+              aria-label="Close saved system instructions"
+              title="Close"
+              autoFocus
+              onClick={() => setSelectedVersion(null)}
+            >
+              {xIcon}
+            </button>
+          </header>
+          <pre>{selectedVersion.instructions}</pre>
+          <button
+            type="button"
+            className="btn-accent"
+            onClick={() => {
+              onDraftChange(selectedVersion.instructions);
+              setSelectedVersion(null);
+            }}
+          >
+            Use as draft
+          </button>
+        </aside>
+      )}
     </div>
   );
 }

@@ -101,7 +101,7 @@ const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-fn append_diagnostic_log(message: impl AsRef<str>) {
+pub(crate) fn append_diagnostic_log(message: impl AsRef<str>) {
     let message = message.as_ref();
     let timestamp = now_unix_secs();
     eprintln!("nest[diagnostics][{timestamp}]: {message}");
@@ -1309,6 +1309,8 @@ pub fn run() {
             assistant::create_assistant_prompt,
             assistant::update_assistant_prompt,
             assistant::delete_assistant_prompt,
+            assistant::list_assistant_system_instruction_versions,
+            assistant::save_assistant_system_instructions,
             assistant::list_assistant_conversations,
             assistant::list_assistant_messages,
             assistant::rename_assistant_conversation,

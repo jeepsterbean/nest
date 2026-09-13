@@ -144,6 +144,12 @@ export type AssistantPrompt = {
   updatedAt: number;
 };
 
+export type AssistantSystemInstructionVersion = {
+  id: number;
+  instructions: string;
+  savedAt: number;
+};
+
 export type AssistantConversation = {
   id: number;
   title: string;

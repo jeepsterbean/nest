@@ -147,7 +147,8 @@ transcript honest about what the model saw.
 
 Everything else is configuration in localStorage under
 `nest:assistant-context`: option lists and defaults, Task detail, System
-instructions, and the template. Each field falls back to its default on its
+instructions, and the template. System instructions become active only when
+saved; every Save appends an immutable timestamped version in SQLite. Each field falls back to its default on its
 own, so Task detail from the earlier shape carries over.
 
 ## Backend
