@@ -19,11 +19,11 @@ export const formatStamp = (ts: number, now: number) =>
 export type Signal = "dumps" | "metrics" | "phase" | "tasks";
 export const SIGNALS: readonly Signal[] = ["dumps", "metrics", "phase", "tasks"];
 
-export const SIGNAL_LABELS: Record<Signal, { section: string; menu: string }> = {
-  dumps: { section: "Brain dump", menu: "Dumps" },
-  metrics: { section: "Metric", menu: "Metrics" },
-  phase: { section: "Phase", menu: "Phase" },
-  tasks: { section: "Tasks", menu: "Tasks" },
+export const SIGNAL_LABELS: Record<Signal, { section: string; menu: string; none: string }> = {
+  dumps: { section: "Brain dump", menu: "Dumps", none: "No dumps" },
+  metrics: { section: "Metric", menu: "Metrics", none: "No metrics" },
+  phase: { section: "Phase", menu: "Phase", none: "No phase" },
+  tasks: { section: "Tasks", menu: "Tasks", none: "No tasks" },
 };
 
 /**
@@ -248,21 +248,35 @@ export function defaultSelection(config: AssistantConfig): SignalSelection {
   };
 }
 
+/** Drop ids whose option was removed, so a dead pick cannot look selected. */
+export function pruneSelection(
+  config: AssistantConfig, selection: SignalSelection,
+): SignalSelection {
+  const pruned = Object.fromEntries(SIGNALS.map((signal) => [
+    signal,
+    config.signals[signal].options.some((option) => option.id === selection[signal])
+      ? selection[signal]
+      : null,
+  ])) as SignalSelection;
+  // The same object when nothing was dropped, so the prune settles in one render.
+  return SIGNALS.every((signal) => pruned[signal] === selection[signal]) ? selection : pruned;
+}
+
 /**
  * Config is shared through localStorage, so the other window's edits reach a
  * long-lived chat late. A newly saved default preselects itself here too, the
  * way setting one in this window does; an untouched default leaves whatever
- * this message already picked.
+ * this message already picked, unless that option is gone.
  */
 export function adoptConfigDefaults(
   previous: AssistantConfig, next: AssistantConfig, selection: SignalSelection,
 ): SignalSelection {
-  return Object.fromEntries(SIGNALS.map((signal) => [
+  return pruneSelection(next, Object.fromEntries(SIGNALS.map((signal) => [
     signal,
     previous.signals[signal].defaultOption === next.signals[signal].defaultOption
       ? selection[signal]
       : next.signals[signal].defaultOption,
-  ])) as SignalSelection;
+  ])) as SignalSelection);
 }
 
 export function buildAssistantMessage(
@@ -271,7 +285,7 @@ export function buildAssistantMessage(
 ) {
   const blocks: Record<TemplateToken, string> = { tasks: "", phase: "", dumps: "", metrics: "", message };
   for (const signal of SIGNALS) {
-    // A selection can outlive its option when the option is removed in Config.
+    // Last line of defense: a removed option must not send a block.
     const option = config.signals[signal].options.find((item) => item.id === selection[signal]);
     if (option) blocks[signal] = formatSignal(signal, option.key, data, config.taskDetail, now);
   }

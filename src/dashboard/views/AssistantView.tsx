@@ -61,6 +61,7 @@ import {
   adoptConfigDefaults,
   buildAssistantMessage,
   defaultSelection,
+  pruneSelection,
   type AssistantConfig,
   type Signal,
 } from "../lib/assistantContext";
@@ -210,6 +211,11 @@ export function AssistantView({
     () => subscribeTauriEvent(ASSISTANT_HISTORY_CHANGED, () => void syncHistory()),
     [syncHistory],
   );
+
+  // Removing an option in Config leaves this chat pointing at an id that is gone.
+  useEffect(() => {
+    setSelection((current) => pruneSelection(config, current));
+  }, [config]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: "end" });
@@ -503,19 +509,19 @@ export function AssistantView({
             )}
             <div className="assistant-chat__toolbar">
               {SIGNALS.map((signal) => {
-                const { menu, section } = SIGNAL_LABELS[signal];
+                const { menu, section, none } = SIGNAL_LABELS[signal];
                 return (
                   <MenuSelect
                     key={signal}
                     value={selection[signal] ?? ""}
                     options={[
-                      { value: "", label: menu },
+                      { value: "", label: none },
                       ...config.signals[signal].options.map((option) => ({
                         value: option.id,
                         label: `${menu} · ${option.name}`,
                       })),
                     ]}
-                    placeholder={menu}
+                    placeholder={none}
                     ariaLabel={`${section} context`}
                     onChange={(value) => setSelection((current) => ({ ...current, [signal]: value || null }))}
                   />

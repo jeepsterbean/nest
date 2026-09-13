@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ASSISTANT_CONFIG,
   adoptConfigDefaults,
+  pruneSelection,
   DEFAULT_TASK_DETAIL,
   MAX_CONTEXT_DUMPS,
   buildAssistantMessage,
@@ -47,6 +48,26 @@ describe("assistant context", () => {
     expect(adopted.tasks).toBe("active");
     expect(adoptConfigDefaults(withDefault("dumps", "last:3"), withDefault("dumps", null), adopted).dumps)
       .toBeNull();
+  });
+
+  it("clears a selection whose option is gone, even when the default did not change", () => {
+    const withoutDumps = {
+      ...DEFAULT_ASSISTANT_CONFIG,
+      signals: {
+        ...DEFAULT_ASSISTANT_CONFIG.signals,
+        dumps: { options: [], defaultOption: null },
+      },
+    };
+    const stale = { ...noSelection, dumps: "last:1", tasks: "active" };
+    expect(pruneSelection(withoutDumps, stale)).toEqual({ ...noSelection, tasks: "active" });
+    expect(adoptConfigDefaults(DEFAULT_ASSISTANT_CONFIG, withoutDumps, stale))
+      .toEqual({ ...noSelection, tasks: "active" });
+  });
+
+  it("hands back the same selection when every pick still has its option", () => {
+    const live = { ...noSelection, dumps: "last:1", tasks: "active" };
+    // Identity, not just equality: the prune effect re-runs on every config read.
+    expect(pruneSelection(DEFAULT_ASSISTANT_CONFIG, live)).toBe(live);
   });
 
   it("formats the Tasks a group option picks, with derived readiness", () => {

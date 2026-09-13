@@ -57,8 +57,9 @@ Selecting the source again is what gives the model current data.
 
 Each signal — Brain dump, Metric, Phase, Tasks — has a user-edited list of
 named options. The chat's menu for that signal offers exactly those options,
-by name, plus none. One option per signal may be marked **default**: it is
-preselected on every new chat. With no default, the menu starts at none.
+by name, plus none ("No dumps", "No metrics", "No phase", "No tasks"). One
+option per signal may be marked **default**: it is preselected on every new
+chat. With no default, the menu starts at none.
 
 | Signal | What an option covers | Seeded options |
 |---|---|---|
@@ -126,9 +127,12 @@ times that read as hours old. The Layout preview uses each signal's default.
 
 ## Chat view
 
-One row of four menus above the composer, one per signal. Selections are not
-persisted: a new chat resets them to the defaults, and changing a default in
-Config also moves the current selection.
+One row of four menus above the composer, one per signal. The empty choice
+is "No dumps" (and the same for the others), not the menu name, so none is
+not confused with a missing option. Selections are not persisted: a new chat
+resets them to the defaults, and changing a default in Config also moves
+the current selection. Removing a selected option clears that pick, including
+when the other window deleted it.
 
 Selecting a Prompt replaces the composer draft with that Prompt's saved text.
 
