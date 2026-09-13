@@ -8,6 +8,7 @@ import {
   formatDumps,
   formatMetrics,
   formatPhase,
+  formatStamp,
   formatTasks,
   isValidOption,
   renderTemplate,
@@ -93,6 +94,14 @@ describe("assistant context", () => {
   it("every default option renders sample output", () => {
     for (const { key } of DEFAULT_ASSISTANT_CONFIG.signals.dumps.options) expect(formatDumps(SAMPLE_DATA.brainDumps, key, SAMPLE_NOW)).not.toBe("");
     for (const { key } of DEFAULT_ASSISTANT_CONFIG.signals.phase.options) expect(formatPhase(SAMPLE_DATA.phases, SAMPLE_DATA.phaseCheckIns, key, SAMPLE_NOW)).not.toBe("");
+  });
+
+  it("formats Phase as the session timeline over the window", () => {
+    const stamp = (minutesAgo: number) => formatStamp(SAMPLE_NOW - minutesAgo * 60, SAMPLE_NOW);
+    expect(formatPhase(SAMPLE_DATA.phases, SAMPLE_DATA.phaseCheckIns, "window:60", SAMPLE_NOW)).toBe(
+      ["Phase · last 1h", `- ${stamp(60)}  Doing`, `- ${stamp(50)}  Resting`, `- ${stamp(40)}  Scoping`, `- ${stamp(25)}  Doing`].join("\n"),
+    );
+    expect(formatPhase(SAMPLE_DATA.phases, [], "window:60", SAMPLE_NOW)).toBe("");
   });
 
   it("fills template tokens and folds the gaps empty signals leave", () => {

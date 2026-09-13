@@ -85,10 +85,11 @@ Adding an option starts from its name alone. It stays an unsaved draft until
 what it covers is filled in and saved; editing an existing option works the
 same way, with Revert instead of Discard.
 
-Phase renders as totals over the window, matching how Logs summarises Phase.
-The other three render as lists, newest first. A row from an earlier day
-carries its day ("Yesterday 9:05 AM"): a count option can reach back days, and
-a bare clock time would pass the record off as today.
+Phase renders as the session timeline over the window, oldest first, using the
+same settled stretches Logs builds (`phaseSessionsInWindow`). The other three
+render as lists, newest first. A row from an earlier day carries its day
+("Yesterday 9:05 AM"): a count option can reach back days, and a bare clock
+time would pass the record off as today.
 
 ## Task detail
 
@@ -147,9 +148,8 @@ own, so Task detail from the earlier shape carries over.
 ## Backend
 
 Context is rendered in TypeScript from data the dashboard already loads.
-Phase aggregation reuses `phaseSessionsInWindow`, `phaseSessionTotals` and
-`foldIdleIntoOffline` from `src/dashboard/lib/timeline.ts`, the same fold
-Logs uses.
+Phase sessions reuse `phaseSessionsInWindow` from
+`src/dashboard/lib/timeline.ts`, the same collapse Logs uses.
 
 `send_assistant_message` takes `context` (stored on the user message) and
 `system_instructions` (the complete request instructions, not stored). Each

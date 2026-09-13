@@ -56,7 +56,7 @@ type RangeUnit = "count" | "minutes";
 const UNIT_OPTIONS: Record<Exclude<Signal, "tasks">, { value: RangeUnit; label: string }[]> = {
   dumps: [{ value: "count", label: "dumps" }, { value: "minutes", label: "minutes" }],
   metrics: [{ value: "count", label: "check-ins" }, { value: "minutes", label: "minutes" }],
-  // Phase is summarised as totals over a window, so it only has minutes.
+  // Phase is a window of sessions, so it only has minutes.
   phase: [{ value: "minutes", label: "minutes" }],
 };
 
