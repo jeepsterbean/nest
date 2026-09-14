@@ -46,8 +46,23 @@
 
 .settings-pane__toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   padding: 0 24px 12px;
+}
+
+.metric-check-in-schedule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-check-in-schedule > :first-child {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .tags-view {

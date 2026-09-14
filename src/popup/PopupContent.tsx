@@ -66,7 +66,6 @@ import {
 } from "../lib/brainDumpDraft";
 import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
-import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import { assistantIcon, overviewIcon } from "../dashboard/components/icons";
@@ -454,32 +453,6 @@ export function adjacentTimerInterval(current: number, direction: -1 | 1) {
 }
 
 /**
- * Sticky Metric-due latch: turns on when the timer is due, stays on through a
- * restarted clock, and clears only after a Metric check-in is saved.
- * Persisted so popup remounts (every summon) do not drop the glow.
- */
-export function holdMetricDue(
-  held: boolean,
-  timerDue: boolean,
-  metricCheckInSaved: boolean,
-): boolean {
-  if (metricCheckInSaved) return false;
-  return held || timerDue;
-}
-
-function setHeldMetricDue(
-  setMetricDue: (update: (held: boolean) => boolean) => void,
-  timerDue: boolean,
-  metricCheckInSaved: boolean,
-) {
-  setMetricDue((held) => {
-    const next = holdMetricDue(held, timerDue, metricCheckInSaved);
-    writeMetricDueHeld(next);
-    return next;
-  });
-}
-
-/**
  * Owns the brain dump draft so a keystroke re-renders only this section.
  * Held by the popup shell it used to live in, every character re-rendered the
  * task board, pulse buttons and timer as well.
@@ -575,7 +548,7 @@ function PopupContent({
   onComplete,
 }: {
   onDismiss: () => Promise<void>;
-  onComplete: (save: () => Promise<number | null>) => Promise<void>;
+  onComplete: (save: () => Promise<void>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const backgroundStyle = useBackgroundStyle();
@@ -587,7 +560,6 @@ function PopupContent({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
   // Per-summon: the body remounts on every summon. First load picks Overview
   // when the Timer is due, otherwise the last tab the user chose.
   const [tab, setTab] = useState<PopupTabId>("dump");
@@ -664,10 +636,6 @@ function PopupContent({
     (ids, draggedId, targetId) => void dropTask(ids, draggedId, targetId),
     CARD_CONTROLS,
   );
-
-  useEffect(() => {
-    setHeldMetricDue(setMetricDue, timerDue, false);
-  }, [timerDue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1030,7 +998,6 @@ function PopupContent({
   ) => {
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
-    setHeldMetricDue(setMetricDue, timerDue, true);
     pulseActivity();
     await emit("data-changed");
   };
@@ -1045,7 +1012,6 @@ function PopupContent({
     try {
       await onComplete(async () => {
         await saveMetrics(pulse, ratingsInput);
-        return timerDue ? loaded.timer.intervalMinutes : null;
       });
     } catch (e) {
       setError(String(e));
@@ -1432,11 +1398,7 @@ function PopupContent({
             key={id}
             type="button"
             tabIndex={-1}
-            className={`popup-tabs__tab${
-              (id === "now" || id === "overview") && metricDue
-                ? " popup-tabs__tab--due"
-                : ""
-            }`}
+            className="popup-tabs__tab"
             aria-label={label}
             aria-pressed={tab === id}
             aria-keyshortcuts={`Meta+${index + 1}`}
@@ -1465,7 +1427,6 @@ function PopupContent({
           metrics={loaded.metrics}
           pulses={visiblePulses}
           submitting={submitting}
-          due={metricDue}
           emptyCopy={
             loaded.pulses.length
               ? "No pulses are shown in the popup. Turn one on in Metrics."

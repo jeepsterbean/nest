@@ -28,7 +28,6 @@ export function MetricCheckIn({
   metrics,
   pulses,
   submitting,
-  due = false,
   layout = "default",
   emptyCopy,
   onComplete,
@@ -44,7 +43,6 @@ export function MetricCheckIn({
   metrics: Metric[];
   pulses: Pulse[];
   submitting: boolean;
-  due?: boolean;
   layout?: "default" | "overview";
   emptyCopy: string;
   onComplete: (pulse: Pulse, ratings: MetricRatingInput[]) => Promise<void>;
@@ -113,9 +111,7 @@ export function MetricCheckIn({
 
   return (
     <section
-      className={`pulse-panel${due ? " pulse-panel--due" : ""}${
-        usesOverviewChrome ? " pulse-panel--overview" : ""
-      }`}
+      className={`pulse-panel${usesOverviewChrome ? " pulse-panel--overview" : ""}`}
       aria-label="Metrics"
       onKeyDown={(event) => {
         if (event.key >= "1" && event.key <= "5") {

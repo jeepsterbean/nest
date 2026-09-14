@@ -1028,6 +1028,21 @@ CREATE INDEX idx_assistant_messages_conversation
 ON assistant_messages(conversation_id, id);
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE metric_check_in_schedule (
+  id               INTEGER PRIMARY KEY CHECK (id = 1),
+  interval_minutes INTEGER NOT NULL CHECK (interval_minutes BETWEEN 15 AND 120 AND interval_minutes % 15 = 0),
+  next_due_at      INTEGER NOT NULL
+);
+
+INSERT INTO metric_check_in_schedule (id, interval_minutes, next_due_at)
+SELECT 1, 60, COALESCE(
+  (SELECT MAX(created_at) + 3600 FROM metric_check_ins),
+  CAST(strftime('%s', 'now') AS INTEGER) + 3600
+);
+"#,
+        ),
     ])
 }
 

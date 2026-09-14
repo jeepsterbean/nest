@@ -52,6 +52,13 @@ pub struct MetricCheckInWithRatings {
     pub ratings: Vec<MetricRating>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricCheckInSchedule {
+    pub interval_minutes: i64,
+    pub next_due_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Phase {

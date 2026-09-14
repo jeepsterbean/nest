@@ -166,7 +166,12 @@ A 1–5 rating scored as part of a Metric check-in.
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
-in that Pulse is finished in the popup.
+in that Pulse is finished. Every saved Metric check-in advances the one global
+Metric check-in schedule; deleting history does not rewind it. Settings →
+Metrics controls its 15–120 minute interval in 15-minute steps and shows the
+next time. Changing that interval leaves the next time intact until the next
+Metric check-in is saved. When overdue, Settings shows `Due now`; it does not
+open the Popup or add a due treatment elsewhere.
 _Avoid_: Pulse check-in
 
 **Timer**:
@@ -344,9 +349,8 @@ _Avoid_: Journal
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch, though quitting still stops Working now.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
-  Timer/Popup aria, class names, and chrome never say check-in. The Greetings
-  board due phrase "time to check in!" is the exception. The Popup clock shows
-  the countdown only.
+  Timer/Popup aria, class names, and chrome never say check-in. The Popup clock
+  shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
 - "view" for Overview / Calendar / Insights / Logs / Tasks / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
@@ -359,19 +363,13 @@ _Avoid_: Journal
 
 - The **Greetings board** shows the countdown and controls its 5–30 minute
   interval when Overview is showing it (not during Doing). When due it shows
-  "time to check in!"; the Popup clock stays on the countdown and remains the
+  "Timer due"; the Popup clock stays on the countdown and remains the
   Timer surface while Doing.
 - At zero, the timer pauses, plays the system alert sound, and opens the
-  popup. It stays at `0:00` (glowing) until a new interval is picked or the
-  due Metric check-in is completed. Dismissing the popup does not start the
-  next cycle.
+  popup. It stays at `0:00` (glowing) until a new interval is picked.
+  Dismissing the popup or saving a Metric check-in does not start the next cycle.
 - Picking an interval on the clock starts that cycle immediately, including
   when the timer is due.
-- Completing a due Metric check-in starts the next cycle with the current
-  interval. Completing a manually shown popup leaves its live Timer unchanged.
-- When the timer runs out, the Metric scoring panel holds a gold due treatment
-  until a Metric check-in is saved. Restarting the clock or submitting a brain
-  dump does not clear it.
 - The popup has the Timer bar across the top (countdown, interval, and a line
   that drains with the remaining time; click the countdown to pick an
   interval) and an icon-only tab strip down the left with four tabs. Overview
@@ -384,8 +382,7 @@ _Avoid_: Journal
   workspace as the dashboard; Assistant setup stays in the dashboard. A due
   popup opens on Overview; a manual one opens on the last tab you chose
   (Brain dump the first time). Choosing a tab yourself remembers it; a
-  timer-triggered Overview does not. Overview focuses the brain dump. A gold
-  dot on Overview and on Tasks and metrics marks a Metric check-in still owed.
+  timer-triggered Overview does not. Overview focuses the brain dump.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and

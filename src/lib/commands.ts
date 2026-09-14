@@ -10,6 +10,7 @@ import type {
   BrainDump,
   Metric,
   MetricCheckIn,
+  MetricCheckInSchedule,
   MetricCheckInWithRatings,
   MetricRatingInput,
   Phase,
@@ -354,6 +355,16 @@ export function deleteMetricCheckIn(id: number): Promise<void> {
   return invoke("delete_metric_check_in", { id });
 }
 
+export function getMetricCheckInSchedule(): Promise<MetricCheckInSchedule> {
+  return invoke("get_metric_check_in_schedule");
+}
+
+export function setMetricCheckInInterval(
+  minutes: number,
+): Promise<MetricCheckInSchedule> {
+  return invoke("set_metric_check_in_interval", { minutes });
+}
+
 export function latestPhaseCheckIn(
   includeIdle = true,
 ): Promise<PhaseCheckIn | null> {
@@ -375,11 +386,8 @@ export function startTimer(minutes: number): Promise<TimerState> {
   return invoke("start_timer", { minutes });
 }
 
-export function closePopup(
-  dismissed: boolean,
-  minutes: number | null = null,
-): Promise<void> {
-  return invoke("close_popup", { dismissed, minutes });
+export function closePopup(dismissed: boolean): Promise<void> {
+  return invoke("close_popup", { dismissed });
 }
 
 export function showPopup(): Promise<void> {

@@ -8,7 +8,6 @@ vi.mock("../../src/popup/windowDrag", () => ({
 
 import {
   adjacentTimerInterval,
-  holdMetricDue,
   initialPopupTab,
   isPopupWindowDragTarget,
   nextPopupTab,
@@ -172,16 +171,6 @@ describe("firstScorablePulse", () => {
   it("picks the first pulse that has metrics", () => {
     expect(firstScorablePulse([pulse(1, []), pulse(2, [9]), pulse(3, [8])])?.id).toBe(2);
     expect(firstScorablePulse([pulse(1, [])])).toBeNull();
-  });
-});
-
-describe("holdMetricDue", () => {
-  it("latches when the timer is due and only a Metric check-in save releases it", () => {
-    expect(holdMetricDue(false, false, false)).toBe(false);
-    expect(holdMetricDue(false, true, false)).toBe(true);
-    expect(holdMetricDue(true, false, false)).toBe(true);
-    expect(holdMetricDue(true, true, true)).toBe(false);
-    expect(holdMetricDue(true, false, true)).toBe(false);
   });
 });
 

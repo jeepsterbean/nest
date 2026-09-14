@@ -141,21 +141,11 @@ fn show_popup(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn close_popup(app: tauri::AppHandle, dismissed: bool, minutes: Option<i64>) -> error::Result<()> {
-    if !dismissed {
-        if let Some(minutes) = minutes {
-            let db = app.state::<Mutex<rusqlite::Connection>>();
-            let conn = db.lock().unwrap();
-            let timer = app.state::<Mutex<Timer>>();
-            let mut timer = timer.lock().unwrap();
-            commands::schedule_timer(&conn, &mut timer, minutes, now_unix_secs())?;
-        }
-    }
+fn close_popup(app: tauri::AppHandle, dismissed: bool) -> error::Result<()> {
     resolve_and_hide_popup(&app, if dismissed { "dismissed" } else { "completed" })
 }
 
-// Cadence of the recurring popup. At zero it pauses until an interval pick or
-// a completed due Metric check-in starts the next cycle. Dismissal stays paused.
+// Cadence of the recurring popup. At zero it pauses until an interval pick.
 pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
@@ -1346,6 +1336,7 @@ pub fn run() {
             commands::rename_metric,
             commands::set_metric_icon,
             commands::set_metric_color,
+            commands::set_metric_check_in_interval,
             commands::list_pulses,
             commands::create_pulse,
             commands::rename_pulse,
@@ -1361,6 +1352,7 @@ pub fn run() {
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,
+            commands::get_metric_check_in_schedule,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
             commands::get_timer_state,

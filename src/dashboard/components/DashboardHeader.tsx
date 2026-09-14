@@ -126,7 +126,7 @@ export function DashboardHeader({
     : "—:—";
   const timerDue =
     timerState !== null && isTimerDue(timerState, nowMs);
-  const timerLabel = timerDue ? "time to check in!" : countdown;
+  const timerLabel = timerDue ? "Timer due" : countdown;
 
   const currentPhaseName = latestPhase
     ? phaseName(latestPhase.phaseId, phases, latestPhase.phaseLabel)

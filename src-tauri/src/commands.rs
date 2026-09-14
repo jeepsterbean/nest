@@ -5,8 +5,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    BrainDump, BrainDumpTag, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Reminder, Tag, Task, TaskDependency,
+    BrainDump, BrainDumpTag, Metric, MetricCheckIn, MetricCheckInSchedule,
+    MetricCheckInWithRatings, MetricRating, MetricRatingInput, Phase, PhaseCheckIn, Pulse,
+    Reminder, Tag, Task, TaskDependency,
     TaskStatusEvent, TaskWorkStretch, TimerState,
 };
 use crate::phase;
@@ -16,6 +17,60 @@ use crate::Timer;
 
 // One greeting line at the 600px dashboard minimum (~420px at 31px serif).
 const MAX_REMINDER_CHARS: usize = 27;
+const METRIC_CHECK_IN_INTERVAL_MINUTES: i64 = 15;
+const METRIC_CHECK_IN_MAX_INTERVAL_MINUTES: i64 = 120;
+
+fn validate_metric_check_in_interval(minutes: i64) -> Result<i64> {
+    if (METRIC_CHECK_IN_INTERVAL_MINUTES..=METRIC_CHECK_IN_MAX_INTERVAL_MINUTES)
+        .contains(&minutes)
+        && minutes % METRIC_CHECK_IN_INTERVAL_MINUTES == 0
+    {
+        Ok(minutes)
+    } else {
+        Err(AppError::InvalidInput(
+            "Metric check-in interval must be 15 to 120 minutes in 15-minute steps".into(),
+        ))
+    }
+}
+
+fn metric_check_in_schedule(conn: &Connection) -> Result<MetricCheckInSchedule> {
+    conn.query_row(
+        "SELECT interval_minutes, next_due_at FROM metric_check_in_schedule WHERE id = 1",
+        [],
+        |row| {
+            Ok(MetricCheckInSchedule {
+                interval_minutes: row.get(0)?,
+                next_due_at: row.get(1)?,
+            })
+        },
+    )
+    .map_err(Into::into)
+}
+
+fn advance_metric_check_in_schedule(tx: &Transaction<'_>, now: i64) -> Result<()> {
+    let interval_minutes: i64 = tx.query_row(
+        "SELECT interval_minutes FROM metric_check_in_schedule WHERE id = 1",
+        [],
+        |row| row.get(0),
+    )?;
+    tx.execute(
+        "UPDATE metric_check_in_schedule SET next_due_at = ?1 WHERE id = 1",
+        params![now + interval_minutes * 60],
+    )?;
+    Ok(())
+}
+
+fn update_metric_check_in_interval(
+    conn: &Connection,
+    minutes: i64,
+) -> Result<MetricCheckInSchedule> {
+    let minutes = validate_metric_check_in_interval(minutes)?;
+    conn.execute(
+        "UPDATE metric_check_in_schedule SET interval_minutes = ?1 WHERE id = 1",
+        params![minutes],
+    )?;
+    metric_check_in_schedule(conn)
+}
 
 fn normalize_reminder_text(text: String) -> Result<String> {
     let text = text.trim().to_string();
@@ -1615,9 +1670,27 @@ pub fn submit_metric_check_in(
 ) -> Result<MetricCheckIn> {
     let mut conn = state.lock().unwrap();
     let tx = conn.transaction()?;
-    let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now_unix_secs())?;
+    let now = now_unix_secs();
+    let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now)?;
+    advance_metric_check_in_schedule(&tx, now)?;
     tx.commit()?;
     Ok(check_in)
+}
+
+#[tauri::command]
+pub fn get_metric_check_in_schedule(
+    state: State<'_, Mutex<Connection>>,
+) -> Result<MetricCheckInSchedule> {
+    metric_check_in_schedule(&state.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn set_metric_check_in_interval(
+    state: State<'_, Mutex<Connection>>,
+    minutes: i64,
+) -> Result<MetricCheckInSchedule> {
+    let conn = state.lock().unwrap();
+    update_metric_check_in_interval(&conn, minutes)
 }
 
 #[tauri::command]
@@ -1951,8 +2024,9 @@ mod tests {
         bank_all_working_now, bank_task_work, beat_heartbeat, brain_dump_plain_text,
         change_task_status, change_task_work_stretch, change_task_working, fetch_task,
         normalize_task_scope, persist_timer_waiting, query_brain_dumps, record_brain_dump,
-        record_metric_check_in, recover_open_stretches, schedule_timer, update_task_score_field,
-        valid_color, valid_icon, validate_task_status,
+        advance_metric_check_in_schedule, record_metric_check_in, recover_open_stretches,
+        schedule_timer, update_task_score_field, valid_color, valid_icon,
+        update_metric_check_in_interval, validate_metric_check_in_interval, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
@@ -2582,5 +2656,31 @@ mod tests {
             .collect::<rusqlite::Result<_>>()
             .unwrap();
         assert_eq!(ratings, vec![(10, 4), (11, 2)]);
+    }
+
+    #[test]
+    fn metric_check_in_schedule_advances_with_its_saved_interval() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let initial = super::metric_check_in_schedule(&conn).unwrap();
+        let updated = update_metric_check_in_interval(&conn, 120).unwrap();
+        assert_eq!(updated.interval_minutes, 120);
+        assert_eq!(updated.next_due_at, initial.next_due_at);
+
+        let tx = conn.transaction().unwrap();
+        advance_metric_check_in_schedule(&tx, 1_000).unwrap();
+        tx.commit().unwrap();
+
+        let next_due_at: i64 = conn
+            .query_row(
+                "SELECT next_due_at FROM metric_check_in_schedule WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(next_due_at, 8_200);
+        assert!(validate_metric_check_in_interval(15).is_ok());
+        assert!(validate_metric_check_in_interval(120).is_ok());
+        assert!(validate_metric_check_in_interval(125).is_err());
     }
 }

@@ -36,6 +36,11 @@ export type MetricCheckInWithRatings = MetricCheckIn & {
   ratings: MetricRating[];
 };
 
+export type MetricCheckInSchedule = {
+  intervalMinutes: number;
+  nextDueAt: number;
+};
+
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
 
 export type Phase = {
