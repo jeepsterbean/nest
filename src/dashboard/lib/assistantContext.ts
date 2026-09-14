@@ -300,10 +300,6 @@ export function buildAssistantMessage(
   return renderTemplate(config.template, blocks);
 }
 
-export function joinInstructions(systemInstructions: string, promptInstructions: string) {
-  return [systemInstructions.trim(), promptInstructions.trim()].filter(Boolean).join("\n\n");
-}
-
 // Test fixture: records timed back from a given clock so window options stay
 // in range. Config previews use live dashboard data instead.
 export const SAMPLE_MESSAGE = "What should I pick up next?";

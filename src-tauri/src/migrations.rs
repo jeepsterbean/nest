@@ -986,6 +986,22 @@ CREATE INDEX idx_assistant_system_instruction_versions_saved_at
 ON assistant_system_instruction_versions(saved_at DESC, id DESC);
 "#,
         ),
+        // A Prompt now fills the composer instead of being sent as instructions, so a
+        // chat no longer snapshots one, and sent_message replaced the context column.
+        M::up(
+            r#"
+ALTER TABLE assistant_conversations DROP COLUMN prompt_id;
+ALTER TABLE assistant_conversations DROP COLUMN prompt_title;
+ALTER TABLE assistant_conversations DROP COLUMN prompt_instructions;
+ALTER TABLE assistant_messages DROP COLUMN context;
+
+UPDATE assistant_prompts
+SET title = 'Stuck on a Task',
+    instructions = 'I am stuck on this and cannot tell what to do next. Help me see what is actually blocking it, break it into smaller pieces, and pick one step I can start now.'
+WHERE title = 'Task companion'
+  AND instructions LIKE 'You are a calm, practical thinking partner.%';
+"#,
+        ),
     ])
 }
 
@@ -1000,39 +1016,40 @@ mod tests {
     const SORT_ORDER_VERSION: usize = 34;
 
     #[test]
-    fn seeds_assistant_prompt_and_preserves_conversation_snapshots() {
+    fn seeds_a_prompt_worded_as_the_user_and_drops_the_dead_prompt_columns() {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations().to_latest(&mut conn).unwrap();
 
-        let prompt: (i64, String, String) = conn
-            .query_row(
-                "SELECT id, title, instructions FROM assistant_prompts",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
+        let seeded: (String, String) = conn
+            .query_row("SELECT title, instructions FROM assistant_prompts", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
             .unwrap();
-        assert_eq!(prompt.1, "Task companion");
-        assert!(prompt.2.contains("thinking partner"));
+        assert_eq!(seeded.0, "Stuck on a Task");
+        // A Prompt fills the composer, so the seed has to read as the user talking.
+        assert!(seeded.1.starts_with("I am stuck"));
 
+        assert!(conn.prepare("SELECT prompt_id FROM assistant_conversations").is_err());
+        assert!(conn.prepare("SELECT context FROM assistant_messages").is_err());
+    }
+
+    #[test]
+    fn leaves_an_edited_seed_prompt_alone() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 49).unwrap();
         conn.execute(
-            "INSERT INTO assistant_conversations \
-             (title, prompt_id, prompt_title, prompt_instructions, model, created_at, updated_at) \
-             VALUES ('A hard morning', ?1, ?2, ?3, 'gpt-5.6-luna', 1, 1)",
-            rusqlite::params![prompt.0, prompt.1, prompt.2],
+            "UPDATE assistant_prompts SET instructions = 'My own wording'",
+            [],
         )
         .unwrap();
-        conn.execute("DELETE FROM assistant_prompts WHERE id = ?1", [prompt.0])
-            .unwrap();
 
-        let snapshot: (Option<i64>, String) = conn
-            .query_row(
-                "SELECT prompt_id, prompt_title FROM assistant_conversations",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
+        migrations().to_latest(&mut conn).unwrap();
+        let instructions: String = conn
+            .query_row("SELECT instructions FROM assistant_prompts", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(snapshot, (None, "Task companion".into()));
+        assert_eq!(instructions, "My own wording");
     }
 
     #[test]

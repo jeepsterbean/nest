@@ -247,18 +247,18 @@ _Avoid_: Tip, prompt, notification
 The dashboard Section for private, reflective chats backed by OpenAI. The
 OpenAI API key is saved in Settings and stored in the system keychain. System
 instructions apply to every request; a selected Prompt fills the user message
-composer and is never sent as system instructions. Chat uses read-only context
-from the current Active Tasks, including Working now, Scope, Parent, and
-unresolved Blockers.
-The user chooses GPT-5.6 Luna or GPT-5.6 Terra when starting a chat. Prompt
-edits apply when selected. Chat titles start from the first message and remain
+composer and is never sent as system instructions. Each message also carries
+read-only context the user picks per chat from four signals — Brain dump,
+Metric, Phase, and Tasks — each with its own named options, arranged by an
+editable Layout template. The user chooses GPT-5.6 Luna or GPT-5.6 Terra when
+starting a chat. Prompt edits apply when selected. Chat titles start from the first message and remain
 editable. Prompts, titles, and messages stay in Nest's local database. The
 popup and dashboard share that saved history; each window keeps its own open
 chat. Each user message records the complete text and system instructions sent
 to the model. System instructions are an editable draft; Save makes them active
-and records an immutable, timestamped local version. Each model request sends the current chat and Active Task context to
-OpenAI. The
-Assistant suggests next actions and never changes Tasks. Nest retains a sent
+and records an immutable, timestamped local version. Each model request sends
+the chat so far and the context selected on this message. The Assistant
+suggests next actions and never changes Tasks. Nest retains a sent
 message when OpenAI cannot complete its reply, and marks any partial reply as
 incomplete.
 

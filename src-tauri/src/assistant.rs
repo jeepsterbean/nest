@@ -21,7 +21,10 @@ const KEYRING_ACCOUNT: &str = "openai-api-key";
 const MAX_TITLE_CHARS: usize = 80;
 const MAX_PROMPT_CHARS: usize = 12_000;
 const MAX_MESSAGE_CHARS: usize = 24_000;
-const MAX_CONTEXT_CHARS: usize = 24_000;
+// The rendered message carries the typed text plus every selected signal block,
+// so it has to clear MAX_MESSAGE_CHARS by a wide margin or a long message with a
+// wide Tasks selection fails at Send.
+const MAX_SENT_MESSAGE_CHARS: usize = 100_000;
 const MAX_API_KEY_CHARS: usize = 512;
 const HISTORY_MESSAGE_LIMIT: i64 = 40;
 const OPENAI_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -359,17 +362,9 @@ fn start_turn(
         id
     } else {
         tx.execute(
-            "INSERT INTO assistant_conversations \
-             (title, prompt_id, prompt_title, prompt_instructions, model, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-            params![
-                conversation_title(&user_content),
-                Option::<i64>::None,
-                "",
-                "",
-                request.model,
-                now,
-            ],
+            "INSERT INTO assistant_conversations (title, model, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?3)",
+            params![conversation_title(&user_content), request.model, now],
         )?;
         tx.last_insert_rowid()
     };
@@ -630,7 +625,7 @@ pub async fn send_assistant_message(
         timezone_offset_minutes,
     } = request;
     let content = normalized(content, "message", MAX_MESSAGE_CHARS)?;
-    let sent_message = normalized(sent_message, "sent message", MAX_CONTEXT_CHARS)?;
+    let sent_message = normalized(sent_message, "sent message", MAX_SENT_MESSAGE_CHARS)?;
     let system_instructions = system_instructions
         .filter(|value| !value.trim().is_empty())
         .map(|value| normalized(value, "system instructions", MAX_PROMPT_CHARS))
@@ -659,7 +654,9 @@ pub async fn send_assistant_message(
         "store": false,
         "stream": true
     });
-    crate::append_diagnostic_log(format!("assistant_request body={body}"));
+    // Chat text is private, so the payload goes to the console only: diagnostics.log
+    // outlives a deleted chat and is the file that gets mailed around in a bug report.
+    eprintln!("nest[assistant] request body={body}");
 
     let response = match OPENAI_CLIENT
         .post(OPENAI_API_URL)
@@ -744,9 +741,9 @@ pub async fn send_assistant_message(
     if assistant_content.trim().is_empty() && incomplete_reason.is_none() {
         incomplete_reason = Some("OpenAI returned no text.".into());
     }
-    crate::append_diagnostic_log(format!(
-        "assistant_response content={assistant_content:?} incomplete_reason={incomplete_reason:?}"
-    ));
+    eprintln!(
+        "nest[assistant] response content={assistant_content:?} incomplete_reason={incomplete_reason:?}"
+    );
 
     let turn = {
         let mut conn = state.lock().unwrap();

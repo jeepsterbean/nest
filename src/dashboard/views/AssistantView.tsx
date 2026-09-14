@@ -203,10 +203,12 @@ export function AssistantView({
     void syncHistory();
   }, [syncHistory, selectedConversationId]);
 
-  // Drafts and config live in localStorage; saved chats are SQLite. Focus is the
-  // backup for all three, because the popup stays mounted while hidden.
+  // Drafts and config live in localStorage; saved chats, Prompts and the API key
+  // are SQLite and the keychain. Focus is the backup for all of them, because the
+  // popup stays mounted while hidden and never remounts onto a key added since.
   useEffect(() => {
     const syncWithOtherWindow = () => {
+      void load();
       setChatDrafts(readChatDrafts());
       const stored = readAssistantConfig();
       setSelection((current) => adoptConfigDefaults(configRef.current, stored, current));
@@ -214,13 +216,12 @@ export function AssistantView({
         current === configRef.current.systemInstructions ? stored.systemInstructions : current,
       );
       setConfig(stored);
-      void listAssistantSystemInstructionVersions().then(setSystemInstructionVersions);
       void syncHistory();
     };
     setChatDrafts(readChatDrafts());
     window.addEventListener("focus", syncWithOtherWindow);
     return () => window.removeEventListener("focus", syncWithOtherWindow);
-  }, [syncHistory]);
+  }, [load, syncHistory]);
 
   useEffect(
     () => subscribeTauriEvent(ASSISTANT_HISTORY_CHANGED, () => void syncHistory()),

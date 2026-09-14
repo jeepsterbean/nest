@@ -34,7 +34,7 @@ import {
 import { formatDate, formatTime } from "../lib/time";
 
 type StoreConfig = (update: (current: AssistantConfig) => AssistantConfig) => void;
-const NEW_PROMPT_TEXT = "What would you like help with?";
+const NEW_PROMPT_TEXT = "Help me with…";
 
 const TASK_DETAIL_LABELS: Record<keyof TaskDetail, string> = {
   status: "Status",
