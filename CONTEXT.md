@@ -100,9 +100,11 @@ _Avoid_: Sidebar (alone — that word means the Section switcher), tray, backlog
 A derived attention state, written as a checkpoint when it changes.
 The four values are **Doing**, **Scoping**, **Resting**, and **Offline**.
 Doing if any Task is Working now; else Offline if the Mac is locked,
-display-asleep, or system-asleep; else Scoping if Nest is engaged
-(dashboard has attention or the popup is up) or Notion desktop is frontmost;
-else Resting. Lock/sleep clears Working now (Worked time is banked; status
+display-asleep, or system-asleep; else Resting after three minutes with no
+keyboard or pointer input, whatever has attention; else Scoping if Nest is
+engaged (dashboard has attention or the popup is up) or Notion desktop or
+Notion Calendar is frontmost; else Resting.
+Lock/sleep clears Working now (Worked time is banked; status
 stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
@@ -174,7 +176,9 @@ starts that cycle from now.
 _Avoid_: Check-in, schedule
 
 **Popup**:
-The window the Timer (or ⌘⇧E) opens. It is for scoring Metrics, capturing a
+The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
+resumes after an idle stretch that was spent Resting, unless the Timer is
+already due or the Popup is already up. It is for scoring Metrics, capturing a
 brain dump, and quick Assistant chats; it is not a stored record.
 _Avoid_: Check-in popup
 
@@ -314,7 +318,7 @@ _Avoid_: Journal
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
 - **Logs** shows Metric check-ins, brain dumps, and Phase checkpoints; it does not contain them
-- **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, and whether the Mac is locked or asleep
+- **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, how long the Mac has gone without input, and whether it is locked or asleep
 
 ## Example dialogue
 
@@ -335,7 +339,7 @@ _Avoid_: Journal
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
-- "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
+- "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase, and summaries count it as Offline. Live values are Doing, Scoping, Resting, and Offline. Going idle at the keyboard is a separate thing that carries no label of its own: after three minutes without input the derived Phase is **Resting**, never Idle.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch, though quitting still stops Working now.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
