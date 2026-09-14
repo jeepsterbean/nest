@@ -1002,6 +1002,32 @@ WHERE title = 'Task companion'
   AND instructions LIKE 'You are a calm, practical thinking partner.%';
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE assistant_messages_new (
+  id                  INTEGER PRIMARY KEY,
+  conversation_id     INTEGER NOT NULL REFERENCES assistant_conversations(id) ON DELETE CASCADE,
+  role                TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content             TEXT NOT NULL CHECK (length(trim(content)) BETWEEN 1 AND 24000),
+  sent_message        TEXT CHECK (sent_message IS NULL OR length(trim(sent_message)) BETWEEN 1 AND 100000),
+  system_instructions TEXT CHECK (system_instructions IS NULL OR length(trim(system_instructions)) BETWEEN 1 AND 12000),
+  incomplete_reason   TEXT,
+  created_at          INTEGER NOT NULL
+);
+
+INSERT INTO assistant_messages_new
+  (id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at)
+SELECT
+  id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at
+FROM assistant_messages;
+
+DROP TABLE assistant_messages;
+ALTER TABLE assistant_messages_new RENAME TO assistant_messages;
+
+CREATE INDEX idx_assistant_messages_conversation
+ON assistant_messages(conversation_id, id);
+"#,
+        ),
     ])
 }
 
@@ -1104,6 +1130,32 @@ mod tests {
             .collect::<rusqlite::Result<_>>()
             .unwrap();
         assert_eq!(versions, vec![("Second instruction".into(), 2), ("First instruction".into(), 1)]);
+    }
+
+    #[test]
+    fn constrains_saved_assistant_payloads() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_conversations (title, model, created_at, updated_at) \
+             VALUES ('A hard morning', 'gpt-5.6-luna', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        assert!(conn.execute(
+            "INSERT INTO assistant_messages \
+             (conversation_id, role, content, sent_message, created_at) \
+             VALUES (1, 'user', 'Typed', ' ', 1)",
+            [],
+        ).is_err());
+        assert!(conn.execute(
+            "INSERT INTO assistant_messages \
+             (conversation_id, role, content, system_instructions, created_at) \
+             VALUES (1, 'user', 'Typed', ' ', 1)",
+            [],
+        ).is_err());
     }
 
     #[test]
