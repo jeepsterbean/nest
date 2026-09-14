@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ASSISTANT_CONFIG,
   adoptConfigDefaults,
+  emptySelection,
   pruneSelection,
   DEFAULT_TASK_DETAIL,
   MAX_CONTEXT_DUMPS,
@@ -18,7 +19,7 @@ import {
 } from "../../../src/dashboard/lib/assistantContext";
 import { buildTaskGraph } from "../../../src/dashboard/lib/taskGraph";
 import { formatTime } from "../../../src/dashboard/lib/time";
-import type { BrainDump, Metric, MetricCheckInWithRatings, Task } from "../../../src/lib/types";
+import type { BrainDump, Metric, MetricCheckInWithRatings, Task, TaskWorkStretch } from "../../../src/lib/types";
 
 const task = (id: number, status: Task["status"] = "active"): Task => ({
   id, title: id === 1 ? "Plan the day" : "Unblock the task", description: "A useful detail",
@@ -26,7 +27,7 @@ const task = (id: number, status: Task["status"] = "active"): Task => ({
   value: null, effort: null, parentTaskId: null, createdAt: 0, updatedAt: 0,
 });
 
-const noSelection = { dumps: null, metrics: null, phase: null, tasks: null };
+const noSelection = emptySelection();
 const SAMPLE_NOW = 1_800_000_000;
 const SAMPLE_DATA = sampleData(SAMPLE_NOW);
 
@@ -91,6 +92,28 @@ describe("assistant context", () => {
     expect(formatTasks(tasks, graph, "workingNow+active", { ...DEFAULT_TASK_DETAIL, status: false, scope: false, blockers: false })).toBe(
       ["working now", "- Plan the day", "active", "- Tidy the desk"].join("\n"),
     );
+  });
+
+  it("lists Work stretches on Working now Tasks, with now as the open end", () => {
+    const tasks = [task(1), { ...task(3, "active"), title: "Tidy the desk", workingNow: false }];
+    const graph = buildTaskGraph(tasks, []);
+    const now = new Date(2026, 8, 14, 14, 0).getTime() / 1000;
+    const stretches: TaskWorkStretch[] = [
+      { id: 2, taskId: 1, startedAt: now - 25 * 60, endedAt: null },
+      { id: 1, taskId: 1, startedAt: now - 90 * 60, endedAt: now - 60 * 60 },
+      { id: 3, taskId: 3, startedAt: now - 10 * 60, endedAt: now - 5 * 60 },
+    ];
+    const detail = { ...DEFAULT_TASK_DETAIL, status: false, scope: false, blockers: false };
+    expect(formatTasks(tasks, graph, "workingNow+active", detail, now, stretches)).toBe(
+      [
+        "working now",
+        "- Plan the day",
+        `  work stretches: ${formatStamp(now - 90 * 60, now)} – ${formatStamp(now - 60 * 60, now)}, ${formatStamp(now - 25 * 60, now)} – now`,
+        "active",
+        "- Tidy the desk",
+      ].join("\n"),
+    );
+    expect(formatTasks(tasks, graph, "active", detail, now, stretches)).not.toContain("work stretches");
   });
 
   it("formats newest dump and metric rows by count or window", () => {

@@ -47,7 +47,10 @@ What should I pick up next?
 - A signal with nothing selected, or with no records in range, renders empty,
   and the blank lines around it fold to one gap.
 - A template without `{message}` still sends the message, appended at the end.
-- Every turn is assembled the same way; there is no first-turn special case.
+- A new chat starts from the defaults. After each send the menus return to
+  none, so a follow-up is the typed text unless the user attaches a signal
+  again. The same assembly runs every turn; empty menus yield the bare
+  message.
 
 What is stored is text, not a query. Sending renders once and saves the
 complete input on the message's `sent_message` column; nothing re-runs it later.
@@ -77,7 +80,9 @@ blocks are headed by the key's description ("Brain dumps · last 3"), never the
 name, so a name cannot misstate the range. A Tasks block lists each selected
 group under its own heading (`working now`, `active`, …). A Task that is
 Working now is listed only under that heading when the option includes it, so
-it is not repeated under Active.
+it is not repeated under Active. That heading also lists the Task's Work
+stretches from the same 30-day history, oldest first: each closed stretch as
+start – end, the open one as start – now.
 
 Brain dumps cap at `MAX_CONTEXT_DUMPS` (20) per message, newest first,
 because dumps run long and a wide window could otherwise flood the input. A
@@ -98,8 +103,9 @@ time would pass the record off as today.
 ## Task detail
 
 A Task has many attributes and most questions need few of them. The title is
-always included; everything else is one global set of toggles in the Tasks
-section, applied whichever option picked the Tasks:
+always included. Under working now, Work stretches are always included too.
+Everything else is one global set of toggles in the Tasks section, applied
+whichever option picked the Tasks:
 
 ```
 status · scope · description · blockers · parent · children
@@ -131,9 +137,10 @@ to fold around.
 One row of four menus above the composer, one per signal. The empty choice
 is "No dumps" (and the same for the others), not the menu name, so none is
 not confused with a missing option. Selections are not persisted: a new chat
-resets them to the defaults, and changing a default in Config also moves
-the current selection. Removing a selected option clears that pick, including
-when the other window deleted it.
+resets them to the defaults. After a send, or when opening a saved chat,
+they return to none. Changing a default in Config only moves the selection
+on a new chat that has not been sent yet. Removing a selected option clears
+that pick, including when the other window deleted it.
 
 Selecting a Prompt replaces the composer draft with that Prompt's saved text.
 
@@ -178,6 +185,7 @@ backup refresh, because the popup stays mounted while hidden.
 
 ## Known ceiling
 
-Context replays on every subsequent turn, so attaching a wide selection across
-ten turns re-sends ten blocks. `HISTORY_MESSAGE_LIMIT` (40 messages) bounds
-it. If it bites, replay only the most recent block per signal.
+Attaching the same wide selection on many turns still stacks those blocks in
+history. Follow-ups start at none, so that only happens on purpose.
+`HISTORY_MESSAGE_LIMIT` (40 messages) bounds it. If it bites, replay only the
+most recent block per signal.

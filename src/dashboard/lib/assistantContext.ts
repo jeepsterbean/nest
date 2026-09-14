@@ -6,6 +6,7 @@ import type {
   Phase,
   PhaseCheckIn,
   Task,
+  TaskWorkStretch,
 } from "../../lib/types";
 import { phaseName } from "./period";
 import { buildTaskGraph, type TaskGraphProjection } from "./taskGraph";
@@ -146,6 +147,7 @@ function recentRows<T extends { createdAt: number }>(rows: T[], option: RecentOp
 
 export function formatTasks(
   tasks: Task[], graph: TaskGraphProjection, key: string, detail: TaskDetail, now = Math.floor(Date.now() / 1000),
+  stretches: TaskWorkStretch[] = [],
 ) {
   const groups = parseTaskOption(key);
   if (!groups) return "";
@@ -163,6 +165,14 @@ export function formatTasks(
     lines.push((TASK_GROUPS.find((item) => item.key === group)?.label ?? group).toLowerCase());
     for (const task of selected) {
       lines.push(`- ${task.title}`);
+      if (group === "workingNow") {
+        const rows = stretches
+          .filter((stretch) => stretch.taskId === task.id)
+          .sort((a, b) => a.startedAt - b.startedAt || a.id - b.id);
+        if (rows.length) {
+          lines.push(`  work stretches: ${rows.map((stretch) => `${formatStamp(stretch.startedAt, now)} – ${stretch.endedAt === null ? "now" : formatStamp(stretch.endedAt, now)}`).join(", ")}`);
+        }
+      }
       const fields: string[] = [];
       if (detail.status) fields.push(`status: ${task.status.replace("_", " ")}`);
       if (detail.scope && task.scope) fields.push(`scope: ${task.scope}`);
@@ -217,6 +227,7 @@ export function formatMetrics(metrics: Metric[], checkIns: MetricCheckInWithRati
 export type AssistantContextData = {
   tasks: Task[];
   taskGraph: TaskGraphProjection;
+  taskWorkStretches: TaskWorkStretch[];
   phases: Phase[];
   phaseCheckIns: PhaseCheckIn[];
   brainDumps: BrainDump[];
@@ -227,7 +238,7 @@ export type AssistantContextData = {
 export function formatSignal(
   signal: Signal, key: string, data: AssistantContextData, detail: TaskDetail, now = Math.floor(Date.now() / 1000),
 ) {
-  if (signal === "tasks") return formatTasks(data.tasks, data.taskGraph, key, detail, now);
+  if (signal === "tasks") return formatTasks(data.tasks, data.taskGraph, key, detail, now, data.taskWorkStretches);
   if (signal === "phase") return formatPhase(data.phases, data.phaseCheckIns, key, now);
   if (signal === "dumps") return formatDumps(data.brainDumps, key, now);
   return formatMetrics(data.metrics, data.checkIns, key, now);
@@ -256,6 +267,11 @@ export function defaultSelection(config: AssistantConfig): SignalSelection {
   };
 }
 
+/** Menus after a send, or when opening a saved chat: nothing attached. */
+export function emptySelection(): SignalSelection {
+  return { dumps: null, metrics: null, phase: null, tasks: null };
+}
+
 /** Drop ids whose option was removed, so a dead pick cannot look selected. */
 export function pruneSelection(
   config: AssistantConfig, selection: SignalSelection,
@@ -272,9 +288,11 @@ export function pruneSelection(
 
 /**
  * Config is shared through localStorage, so the other window's edits reach a
- * long-lived chat late. A newly saved default preselects itself here too, the
- * way setting one in this window does; an untouched default leaves whatever
- * this message already picked, unless that option is gone.
+ * new chat late. A newly saved default preselects itself here too, the way
+ * setting one in this window does; an untouched default leaves whatever this
+ * message already picked, unless that option is gone. The view only calls
+ * this while composing a new chat — a thread that already has a turn keeps
+ * its menus, including none.
  */
 export function adoptConfigDefaults(
   previous: AssistantConfig, next: AssistantConfig, selection: SignalSelection,
@@ -323,7 +341,7 @@ export function sampleData(now: number): AssistantContextData {
     ratings: [focus, energy, control].map((value, index) => ({ checkInId: id, metricId: index + 1, value: value as 1 | 2 | 3 | 4 | 5 })),
   });
   const sampleTasks = [
-    sampleTask({ id: 1, title: "Ship the map view", status: "active", workingNow: true, workedSeconds: 5_400, value: 5, effort: 3, description: "Pan, zoom and task cards on one canvas." }),
+    sampleTask({ id: 1, title: "Ship the map view", status: "active", workingNow: true, workStartedAt: minutesAgo(25), workedSeconds: 5_400, value: 5, effort: 3, description: "Pan, zoom and task cards on one canvas." }),
     sampleTask({ id: 2, title: "Write the migration", status: "active", parentTaskId: 1, workedSeconds: 1_200, value: 4, effort: 2 }),
     sampleTask({ id: 3, title: "Fix the pan jitter", status: "up_next", parentTaskId: 1, effort: 2 }),
     sampleTask({ id: 4, title: "Try a darker theme", status: "backlog", scope: "Design", value: 2, effort: 1 }),
@@ -331,6 +349,10 @@ export function sampleData(now: number): AssistantContextData {
   return {
     tasks: sampleTasks,
     taskGraph: buildTaskGraph(sampleTasks, [{ blockerTaskId: 3, blockedTaskId: 1, createdAt: 0 }]),
+    taskWorkStretches: [
+      { id: 1, taskId: 1, startedAt: minutesAgo(90), endedAt: minutesAgo(60) },
+      { id: 2, taskId: 1, startedAt: minutesAgo(25), endedAt: null },
+    ],
     phases: samplePhases,
     phaseCheckIns: [
       { id: 1, createdAt: minutesAgo(200), phaseId: 4, phaseLabel: null },

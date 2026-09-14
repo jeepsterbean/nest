@@ -64,6 +64,7 @@ import {
   adoptConfigDefaults,
   buildAssistantMessage,
   defaultSelection,
+  emptySelection,
   pruneSelection,
   type AssistantConfig,
   type Signal,
@@ -211,7 +212,13 @@ export function AssistantView({
       void load();
       setChatDrafts(readChatDrafts());
       const stored = readAssistantConfig();
-      setSelection((current) => adoptConfigDefaults(configRef.current, stored, current));
+      // Defaults seed a new chat only; a thread that already has a turn
+      // keeps whatever this window picked, including none.
+      setSelection((current) =>
+        selectedConversationIdRef.current === null
+          ? adoptConfigDefaults(configRef.current, stored, current)
+          : current,
+      );
       setSystemInstructionsDraft((current) =>
         current === configRef.current.systemInstructions ? stored.systemInstructions : current,
       );
@@ -268,13 +275,15 @@ export function AssistantView({
     }
   };
 
-  // A new default applies to the chat being composed too, not only the next new chat.
+  // A new default applies to the chat being composed, not a thread that already has a turn.
   const setSignalDefault = (signal: Signal, key: string | null) => {
     storeConfig((current) => ({
       ...current,
       signals: { ...current.signals, [signal]: { ...current.signals[signal], defaultOption: key } },
     }));
-    setSelection((current) => ({ ...current, [signal]: key }));
+    if (selectedConversationId === null) {
+      setSelection((current) => ({ ...current, [signal]: key }));
+    }
   };
 
   const selectPane = (next: AssistantPane) => {
@@ -336,6 +345,7 @@ export function AssistantView({
     const conversation = conversations.find((item) => item.id === id);
     if (conversation) setModel(conversation.model);
     setSelectedConversationId(id);
+    setSelection(emptySelection());
     setError(null);
   };
 
@@ -399,6 +409,7 @@ export function AssistantView({
         ...current.filter((conversation) => conversation.id !== turn.conversation.id),
       ]);
       setSelectedConversationId(turn.conversation.id);
+      setSelection(emptySelection());
     } catch (sendError) {
       setError(errorMessage(sendError));
       storeChatDrafts((current) => ({ ...current, [chatDraftKey]: content }));
