@@ -10,6 +10,7 @@ import { emit } from "@tauri-apps/api/event";
 import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
+  getMetricCheckInSchedule,
   getTimerState,
   latestPhaseCheckIn,
   listMetrics,
@@ -30,6 +31,7 @@ import {
 import { subscribeTauriEvent } from "../lib/tauriListen";
 import type {
   TimerState,
+  MetricCheckInSchedule,
   Metric,
   MetricRatingInput,
   Phase,
@@ -94,6 +96,7 @@ type LoadState = {
   tasks: Task[];
   workStretches: TaskWorkStretch[];
   timer: TimerState;
+  metricCheckInSchedule: MetricCheckInSchedule;
   tags: Tag[];
   phases: Phase[];
   latestPhase: PhaseCheckIn | null;
@@ -104,6 +107,10 @@ const loadTodayStretches = (nowMs: number = Date.now()) => {
   const from = Math.floor(new Date(nowMs).setHours(0, 0, 0, 0) / 1000);
   return listTaskWorkStretches(from, now + 1);
 };
+
+export function isMetricCheckInDue(nextDueAt: number, nowMs = Date.now()) {
+  return nextDueAt <= nowMs / 1000;
+}
 
 function PlayIcon() {
   return (
@@ -238,12 +245,17 @@ export function writeLastPopupTab(
   }
 }
 
+/** Timer due sets `#/popup?due=1`. A paused clock on a later ⌘⇧E is still manual. */
+export function popupOpenedDue(hash = window.location.hash) {
+  return new URLSearchParams(hash.split("?")[1] ?? "").get("due") === "1";
+}
+
 /** Due Timer opens Overview; otherwise restore the last valid tab, else Brain dump. */
 export function initialPopupTab(
-  timerDue: boolean,
+  dueSummon: boolean,
   lastTab: string | null,
 ): PopupTabId {
-  if (timerDue) return "overview";
+  if (dueSummon) return "overview";
   return POPUP_TABS.find((tab) => tab.id === lastTab)?.id ?? "dump";
 }
 
@@ -560,10 +572,11 @@ function PopupContent({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  // Per-summon: the body remounts on every summon. First load picks Overview
-  // when the Timer is due, otherwise the last tab the user chose.
-  const [tab, setTab] = useState<PopupTabId>("dump");
-  const [assistantOpened, setAssistantOpened] = useState(false);
+  // Per-summon remount: tab comes from the route + last choice, not the live clock.
+  const [tab, setTab] = useState<PopupTabId>(() =>
+    initialPopupTab(popupOpenedDue(), readLastPopupTab()),
+  );
+  const [assistantOpened, setAssistantOpened] = useState(tab === "assistant");
   const icons = useTileIcons();
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLElement | null>(null);
@@ -600,6 +613,8 @@ function PopupContent({
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
+  const metricDue =
+    loaded !== null && isMetricCheckInDue(loaded.metricCheckInSchedule.nextDueAt, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -645,6 +660,7 @@ function PopupContent({
       listTasks(),
       loadTodayStretches(),
       getTimerState(),
+      getMetricCheckInSchedule(),
       listTags(),
       listPhases(true),
       latestPhaseCheckIn(),
@@ -656,23 +672,19 @@ function PopupContent({
           tasks,
           workStretches,
           timer,
+          metricCheckInSchedule,
           tags,
           phases,
           latestPhase,
         ]) => {
           if (cancelled) return;
-          const nextTab = initialPopupTab(
-            isTimerDue(timer, Date.now()),
-            readLastPopupTab(),
-          );
-          if (nextTab === "assistant") setAssistantOpened(true);
-          setTab(nextTab);
           setLoaded({
             metrics,
             pulses,
             tasks,
             workStretches,
             timer,
+            metricCheckInSchedule,
             tags,
             phases,
             latestPhase,
@@ -694,12 +706,13 @@ function PopupContent({
         listTasks(),
         loadTodayStretches(),
         getTimerState(),
+        getMetricCheckInSchedule(),
         listTags(),
         latestPhaseCheckIn(),
-      ]).then(([tasks, workStretches, timer, tags, latestPhase]) => {
+      ]).then(([tasks, workStretches, timer, metricCheckInSchedule, tags, latestPhase]) => {
         setLoaded((current) =>
           current
-            ? { ...current, tasks, workStretches, timer, tags, latestPhase }
+            ? { ...current, tasks, workStretches, timer, metricCheckInSchedule, tags, latestPhase }
             : current,
         );
       });
@@ -1398,7 +1411,11 @@ function PopupContent({
             key={id}
             type="button"
             tabIndex={-1}
-            className="popup-tabs__tab"
+            className={`popup-tabs__tab${
+              (id === "now" || id === "overview") && metricDue
+                ? " popup-tabs__tab--due"
+                : ""
+            }`}
             aria-label={label}
             aria-pressed={tab === id}
             aria-keyshortcuts={`Meta+${index + 1}`}
@@ -1427,6 +1444,7 @@ function PopupContent({
           metrics={loaded.metrics}
           pulses={visiblePulses}
           submitting={submitting}
+          due={metricDue}
           emptyCopy={
             loaded.pulses.length
               ? "No pulses are shown in the popup. Turn one on in Metrics."

@@ -170,8 +170,9 @@ in that Pulse is finished. Every saved Metric check-in advances the one global
 Metric check-in schedule; deleting history does not rewind it. Settings →
 Metrics controls its 15–120 minute interval in 15-minute steps and shows the
 next time. Changing that interval leaves the next time intact until the next
-Metric check-in is saved. When overdue, Settings shows `Due now`; it does not
-open the Popup or add a due treatment elsewhere.
+Metric check-in is saved. When overdue, Settings shows `Due now`; the Popup
+shows the Metric scoring glow and dots on Overview and Tasks and metrics. It
+does not open the Popup itself.
 _Avoid_: Pulse check-in
 
 **Timer**:
@@ -381,8 +382,9 @@ _Avoid_: Journal
   Complete. Brain dump holds the brain dump. Assistant holds the same Chat
   workspace as the dashboard; Assistant setup stays in the dashboard. A due
   popup opens on Overview; a manual one opens on the last tab you chose
-  (Brain dump the first time). Choosing a tab yourself remembers it; a
-  timer-triggered Overview does not. Overview focuses the brain dump.
+  (Brain dump the first time), even if the Timer is still paused at zero.
+  Choosing a tab yourself remembers it; a timer-triggered Overview does not.
+  Overview focuses the brain dump.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and

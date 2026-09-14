@@ -336,7 +336,7 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                 if let Err(e) = app.run_on_main_thread(move || {
                     #[cfg(target_os = "macos")]
                     tauri_nspanel::objc2_app_kit::NSBeep();
-                    summon_popup_with_route(&app_for_ui, "popup", "#/popup");
+                    summon_popup_with_route(&app_for_ui, "popup", "#/popup?due=1");
                 }) {
                     append_diagnostic_log(format!("timer_main_thread_dispatch_failed error={e}"));
                 }

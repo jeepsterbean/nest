@@ -9,8 +9,10 @@ vi.mock("../../src/popup/windowDrag", () => ({
 import {
   adjacentTimerInterval,
   initialPopupTab,
+  isMetricCheckInDue,
   isPopupWindowDragTarget,
   nextPopupTab,
+  popupOpenedDue,
   popupAssistantMounted,
   PopupTopPanel,
   readLastPopupTab,
@@ -174,6 +176,13 @@ describe("firstScorablePulse", () => {
   });
 });
 
+describe("isMetricCheckInDue", () => {
+  it("becomes due at the scheduled second", () => {
+    expect(isMetricCheckInDue(100, 99_999)).toBe(false);
+    expect(isMetricCheckInDue(100, 100_000)).toBe(true);
+  });
+});
+
 describe("nextPopupTab", () => {
   type Mods = Partial<
     Record<"metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing", boolean>
@@ -215,13 +224,21 @@ describe("nextPopupTab", () => {
   });
 });
 
+describe("popupOpenedDue", () => {
+  it("is only true for a timer-due summon hash", () => {
+    expect(popupOpenedDue("#/popup?due=1")).toBe(true);
+    expect(popupOpenedDue("#/popup")).toBe(false);
+    expect(popupOpenedDue("#/popup?due=0")).toBe(false);
+  });
+});
+
 describe("initialPopupTab", () => {
-  it("opens Overview when the timer is due", () => {
+  it("opens Overview for a due summon", () => {
     expect(initialPopupTab(true, "dump")).toBe("overview");
     expect(initialPopupTab(true, null)).toBe("overview");
   });
 
-  it("restores the last tab when the timer is not due", () => {
+  it("restores the last tab for a manual summon, even if a due clock could be inferred", () => {
     expect(initialPopupTab(false, "now")).toBe("now");
     expect(initialPopupTab(false, "assistant")).toBe("assistant");
     expect(initialPopupTab(false, "overview")).toBe("overview");

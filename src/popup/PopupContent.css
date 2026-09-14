@@ -73,6 +73,18 @@
   color: var(--accent);
 }
 
+.popup-tabs__tab--due::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rating-2);
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
 /* ---------- Panes ---------- */
 
 /* 472px is the old inner width (520 − 48px tab strip), centred in the
