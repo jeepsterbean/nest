@@ -33,13 +33,16 @@ import { gridArea, OverviewTile } from "../components/OverviewTile";
 import { MetricCheckIn } from "../components/MetricCheckIn";
 import { ViewToggle } from "../components/ViewToggle";
 import { useComposerTagProps } from "../components/BrainDumpTags";
-import { useDashboardData } from "../context/DashboardDataContext";
+import {
+  HISTORY_WINDOW_DAYS,
+  useDashboardData,
+} from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { windowInsight } from "../lib/insights";
 import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
 import { type TimelineLogEvent } from "../lib/timeline";
-import { startOfDayMs } from "../lib/time";
+import { historyStartSec } from "../lib/time";
 import {
   canHideTile,
   hiddenTileIds,
@@ -169,7 +172,7 @@ export function OverviewView({
   }, []);
 
   const nowMs = useCurrentTime();
-  const dayFromSec = Math.floor(startOfDayMs(nowMs / 1000) / 1000);
+  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const [timelineFilter, setTimelineFilter] =
     useState<OverviewTimelineFilter>("timeline");
   const [visibleEventCount, setVisibleEventCount] = useState(
@@ -198,19 +201,19 @@ export function OverviewView({
     );
   }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
 
-  const dayTimelineEvents = useMemo(
+  const historyEvents = useMemo(
     () =>
       buildLogExportEvents(
         checkIns,
         phaseCheckIns,
         brainDumps,
         taskWorkStretches,
-        dayFromSec,
-      ).filter((event) => event.at >= dayFromSec),
+        historyFromSec,
+      ),
     [
       brainDumps,
       checkIns,
-      dayFromSec,
+      historyFromSec,
       phaseCheckIns,
       taskWorkStretches,
     ],
@@ -218,10 +221,10 @@ export function OverviewView({
 
   const timelineEvents = useMemo(
     () =>
-      dayTimelineEvents.filter((event) =>
+      historyEvents.filter((event) =>
         matchesTimelineFilter(event, timelineFilter),
       ),
-    [dayTimelineEvents, timelineFilter],
+    [historyEvents, timelineFilter],
   );
 
   const visibleTimelineEvents = useMemo(
@@ -377,7 +380,7 @@ export function OverviewView({
 
     if (tile.id === "timeline") {
       const events = tile.minimised
-        ? dayTimelineEvents.slice(0, 3)
+        ? historyEvents.slice(0, 3)
         : visibleTimelineEvents;
       const timelineEmpty = tile.minimised ? EMPTY_COPY.timeline : empty;
       return (
@@ -439,7 +442,7 @@ export function OverviewView({
                   onDeleteCheckIn={onDeleteCheckIn}
                   onToggleDump={toggleDumpExpanded}
                   nowMs={nowMs}
-                  dayChrome={false}
+                  dayChrome={!tile.minimised}
                 />
                 {!tile.minimised && remainingEventCount > 0 ? (
                   <div className="logs-load-older">

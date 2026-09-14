@@ -66,8 +66,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   the Metric check-in interval (`nest:silenced-metrics`); the due glow drops
   only when the Pulse has no Metric left to score. The read-only Tasks peek
   uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
-  is today-only with
-  `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
+  uses the same 30-day history as Logs, with `dayChrome` on when expanded.
+  There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
   color persists in `nest.floating-brain-dumps`. The Note Board is
@@ -116,16 +116,22 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   the API key; without a keyring platform-store feature the key never reaches
   the system keychain and Send stays disabled after restart.
 - Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a
-  grid with the Timer across the top and a 48px `.popup-tabs` strip on the
-  left. Overview and Tasks and metrics use `.popup-tabs__tab--due` for the
-  Metric check-in dot; silencing every shown Metric clears it. Single-section
-  tabs keep `.popup-pane` at 472px (the old inner width)
-  and centre it so the extra width stays empty on both sides. Overview
-  (`.popup-workspace--overview`) is two equal columns: Brain dump
-  (`grid-area: left`) and Tasks and metrics (`grid-area: right`). Last chosen
-  tab persists in `nest:popup-tab`. Timer-due summons use `#/popup?due=1` and
-  open Overview without writing that key. Popup Assistant mounts the first time
-  Chat is the open tab, including when that tab is the restored default.
+  grid with the Timer across the top (`grid-column: 1 / -1`) and a 48px
+  `.popup-tabs` strip on the left. The strip holds one toggle per panel, each
+  `aria-pressed` for its own panel, so any of the eight combinations can be
+  showing. Tasks and metrics keeps `.popup-tabs__tab--due` for the Metric
+  check-in dot even while its panel is hidden; silencing every shown Metric
+  clears it. Panels are `.popup-pane` in one grid row, placed left to right in
+  DOM order: Brain dump, Tasks and metrics, Chat.
+  The element's own `grid-template-columns` is `48px repeat(n, minmax(0, 1fr))`
+  for the n visible panels, so they split the width evenly;
+  hidden panes are `display: none`, so they hold no column open, and
+  `.popup-pane:not([hidden]) ~ .popup-pane:not([hidden])` rules only between
+  panels. The combination persists in `nest:popup-panels` (an empty string is
+  the valid "nothing showing" choice), migrated once from the superseded
+  `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
+  Assistant mounts the first time Chat is shown,
+  including when it is part of the restored combination, then stays mounted.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`

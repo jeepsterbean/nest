@@ -58,9 +58,10 @@ _Avoid_: Session, sitting, block
 The total time a Task has been Working now, kept even after work stops. It is
 the sum of the Task's finished Work stretches, so correcting a stretch moves
 the total. It keeps counting if Working now is left on. The Working now control
-shows the current stretch; the total is every stretch added up. The total has
-its own column in the Tasks table and sits in the detail panel, on every Task
-whatever its status — unlike the control, which is only on Active Tasks.
+shows that total while the Task is Working now, across every day, not only the
+open stretch. The total also has its own column in the Tasks table and sits in
+the detail panel, on every Task whatever its status — unlike the control, which
+is only on Active Tasks.
 Table is the default Tasks layout (Map is the other); last choice is
 remembered. The table filters by any set of persisted statuses — Backlog, Up
 next, Active, Completed, Cancelled — with Open / Closed / All presets; first
@@ -115,8 +116,9 @@ Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
 0, not as missing; live rolling summaries refresh as time passes. Overview is
 a persistent tile board with that summary, a read-only Tasks peek (Status,
 Title, Value, Effort) with Open / Closed and a button that opens the Tasks
-section, a today-only Logs Timeline (same marks and Phase gutter coloring as
-Logs, without day labels, Phase totals, or Logs chrome) filtered by Timeline /
+section, a Logs Timeline of the same 30-day history as Logs (same marks, Phase
+gutter coloring, day labels, and Phase totals; the minimised peek hides that
+day chrome) filtered by Timeline /
 Brain dumps / Metrics with load-older batching when needed, a brain dump
 composer that matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to
 save), and Metric check-in scoring. Tiles can be hidden into the always-present
@@ -177,7 +179,7 @@ Metric check-in schedule; deleting history does not rewind it. Settings →
 Metrics controls its 15–120 minute interval in 15-minute steps and shows the
 next time. Changing that interval leaves the next time intact until the next
 Metric check-in is saved. When overdue, Settings shows `Due now`; the Popup
-shows the Metric scoring glow and dots on Overview and Tasks and metrics. It
+shows the Metric scoring glow and the due dot on Tasks and metrics. It
 does not open the Popup itself.
 _Avoid_: Pulse check-in
 
@@ -382,28 +384,35 @@ _Avoid_: Journal
   when the timer is due.
 - The popup has the Timer bar across the top (countdown, interval, and a line
   that drains with the remaining time; click the countdown to pick an
-  interval) and an icon-only tab strip down the left with four tabs. Overview
-  shows Brain dump on the left and Tasks and metrics on the right. Tasks and
-  metrics holds Metric scoring above the Active / Up next task list; extra
-  tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
-  above Active; the list opens on Active, and scrolling up reveals them so
-  they can be returned to Active. Active rows have Up next to the left of
-  Complete. Brain dump holds the brain dump. Assistant holds the same Chat
-  workspace as the dashboard; Assistant setup stays in the dashboard. A due
-  popup opens on Overview; a manual one opens on the last tab you chose
-  (Brain dump the first time), even if the Timer is still paused at zero.
-  Choosing a tab yourself remembers it; a timer-triggered Overview does not.
-  Overview focuses the brain dump.
+  interval) and an icon-only strip down the left with one toggle per panel:
+  Brain dump, Tasks and metrics, and Chat. Each toggle shows or hides its own
+  panel, so any combination can be up, including none at all; the visible ones
+  share the width evenly, left to right in that order. Tasks and metrics holds
+  Metric scoring above the Active / Up next task list; extra tasks scroll.
+  Completed and Cancelled Tasks from the last 60 minutes sit above Active; the
+  list opens on Active, and scrolling up reveals them so they can be returned
+  to Active. Active rows have Up next to the left of Complete. Brain dump
+  holds the brain dump. Chat holds the same Chat workspace as the dashboard;
+  Assistant setup stays in the dashboard. Every summon restores the last
+  combination — manual or Timer-triggered alike, and even if the Timer is
+  still paused at zero. Brain dump is what shows the first time. Showing Brain
+  dump focuses its editor, Chat its composer, and Tasks and metrics the Metric
+  control; hiding the panel that holds focus returns focus to its toggle.
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
   closes the popup. A Silence control beside the Metric title skips that Metric
   for the Metric check-in interval. Once nothing is left to score, the due glow
-  and the dots on Overview and Tasks and metrics stay off.
-- Tab (or Shift+Tab) cycles the four popup tabs and ⌘1 / ⌘2 / ⌘3 / ⌘4 pick
-  Overview, Tasks and metrics, Brain dump, and Chat directly. Timer,
+  stays off and so does the dot on Tasks and metrics, which the toggle keeps
+  while its panel is hidden.
+- ⌘1, ⌘2 and ⌘3 toggle Brain dump, Tasks and metrics, and Chat in sidebar
+  order, including while typing in Brain dump or Chat. A held key repeats but
+  toggles once. None of the three is an editing chord, so Copy, Cut and Paste
+  stay themselves. The chords only count when the Popup itself has the
+  keystroke; with the Dashboard focused they belong to the Dashboard. Tab and
+  Shift+Tab are ordinary focus navigation, the panel toggles included. Timer,
   Dashboard, task, and Silence controls are pointer-only; Metric ratings use
-  the 1–5 number shortcuts.
+  the bare 1–5 number keys, which ⌘ keeps apart from the panel chords.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

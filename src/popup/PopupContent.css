@@ -5,18 +5,10 @@
   min-width: 0;
   flex: 1;
   min-height: 0;
-  grid-template:
-    "timer timer" auto
-    "tabs pane" minmax(0, 1fr)
-    / 48px minmax(0, 1fr);
-}
-
-/* Brain dump left, Tasks and metrics right. Timer still spans the full width. */
-.popup-workspace--overview {
-  grid-template:
-    "timer timer timer" auto
-    "tabs left right" minmax(0, 1fr)
-    / 48px minmax(0, 1fr) minmax(0, 1fr);
+  /* Columns come from the element's own style: the 48px toggle strip plus one
+     equal column per visible panel. Hidden panels are display:none, so they
+     never hold a column open. */
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .popup-workspace--loading {
@@ -28,7 +20,8 @@
 /* ---------- Tab strip ---------- */
 
 .popup-tabs {
-  grid-area: tabs;
+  grid-column: 1;
+  grid-row: 2;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -87,25 +80,13 @@
 
 /* ---------- Panes ---------- */
 
-/* 472px is the old inner width (520 − 48px tab strip), centred in the
-   extra space so single-section tabs do not stretch to 1040. */
 .popup-pane {
-  grid-area: pane;
-  width: 472px;
-  justify-self: center;
+  grid-row: 2;
 }
 
-.popup-workspace--overview .popup-pane {
-  width: auto;
-  justify-self: stretch;
-}
-
-.popup-workspace--overview .popup-dump {
-  grid-area: left;
-}
-
-.popup-workspace--overview .popup-tasks {
-  grid-area: right;
+/* A rule between panels only: the first visible one already meets the strip. */
+.popup-pane:not([hidden]) ~ .popup-pane:not([hidden]) {
+  border-left: 1px solid var(--border);
 }
 
 /* Panes set their own display, which would otherwise beat [hidden]. */
@@ -255,7 +236,8 @@
 
 /* Always on top. Empty bar space is the window's grab handle. */
 .combined-timer {
-  grid-area: timer;
+  grid-column: 1 / -1;
+  grid-row: 1;
   position: relative;
   /* Above the panes so the interval picker can drop over them. */
   z-index: 3;

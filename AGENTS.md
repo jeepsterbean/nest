@@ -103,7 +103,8 @@ each fact in its closest authoritative source and link to it elsewhere.
   `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
   components, hooks). Popup code lives under `src/popup/`. Overview is
-  last-hour summary plus dump capture; Calendar is the Day/Week timetable;
+  last-hour summary, a 30-day Timeline peek, plus dump capture; Calendar is
+  the Day/Week timetable;
   Insights is the ranged Phase mix, per-day Worked time grouped by status as
   of that day's end, and Metric check-in scores; Logs is filtered history.
 - Tasks UI layouts are Table and Map only. Table is the default; the last

@@ -147,7 +147,7 @@ export const LogsTimeline = memo(function LogsTimeline({
   onToggleDump: (id: number) => void;
   onExportDay?: (dayKey: number) => void;
   nowMs: number;
-  /** Overview today-only rail hides the day label and Phase totals. */
+  /** Overview's minimised peek hides the day label and Phase totals. */
   dayChrome?: boolean;
 }) {
   const days = useMemo(
