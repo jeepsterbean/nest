@@ -6,10 +6,11 @@ import {
   MAX_ASSISTANT_PROMPT_CHARS,
   MAX_ASSISTANT_TITLE_CHARS,
 } from "../../lib/commands";
-import type { AssistantPrompt, AssistantSystemInstructionVersion } from "../../lib/types";
+import type { AssistantModel, AssistantPrompt, AssistantSystemInstructionVersion } from "../../lib/types";
 import type { DashboardData } from "../context/DashboardDataContext";
 import { plusIcon, trashIcon, xIcon } from "../components/icons";
-import { readPromptDrafts, writePromptDrafts, type PromptDraft } from "../lib/assistant";
+import { IconPickerButton } from "../components/PulseIcon";
+import { ASSISTANT_MODELS, readPromptDrafts, writePromptDrafts, type PromptDraft } from "../lib/assistant";
 import { MenuSelect } from "../components/MenuSelect";
 import {
   DEFAULT_TEMPLATE,
@@ -222,7 +223,7 @@ export function SignalSection({
   const previewKey = draft ? draftKey(signal, draft) : null;
   const now = Math.floor(Date.now() / 1000);
   const output = previewKey ? formatSignal(signal, previewKey, data, config.taskDetail, now) : "";
-  const { menu } = SIGNAL_LABELS[signal];
+  const { menu, section } = SIGNAL_LABELS[signal];
 
   const storeOptions = (update: (current: SignalOption[]) => SignalOption[]) => storeConfig((current) => ({
     ...current,
@@ -258,6 +259,15 @@ export function SignalSection({
   return (
     <div className="assistant-signal">
       <div className="assistant-signal__options">
+        <IconPickerButton
+          className="assistant-section-icon"
+          icon={config.icons[signal]}
+          label={section}
+          onChange={(icon) => storeConfig((current) => ({
+            ...current,
+            icons: { ...current.icons, [signal]: icon },
+          }))}
+        />
         <ul className="assistant-option-list">
           {options.map((option) => (
             <li
@@ -459,14 +469,18 @@ export function SystemInstructionsSection({
 export function PromptSection({
   prompts,
   selectedPromptId,
+  icon,
   onSelectPrompt,
   onPromptsChange,
+  onIconChange,
   onError,
 }: {
   prompts: AssistantPrompt[];
   selectedPromptId: number | null;
+  icon: string;
   onSelectPrompt: (id: number | null) => void;
   onPromptsChange: (prompts: AssistantPrompt[]) => void;
+  onIconChange: (icon: string) => void;
   onError: (error: unknown) => void;
 }) {
   const [drafts, setDrafts] = useState(readPromptDrafts);
@@ -534,6 +548,12 @@ export function PromptSection({
   return (
     <div className="assistant-prompt-workspace">
       <aside className="assistant-list assistant-prompt-list" aria-label="System prompts">
+        <IconPickerButton
+          className="assistant-section-icon"
+          icon={icon}
+          label="Prompt"
+          onChange={onIconChange}
+        />
         <button type="button" className="assistant-new" onClick={() => void addPrompt()}>
           <span aria-hidden="true">{plusIcon}</span>
           New prompt
@@ -677,6 +697,30 @@ export function LayoutSection({
           <pre className="assistant-output">{data.loaded ? input : "Loading current records…"}</pre>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function ModelSection({
+  config,
+  storeConfig,
+}: {
+  config: AssistantConfig;
+  storeConfig: StoreConfig;
+}) {
+  return (
+    <div className="assistant-config__editor">
+      <div className="assistant-config__intro">
+        <strong>Model</strong>
+        <span>New messages use this model.</span>
+      </div>
+      <MenuSelect
+        value={config.model}
+        options={[...ASSISTANT_MODELS]}
+        placeholder="Choose a model"
+        ariaLabel="OpenAI model"
+        onChange={(model) => storeConfig((current) => ({ ...current, model: model as AssistantModel }))}
+      />
     </div>
   );
 }

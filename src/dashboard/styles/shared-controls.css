@@ -29,7 +29,7 @@
 }
 
 .menu-select__trigger:has(.menu-select__marker) {
-  grid-template-columns: 7px minmax(0, 1fr) 12px;
+  grid-template-columns: auto minmax(0, 1fr) 12px;
 }
 
 .menu-select__trigger:hover:not(:disabled) {
@@ -87,6 +87,14 @@
   height: 12px;
 }
 
+/* The menu is portaled out of the trigger's subtree, so a marker can only be
+   sized here, never from the feature that supplies it. */
+.menu-select__marker svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+
 .menu-select__trigger[aria-expanded="true"] .menu-select__chevron {
   transform: rotate(180deg);
 }
@@ -137,7 +145,7 @@
 }
 
 .menu-select__option:has(.menu-select__marker) {
-  grid-template-columns: 7px minmax(0, 1fr) 12px;
+  grid-template-columns: auto minmax(0, 1fr) 12px;
 }
 
 .menu-select__option:hover,

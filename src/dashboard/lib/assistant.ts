@@ -1,10 +1,14 @@
 import type { AssistantModel } from "../../lib/types";
+import { isNestIconKey } from "../components/PulseIcon";
 import {
+  ASSISTANT_ICON_SLOTS,
   DEFAULT_ASSISTANT_CONFIG,
+  DEFAULT_ASSISTANT_ICONS,
   DEFAULT_TASK_DETAIL,
   SIGNALS,
   isValidOption,
   type AssistantConfig,
+  type AssistantIconSlot,
   type SignalOption,
   type TaskDetail,
 } from "./assistantContext";
@@ -23,11 +27,12 @@ export const CONFIG_SECTIONS = [
   { key: "tasks", label: "Tasks" },
   { key: "prompt", label: "Prompt" },
   { key: "system", label: "System instructions" },
+  { key: "model", label: "Model" },
   { key: "layout", label: "Layout" },
 ] as const;
 
 export const SYSTEM_CONFIG_SECTIONS = CONFIG_SECTIONS.filter(({ key }) =>
-  key === "system" || key === "layout",
+  key === "system" || key === "model" || key === "layout",
 );
 export const CHAT_CONFIG_SECTIONS = CONFIG_SECTIONS.filter(
   ({ key }) => !SYSTEM_CONFIG_SECTIONS.some((section) => section.key === key),
@@ -153,6 +158,13 @@ export function readAssistantConfig(
       return [signal, { options, defaultOption }];
     })) as AssistantConfig["signals"];
     const taskDetail = isObject(value.taskDetail) ? value.taskDetail : null;
+    const storedIcons = isObject(value.icons) ? value.icons : {};
+    const icons = Object.fromEntries(
+      ASSISTANT_ICON_SLOTS.map((slot) => [
+        slot,
+        isNestIconKey(storedIcons[slot]) ? storedIcons[slot] : DEFAULT_ASSISTANT_ICONS[slot],
+      ]),
+    ) as Record<AssistantIconSlot, string>;
     return {
       signals,
       taskDetail: taskDetail
@@ -162,6 +174,10 @@ export function readAssistantConfig(
         ? value.systemInstructions
         : DEFAULT_ASSISTANT_CONFIG.systemInstructions,
       template: typeof value.template === "string" ? value.template : DEFAULT_ASSISTANT_CONFIG.template,
+      model: ASSISTANT_MODELS.some((option) => option.value === value.model)
+        ? value.model as AssistantModel
+        : DEFAULT_ASSISTANT_CONFIG.model,
+      icons,
     };
   } catch {
     return DEFAULT_ASSISTANT_CONFIG;

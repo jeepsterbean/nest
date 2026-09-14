@@ -122,9 +122,10 @@ Settings → Assistant holds the OpenAI key. Assistant Config has a sidebar:
 
 | Section | What it holds |
 |---|---|
-| Chat: Brain dump · Metric · Phase · Tasks | The option list with defaults, a name field to start a new option, the option editor, and the exact block the option being edited renders. Tasks adds the detail toggles. |
-| Chat: Prompt | The saved message-text library and editor. Selecting one fills the composer. |
+| Chat: Brain dump · Metric · Phase · Tasks | The option list with defaults, a name field to start a new option, the option editor, and the exact block the option being edited renders. Tasks adds the detail toggles. An IconPicker at the top of the section sets the composer menu icon. |
+| Chat: Prompt | The saved message-text library and editor. Selecting one fills the composer. An IconPicker sets the Prompt menu icon. |
 | System: System instructions | One text sent as instructions on every request. |
+| System: Model | GPT-5.6 Luna or Terra, used by every message sent from then on, in every chat. |
 | System: Layout | The template editor with insertable tokens, beside the final output: instructions and input exactly as OpenAI receives them for a new chat. |
 
 Signal previews render the current records the dashboard has loaded, using the
@@ -134,9 +135,9 @@ to fold around.
 
 ## Chat view
 
-One row of four menus above the composer, one per signal. The empty choice
-is "No dumps" (and the same for the others), not the menu name, so none is
-not confused with a missing option. Selections are not persisted: a new chat
+One row of four signal menus plus Prompt inside the composer, under the text
+box and left of Send. The empty choice is "No dumps" (and the same for the
+others), not the menu name, so none is not confused with a missing option. Selections are not persisted: a new chat
 resets them to the defaults. After a send, or when opening a saved chat,
 they return to none. Changing a default in Config only moves the selection
 on a new chat that has not been sent yet. Removing a selected option clears
@@ -155,7 +156,8 @@ transcript honest about what the model saw.
 
 Everything else is configuration in localStorage under
 `nest:assistant-context`: option lists and defaults, Task detail, System
-instructions, and the template. System instructions become active only when
+instructions, the template, the model, and the Nest icon for each Chat
+composer menu. System instructions become active only when
 saved; every Save appends an immutable timestamped version in SQLite. Each field falls back to its default on its
 own, so Task detail from the earlier shape carries over.
 

@@ -162,7 +162,13 @@ A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
 
 **Metric**:
-A 1–5 rating scored as part of a Metric check-in.
+A 1–5 rating scored as part of a Metric check-in. Silence on the scoring
+panel skips that Metric for the Metric check-in interval without saving a
+rating. Remaining Metrics in the Pulse can still be scored, and the Metric
+check-in stays due while any of them are left; the due dots quiet only once
+every shown Metric is silenced. Silence expires on its own; it does not hide
+a Pulse.
+_Avoid_: mute, snooze
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
@@ -260,10 +266,13 @@ instructions apply to every request; a selected Prompt fills the user message
 composer and is never sent as system instructions. Each message can carry
 read-only context the user picks from four signals — Brain dump,
 Metric, Phase, and Tasks — each with its own named options, arranged by an
-editable Layout template. Defaults preselect those options on a new chat;
-after a send they return to none. The user chooses GPT-5.6 Luna or GPT-5.6 Terra when
-starting a chat. Prompt edits apply when selected. Chat titles start from the first message and remain
-editable. Prompts, titles, and messages stay in Nest's local database. The
+editable Layout template. Each Chat Config section has a user-chosen icon
+that appears on that signal or Prompt menu in the composer. Defaults
+preselect those options on a new chat; after a send they return to none. One
+Config choice of GPT-5.6 Luna or GPT-5.6 Terra applies to every message sent
+from then on, in every chat. Prompt edits apply when selected. Chat titles
+start from the first message and remain editable. Prompts, titles, and
+messages stay in Nest's local database. The
 popup and dashboard share that saved history; each window keeps its own open
 chat. Each user message records the complete text and system instructions sent
 to the model. System instructions are an editable draft; Save makes them active
@@ -388,11 +397,13 @@ _Avoid_: Journal
 - The Metric scoring panel opens on the first Metric of the first visible Pulse.
   Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
   shown there; finishing the last Metric of a Pulse saves a Metric check-in and
-  closes the popup.
+  closes the popup. A Silence control beside the Metric title skips that Metric
+  for the Metric check-in interval. Once nothing is left to score, the due glow
+  and the dots on Overview and Tasks and metrics stay off.
 - Tab (or Shift+Tab) cycles the four popup tabs and ⌘1 / ⌘2 / ⌘3 / ⌘4 pick
   Overview, Tasks and metrics, Brain dump, and Chat directly. Timer,
-  Dashboard, and task controls are pointer-only; Metric ratings use the 1–5
-  number shortcuts.
+  Dashboard, task, and Silence controls are pointer-only; Metric ratings use
+  the 1–5 number shortcuts.
 - Opening the dashboard from the popup dismisses it.
 - Manually shown popups keep the live countdown and do not reset it when
   completed or dismissed.

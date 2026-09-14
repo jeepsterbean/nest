@@ -21,7 +21,6 @@ import {
 import type {
   AssistantConversation,
   AssistantMessage,
-  AssistantModel,
   AssistantPrompt,
   AssistantSystemInstructionVersion,
 } from "../../lib/types";
@@ -36,11 +35,11 @@ import {
   trashIcon,
   xIcon,
 } from "../components/icons";
+import { NestIcon } from "../components/PulseIcon";
 import { subscribeTauriEvent } from "../../lib/tauriListen";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
-  ASSISTANT_MODELS,
   ASSISTANT_PANES,
   CHAT_CONFIG_SECTIONS,
   SYSTEM_CONFIG_SECTIONS,
@@ -67,10 +66,12 @@ import {
   emptySelection,
   pruneSelection,
   type AssistantConfig,
+  type AssistantIconSlot,
   type Signal,
 } from "../lib/assistantContext";
 import {
   LayoutSection,
+  ModelSection,
   PromptSection,
   SignalSection,
   SystemInstructionsSection,
@@ -85,6 +86,8 @@ function withoutKey<T>(record: Record<string, T>, key: string) {
   delete next[key];
   return next;
 }
+
+const composerMarker = (icon: string) => <NestIcon name={icon} />;
 
 export function AssistantView({
   chatOnly = false,
@@ -102,7 +105,6 @@ export function AssistantView({
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
-  const [model, setModel] = useState<AssistantModel>("gpt-5.6-luna");
   const [config, setConfig] = useState(readAssistantConfig);
   const [systemInstructionsDraft, setSystemInstructionsDraft] = useState(
     config.systemInstructions,
@@ -286,6 +288,13 @@ export function AssistantView({
     }
   };
 
+  const setSectionIcon = (slot: AssistantIconSlot, icon: string) => {
+    storeConfig((current) => ({
+      ...current,
+      icons: { ...current.icons, [slot]: icon },
+    }));
+  };
+
   const selectPane = (next: AssistantPane) => {
     writeAssistantPane(next);
     setPane(next);
@@ -342,8 +351,6 @@ export function AssistantView({
   const selectConversation = (id: number) => {
     if (sending) return;
     setOpenedMessage(null);
-    const conversation = conversations.find((item) => item.id === id);
-    if (conversation) setModel(conversation.model);
     setSelectedConversationId(id);
     setSelection(emptySelection());
     setError(null);
@@ -391,7 +398,7 @@ export function AssistantView({
       const turn = await sendAssistantMessage(
         {
           conversationId: selectedConversationId,
-          model,
+          model: config.model,
           content,
           sentMessage: outbound,
           systemInstructions: config.systemInstructions.trim() || null,
@@ -545,28 +552,6 @@ export function AssistantView({
                 />
               </div>
             )}
-            <div className="assistant-chat__toolbar">
-              {SIGNALS.map((signal) => {
-                const { menu, section, none } = SIGNAL_LABELS[signal];
-                return (
-                  <MenuSelect
-                    key={signal}
-                    value={selection[signal] ?? ""}
-                    options={[
-                      { value: "", label: none },
-                      ...config.signals[signal].options.map((option) => ({
-                        value: option.id,
-                        label: `${menu} · ${option.name}`,
-                      })),
-                    ]}
-                    placeholder={none}
-                    ariaLabel={`${section} context`}
-                    onChange={(value) => setSelection((current) => ({ ...current, [signal]: value || null }))}
-                  />
-                );
-              })}
-            </div>
-
             <div className="assistant-thread" aria-live="polite">
               {messagesLoading ? (
                 <p className="assistant-thread__status">Opening chat…</p>
@@ -682,18 +667,46 @@ export function AssistantView({
                   }
                 }}
               />
-              <MenuSelect
-                value={selectedPromptId === null ? "" : String(selectedPromptId)}
-                options={prompts.map((prompt) => ({ value: String(prompt.id), label: prompt.title }))}
-                placeholder="Prompt"
-                ariaLabel="Prompt"
-                className="assistant-composer__prompt"
-                onChange={(value) => value && selectPrompt(Number(value))}
-              />
-              <MenuSelect value={model} options={[...ASSISTANT_MODELS]} placeholder="Choose a model" ariaLabel="OpenAI model" className="assistant-composer__model" onChange={(value) => setModel(value as AssistantModel)} />
-              <button type="submit" className="assistant-send" disabled={!canSend} aria-label="Send message">
-                {sendIcon}
-              </button>
+              <div className="assistant-composer__tools">
+                {SIGNALS.map((signal) => {
+                  const { section, none } = SIGNAL_LABELS[signal];
+                  const marker = composerMarker(config.icons[signal]);
+                  return (
+                    <MenuSelect
+                      key={signal}
+                      value={selection[signal] ?? ""}
+                      options={[
+                        { value: "", label: none, marker },
+                        ...config.signals[signal].options.map((option) => ({
+                          value: option.id,
+                          label: option.name,
+                          marker,
+                        })),
+                      ]}
+                      placeholder={none}
+                      ariaLabel={`${section} context`}
+                      onChange={(value) => setSelection((current) => ({ ...current, [signal]: value || null }))}
+                    />
+                  );
+                })}
+                <MenuSelect
+                  value={selectedPromptId === null ? "" : String(selectedPromptId)}
+                  options={[
+                    { value: "", label: "Prompt", marker: composerMarker(config.icons.prompt) },
+                    ...prompts.map((prompt) => ({
+                      value: String(prompt.id),
+                      label: prompt.title,
+                      marker: composerMarker(config.icons.prompt),
+                    })),
+                  ]}
+                  placeholder="Prompt"
+                  ariaLabel="Prompt"
+                  onChange={(value) => value ? selectPrompt(Number(value)) : setSelectedPromptId(null)}
+                />
+                <button type="submit" className="assistant-send" disabled={!canSend} aria-label="Send message">
+                  {sendIcon}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -752,6 +765,10 @@ export function AssistantView({
               />
             )}
 
+            {configSection === "model" && (
+              <ModelSection config={config} storeConfig={storeConfig} />
+            )}
+
             {configSection === "layout" && (
               <LayoutSection config={config} data={dashboardData} storeConfig={storeConfig} />
             )}
@@ -760,8 +777,10 @@ export function AssistantView({
               <PromptSection
                 prompts={prompts}
                 selectedPromptId={selectedPromptId}
+                icon={config.icons.prompt}
                 onSelectPrompt={setSelectedPromptId}
                 onPromptsChange={setPrompts}
+                onIconChange={(icon) => setSectionIcon("prompt", icon)}
                 onError={(promptError) => setError(errorMessage(promptError))}
               />
             )}

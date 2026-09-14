@@ -61,8 +61,11 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   name and `.dash-header__layout-save` stores the current board under that
   name, keeping up to five snapshots in `nest:overview-layout-snapshots`. Tiles
   stack by stored y/x order below 861px, where drag and resize are disabled.
-  `MetricCheckIn` is shared with the Popup. The read-only Tasks peek uses
-  `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
+  `MetricCheckIn` is shared with the Popup. The Metric title carries
+  `.metric-step__silence`, a pointer-only control that skips that Metric for
+  the Metric check-in interval (`nest:silenced-metrics`); the due glow drops
+  only when the Pulse has no Metric left to score. The read-only Tasks peek
+  uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
   is today-only with
   `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
@@ -96,9 +99,14 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   row sized for the Popup pane. Popup Chat uses compact 28px controls and
   reduced thread/composer type without changing Dashboard Assistant sizing.
   Config has a fixed icon-only left sidebar for Chat and System. The selected
-  group’s `ViewToggle` stays at the top-left: Chat contains the four signals
-  and Prompt; System contains System instructions and Layout. The API key is
-  in Settings → Assistant. Signal and Layout sections use `.assistant-signal`:
+  group's `ViewToggle` stays at the top-left: Chat contains the four signals
+  and Prompt; System contains System instructions, Model, and Layout. Each
+  Chat section has an `IconPickerButton` for the composer menu of that signal
+  or Prompt; the choice persists in `nest:assistant-context` with the rest of
+  Config. Those Nest icons ride in as `MenuSelect` markers, sized at 16px by
+  `shared-controls.css` — the menu is portaled out of the composer, so marker
+  styling cannot be scoped to a feature. The API key is in Settings →
+  Assistant. Signal and Layout sections use `.assistant-signal`:
   a fixed 320px controls rail on the left and a `.assistant-output` preview
   of the current records on the right at every dashboard width.
   Option lists, defaults, Task detail, active System
@@ -109,7 +117,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   the system keychain and Send stays disabled after restart.
 - Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a
   grid with the Timer across the top and a 48px `.popup-tabs` strip on the
-  left. Single-section tabs keep `.popup-pane` at 472px (the old inner width)
+  left. Overview and Tasks and metrics use `.popup-tabs__tab--due` for the
+  Metric check-in dot; silencing every shown Metric clears it. Single-section
+  tabs keep `.popup-pane` at 472px (the old inner width)
   and centre it so the extra width stays empty on both sides. Overview
   (`.popup-workspace--overview`) is two equal columns: Brain dump
   (`grid-area: left`) and Tasks and metrics (`grid-area: right`). Last chosen

@@ -22,6 +22,7 @@ import {
 } from "../../src/popup/PopupContent";
 import {
   firstScorablePulse,
+  MetricCheckIn,
   nextMetricIndex,
 } from "../../src/dashboard/components/MetricCheckIn";
 import type { Pulse } from "../../src/lib/types";
@@ -174,12 +175,72 @@ describe("firstScorablePulse", () => {
     expect(firstScorablePulse([pulse(1, []), pulse(2, [9]), pulse(3, [8])])?.id).toBe(2);
     expect(firstScorablePulse([pulse(1, [])])).toBeNull();
   });
+
+  it("skips pulses whose metrics are all silenced", () => {
+    expect(
+      firstScorablePulse(
+        [pulse(1, [9]), pulse(2, [8])],
+        new Set([9]),
+      )?.id,
+    ).toBe(2);
+    expect(firstScorablePulse([pulse(1, [9])], new Set([9]))).toBeNull();
+  });
+});
+
+describe("MetricCheckIn silence", () => {
+  it("puts a Silence control beside the Metric title", () => {
+    const html = renderToStaticMarkup(
+      createElement(MetricCheckIn, {
+        metrics: [
+          {
+            id: 9,
+            name: "Focus",
+            icon: "activity",
+            createdAt: 1,
+            color: null,
+          },
+        ],
+        pulses: [pulse(1, [9])],
+        submitting: false,
+        emptyCopy: "none",
+        onComplete: async () => undefined,
+        silenceMinutes: 45,
+        nowMs: 1_000,
+      }),
+    );
+
+    expect(html).toContain("Focus");
+    expect(html).toContain('aria-label="Silence Focus for 45 min"');
+    expect(html).toContain("metric-step__silence");
+  });
+
+  it("blames the empty Pulse, not Silence, when no Metric is assigned", () => {
+    const html = renderToStaticMarkup(
+      createElement(MetricCheckIn, {
+        metrics: [],
+        pulses: [pulse(1, [])],
+        submitting: false,
+        emptyCopy: "No pulses yet.",
+        onComplete: async () => undefined,
+        silenceMinutes: 45,
+        nowMs: 1_000,
+      }),
+    );
+
+    expect(html).toContain("This pulse has no metrics yet.");
+    expect(html).not.toContain("silenced");
+  });
 });
 
 describe("isMetricCheckInDue", () => {
   it("becomes due at the scheduled second", () => {
     expect(isMetricCheckInDue(100, 99_999)).toBe(false);
     expect(isMetricCheckInDue(100, 100_000)).toBe(true);
+  });
+
+  it("stays quiet while any Metric is silenced", () => {
+    expect(isMetricCheckInDue(100, 100_000, new Set([3]))).toBe(false);
+    expect(isMetricCheckInDue(100, 100_000, new Set())).toBe(true);
   });
 });
 

@@ -178,21 +178,6 @@
   font-size: 10.5px;
 }
 
-.popup-assistant .assistant-chat__toolbar {
-  display: grid;
-  min-height: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
-  padding: 6px 10px;
-}
-
-.popup-assistant .assistant-chat__toolbar .menu-select__trigger {
-  min-height: 28px;
-  gap: 5px;
-  padding-inline: 7px;
-  font-size: 10.5px;
-}
-
 .popup-assistant .assistant-thread {
   gap: 10px;
   padding: 12px 16px;
@@ -250,8 +235,8 @@
   font-size: 10.5px;
 }
 
-.popup-assistant .assistant-composer__model {
-  width: 108px;
+.popup-assistant .assistant-composer__tools {
+  gap: 5px;
 }
 
 .popup-assistant .assistant-send {

@@ -65,6 +65,36 @@ describe("assistant preferences and drafts", () => {
       options: [{ id: "a", name: "Lately", key: "window:45" }],
       defaultOption: null,
     });
+    expect(readAssistantConfig(storage).icons).toEqual(DEFAULT_ASSISTANT_CONFIG.icons);
+  });
+
+  it("keeps a chosen composer icon and ignores unknown keys", () => {
+    const storage = memory();
+    writeAssistantConfig({
+      ...DEFAULT_ASSISTANT_CONFIG,
+      icons: { ...DEFAULT_ASSISTANT_CONFIG.icons, dumps: "brain", prompt: "sparkles" },
+    }, storage);
+    expect(readAssistantConfig(storage).icons.dumps).toBe("brain");
+    expect(readAssistantConfig(storage).icons.prompt).toBe("sparkles");
+
+    storage.setItem("nest:assistant-context", JSON.stringify({
+      ...DEFAULT_ASSISTANT_CONFIG,
+      icons: { dumps: "not-an-icon", prompt: "sparkles" },
+    }));
+    expect(readAssistantConfig(storage).icons.dumps).toBe(DEFAULT_ASSISTANT_CONFIG.icons.dumps);
+    expect(readAssistantConfig(storage).icons.prompt).toBe("sparkles");
+  });
+
+  it("keeps a chosen model and falls back on one the API would reject", () => {
+    const storage = memory();
+    writeAssistantConfig({ ...DEFAULT_ASSISTANT_CONFIG, model: "gpt-5.6-terra" }, storage);
+    expect(readAssistantConfig(storage).model).toBe("gpt-5.6-terra");
+
+    storage.setItem("nest:assistant-context", JSON.stringify({
+      ...DEFAULT_ASSISTANT_CONFIG,
+      model: "gpt-4",
+    }));
+    expect(readAssistantConfig(storage).model).toBe(DEFAULT_ASSISTANT_CONFIG.model);
   });
 
   it("ignores corrupt or wrongly shaped storage", () => {

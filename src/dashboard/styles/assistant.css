@@ -223,45 +223,6 @@
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, var(--bg)) 0, var(--surface) 84px);
 }
 
-.assistant-chat__toolbar {
-  display: flex;
-  min-height: 54px;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.assistant-chat__select {
-  width: min(240px, 48%);
-}
-
-.assistant-chat__model-select {
-  width: 130px;
-}
-
-.assistant-chat__prompt,
-.assistant-chat__model {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.assistant-chat__prompt {
-  max-width: min(320px, 55%);
-  overflow: hidden;
-  color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .assistant-thread {
   display: flex;
   min-height: 0;
@@ -465,7 +426,7 @@
   display: grid;
   flex: none;
   width: min(calc(100% - 36px), 760px);
-  grid-template-columns: minmax(0, 1fr) auto 38px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: end;
   gap: 8px;
   margin: 0 auto 18px;
@@ -509,13 +470,16 @@
   cursor: pointer;
 }
 
-.assistant-composer__prompt {
-  grid-column: 1;
-  width: min(240px, 100%);
+.assistant-composer__tools {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.assistant-composer__model {
-  width: 130px;
+.assistant-composer__tools .assistant-send {
+  margin-left: auto;
 }
 
 .assistant-send {
@@ -657,6 +621,22 @@
 .assistant-config__group {
   display: grid;
   gap: 8px;
+}
+
+.assistant-section-icon {
+  position: relative;
+  z-index: 12;
+  flex: none;
+}
+
+.assistant-signal__options:has(.icon-picker),
+.assistant-prompt-list:has(.icon-picker) {
+  overflow: visible;
+}
+
+.assistant-section-icon .icon-picker {
+  top: 0;
+  left: calc(100% + 8px);
 }
 
 /* What the user controls on the left, what it produces on the right. */
@@ -1304,18 +1284,6 @@
 
   .assistant-thread {
     padding-inline: 14px;
-  }
-
-  .assistant-chat__toolbar {
-    padding-inline: 10px;
-  }
-
-  .assistant-chat__select {
-    width: min(180px, 56%);
-  }
-
-  .assistant-chat__model-select {
-    width: 112px;
   }
 
   .assistant-composer {

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -68,12 +69,13 @@ import {
 } from "../lib/brainDumpDraft";
 import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
+import { readSilencedMetricIds } from "../lib/metricSilence";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import { assistantIcon, overviewIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
-import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
+import { MetricCheckIn, firstScorablePulse } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
 import { AssistantView } from "../dashboard/views/AssistantView";
@@ -108,8 +110,14 @@ const loadTodayStretches = (nowMs: number = Date.now()) => {
   return listTaskWorkStretches(from, now + 1);
 };
 
-export function isMetricCheckInDue(nextDueAt: number, nowMs = Date.now()) {
-  return nextDueAt <= nowMs / 1000;
+const EMPTY_SILENCE: ReadonlySet<number> = new Set();
+
+export function isMetricCheckInDue(
+  nextDueAt: number,
+  nowMs = Date.now(),
+  silencedMetricIds: ReadonlySet<number> = EMPTY_SILENCE,
+) {
+  return silencedMetricIds.size === 0 && nextDueAt <= nowMs / 1000;
 }
 
 function PlayIcon() {
@@ -572,6 +580,7 @@ function PopupContent({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
+  const [silenceEpoch, setSilenceEpoch] = useState(0);
   // Per-summon remount: tab comes from the route + last choice, not the live clock.
   const [tab, setTab] = useState<PopupTabId>(() =>
     initialPopupTab(popupOpenedDue(), readLastPopupTab()),
@@ -612,9 +621,19 @@ function PopupContent({
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
+  const silencedMetricIds = useMemo(
+    () => readSilencedMetricIds(nowMs),
+    [nowMs, silenceEpoch],
+  );
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const metricDue =
-    loaded !== null && isMetricCheckInDue(loaded.metricCheckInSchedule.nextDueAt, nowMs);
+    loaded !== null &&
+    isMetricCheckInDue(
+      loaded.metricCheckInSchedule.nextDueAt,
+      nowMs,
+      silencedMetricIds,
+    ) &&
+    firstScorablePulse(visiblePulses, silencedMetricIds) !== null;
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -1445,6 +1464,9 @@ function PopupContent({
           pulses={visiblePulses}
           submitting={submitting}
           due={metricDue}
+          nowMs={nowMs}
+          silenceMinutes={loaded.metricCheckInSchedule.intervalMinutes}
+          onSilence={() => setSilenceEpoch((epoch) => epoch + 1)}
           emptyCopy={
             loaded.pulses.length
               ? "No pulses are shown in the popup. Turn one on in Metrics."

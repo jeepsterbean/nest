@@ -88,6 +88,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { MetricColorPicker } from "./MetricColorPicker";
 
 export const NEST_ICONS = [
@@ -191,6 +192,14 @@ const ICON_LABELS = Object.fromEntries(
   NEST_ICONS.map(({ key, label }) => [key, label]),
 ) as Record<string, string>;
 
+export type NestIconKey = (typeof NEST_ICONS)[number]["key"];
+
+const NEST_ICON_KEYS = new Set<string>(NEST_ICONS.map(({ key }) => key));
+
+export function isNestIconKey(value: unknown): value is NestIconKey {
+  return typeof value === "string" && NEST_ICON_KEYS.has(value);
+}
+
 /** Friendly name for a Nest icon key (e.g. hover tooltips). */
 export function nestIconLabel(name: string) {
   return ICON_LABELS[name] ?? "Activity";
@@ -260,6 +269,64 @@ export function IconPicker({
           onChange={onColorChange}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A trigger that opens its own IconPicker and closes on an outside press.
+ * Scoped to this instance's own element: several of these can be mounted at
+ * once, and a shared class selector would read a sibling's press as inside.
+ */
+export function IconPickerButton({
+  icon,
+  label,
+  className = "",
+  onChange,
+}: {
+  icon: string;
+  label: string;
+  /** Added to the wrapper, for callers that position the picker themselves. */
+  className?: string;
+  onChange: (icon: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const controlRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closePicker = (event: PointerEvent) => {
+      if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closePicker);
+    return () => document.removeEventListener("pointerdown", closePicker);
+  }, [open]);
+
+  return (
+    <div
+      className={`phase-settings__icon-control${className ? ` ${className}` : ""}`}
+      ref={controlRef}
+    >
+      <button
+        type="button"
+        className="phase-settings__control"
+        aria-label={`Choose icon for ${label}`}
+        aria-expanded={open}
+        title={nestIconLabel(icon)}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <NestIcon name={icon} />
+      </button>
+      {open && (
+        <IconPicker
+          value={icon}
+          label={`Icon for ${label}`}
+          onChange={(next) => {
+            onChange(next);
+            setOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

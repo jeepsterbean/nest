@@ -120,6 +120,7 @@ export function OverviewView({
     loaded,
     mutate,
     setError,
+    metricCheckInSchedule,
   } = useDashboardData();
   const gridRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -521,6 +522,8 @@ export function OverviewView({
         metrics={metrics}
         pulses={visiblePulses}
         submitting={metricSubmitting}
+        nowMs={nowMs}
+        silenceMinutes={metricCheckInSchedule?.intervalMinutes}
         emptyCopy={
           pulses.length
             ? "No Pulses are shown. Turn one on in Settings."

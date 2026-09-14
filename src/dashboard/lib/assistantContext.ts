@@ -1,5 +1,6 @@
 import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import type {
+  AssistantModel,
   BrainDump,
   Metric,
   MetricCheckInWithRatings,
@@ -61,11 +62,25 @@ export type TaskDetail = {
   updated: boolean;
 };
 
+/** Chat menus that show a Nest icon; each Config section owns the pick. */
+export const ASSISTANT_ICON_SLOTS = ["dumps", "metrics", "phase", "tasks", "prompt"] as const;
+export type AssistantIconSlot = (typeof ASSISTANT_ICON_SLOTS)[number];
+
+export const DEFAULT_ASSISTANT_ICONS: Record<AssistantIconSlot, string> = {
+  dumps: "notes",
+  metrics: "gauge",
+  phase: "clock",
+  tasks: "check",
+  prompt: "chat",
+};
+
 export type AssistantConfig = {
   signals: Record<Signal, SignalConfig>;
   taskDetail: TaskDetail;
   systemInstructions: string;
   template: string;
+  model: AssistantModel;
+  icons: Record<AssistantIconSlot, string>;
 };
 
 export const DEFAULT_TASK_DETAIL: TaskDetail = {
@@ -97,6 +112,8 @@ export const DEFAULT_ASSISTANT_CONFIG: AssistantConfig = {
   taskDetail: DEFAULT_TASK_DETAIL,
   systemInstructions: DEFAULT_SYSTEM_INSTRUCTIONS,
   template: DEFAULT_TEMPLATE,
+  model: "gpt-5.6-luna",
+  icons: { ...DEFAULT_ASSISTANT_ICONS },
 };
 
 type RecentOption = { count: number } | { minutes: number };
