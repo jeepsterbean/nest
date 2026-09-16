@@ -1,8 +1,9 @@
 # Assistant context
 
 How a message to the Assistant is assembled, what the user controls, and where
-each piece lives. Domain words follow `CONTEXT.md`: Task, Phase, Brain dump,
-Metric check-in.
+each piece lives. Domain words follow [`CONTEXT.md`](../CONTEXT.md): Task,
+Phase, Brain dump, Metric check-in. The Assistant Section definition is there
+too; this file is the assembly.
 
 ## The model
 
@@ -169,7 +170,9 @@ Phase sessions reuse `phaseSessionsInWindow` from
 
 `send_assistant_message` takes `sent_message` and `system_instructions`, both
 stored on the user message. Each message in the request input is prefixed with
-its local `HH:MM`.
+its local `HH:MM`. Nest retains a sent message when OpenAI cannot complete its
+reply, and marks any partial reply as incomplete. The Assistant never changes
+Tasks.
 
 Saved chats are shared SQLite. After a turn is saved, or a chat is renamed or
 deleted, Rust emits `assistant-history-changed` so both windows refresh the

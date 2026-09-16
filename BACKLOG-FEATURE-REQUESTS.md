@@ -21,7 +21,6 @@ APIs, schema, or code structure.
 - P1: refine the visuals
 
 ## Dashboard sections
-- Let every section except Overview use the full dashboard window for its own content; hide Reminders on Calendar, Insights, Log, and other non-overview sections.
 
 ## Inactivity pause and resume
 - P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes resumes what was paused, No leaves them paused.

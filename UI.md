@@ -13,8 +13,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Sidebar, and Greetings board.
 - Reuse `MenuSelect`, `NestIcon` / `IconPicker`, task menus, and shared icons in
   `icons.tsx` before adding controls.
-- Dashboard Section behavior lives in `CONTEXT.md`; this file records concrete
-  implementation hooks.
+- Dashboard Section behavior lives in the files `AGENTS.md` names; this file
+  records concrete implementation hooks.
 
 ## Shared controls and Section anchors
 
@@ -28,8 +28,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   sibling toolbar such as `RangeToolbar`; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
   No per-Section size overrides.
-- Tasks: `.task-table`. No Working now play control or Readiness column in the
-  table; start work from the detail panel.
+- Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
+  when unset). Column order and widths persist in `nest:task-table`. No
+  Working now play control or Readiness column in the table; start work from
+  the detail panel.
 - Tasks Map: `.task-map` fills the workspace. `.task-map__viewport` clips a
   6000x4000 `.task-map__canvas` that carries the pan/zoom transform; the
   sidebar `.task-map__tray` (composer row plus unplaced open tasks) and
@@ -162,8 +164,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   pointer capture, and listener cleanup. Their ordering and resize rules stay
   in their own hooks.
 - Calendar drag, resize, snap, open-stretch lock, and inline editor placement
-  are defined in `CONTEXT.md` under Phase. Hook classes are `.tl-block` and
-  `.tl-block--open`.
+  are defined in [`docs/time-surfaces.md`](./docs/time-surfaces.md#calendar).
+  Hook classes are `.tl-block` and `.tl-block--open`.
 
 ## Brain dump surface
 
