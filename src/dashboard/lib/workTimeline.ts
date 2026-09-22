@@ -1,5 +1,5 @@
 import type { Task, TaskWorkStretch } from "../../lib/types";
-import { QUARTER_HOUR_SECONDS, snapToQuarterHour, startOfDayMs } from "./time";
+import { QUARTER_HOUR_SECONDS, snapToQuarterHour } from "./time";
 
 /** A stretch clipped to a column and placed on it as percentages. `col` of
  * `cols` is its side-by-side slot: multiple Tasks may be Working now, so
@@ -241,21 +241,6 @@ export const workedSecondsInSpan = (
     if (clipped > 0) total += clipped;
   }
   return total;
-};
-
-/** Worked seconds since local midnight, optionally for one Task. */
-export const workedSecondsToday = (
-  stretches: Pick<TaskWorkStretch, "taskId" | "startedAt" | "endedAt">[],
-  nowMs: number = Date.now(),
-  taskId?: number,
-) => {
-  const from = Math.floor(startOfDayMs(nowMs / 1000) / 1000);
-  const to = Math.floor(nowMs / 1000) + 1;
-  const slice =
-    taskId === undefined
-      ? stretches
-      : stretches.filter((stretch) => stretch.taskId === taskId);
-  return workedSecondsInSpan(slice, from, to, nowMs);
 };
 
 /** Worked seconds per Task inside [from, to), busiest first. Clips each block

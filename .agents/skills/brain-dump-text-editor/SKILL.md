@@ -20,6 +20,7 @@ stickies, and the Popup while keeping the shared draft synchronized.
 4. Follow the guide's verification section after editor changes. Use Nest's
    native WKWebView for manual checks and report any checks left unperformed.
 
-Read the Brain dump and Tag definitions in `CONTEXT.md` when changing capture,
+Read the Brain dump and Tag definitions in `CONTEXT.md` and
+[docs/brain-dump.md](../../../docs/brain-dump.md) when changing capture,
 history, or draft behavior. Read `.impeccable.md` and relevant `UI.md`
 sections when changing presentation.

@@ -40,9 +40,10 @@ function Popup() {
   }, []);
 
   const complete = useCallback(
-    async (save: () => Promise<number | null>) => {
+    async (save: () => Promise<void>) => {
       await resolvePopupOnce(resolvedRef, async () => {
-        await closePopup(false, await save());
+        await save();
+        await closePopup(false);
       });
     },
     [],

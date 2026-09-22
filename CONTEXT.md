@@ -3,7 +3,9 @@
 Nest is a private self-care workspace for checking in, organizing personal work,
 and capturing thoughts without interrupting flow.
 
-Documentation map: `AGENTS.md`. Dashboard CSS classes, component hooks, and
+Documentation map: `AGENTS.md`. Surface behavior: `docs/tasks.md`,
+`docs/time-surfaces.md`, `docs/timer-popup.md`, `docs/brain-dump.md`,
+`docs/assistant-context.md`. Dashboard CSS classes, component hooks, and
 layout constraints: `UI.md`. Design feel: `.impeccable.md`.
 
 ## Language
@@ -58,99 +60,41 @@ _Avoid_: Session, sitting, block
 The total time a Task has been Working now, kept even after work stops. It is
 the sum of the Task's finished Work stretches, so correcting a stretch moves
 the total. It keeps counting if Working now is left on. The Working now control
-shows the current stretch; the total is every stretch added up. The total has
-its own column in the Tasks table and sits in the detail panel, on every Task
-whatever its status — unlike the control, which is only on Active Tasks.
-Table is the default Tasks layout (Map is the other); last choice is
-remembered. The table filters by any set of persisted statuses — Backlog, Up
-next, Active, Completed, Cancelled — with Open / Closed / All presets; first
-visit is Open. New tasks are created Active. The **Tasks scope sidebar** belongs to the table;
-the Map has none. The "Add an active task" composer is in both layouts — above
-the table, and at the top of the Map sidebar.
-Table columns can be reordered and resized. Working now is started
-from the detail panel, not from the table or the Map.
+shows that total while the Task is Working now, across every day, not only the
+open stretch. The total also has its own column in the Tasks table and sits in
+the detail panel, on every Task whatever its status — unlike the control, which
+is only on Active Tasks.
+Table and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Session, stopwatch, in progress
 
 **Map**:
 The other Tasks layout: a free-form canvas the user arranges by hand, drawn
-like a data model. Each placed Task is an **entity box** — a title header over
-attribute rows (status, scope, value / effort, and parent, children or blocked
-by when they apply). The canvas is far larger than the screen and is panned by
-dragging bare canvas, zoomed with the wheel about the pointer or with the
-corner zoom controls; pan and zoom are remembered. Open Tasks wait in the **Map
-sidebar**; dragging one onto the canvas drops it wherever the pointer is, and
-clicking it drops it in view. Boxes go anywhere and may overlap; a box's
-position is only the user's arrangement and never creates or implies a
-relation. Connectors are
-right-angled and arrowed: solid from Parent to child, dashed from Blocker to
-the Task it blocks. Completed and Cancelled boxes stay on the Map, dimmed, so a
-chain still reads end to end; drag a box back to the sidebar, or use its remove
-button, to take it off. Relations are added and removed in the detail panel,
-not on the Map. Positions live in the browser, keyed by Task id, and are
-dropped when the Task is deleted.
+like a data model. A box's position never creates or implies a relation.
+Connectors are solid from Parent to child, dashed from Blocker to the Task it
+blocks.
+Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Board (that word means the Overview tiles), Canvas, Kanban
 
 **Map sidebar**:
-The panel floating over the Map canvas: an "Add an active task" row above the
-list of open Tasks not yet placed. It collapses to a button showing that count.
-The Map is not scope-filtered — the sidebar lists every open Task.
+The panel floating over the Map canvas: unplaced open Tasks and the "Add an
+active task" composer.
+Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Sidebar (alone — that word means the Section switcher), tray, backlog
 
 **Phase**:
 A derived attention state, written as a checkpoint when it changes.
 The four values are **Doing**, **Scoping**, **Resting**, and **Offline**.
 Doing if any Task is Working now; else Offline if the Mac is locked,
-display-asleep, or system-asleep; else Scoping if Nest is engaged
-(dashboard has attention or the popup is up) or Notion desktop is frontmost;
-else Resting. Lock/sleep clears Working now (Worked time is banked; status
+display-asleep, or system-asleep; else Resting after three minutes with no
+keyboard or pointer input, whatever has attention; else Scoping if Nest is
+engaged (dashboard has attention or the popup is up) or Notion desktop or
+Notion Calendar is frontmost; else Resting.
+Lock/sleep clears Working now (Worked time is banked; status
 stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
-leaves dashboard attention even if the Nest window is still key. Overview
-shows a lean last-hour summary: outcome stats (Completed, Value, Effort,
-Check-ins) and duration totals for Doing, Scoping, Resting, and Offline
-(Idle time is counted as Offline). A quiet hour still shows those figures as
-0, not as missing; live rolling summaries refresh as time passes. Overview is
-a persistent tile board with that summary, a read-only Tasks peek (Status,
-Title, Value, Effort) with Open / Closed and a button that opens the Tasks
-section, a today-only Logs Timeline (same marks and Phase gutter coloring as
-Logs, without day labels, Phase totals, or Logs chrome) filtered by Timeline /
-Brain dumps / Metrics with load-older batching when needed, a brain dump
-composer that matches the popup (shared text and tag draft, Cmd/Ctrl+Enter to
-save), and Metric check-in scoring. Tiles can be hidden into the always-present
-control panel and restored from there as space allows. Tasks, Timeline, and Brain dump can be
-minimised to counts, the three newest events, and a one-line capture field.
-Both capture surfaces can independently browse the five most recent dumps as
-read-only text with their tags. Full dump
-history lives in Logs. Insights is the longer look: a Phase mix for the
-range, Tasks with Worked time that day grouped by status as of that day's end
-(Active, Up next, Backlog, Completed, Cancelled), plus Completions and
-Cancellations with no Working now that day (0 Worked time). Metric check-ins
-sit in a dedicated column grouped by Pulse — average plus a tick per rating —
-even when the range has none. Outcome counts stay on Overview; Insights lists
-the Tasks and scores instead of repeating Completed / Value / Effort /
-Check-ins. Calendar is the timetable of
-that range — hours in a left gutter, one column per calendar day, each column a
-Phase wash behind its Work stretches. Insights and Calendar share Day and Week
-(Week starts Monday), anchored to real dates and paged with Earlier / Later /
-Today rather than measured back from now; paging stops where the loaded 30 days
-of history end. The last chosen range is remembered; first visit is Day. A
-stretch carries its Task title and times inside the block when it is tall
-enough; concurrent stretches sit side by side, since multiple Tasks may be
-Working now. A line marks the current time. Quiet time reads as empty track
-rather than being squeezed out. An open stretch's live end stays pinned to now.
-That stretch cannot be moved or resized on Calendar — its bottom edge is an
-unfinished line, and Working now is cleared from the Task, not from the grid.
-Clicking a stretch opens an editor beside that stretch — left or right of the
-selected block, toward its outer edge when two share the hour, flipping so the
-editor stays on screen and closing once its stretch scrolls out of the grid. The
-Task title can be renamed there. Start and end each have a date and a time,
-locked while the stretch is still open, and save first, since only the times
-can be refused. Dragging a closed stretch moves it; dragging a start or end
-edge resizes that bound. Calendar drag snaps to
-fifteen minutes and will not shrink a stretch below fifteen minutes unless now
-is closer (a stretch cannot end in the future). That floor is only for dragging
-on the grid; a recorded stretch may already be shorter.
+leaves dashboard attention even if the Nest window is still key.
+Overview, Calendar, Insights, and Logs: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -160,73 +104,66 @@ A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
 
 **Metric**:
-A 1–5 rating scored as part of a Metric check-in.
+A 1–5 rating scored as part of a Metric check-in. Silence on the scoring
+panel skips that Metric for the Metric check-in interval without saving a
+rating. Remaining Metrics in the Pulse can still be scored, and the Metric
+check-in stays due while any of them are left; the due dots quiet only once
+every shown Metric is silenced. Silence expires on its own; it does not hide
+a Pulse.
+_Avoid_: mute, snooze
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
-in that Pulse is finished in the popup.
+in that Pulse is finished. Every saved Metric check-in advances the one global
+Metric check-in schedule; deleting history does not rewind it. Settings →
+Metrics controls its 15–120 minute interval in 15-minute steps and shows the
+next time. Changing that interval leaves the next time intact until the next
+Metric check-in is saved. When overdue, Settings shows `Due now`; the Popup
+shows the Metric scoring glow and the due dot on Tasks and metrics. It
+does not open the Popup itself.
 _Avoid_: Pulse check-in
 
 **Timer**:
 The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
 opens the Popup. Closing the Popup leaves it paused; picking an interval
 starts that cycle from now.
+Behavior: [`docs/timer-popup.md`](./docs/timer-popup.md).
 _Avoid_: Check-in, schedule
 
 **Popup**:
-The window the Timer (or ⌘⇧E) opens. It is for scoring Metrics and capturing
-a brain dump, not a stored record.
+The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
+resumes after an idle stretch that was spent Resting, unless the Timer is
+already due or the Popup is already up. It is for scoring Metrics, capturing a
+brain dump, and quick Assistant chats; it is not a stored record.
+Behavior: [`docs/timer-popup.md`](./docs/timer-popup.md).
 _Avoid_: Check-in popup
 
 **Brain dump**:
 An unstructured captured thought stored on its own, with zero or more Tags.
 Its text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
-and collapsible lists. Saved checklist boxes show their recorded state in
-history and Logs; edit the content by forking it into a draft.
-Expanding a saved dump in Logs opens a read-only sticky 12px to the right of
-the cursor, centered at its height, and it closes on an outside click or Escape.
-It has no editing or action controls; collapsible
-lists are unfolded for reading. Settings → Brain dump shows compact saved-sticky
-previews that open that same sticky, newest first, filtered by the past 1, 3, or 7 days and by Tag.
-The range defaults to 7 days and measures back from the current time.
-Overview and the popup share the text and selected-tag draft, and independently
-browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Logs can edit
-a saved dump's Tags, and fork a saved dump into a new unsaved floating draft
-(text and Tags). Overview drafts can be peeled into movable floating drafts and
-resized from their lower-right corner. A saved brain dump being browsed in
-Overview can also be copied into a new floating draft.
-A **Note Board** sits on the same overlay as those floating drafts, on every
-Section: a moveable, resizeable frame that is always present, even when empty.
-Dragging a floating draft onto the expanded board docks that draft as a row
-(the collapsed summary, with no expand). The minimised bar is not a drop
-target. While the draft is held over the expanded board, the sticky itself is
-hidden and a preview row appears in the list. Dragging a row out restores the
-draft as a free sticky at the drop point, still expanded or minimised as it
-was, snapped fully on screen. The board
-itself can be minimised to a single row labelled Note Board, which counts the
-rows it is hiding. Hiding stickies still only hides free drafts; docked rows
-stay in the board.
+and collapsible lists. Brain dumps have no title field.
+Capture, stickies, and Note Board: [`docs/brain-dump.md`](./docs/brain-dump.md).
+Editor internals: [`docs/editor.md`](./docs/editor.md).
 _Avoid_: note, journal entry, title (brain dumps have no title field)
 
 **Tag**:
-A reusable label for brain dumps. The composer shows selected Tags followed by
-the five most recently used unselected Tags; its overflow menu lists every Tag.
-Deleting a Tag removes it from every historical brain dump.
+A reusable label for brain dumps.
+Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The six
-are Overview, Calendar, Insights, Logs, Tasks, and Settings. Overview shows the
+One primary destination in the dashboard, chosen from the **Sidebar**. The seven
+are Overview, Calendar, Insights, Logs, Tasks, Assistant, and Settings. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
 title —
 the Sidebar already names where you are. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these six)
+_Avoid_: View, screen (for these seven)
 
 **Sidebar**:
 The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
-Tasks, Settings).
+Tasks, Assistant, Settings).
 _Avoid_: Nav, rail (for this strip)
 
 **Greetings board**:
@@ -243,9 +180,17 @@ Greetings board; Inactive ones stay in Settings but are skipped there. New
 Reminders start Active. Text is capped so one line fits the board.
 _Avoid_: Tip, prompt, notification
 
+**Assistant**:
+The dashboard Section for private, reflective chats backed by OpenAI. The
+Assistant suggests next actions and never changes Tasks. Prompts, titles, and
+messages stay in Nest's local database. The popup and dashboard share that
+saved history; each window keeps its own open chat.
+Context assembly: [`docs/assistant-context.md`](./docs/assistant-context.md).
+
 **Tasks scope sidebar**:
 The Scopes filter panel beside the Tasks table. It starts collapsed, and the
 Map does not show it.
+Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
@@ -257,28 +202,8 @@ _Avoid_: Preferences, admin
 
 **Logs**:
 The history Section. Not a stored record: Metric check-ins, brain dumps, and
-Phase checkpoints each stand on their own. One segmented control switches
-Timeline, Brain dumps, Phases, Metrics, and Raw. Timeline marks happenings and settled Phase changes on a
-day rail (raw attention flicker stays off; the gutter shows the Phase in force
-at each mark).
-Brain dumps, Phases, Metrics, and Raw are day-grouped lists (Raw is the mixed
-feed, including Working now starts and stops). Phases always uses the
-60-second settle collapse (a burst lands on the Phase it settled on; if that
-equals the Phase before the burst, it is omitted). Each visible day has an
-Export control that downloads a chronological Markdown timeline of every event
-type for that calendar day, regardless of the active Logs filter; exported
-Phase changes use the same settled aggregation rather than raw checkpoints.
-Each Phase has separate icon and color controls in Settings,
-with a broad preset palette and custom color picker; those choices drive the
-Greetings board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
-and the Timeline time gutter (quiet surface tone when uncolored). Metric check-in, brain dump,
-Phase, and Working now start/stop icons sit directly on the timeline line.
-Logs does not show the day strip or outcome stats. Events are grouped by day;
-Phase totals end at midnight for past days and at the current time for Today.
-Metric check-ins show the Pulse icon and Metric scores on one row at the same
-height as brain dumps and Working now marks. Brain dumps
-keep that row height when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
-in for names. The filters are the only chrome at the top of Logs.
+Phase checkpoints each stand on their own.
+Behavior: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
 _Avoid_: Journal
 
 ## Relationships
@@ -295,7 +220,7 @@ _Avoid_: Journal
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
 - **Logs** shows Metric check-ins, brain dumps, and Phase checkpoints; it does not contain them
-- **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, and whether the Mac is locked or asleep
+- **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, how long the Mac has gone without input, and whether it is locked or asleep
 
 ## Example dialogue
 
@@ -316,52 +241,16 @@ _Avoid_: Journal
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
-- "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase. Live values are Doing, Scoping, Resting, and Offline.
+- "Idle" can look like a live Phase — resolved: it is only a display label for a historical checkpoint with no Phase, and summaries count it as Offline. Live values are Doing, Scoping, Resting, and Offline. Going idle at the keyboard is a separate thing that carries no label of its own: after three minutes without input the derived Phase is **Resting**, never Idle.
 - "Offline" can sound like Nest quit — resolved: Offline is lock/sleep while Nest is running. Nest quit is untracked until the next launch, though quitting still stops Working now.
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
-  Timer/Popup aria, class names, and chrome never say check-in. The Greetings
-  board due phrase "time to check in!" is the exception. The Popup clock shows
-  the countdown only.
+  Timer/Popup aria, class names, and chrome never say check-in. The Popup clock
+  shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Tasks / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "view" for Overview / Calendar / Insights / Logs / Tasks / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is only Settings' Metrics / Phases / Tags / Reminders destinations.
-
-## Timer
-
-- The **Greetings board** shows the countdown and controls its 5–30 minute
-  interval when Overview is showing it (not during Doing). When due it shows
-  "time to check in!"; the Popup clock stays on the countdown and remains the
-  Timer surface while Doing.
-- At zero, the timer pauses, plays the system alert sound, and opens the
-  popup. It stays at `0:00` (glowing) until a new interval is picked or the
-  due Metric check-in is completed. Dismissing the popup does not start the
-  next cycle.
-- Picking an interval on the clock starts that cycle immediately, including
-  when the timer is due.
-- Completing a due Metric check-in starts the next cycle with the current
-  interval. Completing a manually shown popup leaves its live Timer unchanged.
-- When the timer runs out, the Metric scoring panel holds a gold due treatment
-  until a Metric check-in is saved. Restarting the clock or submitting a brain
-  dump does not clear it.
-- The popup is two columns. Left: remaining time on a clock face
-  (click to pick an interval) and the Active / Up next task list, sized for
-  three rows with extra tasks scrolling. Completed and Cancelled Tasks from
-  the last 60 minutes sit above Active; the list opens on Active, and
-  scrolling up reveals them so they can be returned to Active. Active rows
-  have Up next to the left of Complete. Right: brain dump above Metric scoring.
-- The Metric scoring panel opens on the first Metric of the first visible Pulse.
-  Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
-  shown there; finishing the last Metric of a Pulse saves a Metric check-in and
-  closes the popup.
-- Tab intentionally cycles through Brain dump, visible Pulses, Timer, and
-  Dashboard. Task controls are pointer-only; Metric ratings use the 1–5 number
-  shortcuts. This compact focus loop intentionally does not provide keyboard
-  access to task actions.
-- Opening the dashboard from the popup dismisses it.
-- Manually shown popups keep the live countdown and do not reset it when
-  completed or dismissed.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a segmented destination inside Settings or Assistant.

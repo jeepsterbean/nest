@@ -10,6 +10,7 @@ import {
   reorderPulseMetrics,
   reorderPulses,
   setMetricColor,
+  setMetricCheckInInterval,
   setMetricIcon,
   setPulseIcon,
 } from "../../lib/commands";
@@ -26,6 +27,7 @@ import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { buildMetricSeries } from "../lib/timeline";
+import { formatTime } from "../lib/time";
 import { TileIconSettings } from "./TileIconSettings";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
@@ -40,6 +42,8 @@ const METRIC_VIEWS = [
   { key: "pulses", label: "Pulses" },
   { key: "all", label: "Metrics" },
 ] as const;
+
+const METRIC_CHECK_IN_INTERVALS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 function TrashIcon() {
   return (
@@ -75,7 +79,7 @@ function MetricTrend({ values }: { values: number[] }) {
 }
 
 export function MetricsView() {
-  const { metrics, pulses, checkIns, mutate } = useDashboardData();
+  const { metrics, pulses, checkIns, metricCheckInSchedule, mutate } = useDashboardData();
   const [view, setView] = useState<"pulses" | "all">("pulses");
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [addingPulse, setAddingPulse] = useState(false);
@@ -90,6 +94,11 @@ export function MetricsView() {
   // instead let a click on the other control keep both pickers open at once.
   const openIconControlRef = useRef<HTMLDivElement | null>(null);
   const nowMs = useCurrentTime();
+  const nextMetricCheckIn = metricCheckInSchedule === null
+    ? "Loading…"
+    : metricCheckInSchedule.nextDueAt <= nowMs / 1000
+      ? "Due now"
+      : formatTime(metricCheckInSchedule.nextDueAt);
 
   const metricRename = useInlineRename({
     rename: renameMetric,
@@ -225,6 +234,20 @@ export function MetricsView() {
     <div className="settings-pane settings-pane--metrics">
       <TileIconSettings tileId="metrics" embedded />
       <header className="settings-pane__toolbar">
+        <div className="metric-check-in-schedule">
+          <span>Metric check-in</span>
+          <MenuSelect
+            value={String(metricCheckInSchedule?.intervalMinutes ?? "")}
+            options={METRIC_CHECK_IN_INTERVALS.map((minutes) => ({
+              value: String(minutes),
+              label: `${minutes} min`,
+            }))}
+            placeholder="Interval"
+            ariaLabel="Metric check-in interval"
+            onChange={(value) => void mutate(() => setMetricCheckInInterval(Number(value)))}
+          />
+          <span>Next: {nextMetricCheckIn}</span>
+        </div>
         <ViewToggle
           value={view}
           options={METRIC_VIEWS}

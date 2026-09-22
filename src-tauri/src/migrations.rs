@@ -917,6 +917,132 @@ INSERT INTO reminders (text, active, created_at) VALUES
   ('Start for just two minutes', 1, 0);
 "#,
         ),
+        M::up(
+            r#"
+CREATE TABLE assistant_prompts (
+  id           INTEGER PRIMARY KEY,
+  title        TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 80),
+  instructions TEXT NOT NULL CHECK (length(trim(instructions)) BETWEEN 1 AND 12000),
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+);
+
+CREATE TABLE assistant_conversations (
+  id                  INTEGER PRIMARY KEY,
+  title               TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 80),
+  prompt_id           INTEGER REFERENCES assistant_prompts(id) ON DELETE SET NULL,
+  prompt_title        TEXT NOT NULL,
+  prompt_instructions TEXT NOT NULL,
+  model                TEXT NOT NULL CHECK (model IN ('gpt-5.6-luna', 'gpt-5.6-terra')),
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+
+CREATE TABLE assistant_messages (
+  id              INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES assistant_conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT NOT NULL CHECK (length(trim(content)) BETWEEN 1 AND 24000),
+  created_at      INTEGER NOT NULL
+);
+
+CREATE INDEX idx_assistant_conversations_updated_at
+ON assistant_conversations(updated_at DESC, id DESC);
+
+CREATE INDEX idx_assistant_messages_conversation
+ON assistant_messages(conversation_id, id);
+
+INSERT INTO assistant_prompts (title, instructions, created_at, updated_at)
+VALUES (
+  'Task companion',
+  'You are a calm, practical thinking partner. Help the user understand what feels stuck, identify Blockers, break the problem into small concrete actions, and choose one manageable next step. Ask one focused question when essential context is missing. Offer suggestions for the user to review rather than claiming to change their Tasks.',
+  0,
+  0
+);
+"#,
+        ),
+        M::up(
+            "ALTER TABLE assistant_messages ADD COLUMN incomplete_reason TEXT;",
+        ),
+        M::up("ALTER TABLE assistant_messages ADD COLUMN context TEXT;"),
+        M::up(
+            r#"
+ALTER TABLE assistant_messages ADD COLUMN sent_message TEXT;
+ALTER TABLE assistant_messages ADD COLUMN system_instructions TEXT;
+UPDATE assistant_messages
+SET sent_message = COALESCE(context, content)
+WHERE role = 'user';
+"#,
+        ),
+        M::up(
+            r#"
+CREATE TABLE assistant_system_instruction_versions (
+  id           INTEGER PRIMARY KEY,
+  instructions TEXT NOT NULL CHECK (length(trim(instructions)) BETWEEN 1 AND 12000),
+  saved_at     INTEGER NOT NULL
+);
+
+CREATE INDEX idx_assistant_system_instruction_versions_saved_at
+ON assistant_system_instruction_versions(saved_at DESC, id DESC);
+"#,
+        ),
+        // A Prompt now fills the composer instead of being sent as instructions, so a
+        // chat no longer snapshots one, and sent_message replaced the context column.
+        M::up(
+            r#"
+ALTER TABLE assistant_conversations DROP COLUMN prompt_id;
+ALTER TABLE assistant_conversations DROP COLUMN prompt_title;
+ALTER TABLE assistant_conversations DROP COLUMN prompt_instructions;
+ALTER TABLE assistant_messages DROP COLUMN context;
+
+UPDATE assistant_prompts
+SET title = 'Stuck on a Task',
+    instructions = 'I am stuck on this and cannot tell what to do next. Help me see what is actually blocking it, break it into smaller pieces, and pick one step I can start now.'
+WHERE title = 'Task companion'
+  AND instructions LIKE 'You are a calm, practical thinking partner.%';
+"#,
+        ),
+        M::up(
+            r#"
+CREATE TABLE assistant_messages_new (
+  id                  INTEGER PRIMARY KEY,
+  conversation_id     INTEGER NOT NULL REFERENCES assistant_conversations(id) ON DELETE CASCADE,
+  role                TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content             TEXT NOT NULL CHECK (length(trim(content)) BETWEEN 1 AND 24000),
+  sent_message        TEXT CHECK (sent_message IS NULL OR length(trim(sent_message)) BETWEEN 1 AND 100000),
+  system_instructions TEXT CHECK (system_instructions IS NULL OR length(trim(system_instructions)) BETWEEN 1 AND 12000),
+  incomplete_reason   TEXT,
+  created_at          INTEGER NOT NULL
+);
+
+INSERT INTO assistant_messages_new
+  (id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at)
+SELECT
+  id, conversation_id, role, content, sent_message, system_instructions, incomplete_reason, created_at
+FROM assistant_messages;
+
+DROP TABLE assistant_messages;
+ALTER TABLE assistant_messages_new RENAME TO assistant_messages;
+
+CREATE INDEX idx_assistant_messages_conversation
+ON assistant_messages(conversation_id, id);
+"#,
+        ),
+        M::up(
+            r#"
+CREATE TABLE metric_check_in_schedule (
+  id               INTEGER PRIMARY KEY CHECK (id = 1),
+  interval_minutes INTEGER NOT NULL CHECK (interval_minutes BETWEEN 15 AND 120 AND interval_minutes % 15 = 0),
+  next_due_at      INTEGER NOT NULL
+);
+
+INSERT INTO metric_check_in_schedule (id, interval_minutes, next_due_at)
+SELECT 1, 60, COALESCE(
+  (SELECT MAX(created_at) + 3600 FROM metric_check_ins),
+  CAST(strftime('%s', 'now') AS INTEGER) + 3600
+);
+"#,
+        ),
     ])
 }
 
@@ -929,6 +1055,123 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn seeds_a_prompt_worded_as_the_user_and_drops_the_dead_prompt_columns() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+
+        let seeded: (String, String) = conn
+            .query_row("SELECT title, instructions FROM assistant_prompts", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(seeded.0, "Stuck on a Task");
+        // A Prompt fills the composer, so the seed has to read as the user talking.
+        assert!(seeded.1.starts_with("I am stuck"));
+
+        assert!(conn.prepare("SELECT prompt_id FROM assistant_conversations").is_err());
+        assert!(conn.prepare("SELECT context FROM assistant_messages").is_err());
+    }
+
+    #[test]
+    fn leaves_an_edited_seed_prompt_alone() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 49).unwrap();
+        conn.execute(
+            "UPDATE assistant_prompts SET instructions = 'My own wording'",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+        let instructions: String = conn
+            .query_row("SELECT instructions FROM assistant_prompts", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(instructions, "My own wording");
+    }
+
+    #[test]
+    fn backfills_saved_messages_from_the_legacy_context_column() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 47).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_conversations \
+             (id, title, prompt_title, prompt_instructions, model, created_at, updated_at) \
+             VALUES (1, 'A hard morning', '', '', 'gpt-5.6-luna', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assistant_messages (conversation_id, role, content, context, created_at) \
+             VALUES (1, 'user', 'Typed', 'Tasks · active\n\nTyped', 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+        let saved: (String, Option<String>) = conn
+            .query_row(
+                "SELECT sent_message, system_instructions FROM assistant_messages",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(saved, ("Tasks · active\n\nTyped".into(), None));
+    }
+
+    #[test]
+    fn keeps_each_saved_system_instruction_version() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_system_instruction_versions (instructions, saved_at) \
+             VALUES ('First instruction', 1), ('Second instruction', 2)",
+            [],
+        )
+        .unwrap();
+
+        let versions: Vec<(String, i64)> = conn
+            .prepare(
+                "SELECT instructions, saved_at FROM assistant_system_instruction_versions \
+                 ORDER BY saved_at DESC, id DESC",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(versions, vec![("Second instruction".into(), 2), ("First instruction".into(), 1)]);
+    }
+
+    #[test]
+    fn constrains_saved_assistant_payloads() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO assistant_conversations (title, model, created_at, updated_at) \
+             VALUES ('A hard morning', 'gpt-5.6-luna', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        assert!(conn.execute(
+            "INSERT INTO assistant_messages \
+             (conversation_id, role, content, sent_message, created_at) \
+             VALUES (1, 'user', 'Typed', ' ', 1)",
+            [],
+        ).is_err());
+        assert!(conn.execute(
+            "INSERT INTO assistant_messages \
+             (conversation_id, role, content, system_instructions, created_at) \
+             VALUES (1, 'user', 'Typed', ' ', 1)",
+            [],
+        ).is_err());
+    }
 
     #[test]
     fn seeds_reminders_for_greetings_board() {
@@ -1028,7 +1271,9 @@ mod tests {
         // after the sort_order slot with no sort_order column. Stop there
         // rather than rewinding from latest, so appending migrations later
         // neither retargets this test nor re-runs a one-shot migration.
-        migrations().to_version(&mut conn, SORT_ORDER_VERSION).unwrap();
+        migrations()
+            .to_version(&mut conn, SORT_ORDER_VERSION)
+            .unwrap();
         conn.execute_batch("ALTER TABLE tasks DROP COLUMN sort_order;")
             .unwrap();
 

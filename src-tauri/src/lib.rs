@@ -1,4 +1,5 @@
 mod activity;
+mod assistant;
 mod timer;
 mod commands;
 mod db;
@@ -100,7 +101,7 @@ const HOTKEY_LABEL: &str = "Ctrl+Shift+E";
 
 static DIAGNOSTIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-fn append_diagnostic_log(message: impl AsRef<str>) {
+pub(crate) fn append_diagnostic_log(message: impl AsRef<str>) {
     let message = message.as_ref();
     let timestamp = now_unix_secs();
     eprintln!("nest[diagnostics][{timestamp}]: {message}");
@@ -140,21 +141,11 @@ fn show_popup(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn close_popup(app: tauri::AppHandle, dismissed: bool, minutes: Option<i64>) -> error::Result<()> {
-    if !dismissed {
-        if let Some(minutes) = minutes {
-            let db = app.state::<Mutex<rusqlite::Connection>>();
-            let conn = db.lock().unwrap();
-            let timer = app.state::<Mutex<Timer>>();
-            let mut timer = timer.lock().unwrap();
-            commands::schedule_timer(&conn, &mut timer, minutes, now_unix_secs())?;
-        }
-    }
+fn close_popup(app: tauri::AppHandle, dismissed: bool) -> error::Result<()> {
     resolve_and_hide_popup(&app, if dismissed { "dismissed" } else { "completed" })
 }
 
-// Cadence of the recurring popup. At zero it pauses until an interval pick or
-// a completed due Metric check-in starts the next cycle. Dismissal stays paused.
+// Cadence of the recurring popup. At zero it pauses until an interval pick.
 pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,
@@ -975,26 +966,6 @@ fn hide_popup_panel(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
-/// A collapsed panel leaves the popup narrower than it was configured. Widen it
-/// back while hidden so the next summon measures and centres the full window.
-fn restore_popup_size(app: &tauri::AppHandle) {
-    let Some(size) = app
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|window| window.label == "popup")
-        .map(|window| tauri::LogicalSize::new(window.width, window.height))
-    else {
-        return;
-    };
-    if let Some(window) = app.get_webview_window("popup") {
-        if let Err(e) = window.set_size(size) {
-            append_diagnostic_log(format!("popup_restore_size_failed error={e}"));
-        }
-    }
-}
-
 fn hide_popup(app: &tauri::AppHandle, reason: &str) {
     #[cfg(target_os = "macos")]
     hide_popup_panel(app, reason);
@@ -1007,8 +978,6 @@ fn hide_popup(app: &tauri::AppHandle, reason: &str) {
         }
         let _ = reason;
     }
-
-    restore_popup_size(app);
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -1034,6 +1003,66 @@ fn request_popup_dismiss(app: &tauri::AppHandle, source: &str) {
     }
 }
 
+/// ANSI key codes for the number-row 1 / 2 / 3 that carry the panel chords.
+/// WKWebView and a focused editor otherwise keep these from reaching JS, the
+/// same way Escape used to vanish. None of the three is a text-editing chord,
+/// so forwarding them costs nothing. The keypad digits are left alone.
+#[cfg(target_os = "macos")]
+const POPUP_KEY_ANSI_1: u16 = 18;
+#[cfg(target_os = "macos")]
+const POPUP_KEY_ANSI_2: u16 = 19;
+#[cfg(target_os = "macos")]
+const POPUP_KEY_ANSI_3: u16 = 20;
+#[cfg(target_os = "macos")]
+const POPUP_KEY_ESCAPE: u16 = 53;
+
+/// Command without Shift/Control/Option. Caps Lock and the like can stay on.
+#[cfg(target_os = "macos")]
+fn popup_command_chord(
+    flags: tauri_nspanel::objc2_app_kit::NSEventModifierFlags,
+) -> bool {
+    use tauri_nspanel::objc2_app_kit::NSEventModifierFlags;
+    flags.intersection(
+        NSEventModifierFlags::Command
+            | NSEventModifierFlags::Shift
+            | NSEventModifierFlags::Control
+            | NSEventModifierFlags::Option,
+    ) == NSEventModifierFlags::Command
+}
+
+#[cfg(target_os = "macos")]
+fn popup_panel_shortcut_key(key_code: u16, command_chord: bool, repeat: bool) -> Option<&'static str> {
+    if repeat || !command_chord {
+        return None;
+    }
+    match key_code {
+        POPUP_KEY_ANSI_1 => Some("1"),
+        POPUP_KEY_ANSI_2 => Some("2"),
+        POPUP_KEY_ANSI_3 => Some("3"),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn dispatch_popup_keydown(app: &tauri::AppHandle, key: &str, meta_key: bool) -> bool {
+    app.get_webview_window("popup").is_some_and(|window| {
+        let script = format!(
+            "(document.activeElement ?? window).dispatchEvent(\
+             new KeyboardEvent('keydown', {{ key: '{key}', metaKey: {meta_key}, \
+             bubbles: true, cancelable: true }}))"
+        );
+        match window.eval(&script) {
+            Ok(()) => true,
+            Err(error) => {
+                append_diagnostic_log(format!(
+                    "popup_keydown_dispatch_failed key={key} error={error}"
+                ));
+                false
+            }
+        }
+    })
+}
+
 #[cfg(target_os = "macos")]
 fn install_popup_event_monitors(app: tauri::AppHandle) {
     use tauri_nspanel::objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
@@ -1046,25 +1075,30 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
             let panel = app_for_local.get_webview_panel("popup").ok();
             let visible = panel.as_ref().is_some_and(|panel| panel.is_visible());
 
-            if event_type == NSEventType::KeyDown && event_ref.keyCode() == 53 && visible {
-                let dispatched = app_for_local
-                    .get_webview_window("popup")
-                    .is_some_and(|window| {
-                        match window.eval(
-                            "(document.activeElement ?? window).dispatchEvent(\
-                             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))",
-                        ) {
-                            Ok(()) => true,
-                            Err(error) => {
-                                append_diagnostic_log(format!(
-                                    "popup_escape_dispatch_failed error={error}"
-                                ));
-                                false
-                            }
-                        }
-                    });
-                if dispatched {
+            if event_type == NSEventType::KeyDown && visible {
+                let key_code = event_ref.keyCode();
+                if key_code == POPUP_KEY_ESCAPE
+                    && dispatch_popup_keydown(&app_for_local, "Escape", false)
+                {
                     return ptr::null_mut();
+                }
+                // Only when the chord was aimed at the Popup itself. A
+                // nonactivating panel stays visible while the Dashboard is key,
+                // and swallowing ⌘1 / ⌘2 / ⌘3 there would toggle panels the
+                // user cannot even see.
+                let aimed_at_popup = panel.as_ref().is_some_and(|panel| {
+                    event_ref.windowNumber() == panel.as_panel().windowNumber()
+                });
+                if aimed_at_popup {
+                    if let Some(key) = popup_panel_shortcut_key(
+                        key_code,
+                        popup_command_chord(event_ref.modifierFlags()),
+                        event_ref.isARepeat(),
+                    ) {
+                        if dispatch_popup_keydown(&app_for_local, key, true) {
+                            return ptr::null_mut();
+                        }
+                    }
                 }
             }
 
@@ -1323,6 +1357,20 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            assistant::assistant_api_key_configured,
+            assistant::set_assistant_api_key,
+            assistant::delete_assistant_api_key,
+            assistant::list_assistant_prompts,
+            assistant::create_assistant_prompt,
+            assistant::update_assistant_prompt,
+            assistant::delete_assistant_prompt,
+            assistant::list_assistant_system_instruction_versions,
+            assistant::save_assistant_system_instructions,
+            assistant::list_assistant_conversations,
+            assistant::list_assistant_messages,
+            assistant::rename_assistant_conversation,
+            assistant::delete_assistant_conversation,
+            assistant::send_assistant_message,
             commands::list_reminders,
             commands::create_reminder,
             commands::update_reminder_text,
@@ -1353,6 +1401,7 @@ pub fn run() {
             commands::rename_metric,
             commands::set_metric_icon,
             commands::set_metric_color,
+            commands::set_metric_check_in_interval,
             commands::list_pulses,
             commands::create_pulse,
             commands::rename_pulse,
@@ -1368,6 +1417,7 @@ pub fn run() {
             commands::submit_metric_check_in,
             commands::list_metric_check_ins,
             commands::delete_metric_check_in,
+            commands::get_metric_check_in_schedule,
             commands::latest_phase_check_in,
             commands::list_phase_check_ins,
             commands::get_timer_state,
@@ -1453,5 +1503,27 @@ mod timer_tests {
         timer.next_due_at = 401;
         timer.waiting_for_response = false;
         assert!(!timer.pause_if_due(400));
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod popup_shortcut_tests {
+    use super::*;
+
+    #[test]
+    fn maps_command_number_chords() {
+        assert_eq!(popup_panel_shortcut_key(18, true, false), Some("1"));
+        assert_eq!(popup_panel_shortcut_key(19, true, false), Some("2"));
+        assert_eq!(popup_panel_shortcut_key(20, true, false), Some("3"));
+        // ⌘4 has no panel, and ⌘C stays with Copy.
+        assert_eq!(popup_panel_shortcut_key(21, true, false), None);
+        assert_eq!(popup_panel_shortcut_key(8, true, false), None);
+    }
+
+    #[test]
+    fn ignores_repeat_and_unmodified_keys() {
+        assert_eq!(popup_panel_shortcut_key(18, true, true), None);
+        assert_eq!(popup_panel_shortcut_key(18, false, false), None);
+        assert_eq!(popup_panel_shortcut_key(53, true, false), None);
     }
 }

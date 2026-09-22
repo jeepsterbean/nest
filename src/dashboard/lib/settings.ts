@@ -1,4 +1,5 @@
 export const SETTINGS_PANES = [
+  { key: "assistant", label: "Assistant" },
   { key: "metrics", label: "Metrics" },
   { key: "phases", label: "Phases" },
   { key: "tags", label: "Tags" },

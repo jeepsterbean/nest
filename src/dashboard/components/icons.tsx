@@ -100,6 +100,27 @@ export const logsIcon = (
   </svg>
 );
 
+export const assistantIcon = (
+  <svg {...iconProps}>
+    <path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.5a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
+    <path d="M8 11.5h8" />
+  </svg>
+);
+
+export const editIcon = (
+  <svg {...iconProps}>
+    <path d="m4 20 4.2-1 10.7-10.7a2.1 2.1 0 0 0-3-3L5.2 16Z" />
+    <path d="m14.5 6.7 3 3" />
+  </svg>
+);
+
+export const sendIcon = (
+  <svg {...iconProps}>
+    <path d="m4 4 17 8-17 8 3-8Z" />
+    <path d="M7 12h14" />
+  </svg>
+);
+
 export const tasksIcon = (
   <svg {...iconProps}>
     <rect x="3" y="3" width="18" height="18" rx="3" />

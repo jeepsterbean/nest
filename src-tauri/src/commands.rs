@@ -5,8 +5,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    BrainDump, BrainDumpTag, Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Phase, PhaseCheckIn, Pulse, Reminder, Tag, Task, TaskDependency,
+    BrainDump, BrainDumpTag, Metric, MetricCheckIn, MetricCheckInSchedule,
+    MetricCheckInWithRatings, MetricRating, MetricRatingInput, Phase, PhaseCheckIn, Pulse,
+    Reminder, Tag, Task, TaskDependency,
     TaskStatusEvent, TaskWorkStretch, TimerState,
 };
 use crate::phase;
@@ -16,6 +17,60 @@ use crate::Timer;
 
 // One greeting line at the 600px dashboard minimum (~420px at 31px serif).
 const MAX_REMINDER_CHARS: usize = 27;
+const METRIC_CHECK_IN_INTERVAL_MINUTES: i64 = 15;
+const METRIC_CHECK_IN_MAX_INTERVAL_MINUTES: i64 = 120;
+
+fn validate_metric_check_in_interval(minutes: i64) -> Result<i64> {
+    if (METRIC_CHECK_IN_INTERVAL_MINUTES..=METRIC_CHECK_IN_MAX_INTERVAL_MINUTES)
+        .contains(&minutes)
+        && minutes % METRIC_CHECK_IN_INTERVAL_MINUTES == 0
+    {
+        Ok(minutes)
+    } else {
+        Err(AppError::InvalidInput(
+            "Metric check-in interval must be 15 to 120 minutes in 15-minute steps".into(),
+        ))
+    }
+}
+
+fn metric_check_in_schedule(conn: &Connection) -> Result<MetricCheckInSchedule> {
+    conn.query_row(
+        "SELECT interval_minutes, next_due_at FROM metric_check_in_schedule WHERE id = 1",
+        [],
+        |row| {
+            Ok(MetricCheckInSchedule {
+                interval_minutes: row.get(0)?,
+                next_due_at: row.get(1)?,
+            })
+        },
+    )
+    .map_err(Into::into)
+}
+
+fn advance_metric_check_in_schedule(tx: &Transaction<'_>, now: i64) -> Result<()> {
+    let interval_minutes: i64 = tx.query_row(
+        "SELECT interval_minutes FROM metric_check_in_schedule WHERE id = 1",
+        [],
+        |row| row.get(0),
+    )?;
+    tx.execute(
+        "UPDATE metric_check_in_schedule SET next_due_at = ?1 WHERE id = 1",
+        params![now + interval_minutes * 60],
+    )?;
+    Ok(())
+}
+
+fn update_metric_check_in_interval(
+    conn: &Connection,
+    minutes: i64,
+) -> Result<MetricCheckInSchedule> {
+    let minutes = validate_metric_check_in_interval(minutes)?;
+    conn.execute(
+        "UPDATE metric_check_in_schedule SET interval_minutes = ?1 WHERE id = 1",
+        params![minutes],
+    )?;
+    metric_check_in_schedule(conn)
+}
 
 fn normalize_reminder_text(text: String) -> Result<String> {
     let text = text.trim().to_string();
@@ -1615,9 +1670,27 @@ pub fn submit_metric_check_in(
 ) -> Result<MetricCheckIn> {
     let mut conn = state.lock().unwrap();
     let tx = conn.transaction()?;
-    let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now_unix_secs())?;
+    let now = now_unix_secs();
+    let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now)?;
+    advance_metric_check_in_schedule(&tx, now)?;
     tx.commit()?;
     Ok(check_in)
+}
+
+#[tauri::command]
+pub fn get_metric_check_in_schedule(
+    state: State<'_, Mutex<Connection>>,
+) -> Result<MetricCheckInSchedule> {
+    metric_check_in_schedule(&state.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn set_metric_check_in_interval(
+    state: State<'_, Mutex<Connection>>,
+    minutes: i64,
+) -> Result<MetricCheckInSchedule> {
+    let conn = state.lock().unwrap();
+    update_metric_check_in_interval(&conn, minutes)
 }
 
 #[tauri::command]
@@ -1627,40 +1700,57 @@ pub fn list_metric_check_ins(
     to: i64,
 ) -> Result<Vec<MetricCheckInWithRatings>> {
     let conn = state.lock().unwrap();
+    query_metric_check_ins(&conn, from, to)
+}
 
+fn query_metric_check_ins(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+) -> Result<Vec<MetricCheckInWithRatings>> {
     let mut ci_stmt = conn.prepare(
         "SELECT id, created_at, pulse_id, pulse_name FROM metric_check_ins \
          WHERE created_at >= ?1 AND created_at < ?2 ORDER BY created_at DESC",
     )?;
-    let check_ins: Vec<MetricCheckIn> = ci_stmt
+    let mut result: Vec<MetricCheckInWithRatings> = ci_stmt
         .query_map(params![from, to], |row| {
-            Ok(MetricCheckIn {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                pulse_id: row.get(2)?,
-                pulse_name: row.get(3)?,
+            Ok(MetricCheckInWithRatings {
+                check_in: MetricCheckIn {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    pulse_id: row.get(2)?,
+                    pulse_name: row.get(3)?,
+                },
+                ratings: Vec::new(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    let positions: HashMap<i64, usize> = result
+        .iter()
+        .enumerate()
+        .map(|(index, item)| (item.check_in.id, index))
+        .collect();
 
+    // Join on the same range rather than IN (ids...): one query, and a 30-day
+    // range can't outgrow SQLite's bound-parameter limit.
     let mut r_stmt = conn.prepare(
-        "SELECT check_in_id, metric_id, value FROM metric_ratings WHERE check_in_id = ?1",
+        "SELECT r.check_in_id, r.metric_id, r.value FROM metric_ratings r \
+         JOIN metric_check_ins ci ON ci.id = r.check_in_id \
+         WHERE ci.created_at >= ?1 AND ci.created_at < ?2 \
+         ORDER BY r.check_in_id, r.metric_id",
     )?;
-    let mut result = Vec::with_capacity(check_ins.len());
-    for ci in check_ins {
-        let ratings: Vec<MetricRating> = r_stmt
-            .query_map(params![ci.id], |row| {
-                Ok(MetricRating {
-                    check_in_id: row.get(0)?,
-                    metric_id: row.get(1)?,
-                    value: row.get(2)?,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        result.push(MetricCheckInWithRatings {
-            check_in: ci,
-            ratings,
-        });
+    let ratings = r_stmt.query_map(params![from, to], |row| {
+        Ok(MetricRating {
+            check_in_id: row.get(0)?,
+            metric_id: row.get(1)?,
+            value: row.get(2)?,
+        })
+    })?;
+    for rating in ratings {
+        let rating = rating?;
+        if let Some(index) = positions.get(&rating.check_in_id) {
+            result[*index].ratings.push(rating);
+        }
     }
     Ok(result)
 }
@@ -1934,8 +2024,9 @@ mod tests {
         bank_all_working_now, bank_task_work, beat_heartbeat, brain_dump_plain_text,
         change_task_status, change_task_work_stretch, change_task_working, fetch_task,
         normalize_task_scope, persist_timer_waiting, query_brain_dumps, record_brain_dump,
-        record_metric_check_in, recover_open_stretches, schedule_timer, update_task_score_field,
-        valid_color, valid_icon, validate_task_status,
+        advance_metric_check_in_schedule, record_metric_check_in, recover_open_stretches,
+        schedule_timer, update_task_score_field, valid_color, valid_icon,
+        update_metric_check_in_interval, validate_metric_check_in_interval, validate_task_status,
     };
     use crate::migrations::migrations;
     use crate::models::MetricRatingInput;
@@ -2037,6 +2128,49 @@ mod tests {
         assert_eq!(
             rows.iter().map(|d| d.text.as_str()).collect::<Vec<_>>(),
             vec!["d6", "d5", "d4", "d3", "d2"]
+        );
+    }
+
+    #[test]
+    fn lists_brain_dumps_with_their_own_tags() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 1), (2, 'Idea', 2)",
+            [],
+        )
+        .unwrap();
+
+        record_brain_dump(&mut conn, "early".into(), &[1], 0).unwrap();
+        record_brain_dump(&mut conn, "mixed".into(), &[2, 1], 100).unwrap();
+        record_brain_dump(&mut conn, "bound".into(), &[2], 500).unwrap();
+        record_brain_dump(&mut conn, "later".into(), &[1], 900).unwrap();
+
+        let listed = query_brain_dumps(&conn, 0, 500, None).unwrap();
+        let shape: Vec<(&str, Vec<&str>)> = listed
+            .iter()
+            .map(|dump| {
+                (
+                    dump.text.as_str(),
+                    dump.tags.iter().map(|tag| tag.name.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            vec![("mixed", vec!["Idea", "Work"]), ("early", vec!["Work"])]
+        );
+
+        let limited = query_brain_dumps(&conn, 0, 500, Some(1)).unwrap();
+        assert_eq!(limited[0].text, "mixed");
+        assert_eq!(
+            limited[0]
+                .tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Idea", "Work"]
         );
     }
 
@@ -2411,6 +2545,40 @@ mod tests {
     }
 
     #[test]
+    fn lists_metric_check_ins_with_their_own_ratings() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO metrics (id, name, created_at) VALUES (10, 'Energy', 1), (11, 'Mood', 2);
+             INSERT INTO metric_check_ins (id, created_at) \
+             VALUES (1, 100), (2, 200), (3, 900), (4, 500), (5, 0);
+             INSERT INTO metric_ratings (check_in_id, metric_id, value) \
+             VALUES (1, 11, 2), (1, 10, 4), (2, 10, 5), (3, 10, 1), (4, 10, 3), (5, 11, 1);",
+        )
+        .unwrap();
+
+        let listed = super::query_metric_check_ins(&conn, 0, 500).unwrap();
+        let shape: Vec<(i64, Vec<(i64, i32)>)> = listed
+            .iter()
+            .map(|item| {
+                (
+                    item.check_in.id,
+                    item.ratings.iter().map(|r| (r.metric_id, r.value)).collect(),
+                )
+            })
+            .collect();
+        // [from, to): 0 is in, 500 is out, and ratings stay on their own check-in.
+        assert_eq!(
+            shape,
+            vec![
+                (2, vec![(10, 5)]),
+                (1, vec![(10, 4), (11, 2)]),
+                (5, vec![(11, 1)]),
+            ]
+        );
+    }
+
+    #[test]
     fn records_a_metric_check_in_for_pulse_metrics_only() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
@@ -2488,5 +2656,31 @@ mod tests {
             .collect::<rusqlite::Result<_>>()
             .unwrap();
         assert_eq!(ratings, vec![(10, 4), (11, 2)]);
+    }
+
+    #[test]
+    fn metric_check_in_schedule_advances_with_its_saved_interval() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let initial = super::metric_check_in_schedule(&conn).unwrap();
+        let updated = update_metric_check_in_interval(&conn, 120).unwrap();
+        assert_eq!(updated.interval_minutes, 120);
+        assert_eq!(updated.next_due_at, initial.next_due_at);
+
+        let tx = conn.transaction().unwrap();
+        advance_metric_check_in_schedule(&tx, 1_000).unwrap();
+        tx.commit().unwrap();
+
+        let next_due_at: i64 = conn
+            .query_row(
+                "SELECT next_due_at FROM metric_check_in_schedule WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(next_due_at, 8_200);
+        assert!(validate_metric_check_in_interval(15).is_ok());
+        assert!(validate_metric_check_in_interval(120).is_ok());
+        assert!(validate_metric_check_in_interval(125).is_err());
     }
 }

@@ -2,21 +2,21 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
-import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { pulseActivity } from "../lib/activityPulse";
 import {
   createTask,
+  getMetricCheckInSchedule,
   getTimerState,
   latestPhaseCheckIn,
   listMetrics,
   listPhases,
   listPulses,
-  listTaskWorkStretches,
   listTasks,
   listTags,
   reorderTasks,
@@ -31,13 +31,13 @@ import {
 import { subscribeTauriEvent } from "../lib/tauriListen";
 import type {
   TimerState,
+  MetricCheckInSchedule,
   Metric,
   MetricRatingInput,
   Phase,
   PhaseCheckIn,
   Pulse,
   Task,
-  TaskWorkStretch,
   Tag,
 } from "../lib/types";
 import {
@@ -51,7 +51,7 @@ import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
 import { useTileIcons } from "../dashboard/hooks/useTileIcons";
-import { workedSecondsToday } from "../dashboard/lib/workTimeline";
+import type { TileId } from "../dashboard/lib/overviewGrid";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
@@ -66,15 +66,20 @@ import {
 } from "../lib/brainDumpDraft";
 import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
-import { readMetricDueHeld, writeMetricDueHeld } from "../lib/metricDue";
+import { readSilencedMetricIds } from "../lib/metricSilence";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
+import { assistantIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
-import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
+import { MetricCheckIn, firstScorablePulse } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
+import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
+import { AssistantView } from "../dashboard/views/AssistantView";
 import { startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
+import "../dashboard/styles/shared-controls.css";
+import "../dashboard/styles/assistant.css";
 
 /** Stable identity so the composer's tag memo holds before tags load. */
 const EMPTY_TAGS: Tag[] = [];
@@ -88,18 +93,22 @@ type LoadState = {
   metrics: Metric[];
   pulses: Pulse[];
   tasks: Task[];
-  workStretches: TaskWorkStretch[];
   timer: TimerState;
+  metricCheckInSchedule: MetricCheckInSchedule;
   tags: Tag[];
   phases: Phase[];
   latestPhase: PhaseCheckIn | null;
 };
 
-const loadTodayStretches = (nowMs: number = Date.now()) => {
-  const now = Math.floor(nowMs / 1000);
-  const from = Math.floor(new Date(nowMs).setHours(0, 0, 0, 0) / 1000);
-  return listTaskWorkStretches(from, now + 1);
-};
+const EMPTY_SILENCE: ReadonlySet<number> = new Set();
+
+export function isMetricCheckInDue(
+  nextDueAt: number,
+  nowMs = Date.now(),
+  silencedMetricIds: ReadonlySet<number> = EMPTY_SILENCE,
+) {
+  return silencedMetricIds.size === 0 && nextDueAt <= nowMs / 1000;
+}
 
 function PlayIcon() {
   return (
@@ -196,28 +205,116 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
   );
 }
 
-export type PopupPanelId = "clock" | "tasks" | "dump";
+export type PopupPanelId = "dump" | "now" | "assistant";
 
-export const POPUP_PANELS: { id: PopupPanelId; label: string }[] = [
-  { id: "clock", label: "Timer" },
-  { id: "tasks", label: "Tasks" },
-  { id: "dump", label: "Brain dump" },
-];
+/** Sidebar order, which is also the left-to-right order of the panels. */
+export const POPUP_PANELS = [
+  { id: "dump", label: "Brain dump", shortcutKey: "1", tileIcon: "brainDump" },
+  { id: "now", label: "Tasks and metrics", shortcutKey: "2", tileIcon: "tasks" },
+  {
+    id: "assistant",
+    label: "Chat assistant",
+    shortcutKey: "3",
+    tileIcon: "assistant",
+  },
+] as const satisfies ReadonlyArray<{
+  id: PopupPanelId;
+  label: string;
+  shortcutKey: string;
+  tileIcon: TileId | "assistant";
+}>;
 
-/** Keep in sync with --popup-stub-width in PopupContent.css. */
-const POPUP_STUB_WIDTH = 20;
+const POPUP_PANELS_KEY = "nest:popup-panels";
+const POPUP_TAB_KEY = "nest:popup-tab";
 
-/** Hidden panels shrink to their stub rail; the rest keep their full width. */
-export function popupPanelColumns(hidden: Set<PopupPanelId>): string {
-  return POPUP_PANELS.map(({ id }) =>
-    hidden.has(id) ? `${POPUP_STUB_WIDTH}px` : "minmax(0, 1fr)",
-  ).join(" ");
+type PopupPanelStorage = Pick<Storage, "getItem" | "setItem">;
+
+const readStored = (key: string, storage: PopupPanelStorage) => {
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+/** Visible panels as last saved; missing or unavailable storage reads as null. */
+export const readPopupPanels = (storage: PopupPanelStorage = localStorage) =>
+  readStored(POPUP_PANELS_KEY, storage);
+
+/** The superseded single-tab preference, read once so it can be migrated. */
+export const readLastPopupTab = (storage: PopupPanelStorage = localStorage) =>
+  readStored(POPUP_TAB_KEY, storage);
+
+/** Persist the combination across summons. Showing nothing is a real choice. */
+export function writePopupPanels(
+  visible: readonly PopupPanelId[],
+  storage: PopupPanelStorage = localStorage,
+) {
+  try {
+    storage.setItem(POPUP_PANELS_KEY, visible.join(","));
+  } catch {
+    // Keep callers working when browser storage is unavailable.
+  }
 }
 
-/** The window sheds a whole panel per hidden id, keeping only its stub rail. */
-export function popupWindowWidth(fullWidth: number, hiddenCount: number) {
-  const panelWidth = fullWidth / POPUP_PANELS.length;
-  return fullWidth - hiddenCount * (panelWidth - POPUP_STUB_WIDTH);
+const parsePopupPanels = (stored: string) => {
+  const saved = new Set(stored.split(","));
+  return POPUP_PANELS.filter((panel) => saved.has(panel.id)).map(
+    (panel) => panel.id,
+  );
+};
+
+/** Restore the saved combination, else migrate the tab it replaced. */
+export function initialPopupPanels(
+  stored: string | null,
+  lastTab: string | null,
+): PopupPanelId[] {
+  if (stored !== null) {
+    const saved = parsePopupPanels(stored);
+    // An empty string is "every panel hidden"; other unreadable text is not.
+    if (saved.length > 0 || stored.trim() === "") return saved;
+  }
+  if (lastTab === "overview") return POPUP_PANELS.map((panel) => panel.id);
+  return [POPUP_PANELS.find((panel) => panel.id === lastTab)?.id ?? "dump"];
+}
+
+/** Show or hide one panel, keeping the rest in sidebar order. */
+export function togglePopupPanel(
+  visible: readonly PopupPanelId[],
+  id: PopupPanelId,
+): PopupPanelId[] {
+  if (visible.includes(id)) return visible.filter((panel) => panel !== id);
+  return POPUP_PANELS.filter(
+    (panel) => panel.id === id || visible.includes(panel.id),
+  ).map((panel) => panel.id);
+}
+
+/** Chat stays unmounted until it is first shown, including a restored default. */
+export function popupAssistantMounted(
+  visible: readonly PopupPanelId[],
+  opened: boolean,
+) {
+  return opened || visible.includes("assistant");
+}
+
+/** ⌘1 / ⌘2 / ⌘3 toggle one panel; a held key repeats, which must not. */
+export function popupPanelShortcut(
+  event: Pick<
+    KeyboardEvent,
+    "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "repeat" | "isComposing"
+  >,
+): PopupPanelId | null {
+  if (
+    event.isComposing ||
+    event.repeat ||
+    !event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.shiftKey
+  ) {
+    return null;
+  }
+  return POPUP_PANELS.find((panel) => panel.shortcutKey === event.key)?.id ?? null;
 }
 
 /** Close an open overlay when the pointer lands outside its keep-alive root. */
@@ -259,11 +356,8 @@ export function PopupTopPanel({
   schedulingTimer,
   selectedInterval,
   timerButtonRef,
-  dashboardButtonRef,
   onTimerPickerOpenChange,
   onSelectInterval,
-  onTimerPrevious,
-  onDashboardNext,
   onOpenDashboard,
 }: {
   timerDue: boolean;
@@ -274,11 +368,8 @@ export function PopupTopPanel({
   schedulingTimer: boolean;
   selectedInterval: number;
   timerButtonRef: RefObject<HTMLButtonElement | null>;
-  dashboardButtonRef: RefObject<HTMLButtonElement | null>;
   onTimerPickerOpenChange: (open: boolean) => void;
   onSelectInterval: (minutes: number) => void;
-  onTimerPrevious: () => void;
-  onDashboardNext: () => void;
   onOpenDashboard: () => void;
 }) {
   const [pendingInterval, setPendingInterval] = useState<number | null>(null);
@@ -295,7 +386,7 @@ export function PopupTopPanel({
 
   return (
     <header
-      className="combined-timer"
+      className={timerDue ? "combined-timer combined-timer--due" : "combined-timer"}
       onPointerDown={(event) => {
         if (event.button !== 0 || !isPopupWindowDragTarget(event.target)) {
           return;
@@ -317,17 +408,12 @@ export function PopupTopPanel({
           }
         }}
       >
-        {/* Anchor is circle-sized so the picker overlays the face. Positioning
-            against full-height __main puts it below the popup (clipped). */}
+        {/* The picker positions against the trigger, so it drops just below. */}
         <div className="combined-timer__anchor">
           <button
             ref={timerButtonRef}
             type="button"
-            className={
-              timerDue
-                ? "combined-timer__trigger combined-timer__trigger--due"
-                : "combined-timer__trigger"
-            }
+            className="combined-timer__trigger"
             aria-haspopup="listbox"
             aria-expanded={timerPickerOpen}
             aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
@@ -345,45 +431,15 @@ export function PopupTopPanel({
                 event.preventDefault();
                 setPendingInterval(null);
                 onTimerPickerOpenChange(false);
-              } else if (event.key === "Tab") {
-                if (event.shiftKey) {
-                  event.preventDefault();
-                  onTimerPrevious();
-                } else if (pendingInterval !== null) {
-                  onSelectInterval(pendingInterval);
-                  setPendingInterval(null);
-                }
               }
             }}
           >
-            <svg
-              className="combined-timer__face"
-              viewBox="0 0 100 100"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle
-                className="combined-timer__bezel"
-                cx="50"
-                cy="50"
-                r="46"
-              />
-              {remainingRatio > 0 && (
-                <circle
-                  className="combined-timer__sweep"
-                  cx="50"
-                  cy="50"
-                  r="46"
-                  pathLength={1}
-                  strokeDasharray={1}
-                  strokeDashoffset={1 - remainingRatio}
-                  transform="rotate(-90 50 50)"
-                />
-              )}
-            </svg>
             <strong className="combined-timer__value" role="timer">
               {countdown}
             </strong>
+            <span className="combined-timer__interval">
+              {selectedInterval} min
+            </span>
           </button>
           {timerPickerOpen && (
             <div
@@ -410,21 +466,22 @@ export function PopupTopPanel({
         </div>
       </div>
       <button
-        ref={dashboardButtonRef}
         type="button"
         className="combined-dashboard-link"
         aria-label="Open dashboard"
         title="Open dashboard"
-        onKeyDown={(event) => {
-          if (event.key === "Tab" && !event.shiftKey) {
-            event.preventDefault();
-            onDashboardNext();
-          }
-        }}
         onClick={onOpenDashboard}
       >
         <ExpandIcon />
       </button>
+      <span className="combined-timer__track" aria-hidden="true">
+        {remainingRatio > 0 && (
+          <span
+            className="combined-timer__sweep"
+            style={{ transform: `scaleX(${remainingRatio})` }}
+          />
+        )}
+      </span>
     </header>
   );
 }
@@ -443,30 +500,46 @@ export function adjacentTimerInterval(current: number, direction: -1 | 1) {
   return TIMER_INTERVALS[nextIndex];
 }
 
-/**
- * Sticky Metric-due latch: turns on when the timer is due, stays on through a
- * restarted clock, and clears only after a Metric check-in is saved.
- * Persisted so popup remounts (every summon) do not drop the glow.
- */
-export function holdMetricDue(
-  held: boolean,
-  timerDue: boolean,
-  metricCheckInSaved: boolean,
-): boolean {
-  if (metricCheckInSaved) return false;
-  return held || timerDue;
-}
-
-function setHeldMetricDue(
-  setMetricDue: (update: (held: boolean) => boolean) => void,
-  timerDue: boolean,
-  metricCheckInSaved: boolean,
-) {
-  setMetricDue((held) => {
-    const next = holdMetricDue(held, timerDue, metricCheckInSaved);
-    writeMetricDueHeld(next);
-    return next;
-  });
+/** Sidebar of independent panel toggles; several can be pressed at once. */
+export function PopupPanelToggles({
+  visible,
+  metricDue,
+  icons,
+  toggleRefs,
+  onToggle,
+}: {
+  visible: readonly PopupPanelId[];
+  /** Tasks keeps the Metric due dot even while its panel is hidden. */
+  metricDue: boolean;
+  icons: Record<TileId, string>;
+  toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>>;
+  onToggle: (id: PopupPanelId) => void;
+}) {
+  return (
+    <nav className="popup-tabs" aria-label="Popup panels">
+      {POPUP_PANELS.map(({ id, label, shortcutKey, tileIcon }) => (
+        <button
+          key={id}
+          ref={toggleRefs[id]}
+          type="button"
+          className={`popup-tabs__tab${
+            id === "now" && metricDue ? " popup-tabs__tab--due" : ""
+          }`}
+          aria-label={label}
+          aria-pressed={visible.includes(id)}
+          aria-keyshortcuts={`Meta+${shortcutKey}`}
+          title={`${label} (⌘${shortcutKey})`}
+          onClick={() => onToggle(id)}
+        >
+          {tileIcon === "assistant" ? (
+            assistantIcon
+          ) : (
+            <NestIcon name={icons[tileIcon]} />
+          )}
+        </button>
+      ))}
+    </nav>
+  );
 }
 
 /**
@@ -480,16 +553,12 @@ function PopupBrainDump({
   busy,
   onBusyChange,
   onError,
-  onTabBack,
-  onTabForward,
 }: {
   tags: Tag[];
   editorRef: RefObject<HTMLElement | null>;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
   onError: (error: string | null) => void;
-  onTabBack: () => void;
-  onTabForward: () => void;
 }) {
   const [draft, setDraft] = useBrainDumpDraft();
   const icons = useTileIcons();
@@ -546,12 +615,6 @@ function PopupBrainDump({
       onTagsChange={handleTagsChange}
       dismissPopupsOnOutsideInteraction
       onKeyDown={(event) => {
-        if (event.key === "Tab") {
-          event.preventDefault();
-          if (event.shiftKey) onTabBack();
-          else onTabForward();
-          return;
-        }
         if (
           !history.viewingHistory &&
           isBrainDumpSubmitShortcut({
@@ -575,7 +638,7 @@ function PopupContent({
   onComplete,
 }: {
   onDismiss: () => Promise<void>;
-  onComplete: (save: () => Promise<number | null>) => Promise<void>;
+  onComplete: (save: () => Promise<void>) => Promise<void>;
 }) {
   const [loaded, setLoaded] = useState<LoadState | null>(null);
   const backgroundStyle = useBackgroundStyle();
@@ -587,51 +650,85 @@ function PopupContent({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const [metricDue, setMetricDue] = useState(() => readMetricDueHeld());
-  // Per-summon only: the body remounts on every summon, so all three panels
-  // come back on their own without persisting or resetting anything here.
-  const [hiddenPanels, setHiddenPanels] = useState<Set<PopupPanelId>>(
-    () => new Set(),
+  const [silenceEpoch, setSilenceEpoch] = useState(0);
+  // Per-summon remount: the combination comes from the saved preference, the
+  // same for a manual summon and a Timer-triggered one.
+  const [visiblePanels, setVisiblePanels] = useState<PopupPanelId[]>(() =>
+    initialPopupPanels(readPopupPanels(), readLastPopupTab()),
   );
-  // Measured before anything collapses. The backend restores the configured
-  // size on every hide, so a freshly summoned popup is always at full width.
-  const fullPopupSizeRef = useRef<{ width: number; height: number } | null>(
-    null,
+  const [assistantOpened, setAssistantOpened] = useState(() =>
+    visiblePanels.includes("assistant"),
   );
+  // A fresh object per show, so re-showing the same panel focuses it again.
+  const [panelToFocus, setPanelToFocus] = useState<{ id: PopupPanelId } | null>(
+    () => (visiblePanels[0] ? { id: visiblePanels[0] } : null),
+  );
+  const icons = useTileIcons();
   const taskInputRef = useRef<HTMLInputElement | null>(null);
   const brainDumpRef = useRef<HTMLElement | null>(null);
-  const pulseButtonsRef = useRef<HTMLDivElement | null>(null);
+  const panelRefs: Record<PopupPanelId, RefObject<HTMLElement | null>> = {
+    dump: useRef<HTMLElement | null>(null),
+    now: useRef<HTMLElement | null>(null),
+    assistant: useRef<HTMLElement | null>(null),
+  };
+  const toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>> = {
+    dump: useRef<HTMLButtonElement | null>(null),
+    now: useRef<HTMLButtonElement | null>(null),
+    assistant: useRef<HTMLButtonElement | null>(null),
+  };
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dashboardButtonRef = useRef<HTMLButtonElement | null>(null);
   const taskListRef = useRef<HTMLDivElement | null>(null);
   const taskScrollThumbRef = useRef<HTMLDivElement | null>(null);
   const liveTasksRef = useRef<HTMLDivElement | null>(null);
   const stickToLiveRef = useRef(true);
+
   useEffect(() => {
-    const full = (fullPopupSizeRef.current ??= {
-      width: document.documentElement.clientWidth,
-      height: document.documentElement.clientHeight,
-    });
-    void getCurrentWindow()
-      .setSize(
-        new LogicalSize(
-          popupWindowWidth(full.width, hiddenPanels.size),
-          full.height,
-        ),
-      )
-      .catch((error) => console.error("nest popup resize failed", error));
-  }, [hiddenPanels]);
+    const togglePanelFromKeyboard = (event: KeyboardEvent) => {
+      const panel = popupPanelShortcut(event);
+      if (!panel) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      togglePanel(panel);
+    };
+    // Capture phase, so a control that swallows its own keydown (the editor,
+    // the task composer) cannot eat a panel shortcut.
+    window.addEventListener("keydown", togglePanelFromKeyboard, true);
+    return () =>
+      window.removeEventListener("keydown", togglePanelFromKeyboard, true);
+  }, [visiblePanels]);
+
+  const togglePanel = (id: PopupPanelId) => {
+    const showing = !visiblePanels.includes(id);
+    if (showing && id === "assistant") setAssistantOpened(true);
+    // Hiding the panel holding focus would strand it on a display:none node;
+    // hiding any other panel leaves focus where it is.
+    if (!showing && panelRefs[id].current?.contains(document.activeElement)) {
+      toggleRefs[id].current?.focus();
+    }
+    const next = togglePopupPanel(visiblePanels, id);
+    setVisiblePanels(next);
+    writePopupPanels(next);
+    setPanelToFocus(showing ? { id } : null);
+  };
 
   const isLoaded = loaded !== null;
-  const enabledPulseButtons = () =>
-    pulseButtonsRef.current?.querySelectorAll<HTMLButtonElement>(
-      "button:not(:disabled)",
-    );
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
+  const silencedMetricIds = useMemo(
+    () => readSilencedMetricIds(nowMs),
+    [nowMs, silenceEpoch],
+  );
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
+  const metricDue =
+    loaded !== null &&
+    isMetricCheckInDue(
+      loaded.metricCheckInSchedule.nextDueAt,
+      nowMs,
+      silencedMetricIds,
+    ) &&
+    firstScorablePulse(visiblePulses, silencedMetricIds) !== null;
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -670,17 +767,13 @@ function PopupContent({
   );
 
   useEffect(() => {
-    setHeldMetricDue(setMetricDue, timerDue, false);
-  }, [timerDue]);
-
-  useEffect(() => {
     let cancelled = false;
     Promise.all([
       listMetrics(),
       listPulses(),
       listTasks(),
-      loadTodayStretches(),
       getTimerState(),
+      getMetricCheckInSchedule(),
       listTags(),
       listPhases(true),
       latestPhaseCheckIn(),
@@ -690,8 +783,8 @@ function PopupContent({
           metrics,
           pulses,
           tasks,
-          workStretches,
           timer,
+          metricCheckInSchedule,
           tags,
           phases,
           latestPhase,
@@ -701,8 +794,8 @@ function PopupContent({
             metrics,
             pulses,
             tasks,
-            workStretches,
             timer,
+            metricCheckInSchedule,
             tags,
             phases,
             latestPhase,
@@ -722,14 +815,14 @@ function PopupContent({
     const refreshLive = () => {
       void Promise.all([
         listTasks(),
-        loadTodayStretches(),
         getTimerState(),
+        getMetricCheckInSchedule(),
         listTags(),
         latestPhaseCheckIn(),
-      ]).then(([tasks, workStretches, timer, tags, latestPhase]) => {
+      ]).then(([tasks, timer, metricCheckInSchedule, tags, latestPhase]) => {
         setLoaded((current) =>
           current
-            ? { ...current, tasks, workStretches, timer, tags, latestPhase }
+            ? { ...current, tasks, timer, metricCheckInSchedule, tags, latestPhase }
             : current,
         );
       });
@@ -746,15 +839,41 @@ function PopupContent({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    requestAnimationFrame(() => {
-      const brainDump = brainDumpRef.current;
-      if (brainDump) {
-        brainDump.focus();
-        setContentEditableCaretToEnd(brainDump);
+    if (!isLoaded || !panelToFocus) return;
+    let cancelled = false;
+    let frames = 0;
+    const focusShownPanel = () => {
+      if (cancelled) return;
+      if (panelToFocus.id === "now") {
+        // Focus inside the Metrics panel is what routes the 1–5 shortcuts.
+        (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
+        return;
       }
-    });
-  }, [isLoaded]);
+      if (panelToFocus.id === "assistant") {
+        const composer = panelRefs.assistant.current?.querySelector("textarea");
+        if (!composer && frames++ < 30) {
+          requestAnimationFrame(focusShownPanel);
+          return;
+        }
+        composer?.focus();
+        composer?.setSelectionRange(composer.value.length, composer.value.length);
+        return;
+      }
+      const brainDump = brainDumpRef.current;
+      if (!brainDump) {
+        // TipTap mounts a frame later (`immediatelyRender: false`), so Brain
+        // dump retries until the editor DOM exists.
+        if (frames++ < 30) requestAnimationFrame(focusShownPanel);
+        return;
+      }
+      brainDump.focus();
+      setContentEditableCaretToEnd(brainDump);
+    };
+    requestAnimationFrame(focusShownPanel);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, panelToFocus]);
 
   const syncTaskListThumb = () => {
     const list = taskListRef.current;
@@ -820,10 +939,8 @@ function PopupContent({
     setError(null);
     try {
       const updated = await setTaskStatus(task.id, status);
-      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
-        workStretches,
         tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
       });
       if (status === "completed") pulseActivity();
@@ -841,10 +958,8 @@ function PopupContent({
     setError(null);
     try {
       const updated = await setTaskWorking(task.id, working);
-      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
-        workStretches,
         tasks: loaded.tasks.map((candidate) =>
           candidate.id === task.id ? updated : candidate,
         ),
@@ -865,12 +980,10 @@ function PopupContent({
     try {
       await setTaskStatus(task.id, "active");
       const updated = await setTaskWorking(task.id, true);
-      const workStretches = await loadTodayStretches();
       setLoaded((current) =>
         current
           ? {
               ...current,
-              workStretches,
               tasks: current.tasks.map((candidate) =>
                 candidate.id === task.id ? updated : candidate,
               ),
@@ -919,9 +1032,8 @@ function PopupContent({
         ),
       );
       const tasks = await listTasks();
-      const workStretches = await loadTodayStretches();
       setLoaded((current) =>
-        current ? { ...current, tasks, workStretches } : current,
+        current ? { ...current, tasks } : current,
       );
       await emit("data-changed");
     } catch (e) {
@@ -939,10 +1051,8 @@ function PopupContent({
     try {
       const updates = await stopAllWorkingNow();
       const byId = new Map(updates.map((task) => [task.id, task]));
-      const workStretches = await loadTodayStretches();
       setLoaded({
         ...loaded,
-        workStretches,
         tasks: loaded.tasks.map((task) => byId.get(task.id) ?? task),
       });
       await emit("data-changed");
@@ -971,12 +1081,10 @@ function PopupContent({
       if (start) {
         try {
           task = await setTaskWorking(task.id, true);
-          const workStretches = await loadTodayStretches();
           setLoaded((current) =>
             current
               ? {
                   ...current,
-                  workStretches,
                   tasks: current.tasks.map((item) =>
                     item.id === task.id ? task : item,
                   ),
@@ -1002,7 +1110,6 @@ function PopupContent({
   ) => {
     if (ratingsInput.length === 0) return;
     await submitMetricCheckIn(pulse.id, ratingsInput);
-    setHeldMetricDue(setMetricDue, timerDue, true);
     pulseActivity();
     await emit("data-changed");
   };
@@ -1017,7 +1124,6 @@ function PopupContent({
     try {
       await onComplete(async () => {
         await saveMetrics(pulse, ratingsInput);
-        return timerDue ? loaded.timer.intervalMinutes : null;
       });
     } catch (e) {
       setError(String(e));
@@ -1061,11 +1167,6 @@ function PopupContent({
           task={task}
           playPause
           nowMs={nowMs}
-          clockedSeconds={workedSecondsToday(
-            loaded.workStretches,
-            nowMs,
-            task.id,
-          )}
           tabIndex={-1}
           disabled={submitting}
           onToggle={(working) => updateTaskWorking(task, working)}
@@ -1355,43 +1456,16 @@ function PopupContent({
         timerRemainingSeconds(loaded.timer.nextDueAt, nowMs) /
           (loaded.timer.intervalMinutes * 60),
       );
-  const togglePanel = (id: PopupPanelId) =>
-    setHiddenPanels((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-
-  const hideButton = (id: PopupPanelId, label: string) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      className="popup-panel__hide"
-      aria-label={`Hide ${label}`}
-      title={`Hide ${label}`}
-      onClick={() => togglePanel(id)}
-    >
-      <CancelledMark />
-    </button>
-  );
-
-  const panelStub = (id: PopupPanelId, label: string) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      className="popup-stub"
-      aria-label={`Show ${label}`}
-      title={`Show ${label}`}
-      onClick={() => togglePanel(id)}
-    >
-      <ExpandIcon />
-    </button>
-  );
-
   return (
     <div
       className="popup-workspace"
-      style={{ gridTemplateColumns: popupPanelColumns(hiddenPanels) }}
+      // Toggle strip, then one equal column per visible panel. `repeat(0, …)`
+      // is invalid CSS, so the strip stands alone when nothing is showing.
+      style={{
+        gridTemplateColumns: visiblePanels.length
+          ? `48px repeat(${visiblePanels.length}, minmax(0, 1fr))`
+          : "48px",
+      }}
       onPointerDownCapture={(event) => {
         const target = event.target;
         // Anchor (circle + list), not full-height __main — clock chrome counts as away.
@@ -1415,89 +1489,92 @@ function PopupContent({
         }
       }}
     >
-      {hiddenPanels.has("clock") ? (
-        panelStub("clock", "Timer")
-      ) : (
-        <aside className="popup-clock">
-          {hideButton("clock", "Timer")}
-          <PopupTopPanel
-            timerDue={timerDue}
-            countdown={countdown}
-            remainingRatio={remainingRatio}
-            timerPickerOpen={timerPickerOpen}
-            schedulingTimer={schedulingTimer}
-            selectedInterval={loaded.timer.intervalMinutes}
-            timerButtonRef={timerButtonRef}
-            dashboardButtonRef={dashboardButtonRef}
-            onTimerPickerOpenChange={setTimerPickerOpen}
-            onSelectInterval={(minutes) => void applyTimer(minutes)}
-            onTimerPrevious={() => {
-              const buttons = enabledPulseButtons();
-              const previous = buttons?.item((buttons?.length ?? 0) - 1);
-              (previous ?? brainDumpRef.current)?.focus();
-            }}
-            onDashboardNext={() => brainDumpRef.current?.focus()}
-            onOpenDashboard={() => void openDashboard()}
-          />
-        </aside>
-      )}
+      <PopupTopPanel
+        timerDue={timerDue}
+        countdown={countdown}
+        remainingRatio={remainingRatio}
+        timerPickerOpen={timerPickerOpen}
+        schedulingTimer={schedulingTimer}
+        selectedInterval={loaded.timer.intervalMinutes}
+        timerButtonRef={timerButtonRef}
+        onTimerPickerOpenChange={setTimerPickerOpen}
+        onSelectInterval={(minutes) => void applyTimer(minutes)}
+        onOpenDashboard={() => void openDashboard()}
+      />
 
-      {hiddenPanels.has("tasks") ? (
-        panelStub("tasks", "Tasks")
-      ) : (
-        <main className="popup-tasks">
-          {hideButton("tasks", "Tasks")}
-          <AmbientVisualizer
-            active={isDoing}
-            style={backgroundStyle}
-            tuning={backgroundTuning}
-          />
-          <MetricCheckIn
-            metrics={loaded.metrics}
-            pulses={visiblePulses}
-            submitting={submitting}
-            due={metricDue}
-            emptyCopy={
-              loaded.pulses.length
-                ? "No pulses are shown in the popup. Turn one on in Metrics."
-                : "Create a pulse in the Metrics dashboard."
-            }
-            onComplete={completePopup}
-            pulseButtonsRef={pulseButtonsRef}
-            selectedPulseButtonRef={selectedPulseButtonRef}
-            onTabBack={() => brainDumpRef.current?.focus()}
-            onTabForward={() => timerButtonRef.current?.focus()}
-          />
+      <PopupPanelToggles
+        visible={visiblePanels}
+        metricDue={metricDue}
+        icons={icons}
+        toggleRefs={toggleRefs}
+        onToggle={togglePanel}
+      />
 
-          {taskView}
-        </main>
-      )}
+      {/* Tasks and Brain dump stay mounted so their drafts survive hiding.
+          Assistant mounts the first time Chat is shown — including a restored
+          default — then stays mounted so it does not reload. */}
+      <section
+        ref={panelRefs.dump}
+        className="popup-pane popup-dump"
+        aria-label="Brain dump"
+        hidden={!visiblePanels.includes("dump")}
+      >
+        <PopupBrainDump
+          tags={loaded?.tags ?? EMPTY_TAGS}
+          editorRef={brainDumpRef}
+          busy={submitting}
+          onBusyChange={setSubmitting}
+          onError={setError}
+        />
+      </section>
 
-      {hiddenPanels.has("dump") ? (
-        panelStub("dump", "Brain dump")
-      ) : (
-        <section className="popup-dump" aria-label="Brain dump">
-          {hideButton("dump", "Brain dump")}
-          <PopupBrainDump
-            tags={loaded?.tags ?? EMPTY_TAGS}
-            editorRef={brainDumpRef}
-            busy={submitting}
-            onBusyChange={setSubmitting}
-            onError={setError}
-            onTabBack={() => dashboardButtonRef.current?.focus()}
-            onTabForward={() =>
-              (
-                selectedPulseButtonRef.current ?? timerButtonRef.current
-              )?.focus()
-            }
-          />
+      <main
+        ref={panelRefs.now}
+        className="popup-pane popup-tasks"
+        hidden={!visiblePanels.includes("now")}
+      >
+        <AmbientVisualizer
+          active={isDoing}
+          style={backgroundStyle}
+          tuning={backgroundTuning}
+        />
+        <MetricCheckIn
+          metrics={loaded.metrics}
+          pulses={visiblePulses}
+          submitting={submitting}
+          due={metricDue}
+          nowMs={nowMs}
+          silenceMinutes={loaded.metricCheckInSchedule.intervalMinutes}
+          onSilence={() => setSilenceEpoch((epoch) => epoch + 1)}
+          emptyCopy={
+            loaded.pulses.length
+              ? "No pulses are shown in the popup. Turn one on in Metrics."
+              : "Create a pulse in the Metrics dashboard."
+          }
+          onComplete={completePopup}
+          selectedPulseButtonRef={selectedPulseButtonRef}
+        />
 
-          {error && (
-            <div className="popup-workspace__error" role="alert">
-              {error}
-            </div>
-          )}
+        {taskView}
+      </main>
+
+      {popupAssistantMounted(visiblePanels, assistantOpened) && (
+        <section
+          ref={panelRefs.assistant}
+          className="popup-pane popup-assistant"
+          aria-label="Chat assistant"
+          hidden={!visiblePanels.includes("assistant")}
+        >
+          <DashboardDataProvider>
+            <AssistantView chatOnly />
+          </DashboardDataProvider>
         </section>
+      )}
+
+      {error && (
+        <div className="popup-workspace__error" role="alert">
+          {error}
+        </div>
       )}
     </div>
   );

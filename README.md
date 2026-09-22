@@ -18,6 +18,6 @@ cd src-tauri && cargo test --locked && cargo clippy --locked --all-targets -- -D
 ```
 
 See [CONTEXT.md](./CONTEXT.md) for domain language,
-[BACKLOG-FUNCTIONALITY.md](./BACKLOG-FUNCTIONALITY.md) for product work, and
+[BACKLOG-FEATURE-REQUESTS.md](./BACKLOG-FEATURE-REQUESTS.md) for product work, and
 [BACKLOG-BACKEND.md](./BACKLOG-BACKEND.md) for engineering backlog.
 Coding assistants: [AGENTS.md](./AGENTS.md) and [UI.md](./UI.md).

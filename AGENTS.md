@@ -12,22 +12,32 @@ reference by default.
 | Task | Read |
 |---|---|
 | Any implementation | `.agents/standards/coding-standards.md` |
-| Product behavior, domain words, status, Phase, Timer, or Popup | `CONTEXT.md` |
-| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
+| Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
+| Tasks table or Map | `docs/tasks.md` |
+| Overview, Calendar, Insights, or Logs | `docs/time-surfaces.md` |
+| Timer or Popup | `docs/timer-popup.md` |
+| Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
+| Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
+| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
 | Rust, SQLite, IPC, types, migrations, or Task lifecycle | the matching sections below |
-| Open product work | the relevant backlog or `FEATURE-REQUESTS.md` |
+| Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
 ## Which Nest doc to edit
 
 | Change kind | File |
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
+| Tasks table / Map behavior | `docs/tasks.md` |
+| Overview, Calendar, Insights, Logs | `docs/time-surfaces.md` |
+| Timer / Popup | `docs/timer-popup.md` |
+| Brain dump capture / Note Board | `docs/brain-dump.md` |
+| Assistant context assembly | `docs/assistant-context.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | CSS hooks, component constraints, layout constants | `UI.md` |
 | Brain dump editor invariants or library behavior | `docs/editor.md` |
-| Closing, parking, or adding durable open work | `BACKLOG-FUNCTIONALITY.md` / `BACKLOG-BACKEND.md` |
-| Incoming ideas awaiting triage | `FEATURE-REQUESTS.md` |
+| Closing, parking, or adding durable product work | `BACKLOG-FEATURE-REQUESTS.md` |
+| Engineering backlog | `BACKLOG-BACKEND.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
 | Non-obvious implementation constraints | code comments |
 
@@ -48,12 +58,7 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 ## Domain and types
 
-- Prefer domain vocabulary from `CONTEXT.md`. Use Task, Parent, Child,
-  Blocker, Dependent, Ready, Blocked, Scope, Working now, Work stretch, Worked
-  time, Phase, Pulse, Metric, Metric check-in, Brain dump, Reminder, Timer,
-  Popup, and Logs as defined there. Do not invent synonyms (todo, subitem,
-  dependency-as-jargon for either side of a Blocker edge, stopwatch for Worked
-  time, session for Work stretch, Pulse check-in for Metric check-in) in
+- Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
   `completed`, `cancelled`) from derived readiness (`Ready` / `Blocked`).
@@ -102,17 +107,8 @@ each fact in its closest authoritative source and link to it elsewhere.
 - Shared IPC and window-agnostic helpers live under `src/lib/` (`commands.ts`,
   `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
-  components, hooks). Popup code lives under `src/popup/`. Overview is
-  last-hour summary plus dump capture; Calendar is the Day/Week timetable;
-  Insights is the ranged Phase mix, per-day Worked time grouped by status as
-  of that day's end, and Metric check-in scores; Logs is filtered history.
-- Tasks UI layouts are Table and Map only. Table is the default; the last
-  chosen layout is remembered (`nest:task-view`). Table column order and widths
-  persist (`nest:task-table`); Map placement and pan/zoom persist
-  (`nest:task-map-v2`, `nest:task-map-view`). `taskGraph` /
-  `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent edges for
-  both layouts and the detail panel. The Map is a pan/zoom canvas that draws
-  those edges as an SVG overlay; its hooks and constants live in `UI.md`.
+  components, hooks). Popup code lives under `src/popup/`. Sections are
+  Overview, Calendar, Insights, Logs, Tasks, Assistant, and Settings.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view

@@ -13,6 +13,7 @@ import { RemindersView } from "./RemindersView";
 import { TagsView } from "./TagsView";
 import { TileIconSettings } from "./TileIconSettings";
 import { BrainDumpSettings } from "./BrainDumpSettings";
+import { AssistantSettings } from "./AssistantSettings";
 
 export function SettingsView() {
   const [pane, setPane] = useState<SettingsPane>(readSettingsPane);
@@ -33,6 +34,9 @@ export function SettingsView() {
         />
       </header>
       {/* Keep panes mounted so Metrics sub-state survives pane switches. */}
+      <div className="settings-slot" hidden={pane !== "assistant"}>
+        <AssistantSettings />
+      </div>
       <div className="settings-slot" hidden={pane !== "metrics"}>
         <MetricsView />
       </div>

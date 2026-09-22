@@ -13,8 +13,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Sidebar, and Greetings board.
 - Reuse `MenuSelect`, `NestIcon` / `IconPicker`, task menus, and shared icons in
   `icons.tsx` before adding controls.
-- Dashboard Section behavior lives in `CONTEXT.md`; this file records concrete
-  implementation hooks.
+- Dashboard Section behavior lives in the files `AGENTS.md` names; this file
+  records concrete implementation hooks.
 
 ## Shared controls and Section anchors
 
@@ -28,8 +28,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   sibling toolbar such as `RangeToolbar`; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
   No per-Section size overrides.
-- Tasks: `.task-table`. No Working now play control or Readiness column in the
-  table; start work from the detail panel.
+- Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
+  when unset). Column order and widths persist in `nest:task-table`. No
+  Working now play control or Readiness column in the table; start work from
+  the detail panel.
 - Tasks Map: `.task-map` fills the workspace. `.task-map__viewport` clips a
   6000x4000 `.task-map__canvas` that carries the pan/zoom transform; the
   sidebar `.task-map__tray` (composer row plus unplaced open tasks) and
@@ -61,10 +63,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   name and `.dash-header__layout-save` stores the current board under that
   name, keeping up to five snapshots in `nest:overview-layout-snapshots`. Tiles
   stack by stored y/x order below 861px, where drag and resize are disabled.
-  `MetricCheckIn` is shared with the Popup. The read-only Tasks peek uses
-  `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
-  is today-only with
-  `dayChrome={false}`. There is no dashboard dump modal or Sidebar dump button.
+  `MetricCheckIn` is shared with the Popup. The Metric title carries
+  `.metric-step__silence`, a pointer-only control that skips that Metric for
+  the Metric check-in interval (`nest:silenced-metrics`); the due glow drops
+  only when the Pulse has no Metric left to score. The read-only Tasks peek
+  uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
+  uses the same 30-day history as Logs, with `dayChrome` on when expanded.
+  There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
   color persists in `nest.floating-brain-dumps`. The Note Board is
@@ -86,6 +91,49 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   when unset; migrates legacy `layout` + `rawFilter`). Phases is always
   aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
   rows (`LogsEvents`); Timeline keeps `.logs-chrono`.
+- Assistant: `.dash-section--assistant` with Chat / Config panes via
+  `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
+  thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
+  and editor. Chat titles use `useInlineRename`. Composer and prompt drafts
+  persist in `nest:assistant-chat-drafts` and `nest:assistant-prompt-drafts`.
+  Popup Chat removes the sidebar: `.assistant-popup-chat-picker` keeps New
+  chat and the chat switcher in one row, followed by a four-control context
+  row sized for the Popup pane. Popup Chat uses compact 28px controls and
+  reduced thread/composer type without changing Dashboard Assistant sizing.
+  Config has a fixed icon-only left sidebar for Chat and System. The selected
+  group's `ViewToggle` stays at the top-left: Chat contains the four signals
+  and Prompt; System contains System instructions, Model, and Layout. Each
+  Chat section has an `IconPickerButton` for the composer menu of that signal
+  or Prompt; the choice persists in `nest:assistant-context` with the rest of
+  Config. Those Nest icons ride in as `MenuSelect` markers, sized at 16px by
+  `shared-controls.css` — the menu is portaled out of the composer, so marker
+  styling cannot be scoped to a feature. The API key is in Settings →
+  Assistant. Signal and Layout sections use `.assistant-signal`:
+  a fixed 320px controls rail on the left and a `.assistant-output` preview
+  of the current records on the right at every dashboard width.
+  Option lists, defaults, Task detail, active System
+  instructions and the template persist in `nest:assistant-context`; every Save also adds an immutable local instruction version. System instruction versions appear in a scrollable sidebar and open in a right panel. The Rust boundary streams OpenAI output; each user
+  message stores its full sent message and system-instructions snapshot. Dashboard user messages have an `Open` control
+  that reveals that record in a right overlay panel; the renderer never receives
+  the API key; without a keyring platform-store feature the key never reaches
+  the system keychain and Send stays disabled after restart.
+- Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a
+  grid with the Timer across the top (`grid-column: 1 / -1`) and a 48px
+  `.popup-tabs` strip on the left. The strip holds one toggle per panel, each
+  `aria-pressed` for its own panel, so any of the eight combinations can be
+  showing. Tasks and metrics keeps `.popup-tabs__tab--due` for the Metric
+  check-in dot even while its panel is hidden; silencing every shown Metric
+  clears it. Panels are `.popup-pane` in one grid row, placed left to right in
+  DOM order: Brain dump, Tasks and metrics, Chat.
+  The element's own `grid-template-columns` is `48px repeat(n, minmax(0, 1fr))`
+  for the n visible panels, so they split the width evenly;
+  hidden panes are `display: none`, so they hold no column open, and
+  `.popup-pane:not([hidden]) ~ .popup-pane:not([hidden])` rules only between
+  panels. The combination persists in `nest:popup-panels` (an empty string is
+  the valid "nothing showing" choice), migrated once from the superseded
+  `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
+  Assistant mounts the first time Chat is shown,
+  including when it is part of the restored combination, then stays mounted.
 - Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
   Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
@@ -116,8 +164,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   pointer capture, and listener cleanup. Their ordering and resize rules stay
   in their own hooks.
 - Calendar drag, resize, snap, open-stretch lock, and inline editor placement
-  are defined in `CONTEXT.md` under Phase. Hook classes are `.tl-block` and
-  `.tl-block--open`.
+  are defined in [`docs/time-surfaces.md`](./docs/time-surfaces.md#calendar).
+  Hook classes are `.tl-block` and `.tl-block--open`.
 
 ## Brain dump surface
 
