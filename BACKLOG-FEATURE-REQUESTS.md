@@ -13,12 +13,16 @@ APIs, schema, or code structure.
 - P2 need to think how to make it useable. its currently weak
 > as a user i rarely consider it/think of it
 
+## Log view
+- let users switch between different days. and click it to open up calendar and skip even quicker. im like tempted to go into how the dumps are stored and fetch.
+
 - decouple it from the timer
 
 ## Task section
 - P3: add task time feature
 - P2: user never ever states the value and effort. need to think about how to encourage user to use it more
 - P1: refine the visuals
+- P1: add a reset timer feature 
 
 ## Dashboard sections
 
@@ -53,3 +57,7 @@ figure out how the notes are arranged in the noteboard
 
 ## Brain dumps
 - for logged dumps, when i try to add tags, the visuals look bad
+
+
+# Chat assistant
+- set default config values
