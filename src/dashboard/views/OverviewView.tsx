@@ -579,12 +579,14 @@ export function OverviewView({
           label={TILE_LABELS[tile.id]}
           icon={icons[tile.id]}
           renderInlineHeader={
-            tile.id === "lastHour"
+            tile.id === "lastHour" || tile.id === "controlPanel"
               ? undefined
               : (chrome) => renderTileContent(tile, chrome)
           }
         >
-          {tile.id === "lastHour" ? renderTileContent(tile) : null}
+          {tile.id === "lastHour" || tile.id === "controlPanel"
+            ? renderTileContent(tile)
+            : null}
         </OverviewTile>
       ))}
     </div>

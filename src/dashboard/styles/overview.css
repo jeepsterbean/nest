@@ -181,18 +181,21 @@
   height: 100%;
 }
 
-.overview-tile[data-tile="lastHour"] {
+.overview-tile[data-tile="lastHour"],
+.overview-tile[data-tile="controlPanel"] {
   flex-direction: row;
   align-items: center;
 }
 
-.overview-tile[data-tile="lastHour"] .overview-tile__head {
+.overview-tile[data-tile="lastHour"] .overview-tile__head,
+.overview-tile[data-tile="controlPanel"] .overview-tile__head {
   height: 100%;
   min-height: 0;
   padding: 0 4px 0 10px;
 }
 
-.overview-tile[data-tile="lastHour"] .overview-tile__body {
+.overview-tile[data-tile="lastHour"] .overview-tile__body,
+.overview-tile[data-tile="controlPanel"] .overview-tile__body {
   height: 100%;
 }
 

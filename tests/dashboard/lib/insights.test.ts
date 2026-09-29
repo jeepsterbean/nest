@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  insightCheckInClosedTo,
   insightCheckIns,
   insightColumns,
   insightDays,
@@ -491,5 +492,25 @@ describe("insightCheckIns", () => {
         { from: 10, to: 20 },
       ),
     ).toEqual([]);
+  });
+
+  it("keeps a just-saved check-in the minute clock would still treat as future", () => {
+    const staleNowSec = 100;
+    const createdAt = 130;
+    const rangeTo = 10_000;
+    const liveTo = insightCheckInClosedTo(rangeTo, createdAt * 1000);
+    expect(createdAt < staleNowSec).toBe(false);
+    expect(
+      insightCheckIns(
+        [checkIn(1, createdAt, 1, [{ metricId: 1, value: 4 }])],
+        [metric(1, "Energy")],
+        [pulse(1, "Body", [1])],
+        { from: 0, to: liveTo },
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does not open a past range past its end", () => {
+    expect(insightCheckInClosedTo(20, 50_000)).toBe(20);
   });
 });

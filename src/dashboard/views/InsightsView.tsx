@@ -7,7 +7,12 @@ import {
 import { RangeToolbar } from "../components/RangeToolbar";
 import { useDateRange } from "../hooks/useDateRange";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { insightCheckIns, insightDays, windowInsight } from "../lib/insights";
+import {
+  insightCheckInClosedTo,
+  insightCheckIns,
+  insightDays,
+  windowInsight,
+} from "../lib/insights";
 import { layoutWorkBlocks } from "../lib/workTimeline";
 
 export function InsightsView() {
@@ -53,7 +58,7 @@ export function InsightsView() {
       ),
       checkIns: insightCheckIns(checkIns, metrics, pulses, {
         from: range.from,
-        to: closedTo,
+        to: insightCheckInClosedTo(range.to, Date.now()),
       }),
       sessions,
     };

@@ -338,6 +338,12 @@ export type InsightPulseGroup = {
 const average = (values: number[]) =>
   values.reduce((sum, value) => sum + value, 0) / values.length;
 
+/** Exclusive upper bound for the Insights check-in column. Uses a live now so
+ * a just-saved rating is not held back by the shared minute clock. `+ 1`
+ * matches dashboard reload (`to = now + 1`) against `createdAt < to`. */
+export const insightCheckInClosedTo = (rangeTo: number, nowMs: number) =>
+  Math.min(rangeTo, Math.floor(nowMs / 1000) + 1);
+
 /** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
 export const insightCheckIns = (
   checkIns: MetricCheckInWithRatings[],

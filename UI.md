@@ -57,7 +57,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   whichever tile it covers most, and the swap is refused if either tile would
   breach its minimum (Metric check-in is pinned to 4x2, so it only moves once
   the board has slack). Tile heads show a `NestIcon` chosen in Settings and
-  stored in `nest:overview-tile-icons`; the resize grip lives on the tile's own
+  stored in `nest:overview-tile-icons`. Last hour and Control panel keep the
+  default `.overview-tile__head`; the other tiles inline that icon into their
+  own header. The resize grip lives on the tile's own
   lower-right corner. The Greetings board row carries compact saved-layout
   controls beside the Timer: `.dash-header__layout-name` captures a snapshot
   name and `.dash-header__layout-save` stores the current board under that

@@ -40,8 +40,10 @@ time that day grouped by status as of that day's end (Active, Up next,
 Backlog, Completed, Cancelled), plus Completions and Cancellations with no
 Working now that day (0 Worked time). Metric check-ins sit in a dedicated
 column grouped by Pulse — average plus a tick per rating — even when the
-range has none. Outcome counts stay on Overview; Insights lists the Tasks
-and scores instead of repeating Completed / Value / Effort / Check-ins.
+range has none. That column clips at a live now so a just-saved rating
+appears as soon as data reloads; Phase mix and the task ledger stay on the
+shared minute clock. Outcome counts stay on Overview; Insights lists the
+Tasks and scores instead of repeating Completed / Value / Effort / Check-ins.
 
 ## Calendar
 
