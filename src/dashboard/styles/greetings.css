@@ -428,6 +428,11 @@
   display: inline-flex;
 }
 
+/* Picked NestIcons default to a heavier stroke than the built-in nav SVGs. */
+.dash-nav__icon svg {
+  stroke-width: 1.8;
+}
+
 .dash-nav__label {
   position: absolute;
   z-index: 40;

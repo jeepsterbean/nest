@@ -56,7 +56,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   cells, so when there is nowhere to push the dragged tile trades slots with
   whichever tile it covers most, and the swap is refused if either tile would
   breach its minimum (Metric check-in is pinned to 4x2, so it only moves once
-  the board has slack). Tile heads show a `NestIcon` chosen in Settings and
+  the board has slack). Tile heads show a `NestIcon` chosen in Settings (or,
+  for Tasks, Timeline, and Brain dump, in the Tasks, Logs, and Brain dump
+  Section heads) and
   stored in `nest:overview-tile-icons`. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
   own header. The resize grip lives on the tile's own
@@ -85,14 +87,22 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.floating-brain-dumps-toggle` hides or restores
   free stickies without minimising them or hiding the Note Board.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
-- Insights: scoreboard `.dash-section--insights` with `.insight-mix`,
-  `.insight-ledger`, and `.insight-pulses`. Range is remembered in
-  `nest:date-range` (Day when unset; reads legacy `nest:insights-range`).
+- Insights: scoreboard `.dash-section--insights` with `.insight-summary`
+  (outcome `.day-stats` plus `.insight-mix`), `.insight-ledger`, and
+  `.insight-pulses`. Day / Week share `nest:date-range` with Calendar
+  (Day when unset; reads legacy `nest:insights-range`). Last hour is
+  Insights-only in `nest:insights-range-mode`; Earlier / Later / Today
+  hide on that filter.
 - Logs: `.dash-section--logs` with one `ViewToggle` (Timeline / Brain dumps /
   Phases / Metrics / Raw). Last view is stored in `nest:logs-preferences` (Raw
   when unset; migrates legacy `layout` + `rawFilter`). Phases is always
   aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
-  rows (`LogsEvents`); Timeline keeps `.logs-chrono`.
+  rows (`LogsEvents`); Timeline keeps `.logs-chrono`. The toolbar ends with a
+  `.dash-section__tile-icon` picker, shared with the Tasks and Brain dump heads, that
+  writes the `timeline` slot in `nest:overview-tile-icons`.
+- Sidebar: Logs, Tasks, and Brain dump render their picked `NestIcon` from
+  `nest:overview-tile-icons` (`timeline` / `tasks` / `brainDump`); other
+  Sections keep their fixed SVGs.
 - Assistant: `.dash-section--assistant` with Chat / Config panes via
   `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
@@ -136,8 +146,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
-- Settings: `.dash-section--settings` with Metrics / Phases / Tags / Reminders /
-  Last hour / Tasks / Timeline / Brain dump / Control panel / Background panes
+- Settings: `.dash-section--settings` with Assistant / Metrics / Phases /
+  Reminders / Last hour / Control panel / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
   (Metrics when unset). Panes stay mounted in `.settings-slot` through
   `hidden` so Metrics sub-state survives switches. Metrics uses
@@ -175,9 +185,20 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
 read-only sticky positioned 12px to the right of the opening cursor and centered
 on its y-coordinate. It closes on an outside click or Escape.
-Settings uses `BrainDumpSettings` with shared range/tag controls and a responsive
-`.brain-dump-history__grid` of 154px-tall saved-sticky previews; clicking a
-preview opens the same cursor-positioned sticky.
+The Brain dump Section (`BrainDumpView`, `.dash-section--brain-dump`) has a
+head with a History / Tags `ViewToggle` and, at its right end, the Overview tile
+icon picker. The last pane is stored in `nest:brain-dump-pane` (History when
+unset). Both panes stay mounted in `.brain-dump-section__pane` through `hidden`
+so History filters and an unsent Tag name survive switches.
+`BrainDumpHistory` has range/tag controls and groups previews under local-day
+labels (`.brain-dump-history__day`), each with a responsive
+`.brain-dump-history__grid` of 154px-tall `.brain-dump-history__item` stickies
+in a light `--dump` wash; inside a day, previews show only the time. Text cuts
+off inside `.brain-dump-history__open`, which opens the same cursor-positioned
+sticky, above a `BrainDumpTags` strip pinned to the bottom edge
+(`selectedOnly`): the dump's Tags as static chips in a sideways-scrolling row,
+with the `…` menu pinned at the right; it opens downward and adds or removes
+Tags on the saved dump immediately.
 
 Editor ownership, synchronization, dependency findings, diagnosis, and manual
 checks live in [docs/editor.md](./docs/editor.md). For changes to editable

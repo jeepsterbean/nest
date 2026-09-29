@@ -26,7 +26,10 @@ import {
   useDashboardData,
 } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useTileIcons } from "../hooks/useTileIcons";
+import { writeTileIcon } from "../lib/tileIcons";
 import { historyStartSec } from "../lib/time";
+import { IconPickerButton } from "../components/PulseIcon";
 import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
 import { DayExportButton, LogsTimeline } from "./LogsTimeline";
@@ -143,6 +146,7 @@ export function LogsView() {
     mutate,
   } = useDashboardData();
   const [preferences, setPreferences] = useState(readLogsPreferences);
+  const icons = useTileIcons();
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
@@ -262,6 +266,13 @@ export function LogsView() {
           options={LOG_VIEWS}
           label="Logs view"
           onChange={(nextView) => updatePreferences({ view: nextView })}
+        />
+        {/* Logs shares the Overview Timeline tile's icon slot. */}
+        <IconPickerButton
+          className="dash-section__tile-icon"
+          icon={icons.timeline}
+          label="Logs"
+          onChange={(nextIcon) => writeTileIcon("timeline", nextIcon)}
         />
       </div>
       <div className="dash-section__body">

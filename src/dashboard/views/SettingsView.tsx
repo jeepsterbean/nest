@@ -10,9 +10,7 @@ import { BackgroundView } from "./BackgroundView";
 import { MetricsView } from "./MetricsView";
 import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
-import { TagsView } from "./TagsView";
 import { TileIconSettings } from "./TileIconSettings";
-import { BrainDumpSettings } from "./BrainDumpSettings";
 import { AssistantSettings } from "./AssistantSettings";
 
 export function SettingsView() {
@@ -43,23 +41,11 @@ export function SettingsView() {
       <div className="settings-slot" hidden={pane !== "phases"}>
         <PhasesView />
       </div>
-      <div className="settings-slot" hidden={pane !== "tags"}>
-        <TagsView />
-      </div>
       <div className="settings-slot" hidden={pane !== "reminders"}>
         <RemindersView />
       </div>
       <div className="settings-slot" hidden={pane !== "lastHour"}>
         <TileIconSettings tileId="lastHour" />
-      </div>
-      <div className="settings-slot" hidden={pane !== "tasks"}>
-        <TileIconSettings tileId="tasks" />
-      </div>
-      <div className="settings-slot" hidden={pane !== "timeline"}>
-        <TileIconSettings tileId="timeline" />
-      </div>
-      <div className="settings-slot" hidden={pane !== "brainDump"}>
-        <BrainDumpSettings />
       </div>
       <div className="settings-slot" hidden={pane !== "controlPanel"}>
         <TileIconSettings tileId="controlPanel" />

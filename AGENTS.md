@@ -108,7 +108,8 @@ each fact in its closest authoritative source and link to it elsewhere.
   `types.ts`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
   components, hooks). Popup code lives under `src/popup/`. Sections are
-  Overview, Calendar, Insights, Logs, Tasks, Assistant, and Settings.
+  Overview, Calendar, Insights, Logs, Tasks, Brain dump, Assistant, and
+  Settings.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view

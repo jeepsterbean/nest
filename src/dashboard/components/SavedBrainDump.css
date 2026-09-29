@@ -75,38 +75,3 @@
   max-width: 100%;
   background: var(--surface);
 }
-
-.brain-dump-history__filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-}
-
-.brain-dump-history__filters .menu-select {
-  width: 180px;
-}
-
-.brain-dump-history__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  align-items: start;
-  gap: 14px;
-}
-
-.brain-dump-history__grid .saved-brain-dump {
-  height: 154px;
-  background: var(--surface);
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.brain-dump-history__grid .saved-brain-dump:hover {
-  border-color: color-mix(in srgb, var(--dump) 48%, var(--border));
-}
-
-.brain-dump-history__grid .saved-brain-dump:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}

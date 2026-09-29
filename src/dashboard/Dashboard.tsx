@@ -20,6 +20,7 @@ import { CalendarView } from "./views/CalendarView";
 import { InsightsView } from "./views/InsightsView";
 import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
+import { BrainDumpView } from "./views/BrainDumpView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
 import { phaseName, phaseTone } from "./lib/period";
@@ -96,6 +97,7 @@ function DashboardInner() {
           {view === "insights" && <InsightsView />}
           {view === "logs" && <LogsView />}
           {view === "tasks" && <TasksView />}
+          {view === "brainDump" && <BrainDumpView />}
           {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
           {view === "settings" && <SettingsView />}
         </div>

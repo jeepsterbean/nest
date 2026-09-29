@@ -4,11 +4,14 @@ import type { BrainDumpTag, Tag } from "../../lib/types";
 const RECENT_TAG_LIMIT = 5;
 const PRUNE_GRACE_MS = 1500;
 
-export function composerTags(tags: Tag[], selectedIds: number[]) {
-  const selected = selectedIds.flatMap((id) => {
+const selectedTags = (tags: Tag[], selectedIds: number[]) =>
+  selectedIds.flatMap((id) => {
     const tag = tags.find((candidate) => candidate.id === id);
     return tag ? [tag] : [];
   });
+
+export function composerTags(tags: Tag[], selectedIds: number[]) {
+  const selected = selectedTags(tags, selectedIds);
   const selectedSet = new Set(selectedIds);
   const recent = tags
     .filter((tag) => tag.lastUsedAt !== null && !selectedSet.has(tag.id))
@@ -42,6 +45,7 @@ export function BrainDumpTags({
   disabled = false,
   autoOpen = false,
   dismissVersion = 0,
+  selectedOnly = false,
   onChange,
 }: {
   tags: Tag[];
@@ -49,6 +53,8 @@ export function BrainDumpTags({
   disabled?: boolean;
   autoOpen?: boolean;
   dismissVersion?: number;
+  /** Show only the selected Tags, as static chips; the menu edits them. */
+  selectedOnly?: boolean;
   onChange: (ids: number[]) => void;
 }) {
   const [open, setOpen] = useState(autoOpen);
@@ -56,8 +62,8 @@ export function BrainDumpTags({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const visibleTags = useMemo(
-    () => composerTags(tags, selectedIds),
-    [selectedIds, tags],
+    () => selectedOnly ? selectedTags(tags, selectedIds) : composerTags(tags, selectedIds),
+    [selectedOnly, selectedIds, tags],
   );
   const filteredTags = tags.filter((tag) =>
     tag.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -71,13 +77,15 @@ export function BrainDumpTags({
   // followed by re-selecting the same id elsewhere stays selected until the
   // grace period elapses. Raise PRUNE_GRACE_MS if reloads start lagging it.
   useEffect(() => {
-    if (disabled) return;
+    // A selected-only strip shows a saved dump, where pruning would write to
+    // the record; the backend already drops deleted Tags from saved dumps.
+    if (disabled || selectedOnly) return;
     const availableIds = new Set(tags.map((tag) => tag.id));
     const validIds = selectedIds.filter((id) => availableIds.has(id));
     if (validIds.length === selectedIds.length) return;
     const timeout = setTimeout(() => onChange(validIds), PRUNE_GRACE_MS);
     return () => clearTimeout(timeout);
-  }, [disabled, onChange, selectedIds, tags]);
+  }, [disabled, onChange, selectedOnly, selectedIds, tags]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,6 +135,13 @@ export function BrainDumpTags({
     <div ref={rootRef} className="brain-dump-tags">
       <div className="brain-dump-tags__scroll" aria-label="Brain dump tags">
         {visibleTags.map((tag) => {
+          if (selectedOnly) {
+            return (
+              <span key={tag.id} className="brain-dump-tag" title={tag.name}>
+                {tag.name}
+              </span>
+            );
+          }
           const selected = selectedIds.includes(tag.id);
           return (
             <button

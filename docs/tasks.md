@@ -3,6 +3,9 @@
 Table and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md).
 CSS hooks and persistence keys live in [`UI.md`](../UI.md).
 
+The Tasks head ends with an icon picker; the picked icon marks Tasks in the
+sidebar and heads the Overview Tasks tile.
+
 ## Table
 
 Table is the default Tasks layout (Map is the other); last choice is

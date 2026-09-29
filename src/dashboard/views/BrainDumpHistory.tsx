@@ -1,4 +1,6 @@
 import { useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { updateBrainDumpTags } from "../../lib/commands";
+import { BrainDumpTags } from "../components/BrainDumpTags";
 import { MenuSelect } from "../components/MenuSelect";
 import {
   SavedBrainDump,
@@ -7,12 +9,11 @@ import {
 } from "../components/SavedBrainDump";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { filterBrainDumpHistory } from "../lib/brainDumpHistory";
+import { filterBrainDumpHistory, groupBrainDumpsByDay } from "../lib/brainDumpHistory";
 import { useCurrentTime } from "../hooks/useCurrentTime";
-import { TileIconSettings } from "./TileIconSettings";
 
-export function BrainDumpSettings() {
-  const { brainDumps, tags, loaded } = useDashboardData();
+export function BrainDumpHistory() {
+  const { brainDumps, tags, loaded, mutate } = useDashboardData();
   const [days, setDays] = useState("7");
   const [tagId, setTagId] = useState("");
   const [openedDump, setOpenedDump] = useState<{
@@ -24,6 +25,7 @@ export function BrainDumpSettings() {
     () => filterBrainDumpHistory(brainDumps, Number(days), tagId, Date.now()),
     [brainDumps, days, tagId, nowMs],
   );
+  const dumpDays = useMemo(() => groupBrainDumpsByDay(dumps, nowMs), [dumps, nowMs]);
 
   const openDump = (dump: (typeof brainDumps)[number], event: MouseEvent<HTMLElement>) => {
     setOpenedDump({ dump, position: { x: event.clientX, y: event.clientY } });
@@ -37,8 +39,7 @@ export function BrainDumpSettings() {
   };
 
   return (
-    <div className="settings-pane">
-      <TileIconSettings tileId="brainDump" embedded />
+    <div className="brain-dump-history">
       <div className="brain-dump-history__filters">
         <ViewToggle
           value={days}
@@ -54,20 +55,33 @@ export function BrainDumpSettings() {
           onChange={setTagId}
         />
       </div>
-      <div className="brain-dump-history__grid" aria-label="Past brain dumps">
-        {dumps.map((dump) => (
-          <div
-            key={dump.id}
-            role="button"
-            tabIndex={0}
-            aria-label="Open saved brain dump"
-            onClick={(event) => openDump(dump, event)}
-            onKeyDown={(event) => openDumpFromKeyboard(dump, event)}
-          >
-            <SavedBrainDump dump={dump} />
+      {dumpDays.map((day) => (
+        <section key={day.dayMs} className="brain-dump-history__day" aria-label={day.label}>
+          <h3 className="brain-dump-history__day-label">{day.label}</h3>
+          <div className="brain-dump-history__grid">
+            {day.dumps.map((dump) => (
+              <div key={dump.id} className="brain-dump-history__item">
+                <div
+                  className="brain-dump-history__open"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open saved brain dump"
+                  onClick={(event) => openDump(dump, event)}
+                  onKeyDown={(event) => openDumpFromKeyboard(dump, event)}
+                >
+                  <SavedBrainDump dump={dump} preview />
+                </div>
+                <BrainDumpTags
+                  tags={tags}
+                  selectedIds={dump.tags.map((tag) => tag.id)}
+                  selectedOnly
+                  onChange={(tagIds) => void mutate(() => updateBrainDumpTags(dump.id, tagIds))}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      ))}
       {openedDump && (
         <SavedBrainDumpPopover
           dump={openedDump.dump}

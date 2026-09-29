@@ -1,25 +1,25 @@
-import {
-  RANGE_MODES,
-  type RangeModeKey,
-} from "../lib/insights";
 import { ViewToggle } from "./ViewToggle";
 
-export function RangeToolbar({
+export function RangeToolbar<T extends string>({
   label,
   mode,
+  options,
   title,
   canGoBack,
   isNow,
+  paging = true,
   onMode,
   onStep,
   onToday,
 }: {
   label: string;
-  mode: RangeModeKey;
+  mode: T;
+  options: readonly { key: T; label: string }[];
   title: string;
   canGoBack: boolean;
   isNow: boolean;
-  onMode: (key: RangeModeKey) => void;
+  paging?: boolean;
+  onMode: (key: T) => void;
   onStep: (direction: number) => void;
   onToday: () => void;
 }) {
@@ -27,32 +27,34 @@ export function RangeToolbar({
     <div className="dash-toolbar">
       <ViewToggle
         value={mode}
-        options={RANGE_MODES}
+        options={options}
         label={label}
         onChange={onMode}
       />
-      <div className="range-nav">
-        <button
-          type="button"
-          aria-label="Earlier"
-          disabled={!canGoBack}
-          onClick={() => onStep(-1)}
-        >
-          ←
-        </button>
-        <span className="range-nav__title">{title}</span>
-        <button
-          type="button"
-          aria-label="Later"
-          disabled={isNow}
-          onClick={() => onStep(1)}
-        >
-          →
-        </button>
-        <button type="button" disabled={isNow} onClick={onToday}>
-          Today
-        </button>
-      </div>
+      {paging ? (
+        <div className="range-nav">
+          <button
+            type="button"
+            aria-label="Earlier"
+            disabled={!canGoBack}
+            onClick={() => onStep(-1)}
+          >
+            ←
+          </button>
+          <span className="range-nav__title">{title}</span>
+          <button
+            type="button"
+            aria-label="Later"
+            disabled={isNow}
+            onClick={() => onStep(1)}
+          >
+            →
+          </button>
+          <button type="button" disabled={isNow} onClick={onToday}>
+            Today
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

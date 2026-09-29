@@ -92,14 +92,6 @@ export const calendarIcon = (
   </svg>
 );
 
-export const logsIcon = (
-  <svg {...iconProps}>
-    <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
-    <path d="M8 4v16" />
-    <path d="M11 8h5" />
-  </svg>
-);
-
 export const assistantIcon = (
   <svg {...iconProps}>
     <path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.5a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
@@ -118,13 +110,6 @@ export const sendIcon = (
   <svg {...iconProps}>
     <path d="m4 4 17 8-17 8 3-8Z" />
     <path d="M7 12h14" />
-  </svg>
-);
-
-export const tasksIcon = (
-  <svg {...iconProps}>
-    <rect x="3" y="3" width="18" height="18" rx="3" />
-    <path d="m8 12 2.5 2.5L16 9" />
   </svg>
 );
 

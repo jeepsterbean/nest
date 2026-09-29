@@ -7,14 +7,18 @@ Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in
 Insights and Calendar share Day and Week (Week starts Monday), anchored to
 real dates and paged with Earlier / Later / Today rather than measured back
 from now; paging stops where the loaded 30 days of history end. The last
-chosen range is remembered (`nest:date-range`); first visit is Day.
+chosen Day / Week is remembered (`nest:date-range`); first visit is Day.
+Insights also has Last hour — a rolling 60 minutes from now. That filter is
+Insights-only (`nest:insights-range-mode`) so Calendar stays on Day / Week.
 
 ## Overview
 
-Overview shows a lean last-hour summary: outcome stats (Completed, Value,
-Effort, Check-ins) and duration totals for Doing, Scoping, Resting, and
-Offline (Idle time is counted as Offline). A quiet hour still shows those
-figures as 0, not as missing; live rolling summaries refresh as time passes.
+Overview's Last hour tile is the compact surface of Insights' Last hour
+filter: the same outcome stats (Completed, Value, Effort, Check-ins) and
+duration totals for Doing, Scoping, Resting, and Offline (Idle time is
+counted as Offline). A quiet hour still shows those figures as 0, not as
+missing. The tile keeps its own refresh: it recomputes when dashboard data
+reloads, not on the minute clock.
 
 Overview is a persistent tile board with that summary, a read-only Tasks peek
 (Status, Title, Value, Effort) with Open / Closed and a button that opens the
@@ -35,15 +39,17 @@ Sidebar.
 
 ## Insights
 
-Insights is the longer look: a Phase mix for the range, Tasks with Worked
-time that day grouped by status as of that day's end (Active, Up next,
-Backlog, Completed, Cancelled), plus Completions and Cancellations with no
-Working now that day (0 Worked time). Metric check-ins sit in a dedicated
-column grouped by Pulse — average plus a tick per rating — even when the
-range has none. That column clips at a live now so a just-saved rating
-appears as soon as data reloads; Phase mix and the task ledger stay on the
-shared minute clock. Outcome counts stay on Overview; Insights lists the
-Tasks and scores instead of repeating Completed / Value / Effort / Check-ins.
+Insights is the longer look for Day, Week, or Last hour. Every range shows
+outcome stats (Completed, Value, Effort, Check-ins; a quiet range still
+prints 0) above a Phase mix, then Tasks with Worked time that day grouped
+by status as of that day's end (Active, Up next, Backlog, Completed,
+Cancelled), plus Completions and Cancellations with no Working now that
+day (0 Worked time). Metric check-ins sit in a dedicated column grouped by
+Pulse — average plus a tick per rating — even when the range has none.
+That column clips at a live now so a just-saved rating appears as soon as
+data reloads; Phase mix and the task ledger stay on the shared minute
+clock. Last hour uses that same board on a rolling 60-minute window;
+Overview's Last hour tile is the stats and Phase totals from that window.
 
 ## Calendar
 
@@ -91,5 +97,6 @@ are grouped by day; Phase totals end at midnight for past days and at the
 current time for Today. Metric check-ins show the Pulse icon and Metric
 scores on one row at the same height as brain dumps and Working now marks.
 Brain dumps keep that row height when their read-only sticky opens. Pulse,
-Metric, and brain dump icons stand in for names. The filters are the only
-chrome at the top of Logs.
+Metric, and brain dump icons stand in for names. The top of Logs holds only
+the filters and an icon picker; the picked icon marks Logs in the sidebar and
+heads the Overview Timeline tile.

@@ -27,7 +27,7 @@ export function TagsView() {
   };
 
   return (
-    <div className="settings-pane settings-pane--tags tags-view">
+    <div className="tags-view">
       <form className="tags-view__create" onSubmit={create}>
         <input
           value={name}

@@ -230,6 +230,30 @@
   margin: 0 0 14px;
 }
 
+/* Section-head icon picker for the Section's sidebar and Overview tile icon.
+   Sized to the segmented control so the head reads as one row. */
+.dash-section__tile-icon {
+  margin-left: auto;
+}
+
+.dash-section__tile-icon .phase-settings__control {
+  width: 30px;
+  height: 30px;
+  border-color: var(--border);
+  border-radius: 8px;
+}
+
+.dash-section__tile-icon .phase-settings__control svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The trigger sits at the right edge, so open the picker leftward. */
+.dash-section__tile-icon .icon-picker {
+  right: 0;
+  left: auto;
+}
+
 .dash-section__head .dash-toolbar {
   margin: 0;
 }

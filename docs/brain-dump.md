@@ -16,9 +16,15 @@ content by forking it into a draft.
 Expanding a saved dump in Logs opens a read-only sticky 12px to the right of
 the cursor, centered at its height, and it closes on an outside click or
 Escape. It has no editing or action controls; collapsible lists are unfolded
-for reading. Settings → Brain dump shows compact saved-sticky previews that
-open that same sticky, newest first, filtered by the past 1, 3, or 7 days and
-by Tag. The range defaults to 7 days and measures back from the current time.
+for reading. The Brain dump Section switches between two panes, History and
+Tags, and remembers the last one (History when unset); its head also holds the
+icon picker shared by the Overview tile and the sidebar. History shows compact saved-sticky previews that open that
+same sticky, newest first and grouped by day (Today, Yesterday, then the date),
+filtered by the past 1, 3, or 7 days and by Tag. The range defaults to 7 days
+and measures back from the current time. Each preview pins a Tag strip to its
+bottom edge, like a sticky: its Tags scroll sideways, and the `…` menu pinned
+at the right adds or removes Tags on that saved dump right away. Tags manages Tags (add, rename,
+delete).
 Logs can edit a saved dump's Tags, and fork a saved dump into a new unsaved
 floating draft (text and Tags). A saved brain dump being browsed in Overview
 can also be copied into a new floating draft.

@@ -1,13 +1,14 @@
 import { useMemo } from "react";
-import { PhaseMix } from "../components/DayReflection";
+import { DayStats, PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
   InsightLedger,
 } from "../components/InsightBoard";
 import { RangeToolbar } from "../components/RangeToolbar";
-import { useDateRange } from "../hooks/useDateRange";
+import { useInsightsRange } from "../hooks/useInsightsRange";
 import { useDashboardData } from "../context/DashboardDataContext";
 import {
+  INSIGHTS_RANGE_MODES,
   insightCheckInClosedTo,
   insightCheckIns,
   insightDays,
@@ -27,7 +28,7 @@ export function InsightsView() {
     phases,
     loaded,
   } = useDashboardData();
-  const range = useDateRange();
+  const range = useInsightsRange();
 
   const insight = useMemo(() => {
     const nowSec = range.nowSec;
@@ -39,7 +40,7 @@ export function InsightsView() {
       range.to,
       range.nowMs,
     );
-    const { sessions } = windowInsight(
+    const { stats, sessions } = windowInsight(
       tasks,
       taskStatusEvents,
       checkIns,
@@ -49,6 +50,7 @@ export function InsightsView() {
       closedTo,
     );
     return {
+      stats,
       days: insightDays(
         range.columns,
         blocks,
@@ -83,9 +85,11 @@ export function InsightsView() {
       <RangeToolbar
         label="Insights range"
         mode={range.mode}
+        options={INSIGHTS_RANGE_MODES}
         title={range.title}
         canGoBack={range.canGoBack}
         isNow={range.isNow}
+        paging={range.paging}
         onMode={range.selectMode}
         onStep={range.step}
         onToday={range.goToday}
@@ -93,9 +97,15 @@ export function InsightsView() {
       <div className="dash-section__body">
         {!loaded ? null : (
           <div className="insights-body">
-            <PhaseMix sessions={insight.sessions} phases={phases} />
+            <div className="insight-summary">
+              <DayStats stats={insight.stats} />
+              <PhaseMix sessions={insight.sessions} phases={phases} />
+            </div>
             <div className="insights-board">
-              <InsightLedger days={insight.days} mode={range.mode} />
+              <InsightLedger
+                days={insight.days}
+                mode={range.mode === "week" ? "week" : "day"}
+              />
               <InsightCheckIns groups={insight.checkIns} />
             </div>
           </div>

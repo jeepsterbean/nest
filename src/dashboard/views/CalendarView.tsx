@@ -12,7 +12,7 @@ import {
   renameTask,
   updateTaskWorkStretch,
 } from "../../lib/commands";
-import { openAtPct } from "../lib/insights";
+import { openAtPct, RANGE_MODES } from "../lib/insights";
 import { isQuietPhase } from "../lib/period";
 import { phaseSessionsInWindow } from "../lib/timeline";
 import { layoutWorkBlocks } from "../lib/workTimeline";
@@ -73,6 +73,7 @@ export function CalendarView() {
       <RangeToolbar
         label="Calendar range"
         mode={range.mode}
+        options={RANGE_MODES}
         title={range.title}
         canGoBack={range.canGoBack}
         isNow={range.isNow}

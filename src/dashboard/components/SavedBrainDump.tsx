@@ -4,7 +4,11 @@ import type { BrainDump } from "../../lib/types";
 import { formatDate, formatTime } from "../lib/time";
 import "./SavedBrainDump.css";
 
-export function SavedBrainDump({ dump }: { dump: BrainDump }) {
+export function SavedBrainDump({ dump, preview = false }: {
+  dump: BrainDump;
+  /** History preview: a day heading names the date and the caller pins the Tags. */
+  preview?: boolean;
+}) {
   // History is a static snapshot: unfold lists so all text is readable without controls.
   const html = brainDumpStorageToDisplayHtml(dump.text)
     .replace(/<(\/?)details\b[^>]*>/gi, "<$1div>")
@@ -13,10 +17,10 @@ export function SavedBrainDump({ dump }: { dump: BrainDump }) {
   return (
     <article className="saved-brain-dump" aria-label="Saved brain dump">
       <time dateTime={new Date(dump.createdAt * 1000).toISOString()}>
-        {formatDate(dump.createdAt)} · {formatTime(dump.createdAt)}
+        {preview ? "" : `${formatDate(dump.createdAt)} · `}{formatTime(dump.createdAt)}
       </time>
       <div className="event-dump__text" dangerouslySetInnerHTML={{ __html: html }} />
-      {dump.tags.length > 0 && (
+      {!preview && dump.tags.length > 0 && (
         <div className="event-dump__tags" aria-label="Brain dump tags">
           {dump.tags.map((tag) => <span key={tag.id}>{tag.name}</span>)}
         </div>

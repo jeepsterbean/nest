@@ -8,7 +8,13 @@ import {
   stepColumns,
   outcomeStats,
   readRangeMode,
+  lastHourColumn,
+  lastHourInsight,
+  lastHourPeriod,
+  LAST_HOUR_WINDOW_SECONDS,
+  readInsightsRangeMode,
   windowInsight,
+  writeInsightsRangeMode,
   writeRangeMode,
 } from "../../../src/dashboard/lib/insights";
 import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
@@ -69,6 +75,44 @@ describe("windowInsight", () => {
       { phaseId: 1, from: 0, to: 80 },
       { phaseId: 2, from: 80, to: 200 },
     ]);
+  });
+});
+
+describe("last hour window", () => {
+  it("is the rolling hour ending at now", () => {
+    expect(lastHourPeriod(10_000)).toEqual({
+      from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
+      to: 10_000,
+    });
+    expect(lastHourColumn(10_000)).toEqual({
+      from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
+      to: 10_000,
+      label: "Last hour",
+    });
+  });
+
+  it("is the same windowInsight slice the Last hour tile uses", () => {
+    const nowSec = 10_000;
+    expect(
+      lastHourInsight(
+        [],
+        [],
+        [],
+        [phaseCheckIn(1, nowSec - 100, 1)],
+        phases,
+        nowSec,
+      ),
+    ).toEqual(
+      windowInsight(
+        [],
+        [],
+        [],
+        [phaseCheckIn(1, nowSec - 100, 1)],
+        phases,
+        nowSec - LAST_HOUR_WINDOW_SECONDS,
+        nowSec,
+      ),
+    );
   });
 });
 
@@ -211,6 +255,17 @@ describe("insight range memory", () => {
     expect(readRangeMode(storage)).toBe("week");
     writeRangeMode("day", storage);
     expect(storage.getItem("nest:date-range")).toBe("day");
+    expect(readRangeMode(storage)).toBe("day");
+  });
+
+  it("keeps Last hour on Insights without writing it into Calendar's range", () => {
+    const storage = memory();
+    writeRangeMode("week", storage);
+    writeInsightsRangeMode("lastHour", storage);
+    expect(readInsightsRangeMode(storage)).toBe("lastHour");
+    expect(readRangeMode(storage)).toBe("week");
+    writeInsightsRangeMode("day", storage);
+    expect(readInsightsRangeMode(storage)).toBe("day");
     expect(readRangeMode(storage)).toBe("day");
   });
 });

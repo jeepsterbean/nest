@@ -5,10 +5,15 @@ import {
   useState,
   type FormEvent,
   type CSSProperties,
+  type ReactElement,
 } from "react";
 import { startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { type OverviewLayoutController } from "../lib/overviewGrid";
+import { useTileIcons } from "../hooks/useTileIcons";
+import {
+  type OverviewLayoutController,
+  type TileId,
+} from "../lib/overviewGrid";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
@@ -23,11 +28,9 @@ import {
   chevronDownIcon,
   clockIcon,
   insightsIcon,
-  logsIcon,
   overviewIcon,
   saveLayoutIcon,
   settingsIcon,
-  tasksIcon,
 } from "./icons";
 
 export type DashboardView =
@@ -36,18 +39,26 @@ export type DashboardView =
   | "insights"
   | "logs"
   | "tasks"
+  | "brainDump"
   | "assistant"
   | "settings";
 
-const VIEWS = [
+// Logs, Tasks, and Brain dump show the icon the user picked in their Section head,
+// which is the same choice their Overview tile shows.
+const VIEWS: {
+  key: DashboardView;
+  label: string;
+  icon: ReactElement | { tileId: TileId };
+}[] = [
   { key: "overview", label: "Overview", icon: overviewIcon },
   { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
-  { key: "logs", label: "Logs", icon: logsIcon },
-  { key: "tasks", label: "Tasks", icon: tasksIcon },
+  { key: "logs", label: "Logs", icon: { tileId: "timeline" } },
+  { key: "tasks", label: "Tasks", icon: { tileId: "tasks" } },
+  { key: "brainDump", label: "Brain dump", icon: { tileId: "brainDump" } },
   { key: "assistant", label: "Assistant", icon: assistantIcon },
   { key: "settings", label: "Settings", icon: settingsIcon },
-] as const;
+];
 
 export function DashboardSidebar({
   view,
@@ -56,6 +67,8 @@ export function DashboardSidebar({
   view: DashboardView;
   onSelectView: (view: DashboardView) => void;
 }) {
+  const tileIcons = useTileIcons();
+
   return (
     <aside className="dash-sidebar">
       <nav className="dash-nav" aria-label="Dashboard sections">
@@ -72,7 +85,13 @@ export function DashboardSidebar({
             aria-current={view === item.key ? "page" : undefined}
             onClick={() => onSelectView(item.key)}
           >
-            <span className="dash-nav__icon">{item.icon}</span>
+            <span className="dash-nav__icon">
+              {"tileId" in item.icon ? (
+                <NestIcon name={tileIcons[item.icon.tileId]} />
+              ) : (
+                item.icon
+              )}
+            </span>
             <span className="dash-nav__label">{item.label}</span>
           </button>
         ))}

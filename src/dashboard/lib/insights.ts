@@ -32,8 +32,18 @@ export const RANGE_MODES = [
 
 export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
+export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
+
+export const INSIGHTS_RANGE_MODES = [
+  ...RANGE_MODES,
+  { key: "lastHour", label: "Last hour" },
+] as const;
+
+export type InsightsRangeMode = (typeof INSIGHTS_RANGE_MODES)[number]["key"];
+
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
+const INSIGHTS_RANGE_MODE_KEY = "nest:insights-range-mode";
 const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
@@ -53,9 +63,39 @@ export const writeRangeMode = (
   storage.setItem(RANGE_MODE_KEY, key);
 };
 
+/**
+ * Insights can sit on Last hour without writing that into nest:date-range,
+ * so Calendar keeps Day / Week.
+ */
+export const readInsightsRangeMode = (
+  storage: RangeStorage = localStorage,
+): InsightsRangeMode => {
+  const stored = storage.getItem(INSIGHTS_RANGE_MODE_KEY);
+  return stored === "lastHour" ? "lastHour" : readRangeMode(storage);
+};
+
+export const writeInsightsRangeMode = (
+  key: InsightsRangeMode,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(INSIGHTS_RANGE_MODE_KEY, key);
+  if (key !== "lastHour") writeRangeMode(key, storage);
+};
+
+/** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
+export const lastHourPeriod = (nowSec: number): Period => ({
+  from: nowSec - LAST_HOUR_WINDOW_SECONDS,
+  to: nowSec,
+});
+
 /** One calendar day of the grid: real local midnight to real local midnight,
  * so a DST day is 23 or 25 hours long and blocks still land correctly. */
 export type InsightColumn = { from: number; to: number; label: string };
+
+export const lastHourColumn = (nowSec: number): InsightColumn => {
+  const period = lastHourPeriod(nowSec);
+  return { ...period, label: "Last hour" };
+};
 
 /** Monday-first start of the week holding `dayMs`. */
 const startOfWeekMs = (dayMs: number) =>
@@ -165,6 +205,27 @@ export const windowInsight = (
       false,
     ),
   };
+};
+
+/** Last hour tile and Insights Last hour use the same rolling window. */
+export const lastHourInsight = (
+  tasks: Task[],
+  events: TaskStatusEvent[],
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  phases: Phase[],
+  nowSec: number,
+): WindowInsight => {
+  const { from, to } = lastHourPeriod(nowSec);
+  return windowInsight(
+    tasks,
+    events,
+    checkIns,
+    phaseCheckIns,
+    phases,
+    from,
+    to,
+  );
 };
 
 export type InsightTaskRow = { task: Task; seconds: number };

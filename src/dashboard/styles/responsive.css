@@ -140,12 +140,21 @@
     padding: 18px;
   }
 
-  .dash-section--settings {
+  .dash-section--settings,
+  .dash-section--brain-dump {
     padding: 0;
   }
 
   .dash-section--settings > .dash-section__head {
     padding: 18px 18px 16px;
+  }
+
+  .dash-section--brain-dump > .dash-section__head {
+    padding: 18px 18px 16px;
+  }
+
+  .brain-dump-section__pane:not([hidden]) {
+    padding: 0 18px 18px;
   }
 
   .settings-pane {

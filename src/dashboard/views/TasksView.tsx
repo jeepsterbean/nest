@@ -9,10 +9,13 @@ import {
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
+import { IconPickerButton } from "../components/PulseIcon";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
+import { useTileIcons } from "../hooks/useTileIcons";
+import { writeTileIcon } from "../lib/tileIcons";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
 import {
   readTaskView,
@@ -42,6 +45,7 @@ const TASK_TABLE_SORT_OPTIONS = [
 export function TasksView() {
   const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
     useDashboardData();
+  const icons = useTileIcons();
   const [taskView, setTaskView] = useState(readTaskView);
   const [tableStatuses, setTableStatuses] =
     useState<TaskStatus[]>(WORKING_STATUSES);
@@ -338,6 +342,12 @@ export function TasksView() {
             }}
           />
         </div>
+        <IconPickerButton
+          className="dash-section__tile-icon"
+          icon={icons.tasks}
+          label="Tasks"
+          onChange={(nextIcon) => writeTileIcon("tasks", nextIcon)}
+        />
       </header>
 
       {!loaded ? (

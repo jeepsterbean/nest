@@ -39,7 +39,7 @@ import {
 } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
-import { windowInsight } from "../lib/insights";
+import { lastHourInsight } from "../lib/insights";
 import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
 import { type TimelineLogEvent } from "../lib/timeline";
 import { historyStartSec } from "../lib/time";
@@ -53,8 +53,6 @@ import {
   type TileLayout,
 } from "../lib/overviewGrid";
 import { LogsTimeline } from "./LogsTimeline";
-
-const OVERVIEW_WINDOW_SECONDS = 60 * 60;
 
 const OVERVIEW_TIMELINE_FILTERS = [
   { key: "timeline", label: "Timeline" },
@@ -188,18 +186,18 @@ export function OverviewView({
     [setBrainDumpDraft],
   );
 
-  const dayReflection = useMemo(() => {
-    const to = Math.floor(Date.now() / 1000);
-    return windowInsight(
-      tasks,
-      taskStatusEvents,
-      checkIns,
-      phaseCheckIns,
-      phases,
-      to - OVERVIEW_WINDOW_SECONDS,
-      to,
-    );
-  }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
+  const dayReflection = useMemo(
+    () =>
+      lastHourInsight(
+        tasks,
+        taskStatusEvents,
+        checkIns,
+        phaseCheckIns,
+        phases,
+        Math.floor(Date.now() / 1000),
+      ),
+    [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns],
+  );
 
   const historyEvents = useMemo(
     () =>
