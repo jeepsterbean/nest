@@ -55,6 +55,26 @@
   white-space: nowrap;
 }
 
+.overview-tile__icon--link {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.overview-tile__icon--link:hover,
+.overview-tile__icon--link:focus-visible {
+  outline: none;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.overview-tile__icon--link:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 .overview-tile__action {
   display: grid;
   width: 24px;
@@ -69,7 +89,8 @@
   cursor: pointer;
 }
 
-.overview-tile__head > .overview-tile__action:first-of-type {
+.overview-tile__head > .overview-tile__action:first-of-type,
+.overview-tile__head > .overview-tile__icon--link + .overview-tile__action {
   margin-left: auto;
 }
 

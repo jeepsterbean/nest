@@ -22,7 +22,7 @@ import {
   phaseSessionsInWindow,
   type PhaseSession,
 } from "./timeline";
-import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
+import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
 import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
 
 export const RANGE_MODES = [
@@ -45,6 +45,9 @@ const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
 const INSIGHTS_RANGE_MODE_KEY = "nest:insights-range-mode";
 const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
+const INSIGHTS_MODE_KEYS = new Set<string>(
+  INSIGHTS_RANGE_MODES.map((item) => item.key),
+);
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -64,14 +67,17 @@ export const writeRangeMode = (
 };
 
 /**
- * Insights can sit on Last hour without writing that into nest:date-range,
- * so Calendar keeps Day / Week.
+ * Insights keeps its own range so choosing Week there leaves Calendar alone.
+ * Until Insights has saved a Day or Week it starts from Calendar's choice,
+ * which is what the two used to share.
  */
 export const readInsightsRangeMode = (
   storage: RangeStorage = localStorage,
 ): InsightsRangeMode => {
   const stored = storage.getItem(INSIGHTS_RANGE_MODE_KEY);
-  return stored === "lastHour" ? "lastHour" : readRangeMode(storage);
+  return INSIGHTS_MODE_KEYS.has(stored ?? "")
+    ? (stored as InsightsRangeMode)
+    : readRangeMode(storage);
 };
 
 export const writeInsightsRangeMode = (
@@ -79,7 +85,23 @@ export const writeInsightsRangeMode = (
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(INSIGHTS_RANGE_MODE_KEY, key);
-  if (key !== "lastHour") writeRangeMode(key, storage);
+};
+
+/** Where one Day / Week range hook reads and saves its mode. */
+export type RangeModeStore = {
+  read: () => RangeModeKey;
+  write: (key: RangeModeKey) => void;
+};
+
+export const CALENDAR_RANGE_STORE: RangeModeStore = {
+  read: () => readRangeMode(),
+  write: (key) => writeRangeMode(key),
+};
+
+/** Last hour has no Day / Week of its own; leaving it by picking a date lands on Day. */
+export const INSIGHTS_RANGE_STORE: RangeModeStore = {
+  read: () => (readInsightsRangeMode() === "week" ? "week" : "day"),
+  write: (key) => writeInsightsRangeMode(key),
 };
 
 /** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
@@ -91,6 +113,12 @@ export const lastHourPeriod = (nowSec: number): Period => ({
 /** One calendar day of the grid: real local midnight to real local midnight,
  * so a DST day is 23 or 25 hours long and blocks still land correctly. */
 export type InsightColumn = { from: number; to: number; label: string };
+
+/** The clock span Last hour covers, e.g. "2:04 PM – 3:04 PM". */
+export const lastHourSpanLabel = (nowSec: number) => {
+  const { from, to } = lastHourPeriod(nowSec);
+  return `${formatTime(from)} – ${formatTime(to)}`;
+};
 
 export const lastHourColumn = (nowSec: number): InsightColumn => {
   const period = lastHourPeriod(nowSec);

@@ -99,9 +99,11 @@ const matchesTimelineFilter = (
 
 export function OverviewView({
   onOpenTasks,
+  onOpenLastHourInsights,
   overviewLayout,
 }: {
   onOpenTasks: () => void;
+  onOpenLastHourInsights: () => void;
   overviewLayout: Pick<
     OverviewLayoutController,
     "layout" | "resize" | "minimise" | "expand" | "hide" | "show" | "applyLayout"
@@ -576,6 +578,14 @@ export function OverviewView({
           bodyDraggable={tile.id === "controlPanel"}
           label={TILE_LABELS[tile.id]}
           icon={icons[tile.id]}
+          onOpenSection={
+            tile.id === "lastHour"
+              ? {
+                  label: "Open Last hour in Insights",
+                  open: onOpenLastHourInsights,
+                }
+              : undefined
+          }
           renderInlineHeader={
             tile.id === "lastHour" || tile.id === "controlPanel"
               ? undefined

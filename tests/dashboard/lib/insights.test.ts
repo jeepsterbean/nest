@@ -11,6 +11,7 @@ import {
   lastHourColumn,
   lastHourInsight,
   lastHourPeriod,
+  lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
   readInsightsRangeMode,
   windowInsight,
@@ -18,6 +19,7 @@ import {
   writeRangeMode,
 } from "../../../src/dashboard/lib/insights";
 import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
+import { formatTime } from "../../../src/dashboard/lib/time";
 import type {
   Metric,
   MetricCheckInWithRatings,
@@ -258,7 +260,7 @@ describe("insight range memory", () => {
     expect(readRangeMode(storage)).toBe("day");
   });
 
-  it("keeps Last hour on Insights without writing it into Calendar's range", () => {
+  it("keeps Insights' range separate from Calendar's", () => {
     const storage = memory();
     writeRangeMode("week", storage);
     writeInsightsRangeMode("lastHour", storage);
@@ -266,7 +268,22 @@ describe("insight range memory", () => {
     expect(readRangeMode(storage)).toBe("week");
     writeInsightsRangeMode("day", storage);
     expect(readInsightsRangeMode(storage)).toBe("day");
-    expect(readRangeMode(storage)).toBe("day");
+    expect(readRangeMode(storage)).toBe("week");
+  });
+
+  it("starts Insights from Calendar's range until Insights saves its own", () => {
+    const storage = memory();
+    writeRangeMode("week", storage);
+    expect(readInsightsRangeMode(storage)).toBe("week");
+    storage.setItem("nest:insights-range-mode", "month");
+    expect(readInsightsRangeMode(storage)).toBe("week");
+  });
+
+  it("labels Last hour with the clock span it covers", () => {
+    const now = new Date(2026, 8, 29, 15, 4).getTime() / 1000;
+    expect(lastHourSpanLabel(now)).toBe(
+      `${formatTime(now - 3600)} – ${formatTime(now)}`,
+    );
   });
 });
 

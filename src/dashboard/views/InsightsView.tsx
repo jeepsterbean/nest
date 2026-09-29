@@ -89,7 +89,13 @@ export function InsightsView() {
         title={range.title}
         canGoBack={range.canGoBack}
         isNow={range.isNow}
-        paging={range.paging}
+        live={range.live}
+        dayPicker={{
+          earliestSec: range.earliestSec,
+          nowMs: range.nowMs,
+          selected: { from: range.from, to: range.to },
+          onPick: range.goToDay,
+        }}
         onMode={range.selectMode}
         onStep={range.step}
         onToday={range.goToday}

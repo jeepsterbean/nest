@@ -89,10 +89,11 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
 - Insights: scoreboard `.dash-section--insights` with `.insight-summary`
   (outcome `.day-stats` plus `.insight-mix`), `.insight-ledger`, and
-  `.insight-pulses`. Day / Week share `nest:date-range` with Calendar
-  (Day when unset; reads legacy `nest:insights-range`). Last hour is
-  Insights-only in `nest:insights-range-mode`; Earlier / Later / Today
-  hide on that filter.
+  `.insight-pulses`. Its range lives in `nest:insights-range-mode`, apart
+  from Calendar's `nest:date-range` (Day when unset; Calendar also reads
+  legacy `nest:insights-range`). The toolbar title is a `DayPicker`
+  (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
+  Today and marks the title `.range-nav__live`.
 - Logs: `.dash-section--logs` with one `ViewToggle` (Timeline / Brain dumps /
   Phases / Metrics / Raw). Last view is stored in `nest:logs-preferences` (Raw
   when unset; migrates legacy `layout` + `rawFilter`). Phases is always

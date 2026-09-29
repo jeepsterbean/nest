@@ -23,6 +23,7 @@ import { TasksView } from "./views/TasksView";
 import { BrainDumpView } from "./views/BrainDumpView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
+import { writeInsightsRangeMode } from "./lib/insights";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -90,6 +91,10 @@ function DashboardInner() {
           {view === "overview" && (
             <OverviewView
               onOpenTasks={() => setView("tasks")}
+              onOpenLastHourInsights={() => {
+                writeInsightsRangeMode("lastHour");
+                setView("insights");
+              }}
               overviewLayout={overviewLayout}
             />
           )}

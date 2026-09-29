@@ -1,3 +1,4 @@
+import { DayPicker, type DayPickerProps } from "./DayPicker";
 import { ViewToggle } from "./ViewToggle";
 
 export function RangeToolbar<T extends string>({
@@ -7,7 +8,8 @@ export function RangeToolbar<T extends string>({
   title,
   canGoBack,
   isNow,
-  paging = true,
+  live = false,
+  dayPicker,
   onMode,
   onStep,
   onToday,
@@ -18,11 +20,26 @@ export function RangeToolbar<T extends string>({
   title: string;
   canGoBack: boolean;
   isNow: boolean;
-  paging?: boolean;
+  /** A rolling window that follows the clock: no paging, the title marks it live. */
+  live?: boolean;
+  /** When set, the title opens a day picker. */
+  dayPicker?: DayPickerProps;
   onMode: (key: T) => void;
   onStep: (direction: number) => void;
   onToday: () => void;
 }) {
+  const titleContent = (
+    <>
+      {title}
+      {live ? (
+        <span className="range-nav__live">
+          <span className="range-nav__live-dot" aria-hidden="true" />
+          live
+        </span>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="dash-toolbar">
       <ViewToggle
@@ -31,8 +48,8 @@ export function RangeToolbar<T extends string>({
         label={label}
         onChange={onMode}
       />
-      {paging ? (
-        <div className="range-nav">
+      <div className="range-nav">
+        {live ? null : (
           <button
             type="button"
             aria-label="Earlier"
@@ -41,20 +58,30 @@ export function RangeToolbar<T extends string>({
           >
             ←
           </button>
-          <span className="range-nav__title">{title}</span>
-          <button
-            type="button"
-            aria-label="Later"
-            disabled={isNow}
-            onClick={() => onStep(1)}
-          >
-            →
-          </button>
-          <button type="button" disabled={isNow} onClick={onToday}>
-            Today
-          </button>
-        </div>
-      ) : null}
+        )}
+        {dayPicker ? (
+          <DayPicker label={title} {...dayPicker}>
+            {titleContent}
+          </DayPicker>
+        ) : (
+          <span className="range-nav__title">{titleContent}</span>
+        )}
+        {live ? null : (
+          <>
+            <button
+              type="button"
+              aria-label="Later"
+              disabled={isNow}
+              onClick={() => onStep(1)}
+            >
+              →
+            </button>
+            <button type="button" disabled={isNow} onClick={onToday}>
+              Today
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

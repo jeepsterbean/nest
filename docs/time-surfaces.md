@@ -4,19 +4,24 @@ How those Sections show Phase, Worked time, and history. Domain words and
 Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in
 [`UI.md`](../UI.md).
 
-Insights and Calendar share Day and Week (Week starts Monday), anchored to
-real dates and paged with Earlier / Later / Today rather than measured back
-from now; paging stops where the loaded 30 days of history end. The last
-chosen Day / Week is remembered (`nest:date-range`); first visit is Day.
-Insights also has Last hour — a rolling 60 minutes from now. That filter is
-Insights-only (`nest:insights-range-mode`) so Calendar stays on Day / Week.
+Insights and Calendar both offer Day and Week (Week starts Monday), anchored
+to real dates and paged with Earlier / Later / Today rather than measured back
+from now; paging stops where the loaded 30 days of history end. Each Section
+remembers its own choice, so changing one leaves the other where it was
+(Calendar in `nest:date-range`, Insights in `nest:insights-range-mode`; first
+visit is Day, and Insights starts from Calendar's choice until it has one of
+its own). Insights also has Last hour — a rolling 60 minutes from now, titled
+with the clock span it covers and marked live, with no paging. On Insights the
+range title opens a month of days: any day from the loaded history through
+today can be picked, older and future days are greyed out, and picking a day
+while on Last hour switches to Day.
 
 ## Overview
 
 Overview's Last hour tile is the compact surface of Insights' Last hour
 filter: the same outcome stats (Completed, Value, Effort, Check-ins) and
 duration totals for Doing, Scoping, Resting, and Offline (Idle time is
-counted as Offline). A quiet hour still shows those figures as 0, not as
+counted as Offline). Clicking its icon opens Insights on Last hour. A quiet hour still shows those figures as 0, not as
 missing. The tile keeps its own refresh: it recomputes when dashboard data
 reloads, not on the minute clock.
 

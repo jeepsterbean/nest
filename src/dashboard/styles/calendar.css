@@ -330,7 +330,7 @@
   align-items: center;
 }
 
-.range-nav button {
+.range-nav > button {
   padding: 3px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -341,7 +341,7 @@
   cursor: pointer;
 }
 
-.range-nav button:disabled {
+.range-nav > button:disabled {
   color: var(--muted);
   cursor: default;
   opacity: 0.5;
@@ -353,6 +353,172 @@
   font-size: 12px;
   font-weight: 600;
   text-align: center;
+}
+
+.range-nav__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.range-nav__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--doing);
+}
+
+/* ---------- Day picker (range title) ---------- */
+
+.day-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+.day-picker > .range-nav__title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.day-picker > .range-nav__title:hover,
+.day-picker > .range-nav__title[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.day-picker > .range-nav__title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.day-picker__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 40;
+  width: 15.5rem;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px -18px color-mix(in srgb, var(--ink) 42%, transparent);
+  transform: translateX(-50%);
+}
+
+.day-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.day-picker__head button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.day-picker__head button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.day-picker__head button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.day-picker__head svg {
+  width: 14px;
+  height: 14px;
+}
+
+.day-picker__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.day-picker__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day-picker__weekday {
+  padding: 2px 0 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.day-picker__day {
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.day-picker__day.is-outside {
+  color: var(--muted);
+}
+
+.day-picker__day:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.day-picker__day:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.day-picker__day.is-today {
+  border-color: var(--border-strong);
+  font-weight: 650;
+}
+
+.day-picker__day.is-selected {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.day-picker__day:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.35;
+}
+
+.day-picker__note {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .stretch-editor {
