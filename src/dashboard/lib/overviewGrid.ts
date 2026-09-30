@@ -27,6 +27,9 @@ export const TILE_LABELS: Record<TileId, string> = {
   controlPanel: "Control panel",
 };
 
+/** DOM id shared by the Overview settings overlay and its Greetings board toggle. */
+export const OVERVIEW_SETTINGS_ID = "overview-settings";
+
 export type TileLayout = {
   id: TileId;
   x: number;

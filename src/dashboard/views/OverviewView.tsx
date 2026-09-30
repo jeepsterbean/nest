@@ -53,6 +53,7 @@ import {
   type TileLayout,
 } from "../lib/overviewGrid";
 import { LogsTimeline } from "./LogsTimeline";
+import { OverviewSettings } from "./OverviewSettings";
 
 const OVERVIEW_TIMELINE_FILTERS = [
   { key: "timeline", label: "Timeline" },
@@ -101,6 +102,8 @@ export function OverviewView({
   onOpenTasks,
   onOpenLastHourInsights,
   overviewLayout,
+  settingsOpen,
+  onCloseSettings,
 }: {
   onOpenTasks: () => void;
   onOpenLastHourInsights: () => void;
@@ -108,6 +111,8 @@ export function OverviewView({
     OverviewLayoutController,
     "layout" | "resize" | "minimise" | "expand" | "hide" | "show" | "applyLayout"
   >;
+  settingsOpen: boolean;
+  onCloseSettings: () => void;
 }) {
   const {
     tasks,
@@ -549,7 +554,8 @@ export function OverviewView({
   };
 
   return (
-    <div className="overview-grid" ref={gridRef} aria-label="Overview">
+    <div className="overview-workspace">
+      <div className="overview-grid" ref={gridRef} aria-label="Overview">
       {dropPreview ? (
         <div
           className={`overview-tile__ghost${dropPreview.valid ? "" : " is-invalid"}`}
@@ -597,6 +603,8 @@ export function OverviewView({
             : null}
         </OverviewTile>
       ))}
+      </div>
+      <OverviewSettings open={settingsOpen} onClose={onCloseSettings} />
     </div>
   );
 }

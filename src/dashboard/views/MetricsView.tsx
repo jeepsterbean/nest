@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   addMetricToPulse,
   createMetric,
@@ -19,7 +19,7 @@ import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
-import { IconPicker, NestIcon, nestIconLabel } from "../components/PulseIcon";
+import { IconPickerButton, NestIcon, nestIconLabel } from "../components/PulseIcon";
 import { Sparkline } from "../components/Sparkline";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
@@ -88,11 +88,6 @@ export function MetricsView() {
   const [newMetricName, setNewMetricName] = useState("");
   const [hiddenPulseIds, setHiddenPulseIds] = useState(readHiddenPulseIds);
   const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [metricIconPickerId, setMetricIconPickerId] = useState<number | null>(null);
-  // Held by whichever control owns the open picker. Testing the shared class
-  // instead let a click on the other control keep both pickers open at once.
-  const openIconControlRef = useRef<HTMLDivElement | null>(null);
   const nowMs = useCurrentTime();
   const nextMetricCheckIn = metricCheckInSchedule === null
     ? "Loading…"
@@ -119,20 +114,8 @@ export function MetricsView() {
     );
   }, [pulses, selectedPulseId]);
 
-  useEffect(() => {
-    if (!iconPickerOpen && metricIconPickerId === null) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (openIconControlRef.current?.contains(event.target as Node)) return;
-      setIconPickerOpen(false);
-      setMetricIconPickerId(null);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [iconPickerOpen, metricIconPickerId]);
-
   const selectPulse = (id: number) => {
     setSelectedPulseId(id);
-    setIconPickerOpen(false);
     localStorage.setItem(LAST_PULSE_KEY, String(id));
   };
   const togglePulse = (id: number) => {
@@ -198,19 +181,6 @@ export function MetricsView() {
       return;
     }
     void mutate(() => deletePulse(selectedPulse.id));
-  };
-
-  const onSetPulseIcon = async (icon: string) => {
-    if (!selectedPulse) return;
-    if (await mutate(() => setPulseIcon(selectedPulse.id, icon))) {
-      setIconPickerOpen(false);
-    }
-  };
-
-  const onSetMetricIcon = async (metric: Metric, icon: string) => {
-    if (await mutate(() => setMetricIcon(metric.id, icon))) {
-      setMetricIconPickerId(null);
-    }
   };
 
   const onSetMetricColor = async (metric: Metric, color: string | null) => {
@@ -375,28 +345,16 @@ export function MetricsView() {
             {selectedPulse ? (
               <>
                 <header className="pulse-detail__head">
-                  <div
-                    className="pulse-icon-control"
-                    ref={iconPickerOpen ? openIconControlRef : null}
-                  >
-                    <button
-                      type="button"
-                      className="pulse-icon-trigger"
-                      aria-label={`Choose icon for ${selectedPulse.name}`}
-                      title={nestIconLabel(selectedPulse.icon)}
-                      aria-expanded={iconPickerOpen}
-                      onClick={() => setIconPickerOpen((open) => !open)}
-                    >
-                      <NestIcon name={selectedPulse.icon} />
-                    </button>
-                    {iconPickerOpen && (
-                      <IconPicker
-                        value={selectedPulse.icon}
-                        label={`Icon for ${selectedPulse.name}`}
-                        onChange={(icon) => void onSetPulseIcon(icon)}
-                      />
-                    )}
-                  </div>
+                  <IconPickerButton
+                    key={selectedPulse.id}
+                    controlClassName="pulse-icon-control"
+                    triggerClassName="pulse-icon-trigger"
+                    icon={selectedPulse.icon}
+                    label={selectedPulse.name}
+                    onChange={(icon) =>
+                      void mutate(() => setPulseIcon(selectedPulse.id, icon))
+                    }
+                  />
                   <div className="pulse-detail__actions">
                     <ViewToggle
                       value={metricRange}
@@ -496,35 +454,18 @@ export function MetricsView() {
                 return (
                   <li className="pulse-metric" key={metric.id}>
                     <div className="metric-identity">
-                      <div
-                        className="metric-icon-control"
-                        ref={
-                          metricIconPickerId === metric.id
-                            ? openIconControlRef
-                            : null
+                      <IconPickerButton
+                        controlClassName="metric-icon-control"
+                        triggerClassName="metric-icon-trigger"
+                        icon={metric.icon}
+                        label={metric.name}
+                        iconColor={metricColor}
+                        color={metric.color}
+                        onColorChange={(color) => void onSetMetricColor(metric, color)}
+                        onChange={(icon) =>
+                          void mutate(() => setMetricIcon(metric.id, icon))
                         }
-                      >
-                        <button
-                          type="button"
-                          className="metric-icon-trigger"
-                          aria-label={`Choose icon for ${metric.name}`}
-                          title={nestIconLabel(metric.icon)}
-                          aria-expanded={metricIconPickerId === metric.id}
-                          onClick={() => setMetricIconPickerId((id) => id === metric.id ? null : metric.id)}
-                        >
-                          <NestIcon name={metric.icon} color={metricColor} />
-                        </button>
-                        {metricIconPickerId === metric.id && (
-                          <IconPicker
-                            value={metric.icon}
-                            label={`Icon for ${metric.name}`}
-                            color={metric.color}
-                            iconColor={metricColor}
-                            onChange={(icon) => void onSetMetricIcon(metric, icon)}
-                            onColorChange={(color) => void onSetMetricColor(metric, color)}
-                          />
-                        )}
-                      </div>
+                      />
                       {metricRename.editingId === metric.id ? (
                         <input
                           className="rename-input"

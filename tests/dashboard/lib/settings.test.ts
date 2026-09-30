@@ -22,8 +22,6 @@ describe("settings pane", () => {
     expect(readSettingsPane(storage)).toBe("phases");
     writeSettingsPane("reminders", storage);
     expect(readSettingsPane(storage)).toBe("reminders");
-    writeSettingsPane("controlPanel", storage);
-    expect(readSettingsPane(storage)).toBe("controlPanel");
   });
 
   it("falls back to Metrics for an unknown stored pane", () => {
@@ -34,7 +32,7 @@ describe("settings pane", () => {
 
   it("falls back to Metrics for panes that moved into their Sections", () => {
     const storage = memory();
-    for (const moved of ["tags", "brainDump", "timeline", "tasks"]) {
+    for (const moved of ["tags", "brainDump", "timeline", "tasks", "lastHour", "controlPanel"]) {
       storage.setItem("nest:settings-pane", moved);
       expect(readSettingsPane(storage)).toBe("metrics");
     }

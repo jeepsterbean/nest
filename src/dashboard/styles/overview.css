@@ -1,7 +1,80 @@
 /* ---------- Overview ---------- */
 
+.overview-workspace {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Above tiles and their drag ghost (z-index <= 3), below fixed menus (200+). */
+.overview-settings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 220px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: auto;
+}
+
+.overview-settings__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.overview-settings .phase-settings__row {
+  min-height: 44px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px;
+}
+
+.overview-settings .phase-settings__controls {
+  grid-template-columns: 40px;
+}
+
+.overview-settings .phase-settings__icon-control {
+  position: static;
+}
+
+.overview-settings .icon-picker {
+  right: 0;
+  left: auto;
+  width: 180px;
+  box-sizing: border-box;
+}
+
+.overview-settings .icon-picker__grid {
+  grid-template-columns: repeat(4, 36px);
+}
+
+/* The stacked board scrolls with the page, so hug the top instead of
+   stretching the full board height. */
+@media (max-width: 860px) {
+  .overview-settings {
+    bottom: auto;
+    max-height: 70vh;
+  }
+}
+
 .overview-grid {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-rows: repeat(12, minmax(0, 1fr));
   gap: 14px;

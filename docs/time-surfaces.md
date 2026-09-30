@@ -25,6 +25,13 @@ counted as Offline). Clicking its icon opens Insights on Last hour. A quiet hour
 missing. The tile keeps its own refresh: it recomputes when dashboard data
 reloads, not on the minute clock.
 
+Overview has its own configuration panel that opens over the right side of
+the tile board from the Greetings board, closed by default. It lets
+the user choose the Overview Section icon and the Control panel icon. Feature
+tiles (Tasks, Timeline, Brain dump, Metric check-in) take their icon from
+their own Section, and Last hour always uses the Insights icon. General
+Settings contains no Last hour or Control panel panes.
+
 Overview is a persistent tile board with that summary, a read-only Tasks peek
 (Status, Title, Value, Effort) with Open / Closed and a button that opens the
 Tasks section, a Logs Timeline of the same 30-day history as Logs (same marks,

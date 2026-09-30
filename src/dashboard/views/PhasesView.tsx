@@ -1,37 +1,29 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { setPhaseColor, setPhaseIcon } from "../../lib/commands";
 import { MetricColorPicker } from "../components/MetricColorPicker";
-import { IconPicker, NestIcon, nestIconLabel } from "../components/PulseIcon";
+import { IconPickerButton, NestIcon } from "../components/PulseIcon";
 import { useDashboardData } from "../context/DashboardDataContext";
-
-type OpenPicker = { phaseId: number; kind: "icon" | "color" };
 
 export function PhasesView() {
   const { phases, mutate } = useDashboardData();
-  const [openPicker, setOpenPicker] = useState<OpenPicker | null>(null);
-  // Held by the row that owns the open picker, so a click on another row's
-  // controls closes it instead of counting as inside.
-  const openControlsRef = useRef<HTMLDivElement | null>(null);
+  const [colorPickerPhaseId, setColorPickerPhaseId] = useState<number | null>(
+    null,
+  );
+  // Held by the color control that owns the open picker, so a press on its
+  // row's icon trigger or another row's controls closes it.
+  const openColorControlRef = useRef<HTMLDivElement | null>(null);
   const activePhases = phases.filter((phase) => phase.inactiveSince === null);
 
   useEffect(() => {
-    if (openPicker === null) return;
+    if (colorPickerPhaseId === null) return;
     const closePicker = (event: PointerEvent) => {
-      if (!openControlsRef.current?.contains(event.target as Node)) {
-        setOpenPicker(null);
+      if (!openColorControlRef.current?.contains(event.target as Node)) {
+        setColorPickerPhaseId(null);
       }
     };
     document.addEventListener("pointerdown", closePicker);
     return () => document.removeEventListener("pointerdown", closePicker);
-  }, [openPicker]);
-
-  const togglePicker = (phaseId: number, kind: OpenPicker["kind"]) => {
-    setOpenPicker((current) =>
-      current?.phaseId === phaseId && current.kind === kind
-        ? null
-        : { phaseId, kind },
-    );
-  };
+  }, [colorPickerPhaseId]);
 
   return (
     <div className="settings-pane settings-pane--phases phase-settings">
@@ -48,51 +40,35 @@ export function PhasesView() {
                 : undefined
             }
           >
-            <div
-              className="phase-settings__controls"
-              ref={openPicker?.phaseId === phase.id ? openControlsRef : null}
-            >
-              <div className="phase-settings__icon-control">
-                <button
-                  type="button"
-                  className="phase-settings__control"
-                  aria-label={`Choose icon for ${phase.name}`}
-                  aria-expanded={
-                    openPicker?.phaseId === phase.id &&
-                    openPicker.kind === "icon"
-                  }
-                  title={nestIconLabel(phase.icon)}
-                  onClick={() => togglePicker(phase.id, "icon")}
-                >
-                  <NestIcon name={phase.icon} />
-                </button>
-                {openPicker?.phaseId === phase.id &&
-                openPicker.kind === "icon" ? (
-                  <IconPicker
-                    value={phase.icon}
-                    label={`Icon for ${phase.name}`}
-                    onChange={(icon) =>
-                      void mutate(() => setPhaseIcon(phase.id, icon))
-                    }
-                  />
-                ) : null}
-              </div>
-              <div className="phase-settings__color-control">
+            <div className="phase-settings__controls">
+              <IconPickerButton
+                icon={phase.icon}
+                label={phase.name}
+                onChange={(icon) =>
+                  void mutate(() => setPhaseIcon(phase.id, icon))
+                }
+              />
+              <div
+                className="phase-settings__color-control"
+                ref={
+                  colorPickerPhaseId === phase.id ? openColorControlRef : null
+                }
+              >
                 <button
                   type="button"
                   className="phase-settings__control phase-settings__control--color"
                   aria-label={`Choose color for ${phase.name}`}
-                  aria-expanded={
-                    openPicker?.phaseId === phase.id &&
-                    openPicker.kind === "color"
-                  }
+                  aria-expanded={colorPickerPhaseId === phase.id}
                   title={phase.color ?? "No color"}
-                  onClick={() => togglePicker(phase.id, "color")}
+                  onClick={() =>
+                    setColorPickerPhaseId((current) =>
+                      current === phase.id ? null : phase.id,
+                    )
+                  }
                 >
                   <NestIcon name="palette" />
                 </button>
-                {openPicker?.phaseId === phase.id &&
-                openPicker.kind === "color" ? (
+                {colorPickerPhaseId === phase.id ? (
                   <MetricColorPicker
                     value={phase.color}
                     label={`Color for ${phase.name}`}

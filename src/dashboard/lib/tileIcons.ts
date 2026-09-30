@@ -2,9 +2,12 @@ import { NEST_ICONS } from "../components/PulseIcon";
 import { TILE_IDS, type TileId } from "./overviewGrid";
 
 export const TILE_ICONS_KEY = "nest:overview-tile-icons";
+export type ConfigurableOverviewIcon = "overview" | Exclude<TileId, "lastHour">;
+export type OverviewIcons = Record<TileId | "overview", string>;
 
-export const DEFAULT_TILE_ICONS: Record<TileId, string> = {
-  lastHour: "clock",
+export const DEFAULT_TILE_ICONS: OverviewIcons = {
+  overview: "layout-grid",
+  lastHour: "insights",
   tasks: "check",
   timeline: "calendar",
   brainDump: "brain",
@@ -18,7 +21,7 @@ const NEST_ICON_KEYS = new Set<string>(NEST_ICONS.map(({ key }) => key));
 
 const isTileIconsRecord = (
   value: unknown,
-): value is Partial<Record<TileId, string>> =>
+): value is Partial<OverviewIcons> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
 const isNestIconKey = (value: unknown): value is string =>
@@ -26,7 +29,7 @@ const isNestIconKey = (value: unknown): value is string =>
 
 export function readTileIcons(
   storage: Pick<Storage, "getItem"> = localStorage,
-): Record<TileId, string> {
+): OverviewIcons {
   const stored = storage.getItem(TILE_ICONS_KEY);
   if (stored === null) return { ...DEFAULT_TILE_ICONS };
 
@@ -35,7 +38,8 @@ export function readTileIcons(
     if (!isTileIconsRecord(parsed)) return { ...DEFAULT_TILE_ICONS };
 
     const icons = { ...DEFAULT_TILE_ICONS };
-    for (const id of TILE_IDS) {
+    for (const id of ["overview", ...TILE_IDS] as const) {
+      if (id === "lastHour") continue;
       const icon = parsed[id];
       if (isNestIconKey(icon)) icons[id] = icon;
     }
@@ -46,7 +50,7 @@ export function readTileIcons(
 }
 
 export function writeTileIcon(
-  id: TileId,
+  id: ConfigurableOverviewIcon,
   icon: string,
   storage: TileIconStorage = localStorage,
 ) {

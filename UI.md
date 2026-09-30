@@ -11,8 +11,11 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Logs, Section,
   Sidebar, and Greetings board.
-- Reuse `MenuSelect`, `NestIcon` / `IconPicker`, task menus, and shared icons in
-  `icons.tsx` before adding controls.
+- Reuse `MenuSelect`, `NestIcon`, task menus, and shared icons in
+  `icons.tsx` before adding controls. Open icon pickers only through
+  `IconPickerButton`, which closes after a pick, on Escape, and on an outside
+  press; `controlClassName` / `triggerClassName` restyle it and
+  `color` / `onColorChange` add Metric color swatches.
 - Dashboard Section behavior lives in the files `AGENTS.md` names; this file
   records concrete implementation hooks.
 
@@ -56,10 +59,16 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   cells, so when there is nowhere to push the dragged tile trades slots with
   whichever tile it covers most, and the swap is refused if either tile would
   breach its minimum (Metric check-in is pinned to 4x2, so it only moves once
-  the board has slack). Tile heads show a `NestIcon` chosen in Settings (or,
-  for Tasks, Timeline, and Brain dump, in the Tasks, Logs, and Brain dump
-  Section heads) and
-  stored in `nest:overview-tile-icons`. Last hour and Control panel keep the
+  the board has slack). `.overview-settings` overlays the right edge of
+  `.overview-workspace` so opening it never reflows the tile grid. It starts
+  closed each launch, opens from the settings button at the end of the
+  Greetings board row, and closes on its X, Escape, or a press outside it
+  (so it is unreachable while Doing hides the Greetings board). It
+  configures only the icons with no other home: the Overview Section and
+  Control panel. Feature tiles take their icon from their own Section (Tasks,
+  Logs, and Brain dump heads; Settings → Metrics), and Last hour always uses
+  the shared Insights SVG. Choices are stored in `nest:overview-tile-icons`,
+  with an `overview` slot for the Section. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
   own header. The resize grip lives on the tile's own
   lower-right corner. The Greetings board row carries compact saved-layout
@@ -101,8 +110,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   rows (`LogsEvents`); Timeline keeps `.logs-chrono`. The toolbar ends with a
   `.dash-section__tile-icon` picker, shared with the Tasks and Brain dump heads, that
   writes the `timeline` slot in `nest:overview-tile-icons`.
-- Sidebar: Logs, Tasks, and Brain dump render their picked `NestIcon` from
-  `nest:overview-tile-icons` (`timeline` / `tasks` / `brainDump`); other
+- Sidebar: Overview, Logs, Tasks, and Brain dump render their picked `NestIcon` from
+  `nest:overview-tile-icons` (`overview` / `timeline` / `tasks` / `brainDump`); other
   Sections keep their fixed SVGs.
 - Assistant: `.dash-section--assistant` with Chat / Config panes via
   `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
@@ -148,7 +157,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
 - Settings: `.dash-section--settings` with Assistant / Metrics / Phases /
-  Reminders / Last hour / Control panel / Background panes
+  Reminders / Background panes
   via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
   (Metrics when unset). Panes stay mounted in `.settings-slot` through
   `hidden` so Metrics sub-state survives switches. Metrics uses

@@ -10,7 +10,6 @@ import { BackgroundView } from "./BackgroundView";
 import { MetricsView } from "./MetricsView";
 import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
-import { TileIconSettings } from "./TileIconSettings";
 import { AssistantSettings } from "./AssistantSettings";
 
 export function SettingsView() {
@@ -43,12 +42,6 @@ export function SettingsView() {
       </div>
       <div className="settings-slot" hidden={pane !== "reminders"}>
         <RemindersView />
-      </div>
-      <div className="settings-slot" hidden={pane !== "lastHour"}>
-        <TileIconSettings tileId="lastHour" />
-      </div>
-      <div className="settings-slot" hidden={pane !== "controlPanel"}>
-        <TileIconSettings tileId="controlPanel" />
       </div>
       <div className="settings-slot" hidden={pane !== "background"}>
         <BackgroundView />

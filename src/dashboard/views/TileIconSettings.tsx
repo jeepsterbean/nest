@@ -7,7 +7,7 @@ export function TileIconSettings({
   tileId,
   embedded = false,
 }: {
-  tileId: TileId;
+  tileId: Exclude<TileId, "lastHour">;
   embedded?: boolean;
 }) {
   const icons = useTileIcons();

@@ -11,6 +11,7 @@ import { startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTileIcons } from "../hooks/useTileIcons";
 import {
+  OVERVIEW_SETTINGS_ID,
   type OverviewLayoutController,
   type TileId,
 } from "../lib/overviewGrid";
@@ -28,7 +29,6 @@ import {
   chevronDownIcon,
   clockIcon,
   insightsIcon,
-  overviewIcon,
   saveLayoutIcon,
   settingsIcon,
 } from "./icons";
@@ -43,14 +43,13 @@ export type DashboardView =
   | "assistant"
   | "settings";
 
-// Logs, Tasks, and Brain dump show the icon the user picked in their Section head,
-// which is the same choice their Overview tile shows.
+// Section icons share the Overview configuration where a corresponding slot exists.
 const VIEWS: {
   key: DashboardView;
   label: string;
-  icon: ReactElement | { tileId: TileId };
+  icon: ReactElement | { tileId: TileId | "overview" };
 }[] = [
-  { key: "overview", label: "Overview", icon: overviewIcon },
+  { key: "overview", label: "Overview", icon: { tileId: "overview" } },
   { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "logs", label: "Logs", icon: { tileId: "timeline" } },
@@ -102,11 +101,13 @@ export function DashboardSidebar({
 
 export function DashboardHeader({
   overviewLayout,
+  overviewSettings,
 }: {
   overviewLayout?: Pick<
     OverviewLayoutController,
     "snapshots" | "activeSnapshotId" | "restoreSnapshot" | "saveSnapshot"
   >;
+  overviewSettings?: { open: boolean; onToggle: () => void };
 }) {
   const {
     timerState,
@@ -431,6 +432,23 @@ export function DashboardHeader({
                 {saveLayoutIcon}
               </button>
             </form>
+          ) : null}
+          {overviewSettings ? (
+            <button
+              type="button"
+              className="dash-header__layout-save"
+              aria-label={
+                overviewSettings.open
+                  ? "Close Overview settings"
+                  : "Open Overview settings"
+              }
+              title="Configure Overview"
+              aria-expanded={overviewSettings.open}
+              aria-controls={OVERVIEW_SETTINGS_ID}
+              onClick={overviewSettings.onToggle}
+            >
+              {settingsIcon}
+            </button>
           ) : null}
         </div>
       </div>

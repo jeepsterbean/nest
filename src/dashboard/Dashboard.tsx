@@ -1,6 +1,6 @@
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardDataProvider, useDashboardData } from "./context/DashboardDataContext";
 import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
@@ -32,6 +32,11 @@ import "./Dashboard.css";
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
   const overviewLayout = useOverviewLayout();
+  const [overviewSettingsOpen, setOverviewSettingsOpen] = useState(false);
+  const closeOverviewSettings = useCallback(
+    () => setOverviewSettingsOpen(false),
+    [],
+  );
   const { phases, latestPhase } = useDashboardData();
   const backgroundStyle = useBackgroundStyle();
   const backgroundTuning = useBackgroundTuning();
@@ -84,7 +89,15 @@ function DashboardInner() {
             showGreetings ? "" : " dashboard__inner--no-greetings"
           }`}
         >
-          {showGreetings && <DashboardHeader overviewLayout={overviewLayout} />}
+          {showGreetings && (
+            <DashboardHeader
+              overviewLayout={overviewLayout}
+              overviewSettings={{
+                open: overviewSettingsOpen,
+                onToggle: () => setOverviewSettingsOpen((open) => !open),
+              }}
+            />
+          )}
 
           <ErrorBanner />
 
@@ -96,6 +109,8 @@ function DashboardInner() {
                 setView("insights");
               }}
               overviewLayout={overviewLayout}
+              settingsOpen={overviewSettingsOpen}
+              onCloseSettings={closeOverviewSettings}
             />
           )}
           {view === "calendar" && <CalendarView />}

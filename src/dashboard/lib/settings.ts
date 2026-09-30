@@ -3,8 +3,6 @@ export const SETTINGS_PANES = [
   { key: "metrics", label: "Metrics" },
   { key: "phases", label: "Phases" },
   { key: "reminders", label: "Reminders" },
-  { key: "lastHour", label: "Last hour" },
-  { key: "controlPanel", label: "Control panel" },
   { key: "background", label: "Background" },
 ] as const;
 
