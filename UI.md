@@ -29,9 +29,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   so content fills the area beside the Sidebar. Timer stays on the Popup.
 - Sections show no title. Top controls stay in `.dash-section__head` or a
   sibling toolbar such as `RangeToolbar`; each Section keeps its own.
-- Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
-  The Logs multi-select filter reuses the `.view-toggle` classes.
-  No per-Section size overrides.
+- Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere,
+  for single-select only. No per-Section size overrides.
 - Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
   when unset). Column order and widths persist in `nest:task-table`. No
   Working now play control or Readiness column in the table; start work from
@@ -105,8 +104,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   legacy `nest:insights-range`). The toolbar title is a `DayPicker`
   (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
   Today and marks the title `.range-nav__live`.
-- Logs: `.dash-section--logs` with a multi-select `.view-toggle` (Brain dumps /
-  Phases / Metrics / Tasks; double click isolates a kind). `nest:logs-preferences`
+- Logs: `.dash-section--logs` with multi-select filter chips
+  (`.logs-kind-filter`: Brain dumps / Phases / Metrics / Tasks; double click
+  isolates a kind). Each chip uses its kind's timeline mark color (`--phase`
+  for Phases); on chips are tinted with a filled square, off chips are dashed
+  with a hollow one. Timeline marks are bare kind-colored icons (no ring or
+  rail) and Metric ratings are flat icon + number pairs, so rows avoid a
+  column of circles. `nest:logs-preferences`
   stores `kinds` (all four when unset or stored before multi-select). Logs is
   always `.logs-chrono` (`LogsTimeline`), without Phase totals. Phases on adds
   settled Phase rows and colors the time column (`colorsTimeColumn`); Phases

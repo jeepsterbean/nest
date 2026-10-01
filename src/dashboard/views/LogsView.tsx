@@ -49,8 +49,8 @@ const EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> = {
   },
 };
 
-/** Multi-select over the shared segmented-control look. Double click isolates
- * a kind from whatever its first click left behind. */
+/** Multi-select filter chips, each tinted like its kind's timeline marks.
+ * Double click isolates a kind from whatever its first click left behind. */
 function LogKindToggle({
   kinds,
   onChange,
@@ -65,26 +65,20 @@ function LogKindToggle({
   };
 
   return (
-    <div className="view-toggle" role="group" aria-label="Logs filter">
-      {LOG_KINDS.map((option) => {
-        const selected = kinds.includes(option.key);
-        return (
-          <button
-            key={option.key}
-            type="button"
-            className={
-              selected
-                ? "view-toggle__btn view-toggle__btn--active"
-                : "view-toggle__btn"
-            }
-            aria-pressed={selected}
-            onClick={(event) => onClick(event, option.key)}
-            onDoubleClick={() => onChange(soloLogKind(kinds, option.key))}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+    <div className="logs-kind-filter" role="group" aria-label="Logs filter">
+      {LOG_KINDS.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          className={`logs-kind-filter__chip logs-kind-filter__chip--${option.key}`}
+          aria-pressed={kinds.includes(option.key)}
+          onClick={(event) => onClick(event, option.key)}
+          onDoubleClick={() => onChange(soloLogKind(kinds, option.key))}
+        >
+          <span className="logs-kind-filter__dot" aria-hidden="true" />
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
