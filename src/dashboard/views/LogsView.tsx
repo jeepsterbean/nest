@@ -1,27 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
+import { Eye } from "lucide-react";
 import { deleteMetricCheckIn } from "../../lib/commands";
-import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
-import {
-  buildRawLog,
-  buildTimeline,
-  collapsePhaseCheckIns,
-  groupByDay,
-  phaseCheckInsInRange,
-  type DayGroup,
-  type RawLogEvent,
-} from "../lib/timeline";
+import { groupByDay } from "../lib/timeline";
 import {
   buildLogExportEvents,
-  buildTimelineLogEvents,
+  buildLogsEvents,
   downloadLogDay,
   LOG_EVENT_BATCH_SIZE,
-  LOG_VIEWS,
+  LOG_KINDS,
   readLogsPreferences,
-  TIMELINE_LAYOUTS,
+  soloLogKind,
+  toggleLogKind,
   writeLogsPreferences,
-  type LogsPreferences,
-  type LogsViewKey,
-  type TimelineLayoutKey,
+  type LogKindKey,
 } from "../lib/logs";
 import {
   HISTORY_WINDOW_DAYS,
@@ -32,21 +23,14 @@ import { useTileIcons } from "../hooks/useTileIcons";
 import { writeTileIcon } from "../lib/tileIcons";
 import { historyStartSec } from "../lib/time";
 import { IconPickerButton } from "../components/PulseIcon";
-import { ViewToggle } from "../components/ViewToggle";
-import { LogsEvents } from "./LogsEvents";
-import { DayExportButton, LogsTimeline } from "./LogsTimeline";
+import { LogsTimeline } from "./LogsTimeline";
 
-type EmptyCopyKey = Exclude<LogsViewKey, "timeline"> | TimelineLayoutKey;
+const MIXED_EMPTY_COPY = {
+  title: "Nothing here yet",
+  body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
+};
 
-const EMPTY_COPY: Record<EmptyCopyKey, { title: string; body: string }> = {
-  raw: {
-    title: "Nothing here yet",
-    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
-  },
-  rail: {
-    title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
-  },
+const EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> = {
   dumps: {
     title: "No brain dumps yet",
     body: "Capture a thought from Overview or the popup.",
@@ -59,78 +43,50 @@ const EMPTY_COPY: Record<EmptyCopyKey, { title: string; body: string }> = {
     title: "No Metric check-ins yet",
     body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
   },
+  tasks: {
+    title: "No work stretches yet",
+    body: "Working now starts and stops will land here.",
+  },
 };
 
-function DayArticle({
-  day,
-  phases,
-  metrics,
-  pulses,
-  tasks,
-  expandedDumpIds,
-  onDeleteCheckIn,
-  onToggleDump,
-  onExportDay,
+/** Multi-select over the shared segmented-control look. Double click isolates
+ * a kind from whatever its first click left behind. */
+function LogKindToggle({
+  kinds,
+  onChange,
 }: {
-  day: DayGroup<RawLogEvent>;
-  phases: Phase[];
-  metrics: Metric[];
-  pulses: Pulse[];
-  tasks: Task[];
-  expandedDumpIds: Set<number>;
-  onDeleteCheckIn: (id: number) => void;
-  onToggleDump: (id: number) => void;
-  onExportDay: (dayKey: number) => void;
+  kinds: LogKindKey[];
+  onChange: (kinds: LogKindKey[]) => void;
 }) {
-  return (
-    <article className="day-group">
-      <header className="day-group__head">
-        <h3 className="day-group__label">{day.label}</h3>
-        <DayExportButton
-          label={day.label}
-          dayKey={day.key}
-          onExportDay={onExportDay}
-        />
-      </header>
-      <LogsEvents
-        events={day.events}
-        phases={phases}
-        metrics={metrics}
-        pulses={pulses}
-        tasks={tasks}
-        expandedDumpIds={expandedDumpIds}
-        onDeleteCheckIn={onDeleteCheckIn}
-        onToggleDump={onToggleDump}
-      />
-    </article>
-  );
-}
+  const onClick = (event: MouseEvent, key: LogKindKey) => {
+    // The second click of a double click would only undo the first.
+    if (event.detail > 1) return;
+    onChange(toggleLogKind(kinds, key));
+  };
 
-function filteredEvents(
-  view: Exclude<LogsViewKey, "timeline">,
-  checkIns: Parameters<typeof buildTimeline>[0],
-  phaseCheckIns: PhaseCheckIn[],
-  brainDumps: Parameters<typeof buildTimeline>[2],
-  historyFromSec: number,
-): RawLogEvent[] {
-  switch (view) {
-    case "dumps":
-      return buildTimeline([], [], brainDumps);
-    case "metrics":
-      return buildTimeline(checkIns, [], []);
-    case "phases":
-      // Collapse with the carry-in still present so a settle that matches the
-      // Phase already active at the window start is omitted; then drop the
-      // carry-in from the event list.
-      return buildTimeline(
-        [],
-        phaseCheckInsInRange(
-          collapsePhaseCheckIns(phaseCheckIns),
-          historyFromSec,
-        ),
-        [],
-      );
-  }
+  return (
+    <div className="view-toggle" role="group" aria-label="Logs filter">
+      {LOG_KINDS.map((option) => {
+        const selected = kinds.includes(option.key);
+        return (
+          <button
+            key={option.key}
+            type="button"
+            className={
+              selected
+                ? "view-toggle__btn view-toggle__btn--active"
+                : "view-toggle__btn"
+            }
+            aria-pressed={selected}
+            onClick={(event) => onClick(event, option.key)}
+            onDoubleClick={() => onChange(soloLogKind(kinds, option.key))}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function LogsView() {
@@ -154,26 +110,13 @@ export function LogsView() {
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
-  const { view, timelineLayout } = preferences;
-  const isRailTimeline = view === "timeline" && timelineLayout === "rail";
+  // Not stored: returning to Phases alone always starts on the settled rows.
+  const [everyPhaseCheckpoint, setEveryPhaseCheckpoint] = useState(false);
+  const { kinds } = preferences;
+  const phasesOnly = kinds.length === 1 && kinds[0] === "phases";
+  const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
   const nowMs = useCurrentTime();
   const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
-  const eventPhaseCheckIns = useMemo(
-    () => phaseCheckInsInRange(phaseCheckIns, historyFromSec),
-    [historyFromSec, phaseCheckIns],
-  );
-
-  const rawEvents = useMemo(
-    () =>
-      buildRawLog(checkIns, eventPhaseCheckIns, brainDumps, taskWorkStretches),
-    [checkIns, eventPhaseCheckIns, brainDumps, taskWorkStretches],
-  );
-
-  const timelineEvents = useMemo(
-    () => buildTimelineLogEvents(checkIns, brainDumps, taskWorkStretches),
-    [brainDumps, checkIns, taskWorkStretches],
-  );
-
   const exportEvents = useMemo(
     () =>
       buildLogExportEvents(
@@ -200,44 +143,43 @@ export function LogsView() {
     [nowMs, exportEvents],
   );
 
-  const listEvents = useMemo((): RawLogEvent[] => {
-    if (view !== "timeline") {
-      return filteredEvents(
-        view,
+  const listEvents = useMemo(
+    () =>
+      buildLogsEvents(
+        kinds,
+        showsEveryPhaseCheckpoint,
         checkIns,
         phaseCheckIns,
         brainDumps,
+        taskWorkStretches,
         historyFromSec,
-      );
-    }
-    return timelineLayout === "raw" ? rawEvents : [];
-  }, [
-    view,
-    timelineLayout,
-    rawEvents,
-    checkIns,
-    phaseCheckIns,
-    brainDumps,
-    historyFromSec,
-  ]);
-
-  const visibleTimelineEvents = useMemo(
-    () => timelineEvents.slice(0, visibleEventCount),
-    [timelineEvents, visibleEventCount],
+      ),
+    [
+      kinds,
+      showsEveryPhaseCheckpoint,
+      checkIns,
+      phaseCheckIns,
+      brainDumps,
+      taskWorkStretches,
+      historyFromSec,
+    ],
   );
-  const visibleListEvents = useMemo(
+
+  const visibleEvents = useMemo(
     () => listEvents.slice(0, visibleEventCount),
     [listEvents, visibleEventCount],
   );
-  const days = useMemo(
-    () => groupByDay(visibleListEvents, nowMs),
-    [nowMs, visibleListEvents],
-  );
 
-  const updatePreferences = (changes: Partial<LogsPreferences>) => {
-    const next = { ...preferences, ...changes };
+  const updateKinds = (nextKinds: LogKindKey[]) => {
+    const next = { kinds: nextKinds };
     writeLogsPreferences(next);
     setPreferences(next);
+    setEveryPhaseCheckpoint(false);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+  };
+
+  const toggleEveryPhaseCheckpoint = () => {
+    setEveryPhaseCheckpoint((on) => !on);
     setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
   };
 
@@ -261,29 +203,26 @@ export function LogsView() {
       tasks,
     });
 
-  const empty = EMPTY_COPY[view === "timeline" ? timelineLayout : view];
-  const eventCount = isRailTimeline ? timelineEvents.length : listEvents.length;
+  const empty = kinds.length === 1 ? EMPTY_COPY[kinds[0]] : MIXED_EMPTY_COPY;
+  const eventCount = listEvents.length;
   const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
 
   return (
     <section className="dash-section dash-section--logs">
       <div className="dash-toolbar">
-        <ViewToggle
-          value={view}
-          options={LOG_VIEWS}
-          label="Logs view"
-          onChange={(nextView) => updatePreferences({ view: nextView })}
-        />
-        {view === "timeline" ? (
-          <ViewToggle
-            value={timelineLayout}
-            options={TIMELINE_LAYOUTS}
-            label="Timeline layout"
-            onChange={(nextLayout) =>
-              updatePreferences({ timelineLayout: nextLayout })
-            }
-          />
+        <LogKindToggle kinds={kinds} onChange={updateKinds} />
+        {phasesOnly ? (
+          <button
+            type="button"
+            className={`logs-raw-toggle${everyPhaseCheckpoint ? " logs-raw-toggle--active" : ""}`}
+            aria-pressed={everyPhaseCheckpoint}
+            aria-label="Every Phase checkpoint"
+            title="Every Phase checkpoint"
+            onClick={toggleEveryPhaseCheckpoint}
+          >
+            <Eye aria-hidden="true" />
+          </button>
         ) : null}
         {/* Logs shares the Overview Timeline tile's icon slot. */}
         <IconPickerButton
@@ -299,9 +238,9 @@ export function LogsView() {
             <strong>{empty.title}</strong>
             <span>{empty.body}</span>
           </div>
-        ) : isRailTimeline ? (
+        ) : (
           <LogsTimeline
-            events={visibleTimelineEvents}
+            events={visibleEvents}
             phaseCheckIns={phaseCheckIns}
             phases={phases}
             metrics={metrics}
@@ -312,22 +251,9 @@ export function LogsView() {
             onToggleDump={toggleDumpExpanded}
             onExportDay={exportDay}
             nowMs={nowMs}
+            showPhaseTotals={false}
+            colorsTimeColumn={kinds.includes("phases")}
           />
-        ) : (
-          days.map((day) => (
-            <DayArticle
-              key={day.key}
-              day={day}
-              phases={phases}
-              metrics={metrics}
-              pulses={pulses}
-              tasks={tasks}
-              expandedDumpIds={expandedDumpIds}
-              onDeleteCheckIn={onDeleteCheckIn}
-              onToggleDump={toggleDumpExpanded}
-              onExportDay={exportDay}
-            />
-          ))
         )}
         {loaded && remainingEventCount > 0 ? (
           <div className="logs-load-older">

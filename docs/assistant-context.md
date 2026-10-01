@@ -96,7 +96,7 @@ what it covers is filled in and saved; editing an existing option works the
 same way, with Revert instead of Discard.
 
 Phase renders as the session timeline over the window, oldest first, using the
-same settled stretches Logs builds (`phaseSessionsInWindow`). The other three
+same settled stretches Calendar and Insights build (`phaseSessionsInWindow`). The other three
 render as lists, newest first. A row from an earlier day carries its day
 ("Yesterday 9:05 AM"): a count option can reach back days, and a bare clock
 time would pass the record off as today.

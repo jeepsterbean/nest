@@ -1,4 +1,4 @@
-/** Play / stop marks shared by Logs list rows and the Timeline rail. */
+/** Working now start / stop marks on the Logs and Overview Timeline line. */
 export function PlayMarkIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">

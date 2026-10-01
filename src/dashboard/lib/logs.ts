@@ -19,75 +19,59 @@ import {
   type TimelineLogEvent,
 } from "./timeline";
 
-export const LOG_VIEWS = [
-  { key: "timeline", label: "Timeline" },
+export const LOG_KINDS = [
   { key: "dumps", label: "Brain dumps" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
+  { key: "tasks", label: "Tasks" },
 ] as const;
-export type LogsViewKey = (typeof LOG_VIEWS)[number]["key"];
+export type LogKindKey = (typeof LOG_KINDS)[number]["key"];
 
-/** Raw lives under Timeline: the same history as a flat feed with every Phase checkpoint. */
-export const TIMELINE_LAYOUTS = [
-  { key: "rail", label: "Rail" },
-  { key: "raw", label: "Raw" },
-] as const;
-export type TimelineLayoutKey = (typeof TIMELINE_LAYOUTS)[number]["key"];
+const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
 
+/** Selected kinds, kept non-empty and in LOG_KINDS order. */
 export type LogsPreferences = {
-  view: LogsViewKey;
-  timelineLayout: TimelineLayoutKey;
+  kinds: LogKindKey[];
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
 
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
-const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
-  view: "timeline",
-  timelineLayout: "raw",
-};
+const DEFAULT_LOGS_PREFERENCES: LogsPreferences = { kinds: ALL_LOG_KINDS };
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 
-const hasKey = <T extends string>(
-  options: readonly { key: T }[],
-  value: unknown,
-): value is T => options.some(({ key }) => key === value);
+const inKindOrder = (kinds: readonly unknown[]): LogKindKey[] =>
+  ALL_LOG_KINDS.filter((key) => kinds.includes(key));
 
-/** Map the retired Raw view (once a switcher entry; older storage used
- * layout + rawFilter) onto view + Timeline layout. */
-const migrateLegacyPreferences = (
-  value: Record<string, unknown>,
-): LogsPreferences | null => {
-  if (value.view === "raw") return { view: "timeline", timelineLayout: "raw" };
-  if (value.layout === "timeline") return { view: "timeline", timelineLayout: "rail" };
-  if (value.rawFilter === "dumps") return { view: "dumps", timelineLayout: "raw" };
-  if (value.rawFilter === "phases") return { view: "phases", timelineLayout: "raw" };
-  if (value.rawFilter === "metrics") return { view: "metrics", timelineLayout: "raw" };
-  if (value.layout === "raw") return { view: "timeline", timelineLayout: "raw" };
-  return null;
-};
+/** Single click. The last selected kind stays on so Logs never goes blank. */
+export function toggleLogKind(
+  kinds: LogKindKey[],
+  key: LogKindKey,
+): LogKindKey[] {
+  if (!kinds.includes(key)) return inKindOrder([...kinds, key]);
+  return kinds.length === 1 ? kinds : kinds.filter((kind) => kind !== key);
+}
 
+/** Double click isolates a kind; isolating the one already alone restores all. */
+export function soloLogKind(
+  kinds: LogKindKey[],
+  key: LogKindKey,
+): LogKindKey[] {
+  return kinds.length === 1 && kinds[0] === key ? ALL_LOG_KINDS : [key];
+}
+
+/** Storage from before multi-select (`view` + `layout`) falls back to all kinds. */
 export function readLogsPreferences(
   storage: LogsStorage = localStorage,
 ): LogsPreferences {
   try {
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
-    const value: Record<string, unknown> =
-      stored && typeof stored === "object" ? stored : {};
-    if (hasKey(LOG_VIEWS, value.view)) {
-      return {
-        view: value.view,
-        // Timeline saved before Rail / Raw was the rail. Other views never
-        // stored a layout, so they pick up the current Raw default.
-        timelineLayout: hasKey(TIMELINE_LAYOUTS, value.timelineLayout)
-          ? value.timelineLayout
-          : value.view === "timeline"
-            ? "rail"
-            : DEFAULT_LOGS_PREFERENCES.timelineLayout,
-      };
-    }
-    return migrateLegacyPreferences(value) ?? DEFAULT_LOGS_PREFERENCES;
+    const kinds =
+      stored && typeof stored === "object" && Array.isArray(stored.kinds)
+        ? inKindOrder(stored.kinds)
+        : [];
+    return kinds.length > 0 ? { kinds } : DEFAULT_LOGS_PREFERENCES;
   } catch {
     return DEFAULT_LOGS_PREFERENCES;
   }
@@ -103,7 +87,8 @@ export function writeLogsPreferences(
 const isTimelineLogEvent = (event: RawLogEvent): event is TimelineLogEvent =>
   event.kind !== "phase";
 
-/** Timeline rail feed for Logs and the Overview Timeline tile. */
+/** Overview Timeline tile. Phase changes stay in the time-column color, so they
+ * get no row of their own. Logs uses settled Phase rows instead. */
 export function buildTimelineLogEvents(
   checkIns: MetricCheckInWithRatings[],
   brainDumps: BrainDump[],
@@ -111,6 +96,35 @@ export function buildTimelineLogEvents(
 ): TimelineLogEvent[] {
   return buildRawLog(checkIns, [], brainDumps, taskWorkStretches).filter(
     isTimelineLogEvent,
+  );
+}
+
+/** Logs feed for the selected kinds. Phase rows are settled by the 60-second
+ * collapse unless `everyPhaseCheckpoint` (the Phases-only raw view) is on. */
+export function buildLogsEvents(
+  kinds: LogKindKey[],
+  everyPhaseCheckpoint: boolean,
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  brainDumps: BrainDump[],
+  taskWorkStretches: TaskWorkStretch[],
+  historyFromSec: number,
+): RawLogEvent[] {
+  // Collapse runs before the range cut so a settle matching the Phase already
+  // active at the window start is omitted along with that carry-in.
+  const phaseRows = kinds.includes("phases")
+    ? phaseCheckInsInRange(
+        everyPhaseCheckpoint
+          ? phaseCheckIns
+          : collapsePhaseCheckIns(phaseCheckIns),
+        historyFromSec,
+      )
+    : [];
+  return buildRawLog(
+    kinds.includes("metrics") ? checkIns : [],
+    phaseRows,
+    kinds.includes("dumps") ? brainDumps : [],
+    kinds.includes("tasks") ? taskWorkStretches : [],
   );
 }
 
@@ -122,14 +136,14 @@ export function buildLogExportEvents(
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
 ) {
-  return buildRawLog(
+  return buildLogsEvents(
+    ALL_LOG_KINDS,
+    false,
     checkIns,
-    phaseCheckInsInRange(
-      collapsePhaseCheckIns(phaseCheckIns),
-      historyFromSec,
-    ),
+    phaseCheckIns,
     brainDumps,
     taskWorkStretches,
+    historyFromSec,
   );
 }
 
@@ -140,7 +154,7 @@ type LogExportContext = {
   tasks: Task[];
 };
 
-const taskTitle = (tasks: Task[], taskId: number) =>
+export const taskTitle = (tasks: Task[], taskId: number) =>
   tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
 
 function eventMarkdown(event: RawLogEvent, context: LogExportContext) {

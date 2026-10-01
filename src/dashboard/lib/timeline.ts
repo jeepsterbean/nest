@@ -11,14 +11,14 @@ export type TimelineEvent =
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
   | { kind: "dump"; at: number; dump: BrainDump };
 
-/** Working-now boundaries derived from Work stretches (Raw + Timeline). */
+/** Working-now boundaries derived from Work stretches (Logs + Overview Timeline). */
 export type WorkLogEvent =
   | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
 export type RawLogEvent = TimelineEvent | WorkLogEvent;
-/** Timeline rail: happenings only. The time gutter's color already carries the
- * Phase in force, so Phase changes get no row of their own. */
+/** Overview Timeline tile: happenings only. The time column's color already
+ * carries the Phase in force, so Phase changes get no row of their own. */
 export type TimelineLogEvent = Exclude<RawLogEvent, { kind: "phase" }>;
 
 export type DayGroup<T extends { at: number } = TimelineEvent> = {
@@ -41,19 +41,22 @@ export const PHASE_SETTLE_SECONDS = 60;
 
 // Independent popup submissions can land in the same second; rank them so the
 // feed remains deterministic and easy to scan.
-const KIND_RANK: Record<TimelineEvent["kind"], number> = {
+const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
   dump: 0,
   metrics: 1,
   phase: 2,
+  "work-start": 3,
+  "work-stop": 4,
 };
 
-// Merge the three event sources into a single newest-first timeline.
-export const buildTimeline = (
+/** Newest-first event feed: Metric / dump / Phase plus Work stretch start & stop. */
+export const buildRawLog = (
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: BrainDump[],
-): TimelineEvent[] => {
-  const all: TimelineEvent[] = [
+  stretches: TaskWorkStretch[],
+): RawLogEvent[] => {
+  const events: RawLogEvent[] = [
     ...checkIns.map((ci) => ({
       kind: "metrics" as const,
       at: ci.createdAt,
@@ -70,34 +73,13 @@ export const buildTimeline = (
       dump: d,
     })),
   ];
-  return all.sort(
-    (a, b) => b.at - a.at || KIND_RANK[a.kind] - KIND_RANK[b.kind],
-  );
-};
-
-const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
-  dump: 0,
-  metrics: 1,
-  phase: 2,
-  "work-start": 3,
-  "work-stop": 4,
-};
-
-/** Newest-first Raw feed: Metric / dump / Phase plus Work stretch start & stop. */
-export const buildRawLog = (
-  checkIns: MetricCheckInWithRatings[],
-  phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
-  stretches: TaskWorkStretch[],
-): RawLogEvent[] => {
-  const work: WorkLogEvent[] = [];
   for (const stretch of stretches) {
-    work.push({ kind: "work-start", at: stretch.startedAt, stretch });
+    events.push({ kind: "work-start", at: stretch.startedAt, stretch });
     if (stretch.endedAt !== null) {
-      work.push({ kind: "work-stop", at: stretch.endedAt, stretch });
+      events.push({ kind: "work-stop", at: stretch.endedAt, stretch });
     }
   }
-  return [...buildTimeline(checkIns, phaseCheckIns, brainDumps), ...work].sort(
+  return events.sort(
     (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind],
   );
 };

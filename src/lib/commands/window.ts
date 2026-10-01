@@ -4,10 +4,6 @@ export function closePopup(dismissed: boolean): Promise<void> {
   return invoke("close_popup", { dismissed });
 }
 
-export function showPopup(): Promise<void> {
-  return invoke("show_popup");
-}
-
 export function showDashboard(): Promise<void> {
   return invoke("show_dashboard");
 }

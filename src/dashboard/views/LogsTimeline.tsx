@@ -3,23 +3,21 @@ import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
-import { isQuietPhase } from "../lib/period";
+import { isQuietPhase, phaseIcon, phaseName } from "../lib/period";
 import { formatTime, shiftDayMs } from "../lib/time";
 import {
   groupByDay,
   mergePhaseCheckInsIntoEvents,
   phaseSessionsInWindow,
-  type TimelineLogEvent,
+  type RawLogEvent,
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
 import { PlayMarkIcon, StopMarkIcon } from "../components/logs/workMarks";
-
-function taskTitle(tasks: Task[], taskId: number) {
-  return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
-}
+import { taskTitle } from "../lib/logs";
 
 function timelineMarkLabel(
-  event: TimelineLogEvent,
+  event: RawLogEvent,
+  phases: Phase[],
   pulses: Pulse[],
   tasks: Task[],
 ) {
@@ -33,6 +31,8 @@ function timelineMarkLabel(
     }
     case "dump":
       return "Brain dump";
+    case "phase":
+      return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
     case "work-start":
       return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
     case "work-stop":
@@ -42,14 +42,16 @@ function timelineMarkLabel(
 
 function TimelineMark({
   event,
+  phases,
   pulses,
   tasks,
 }: {
-  event: TimelineLogEvent;
+  event: RawLogEvent;
+  phases: Phase[];
   pulses: Pulse[];
   tasks: Task[];
 }) {
-  const label = timelineMarkLabel(event, pulses, tasks);
+  const label = timelineMarkLabel(event, phases, pulses, tasks);
   const pulse =
     event.kind === "metrics" && event.checkIn.pulseId !== null
       ? pulses.find((item) => item.id === event.checkIn.pulseId)
@@ -66,6 +68,14 @@ function TimelineMark({
         <NestIcon name={pulse?.icon ?? "activity"} />
       ) : event.kind === "dump" ? (
         <NestIcon name="notes" />
+      ) : event.kind === "phase" ? (
+        <NestIcon
+          name={phaseIcon(
+            event.checkIn.phaseId,
+            phases,
+            event.checkIn.phaseLabel,
+          )}
+        />
       ) : event.kind === "work-start" ? (
         <PlayMarkIcon />
       ) : (
@@ -75,14 +85,16 @@ function TimelineMark({
   );
 }
 
-const eventKey = (event: TimelineLogEvent) =>
+const eventKey = (event: RawLogEvent) =>
   event.kind === "metrics"
     ? `metrics-${event.checkIn.id}`
     : event.kind === "dump"
       ? `dump-${event.dump.id}`
-      : `${event.kind}-${event.stretch.id}`;
+      : event.kind === "phase"
+        ? `phase-${event.checkIn.id}`
+        : `${event.kind}-${event.stretch.id}`;
 
-export function DayExportButton({
+function DayExportButton({
   label,
   dayKey,
   onExportDay,
@@ -120,8 +132,10 @@ export const LogsTimeline = memo(function LogsTimeline({
   onExportDay,
   nowMs,
   dayChrome = true,
+  showPhaseTotals = true,
+  colorsTimeColumn = true,
 }: {
-  events: TimelineLogEvent[];
+  events: RawLogEvent[];
   phaseCheckIns: PhaseCheckIn[];
   phases: Phase[];
   metrics: Metric[];
@@ -134,27 +148,36 @@ export const LogsTimeline = memo(function LogsTimeline({
   nowMs: number;
   /** Overview's minimised peek hides the day label and Phase totals. */
   dayChrome?: boolean;
+  /** Overview shows the day's Phase totals. Logs does not. */
+  showPhaseTotals?: boolean;
+  /** Logs with Phases filtered out keeps the quiet time column. */
+  colorsTimeColumn?: boolean;
 }) {
   const days = useMemo(
     () =>
-      groupByDay(mergePhaseCheckInsIntoEvents(events, phaseCheckIns), nowMs),
-    [events, nowMs, phaseCheckIns],
+      groupByDay(
+        mergePhaseCheckInsIntoEvents(
+          events,
+          colorsTimeColumn ? phaseCheckIns : [],
+        ),
+        nowMs,
+      ),
+    [colorsTimeColumn, events, nowMs, phaseCheckIns],
   );
   const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
   const now = Math.floor(nowMs / 1000);
 
   return days.map((day) => {
-    const daySessions = dayChrome
-      ? phaseSessionsInWindow(
-          phaseCheckIns,
-          day.key / 1000,
-          Math.min(shiftDayMs(day.key, 1) / 1000, now),
-          isQuiet,
-          false,
-        )
-      : [];
-    // Rows between a work-start and its matching work-stop light up the rail as one stretch.
-    const openStretchIds = new Set<number>();
+    const daySessions =
+      dayChrome && showPhaseTotals
+        ? phaseSessionsInWindow(
+            phaseCheckIns,
+            day.key / 1000,
+            Math.min(shiftDayMs(day.key, 1) / 1000, now),
+            isQuiet,
+            false,
+          )
+        : [];
 
     return (
       <article key={day.key} className="day-group logs-chrono-day">
@@ -162,7 +185,9 @@ export const LogsTimeline = memo(function LogsTimeline({
           <header className="day-group__head">
             <h3 className="day-group__label">{day.label}</h3>
             <div className="day-group__meta">
-              <PhaseTotals sessions={daySessions} phases={phases} />
+              {showPhaseTotals ? (
+                <PhaseTotals sessions={daySessions} phases={phases} />
+              ) : null}
               {onExportDay ? (
                 <DayExportButton
                   label={day.label}
@@ -178,19 +203,11 @@ export const LogsTimeline = memo(function LogsTimeline({
             const { event, phaseCheckIn: checkpoint } = row;
             const phase = phases.find((item) => item.id === checkpoint?.phaseId);
 
-            const wasStretchOpen = openStretchIds.size > 0;
-            if (event.kind === "work-start") openStretchIds.add(event.stretch.id);
-            const isStretchOpen = openStretchIds.size > 0;
-            if (event.kind === "work-stop") openStretchIds.delete(event.stretch.id);
-            const inStretch = wasStretchOpen || isStretchOpen;
-
             return (
               <li
                 key={eventKey(event)}
                 className={`logs-chrono__row logs-chrono__row--${event.kind}${
                   phase?.color ? " logs-chrono__row--colored" : ""
-                }${
-                  inStretch ? " logs-chrono__row--in-stretch" : ""
                 }`}
                 style={
                   phase?.color
@@ -206,6 +223,7 @@ export const LogsTimeline = memo(function LogsTimeline({
                 <div className="logs-chrono__event">
                   <TimelineMark
                     event={event}
+                    phases={phases}
                     pulses={pulses}
                     tasks={tasks}
                   />
@@ -213,7 +231,6 @@ export const LogsTimeline = memo(function LogsTimeline({
                     event={event}
                     phases={phases}
                     metrics={metrics}
-                    pulses={pulses}
                     tasks={tasks}
                     expandedDumpIds={expandedDumpIds}
                     onDeleteCheckIn={onDeleteCheckIn}

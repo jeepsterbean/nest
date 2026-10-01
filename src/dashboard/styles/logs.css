@@ -1,3 +1,40 @@
+/* ---------- Logs Phase checkpoint toggle ---------- */
+
+.logs-raw-toggle {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.logs-raw-toggle svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+.logs-raw-toggle:hover {
+  color: var(--ink);
+}
+
+.logs-raw-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.logs-raw-toggle--active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
+}
+
 /* ---------- Logs load older ---------- */
 
 .logs-load-older {
@@ -16,7 +53,7 @@
   font-size: 12px;
 }
 
-/* Shared event body chrome (Timeline and Logs list rows). */
+/* Event body beside the timeline mark (Logs and the Overview Timeline tile). */
 .log-detail {
   display: flex;
   align-items: center;
@@ -170,28 +207,16 @@
   --event-color: var(--doing);
 }
 
+.logs-chrono__row--phase.logs-chrono__row--colored {
+  --event-color: var(--phase-color);
+}
+
 .logs-chrono__row:hover {
   background: color-mix(in srgb, var(--muted) 5%, var(--surface));
 }
 
 .logs-chrono__row:hover .logs-chrono__when {
   background: color-mix(in srgb, var(--muted) 8%, var(--phase-gutter));
-}
-
-/* Rows spanning an open work stretch share a colored rail, so the
-   start/stop pair reads as one block instead of two loose marks. */
-.logs-chrono__row--in-stretch .logs-chrono__event::before {
-  width: 3px;
-  background: var(--doing);
-  opacity: 0.4;
-}
-
-.logs-chrono__event .log-detail--metrics .event__icon {
-  display: none;
-}
-
-.logs-chrono__event .log-detail--phase .event__icon {
-  display: none;
 }
 
 /* Keep Metric check-in chips on one row at the same height as dump / work rows. */
@@ -236,19 +261,13 @@
   min-height: 22px;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags,
-.event--dump .event-dump__inline-tags {
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags {
   max-width: min(50%, 18rem);
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags span,
-.event--dump .event-dump__inline-tags span {
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags span {
   max-width: 96px;
   font-size: 10px;
-}
-
-.logs-chrono__event .log-detail--metrics .event__delete {
-  opacity: 0;
 }
 
 .logs-chrono__row:hover .log-detail--metrics .event__delete,

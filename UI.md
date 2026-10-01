@@ -30,6 +30,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Sections show no title. Top controls stay in `.dash-section__head` or a
   sibling toolbar such as `RangeToolbar`; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere.
+  The Logs multi-select filter reuses the `.view-toggle` classes.
   No per-Section size overrides.
 - Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
   when unset). Column order and widths persist in `nest:task-table`. No
@@ -104,13 +105,14 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   legacy `nest:insights-range`). The toolbar title is a `DayPicker`
   (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
   Today and marks the title `.range-nav__live`.
-- Logs: `.dash-section--logs` with a `ViewToggle` (Timeline / Brain dumps /
-  Phases / Metrics) and, only under Timeline, a second `ViewToggle` (Rail / Raw).
-  `nest:logs-preferences` stores `view` and `timelineLayout` (Timeline + Raw
-  when unset). A stored Timeline view from before Rail / Raw keeps Rail; the
-  retired `raw` view and legacy `layout` + `rawFilter` migrate onto the same
-  pair. Raw and filtered panes share day-grouped `.timeline` / `.event`
-  rows (`LogsEvents`); Rail keeps `.logs-chrono`, which has no Phase rows. The toolbar ends with a
+- Logs: `.dash-section--logs` with a multi-select `.view-toggle` (Brain dumps /
+  Phases / Metrics / Tasks; double click isolates a kind). `nest:logs-preferences`
+  stores `kinds` (all four when unset or stored before multi-select). Logs is
+  always `.logs-chrono` (`LogsTimeline`), without Phase totals. Phases on adds
+  settled Phase rows and colors the time column (`colorsTimeColumn`); Phases
+  off leaves it quiet. With Phases alone, an eye icon button
+  (`.logs-raw-toggle`, not stored) swaps the settled rows for every checkpoint
+  in the window. The toolbar ends with a
   `.dash-section__tile-icon` picker, shared with the Tasks, Brain dump, Metrics,
   and Phases heads, that writes the `timeline` slot in `nest:overview-tile-icons`.
 - Sidebar: Overview and Logs render their picked `NestIcon` from

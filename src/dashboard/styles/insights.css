@@ -475,105 +475,6 @@
   line-height: 1.2;
 }
 
-.timeline {
-  --rail-x: 4.5rem;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.timeline::before {
-  content: "";
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: calc(var(--rail-x) + 10px + 8px - 1px);
-  width: 2px;
-  border-radius: 1px;
-  background: var(--border);
-}
-
-.event {
-  display: grid;
-  position: relative;
-  grid-template-columns: var(--rail-x) 16px minmax(0, 1fr);
-  column-gap: 10px;
-  align-items: start;
-}
-
-.event__time {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  text-align: right;
-}
-
-.event__mark {
-  width: 8px;
-  height: 8px;
-  margin-top: 6px;
-  justify-self: center;
-  border-radius: 50%;
-  background: var(--event-color, var(--accent));
-  box-shadow: 0 0 0 3px var(--surface);
-}
-
-.event--metrics {
-  --event-color: var(--accent);
-}
-
-.event--dump {
-  --event-color: var(--dump);
-}
-
-.event--phase {
-  --event-color: var(--phase);
-}
-
-.event--work-start,
-.event--work-stop {
-  --event-color: var(--doing);
-}
-
-.event--work-start .event__icon svg {
-  /* Play triangle reads left-heavy; nudge so it sits optically centered. */
-  transform: translateX(0.5px);
-}
-
-.event__work {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.event__body {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  min-height: 22px;
-}
-
-.event__icon {
-  display: inline-flex;
-  flex: none;
-  color: var(--event-color);
-}
-
-.event__icon svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 1.8;
-}
-
 .event__phase {
   font-size: 13px;
   font-weight: 500;
@@ -609,11 +510,6 @@
   line-height: 1.2;
   opacity: 0;
   transition: opacity 0.15s, background 0.15s, color 0.15s;
-}
-
-.event:hover .event__delete,
-.event__delete:focus-visible {
-  opacity: 0.55;
 }
 
 .event__delete:hover {

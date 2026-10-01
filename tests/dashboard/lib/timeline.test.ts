@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildMetricSeries,
   buildRawLog,
-  buildTimeline,
   collapsePhaseCheckIns,
   groupByDay,
   mergePhaseCheckInsIntoEvents,
@@ -52,19 +51,22 @@ const dump = (id: number, createdAt: number): BrainDump => ({
 
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
-describe("buildTimeline", () => {
+describe("buildRawLog ordering", () => {
   it("orders newest-first", () => {
-    const events = buildTimeline([metricCheckIn(1, 100, [])], [], [dump(1, 200)]);
+    const events = buildRawLog([metricCheckIn(1, 100, [])], [], [dump(1, 200)], []);
     expect(events.map((e) => e.at)).toEqual([200, 100]);
   });
 
-  it("breaks same-second ties as dump -> metrics -> phase", () => {
-    const events = buildTimeline(
+  it("breaks same-second ties as dump -> metrics -> phase -> work start -> work stop", () => {
+    const events = buildRawLog(
       [metricCheckIn(1, 1000, [])],
       [phaseCheckIn(1, 1000)],
       [dump(1, 1000)],
+      [stretch(1, 9, 1000, 1000)],
     );
-    expect(events.map((e) => e.kind)).toEqual(["dump", "metrics", "phase"]);
+    expect(events.map((e) => e.kind)).toEqual([
+      "dump", "metrics", "phase", "work-start", "work-stop",
+    ]);
   });
 });
 
@@ -107,27 +109,29 @@ describe("groupByDay", () => {
     Math.floor(new Date(2026, 5, day, hour).getTime() / 1000);
 
   it("collapses same-day events and splits across days", () => {
-    const events = buildTimeline(
+    const events = buildRawLog(
       [],
       [],
       [dump(1, at(17, 12)), dump(2, at(17, 9)), dump(3, at(16, 12))],
+      [],
     );
     const groups = groupByDay(events, now);
     expect(groups.map((g) => g.label)).toEqual(["Today", "Yesterday"]);
     expect(groups.map((g) => g.events.length)).toEqual([2, 1]);
   });
 
-  it("keeps every Phase checkpoint for Raw", () => {
+  it("keeps every Phase checkpoint for the Phases-only checkpoint view", () => {
     const now = new Date(2026, 5, 17, 10, 0).getTime();
     const flicker = sec(new Date(2026, 5, 17, 9, 37));
     const groups = groupByDay(
-      buildTimeline(
+      buildRawLog(
         [],
         [
           phaseCheckIn(1, sec(new Date(2026, 5, 17, 9, 31)), SCOPING),
           phaseCheckIn(2, flicker, RESTING),
           phaseCheckIn(3, flicker, SCOPING),
         ],
+        [],
         [],
       ),
       now,
@@ -142,10 +146,11 @@ describe("groupByDay", () => {
 
 describe("mergePhaseCheckInsIntoEvents", () => {
   it("pairs newest-first events with the Phase active at each event", () => {
-    const events = buildTimeline(
+    const events = buildRawLog(
       [],
       [],
       [dump(1, 210), dump(2, 100), dump(3, 40)],
+      [],
     );
     const paired = mergePhaseCheckInsIntoEvents(events, [
       phaseCheckIn(2, 150, SCOPING),

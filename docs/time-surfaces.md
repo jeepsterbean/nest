@@ -29,16 +29,18 @@ Overview has its own configuration panel that opens over the right side of
 the tile board from the Greetings board, closed by default. It lets
 the user choose the Overview Section icon and the Control panel icon. Feature
 tiles (Tasks, Timeline, Brain dump, Metric check-in) take their icon from
-their own pane (Tasks, Logs, Brain dump, Metrics; Tasks, Brain dump, and
-Metrics are Core panes), and Last hour always
+their own pane or Section (Tasks, Logs, Brain dump, Metrics; Tasks, Brain dump,
+and Metrics are Core panes), and Last hour always
 uses the Insights icon. General Settings contains no Last hour or Control
 panel panes.
 
 Overview is a persistent tile board with that summary, a read-only Tasks peek
 (Status, Title, Value, Effort) with Open / Closed and a button that opens Core
-on the Tasks pane, a Logs Timeline of the same 30-day history as the Logs Rail (same marks,
-Phase gutter coloring, day labels, and Phase totals; the minimised peek hides
-that day chrome) filtered by Timeline / Brain dumps / Metrics with load-older
+on the Tasks pane, a Logs timeline of the 30-day happenings (marks,
+Phase gutter coloring, day labels, and Phase totals that end at midnight for
+past days and at the current time for Today; Phase changes stay in
+that color; the minimised peek hides that day chrome) filtered by Timeline /
+Brain dumps / Metrics with load-older
 batching when needed, a brain dump composer that matches the popup (shared
 text and tag draft, Cmd/Ctrl+Enter to save), and Metric check-in scoring.
 Tiles can be hidden into the always-present control panel and restored from
@@ -89,28 +91,27 @@ grid; a recorded stretch may already be shorter.
 ## Logs
 
 The history Section. Not a stored record: Metric check-ins, brain dumps, and
-Phase checkpoints each stand on their own. One segmented control switches
-Timeline, Brain dumps, Phases, and Metrics. Timeline has a second control, shown only
-under Timeline, for Rail or Raw. Rail marks happenings on a day rail with no
-Phase rows: the time gutter's color shows the Phase in force at each mark.
-Raw is the mixed day-grouped feed, including every Phase checkpoint and
-Working now starts and stops. Brain dumps, Phases, and Metrics are
-day-grouped lists. Phases and the day export use the 60-second settle collapse
-(a burst lands on the Phase it settled on; if that equals the Phase before the
-burst, it is omitted). Each visible day has an Export control that downloads a
-chronological Markdown timeline of every event type for that calendar day,
-regardless of the active Logs filter.
+Phase checkpoints each stand on their own. A multi-select filter toggles Brain
+dumps, Phases, Metrics, and Tasks; all four are on by default. A click toggles
+one kind, and the last kind on stays on. A double click keeps only that kind,
+and double clicking the kind already alone turns all four back on. Logs is one
+day-grouped layout whatever the filter. Phases on adds settled Phase rows and
+colors the time column by the Phase in force; everything else stays the same.
+Tasks lists Working now starts and stops. With Phases alone, an eye button swaps
+the settled rows for every Phase checkpoint in the window; it starts off
+whenever Phases becomes the only kind again. Logs shows no Phase totals.
+Settled Phase rows and the day export use the 60-second settle collapse (a burst lands on the Phase it settled
+on; if that equals the Phase before the burst, it is omitted). Each visible day
+has an Export control that downloads a chronological Markdown timeline of every
+event type for that calendar day, regardless of the active Logs filter.
 
 Each Phase has separate icon and color controls in the Phases pane of Core, with a
 broad preset palette and custom color picker; those choices drive the Greetings
-board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
-and the Timeline time gutter (quiet surface tone when uncolored). Metric
+board, Calendar rail and wash, Insights mix and totals, Logs Phase rows,
+and the Logs time column (quiet surface tone when uncolored). Metric
 check-in, brain dump, and Working now start/stop icons sit directly on
-the timeline line. Logs does not show the day strip or outcome stats. Events
-are grouped by day; Phase totals end at midnight for past days and at the
-current time for Today. Metric check-ins show the Pulse icon and Metric
+the timeline line. Logs does not show the day strip or outcome stats. Metric check-ins show the Pulse icon and Metric
 scores on one row at the same height as brain dumps and Working now marks.
 Brain dumps keep that row height when their read-only sticky opens. Pulse,
-Metric, and brain dump icons stand in for names. The top of Logs holds only
-the filters and an icon picker; the picked icon marks Logs in the sidebar and
+Metric, and brain dump icons stand in for names. The top of Logs holds the filter, the Phases-only eye button, and an icon picker; the picked icon marks Logs in the sidebar and
 heads the Overview Timeline tile.
