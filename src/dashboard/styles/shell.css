@@ -104,6 +104,19 @@
   flex: 1;
 }
 
+/* Core panes stay mounted; only the visible slot fills the content area. */
+.dashboard__inner--core > .core-slot:not([hidden]) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.core-slot > .dash-section {
+  flex: 1;
+  min-height: 0;
+}
+
 .dashboard kbd {
   padding: 2px 6px;
   border: 1px solid var(--border-strong);

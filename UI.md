@@ -65,8 +65,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Greetings board row, and closes on its X, Escape, or a press outside it
   (so it is unreachable while Doing hides the Greetings board). It
   configures only the icons with no other home: the Overview Section and
-  Control panel. Feature tiles take their icon from their own Section (Tasks,
-  Logs, Brain dump, and Metrics heads), and Last hour always uses
+  Control panel. Feature tiles take their icon from their own pane (Tasks,
+  Logs, Brain dump, and Metrics heads; Tasks, Brain dump, and Metrics are Core
+  panes), and Last hour always uses
   the shared Insights SVG. Choices are stored in `nest:overview-tile-icons`,
   with an `overview` slot for the Section. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
@@ -112,10 +113,19 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   rows (`LogsEvents`); Rail keeps `.logs-chrono`, which has no Phase rows. The toolbar ends with a
   `.dash-section__tile-icon` picker, shared with the Tasks, Brain dump, Metrics,
   and Phases heads, that writes the `timeline` slot in `nest:overview-tile-icons`.
-- Sidebar: Overview, Logs, Tasks, Brain dump, Metrics, and Phases render their
-  picked `NestIcon` from `nest:overview-tile-icons` (`overview` / `timeline` /
-  `tasks` / `brainDump` / `metrics` / `phases`); other Sections keep their fixed
-  SVGs.
+- Sidebar: Overview and Logs render their picked `NestIcon` from
+  `nest:overview-tile-icons` (`overview` / `timeline`). Core uses a fixed
+  four-square SVG. Other Sections keep their fixed SVGs. Tasks, Brain dump,
+  Metrics, and Phases icons are still picked in those Core pane heads
+  (`tasks` / `brainDump` / `metrics` / `phases`); Tasks, Brain dump, and Metrics
+  also mark their Overview tiles. Phases has no Overview tile.
+- Core: one Sidebar entry. A `ViewToggle` (Brain dump / Tasks / Metrics /
+  Phases) leads each pane head, beside that pane's own controls. The last pane
+  is stored in `nest:core-pane` (Brain dump when unset). Panes stay mounted in
+  `.core-slot` through `hidden` so filters, selection, and unsent names survive
+  switches. `.dashboard__inner` also takes the active pane's layout class
+  (`--brainDump`, `--tasks`, `--metrics`, `--phases`) so each pane keeps its
+  former Section height rules.
 - Assistant: `.dash-section--assistant` with Chat / Config panes via
   `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
@@ -165,7 +175,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   mounted in `.metrics-section__pane` through `hidden` so Pulse selection and
   an unsent Metric name survive switches.
 - Phases: `.dash-section--phases` with a `.dash-section__tile-icon` picker for
-  the `phases` Sidebar slot (no Overview tile) and the Phase appearance list.
+  the `phases` slot (no Overview tile, and not the Core Sidebar icon) and the
+  Phase appearance list.
   Phase appearance uses `--phase-color` / `--colored` on the Greetings board,
   Calendar rail and wash, Insights mix and totals, and Logs Phase rows.
 - Settings: `.dash-section--settings` with Assistant / Reminders / Background
@@ -202,8 +213,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
 read-only sticky positioned 12px to the right of the opening cursor and centered
 on its y-coordinate. It closes on an outside click or Escape.
-The Brain dump Section (`BrainDumpView`, `.dash-section--brain-dump`) has a
-head with a History / Tags `ViewToggle` and, at its right end, the Overview tile
+The Brain dump pane of Core (`BrainDumpView`, `.dash-section--brain-dump`) has a
+head with the Core `ViewToggle`, a History / Tags `ViewToggle`, and, at its right end, the Overview tile
 icon picker. The last pane is stored in `nest:brain-dump-pane` (History when
 unset). Both panes stay mounted in `.brain-dump-section__pane` through `hidden`
 so History filters and an unsent Tag name survive switches.

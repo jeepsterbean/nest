@@ -19,12 +19,10 @@ import { OverviewView } from "./views/OverviewView";
 import { CalendarView } from "./views/CalendarView";
 import { InsightsView } from "./views/InsightsView";
 import { LogsView } from "./views/LogsView";
-import { TasksView } from "./views/TasksView";
-import { BrainDumpView } from "./views/BrainDumpView";
-import { MetricsView } from "./views/MetricsView";
-import { PhasesView } from "./views/PhasesView";
+import { CoreView } from "./views/CoreView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
+import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
 import { writeInsightsRangeMode } from "./lib/insights";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
@@ -33,6 +31,11 @@ import "./Dashboard.css";
 
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
+  const [corePane, setCorePane] = useState<CorePane>(readCorePane);
+  const selectCorePane = useCallback((pane: CorePane) => {
+    writeCorePane(pane);
+    setCorePane(pane);
+  }, []);
   const overviewLayout = useOverviewLayout();
   const [overviewSettingsOpen, setOverviewSettingsOpen] = useState(false);
   const closeOverviewSettings = useCallback(
@@ -51,6 +54,8 @@ function DashboardInner() {
   // During Doing, Overview drops the Greetings board so the ambient work
   // surface takes the top of the content area. Timer stays on the Popup.
   const showGreetings = view === "overview" && !isDoing;
+  // Core panes reuse the layout rules written for their former Sections.
+  const surface = view === "core" ? corePane : view;
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -87,9 +92,9 @@ function DashboardInner() {
         />
         <DashboardSidebar view={view} onSelectView={setView} />
         <div
-          className={`dashboard__inner dashboard__inner--${view}${
-            showGreetings ? "" : " dashboard__inner--no-greetings"
-          }`}
+          className={`dashboard__inner dashboard__inner--${surface}${
+            view === "core" ? " dashboard__inner--core" : ""
+          }${showGreetings ? "" : " dashboard__inner--no-greetings"}`}
         >
           {showGreetings && (
             <DashboardHeader
@@ -105,7 +110,10 @@ function DashboardInner() {
 
           {view === "overview" && (
             <OverviewView
-              onOpenTasks={() => setView("tasks")}
+              onOpenTasks={() => {
+                selectCorePane("tasks");
+                setView("core");
+              }}
               onOpenLastHourInsights={() => {
                 writeInsightsRangeMode("lastHour");
                 setView("insights");
@@ -118,10 +126,9 @@ function DashboardInner() {
           {view === "calendar" && <CalendarView />}
           {view === "insights" && <InsightsView />}
           {view === "logs" && <LogsView />}
-          {view === "tasks" && <TasksView />}
-          {view === "brainDump" && <BrainDumpView />}
-          {view === "metrics" && <MetricsView />}
-          {view === "phases" && <PhasesView />}
+          {view === "core" && (
+            <CoreView pane={corePane} onSelectPane={selectCorePane} />
+          )}
           {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
           {view === "settings" && <SettingsView />}
         </div>

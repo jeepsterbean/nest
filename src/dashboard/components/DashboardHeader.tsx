@@ -28,6 +28,7 @@ import {
   calendarIcon,
   chevronDownIcon,
   clockIcon,
+  coreIcon,
   insightsIcon,
   saveLayoutIcon,
   settingsIcon,
@@ -38,10 +39,7 @@ export type DashboardView =
   | "calendar"
   | "insights"
   | "logs"
-  | "tasks"
-  | "brainDump"
-  | "metrics"
-  | "phases"
+  | "core"
   | "assistant"
   | "settings";
 
@@ -55,10 +53,7 @@ const VIEWS: {
   { key: "calendar", label: "Calendar", icon: calendarIcon },
   { key: "insights", label: "Insights", icon: insightsIcon },
   { key: "logs", label: "Logs", icon: { tileId: "timeline" } },
-  { key: "tasks", label: "Tasks", icon: { tileId: "tasks" } },
-  { key: "brainDump", label: "Brain dump", icon: { tileId: "brainDump" } },
-  { key: "metrics", label: "Metrics", icon: { tileId: "metrics" } },
-  { key: "phases", label: "Phases", icon: { tileId: "phases" } },
+  { key: "core", label: "Core", icon: coreIcon },
   { key: "assistant", label: "Assistant", icon: assistantIcon },
   { key: "settings", label: "Settings", icon: settingsIcon },
 ];

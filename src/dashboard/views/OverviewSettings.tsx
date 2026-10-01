@@ -5,8 +5,9 @@ import { useTileIcons } from "../hooks/useTileIcons";
 import { OVERVIEW_SETTINGS_ID, TILE_LABELS } from "../lib/overviewGrid";
 import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
-// Feature tiles take their icon from their own Section (Tasks, Logs,
-// Brain dump, Metrics); only icons with no other home live here.
+// Feature tiles take their icon from their own pane (Tasks, Logs,
+// Brain dump, Metrics). Tasks, Brain dump, and Metrics are Core panes.
+// Only icons with no other home live here.
 const OVERVIEW_OWNED_ICONS = [
   "overview",
   "controlPanel",

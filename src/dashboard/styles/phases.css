@@ -18,7 +18,7 @@
   position: relative;
   z-index: 20;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin: 0;
   padding: 22px 24px 16px;
 }

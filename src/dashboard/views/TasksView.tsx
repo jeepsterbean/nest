@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
+import { CorePaneToggle } from "../components/CorePaneToggle";
 import { MenuSelect } from "../components/MenuSelect";
 import { IconPickerButton } from "../components/PulseIcon";
 import { ViewToggle } from "../components/ViewToggle";
@@ -15,6 +16,7 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTileIcons } from "../hooks/useTileIcons";
+import type { CorePaneControls } from "../lib/corePane";
 import { writeTileIcon } from "../lib/tileIcons";
 import { scopeMatches, type ScopeNode } from "../lib/scope";
 import {
@@ -42,7 +44,7 @@ const TASK_TABLE_SORT_OPTIONS = [
   { value: "updated", label: "Sort: Recently updated" },
 ];
 
-export function TasksView() {
+export function TasksView({ pane, onSelectPane }: CorePaneControls) {
   const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
     useDashboardData();
   const icons = useTileIcons();
@@ -84,9 +86,11 @@ export function TasksView() {
   }, [taskGraph, selectedTaskId]);
 
   // Escape closes the detail panel, but only once open menus and in-place
-  // editors have had their turn at the key.
+  // editors have had their turn at the key. Core keeps this pane mounted while
+  // hidden, so the handler must not fire from another pane.
+  const tasksPaneVisible = pane === "tasks";
   useEffect(() => {
-    if (selectedTaskId === null) return;
+    if (selectedTaskId === null || !tasksPaneVisible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (statusMenu || scopeMenu) return;
@@ -99,7 +103,7 @@ export function TasksView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTaskId, statusMenu, scopeMenu, closeDetail]);
+  }, [selectedTaskId, tasksPaneVisible, statusMenu, scopeMenu, closeDetail]);
 
   useEffect(() => {
     const closeStatusFilter = (restoreFocus: boolean) => {
@@ -277,6 +281,7 @@ export function TasksView() {
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head">
         <div className="dash-toolbar">
+          <CorePaneToggle pane={pane} onSelectPane={onSelectPane} />
           {taskView === "table" && (
             <>
               <ViewToggle

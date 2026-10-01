@@ -17,6 +17,7 @@ import {
 import { resolveMetricColorFromList } from "../../lib/metricColors";
 import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric } from "../../lib/types";
+import { CorePaneToggle } from "../components/CorePaneToggle";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
 import { IconPickerButton, NestIcon, nestIconLabel } from "../components/PulseIcon";
@@ -33,6 +34,7 @@ import {
   writeMetricsPane,
   type MetricsPane,
 } from "../lib/metricsPane";
+import type { CorePaneControls } from "../lib/corePane";
 import { TILE_LABELS } from "../lib/overviewGrid";
 import { writeTileIcon } from "../lib/tileIcons";
 import { buildMetricSeries } from "../lib/timeline";
@@ -81,7 +83,7 @@ function MetricTrend({ values }: { values: number[] }) {
   );
 }
 
-export function MetricsView() {
+export function MetricsView({ pane: corePane, onSelectPane }: CorePaneControls) {
   const { metrics, pulses, checkIns, metricCheckInSchedule, mutate } = useDashboardData();
   const [pane, setPane] = useState<MetricsPane>(readMetricsPane);
   const icons = useTileIcons();
@@ -213,6 +215,7 @@ export function MetricsView() {
     <section className="dash-section dash-section--metrics">
       <header className="dash-section__head">
         <div className="dash-toolbar">
+          <CorePaneToggle pane={corePane} onSelectPane={onSelectPane} />
           <ViewToggle
             value={pane}
             options={METRIC_PANES}

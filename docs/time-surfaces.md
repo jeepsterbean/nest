@@ -29,13 +29,14 @@ Overview has its own configuration panel that opens over the right side of
 the tile board from the Greetings board, closed by default. It lets
 the user choose the Overview Section icon and the Control panel icon. Feature
 tiles (Tasks, Timeline, Brain dump, Metric check-in) take their icon from
-their own Section (Tasks, Logs, Brain dump, Metrics), and Last hour always
+their own pane (Tasks, Logs, Brain dump, Metrics; Tasks, Brain dump, and
+Metrics are Core panes), and Last hour always
 uses the Insights icon. General Settings contains no Last hour or Control
 panel panes.
 
 Overview is a persistent tile board with that summary, a read-only Tasks peek
-(Status, Title, Value, Effort) with Open / Closed and a button that opens the
-Tasks section, a Logs Timeline of the same 30-day history as the Logs Rail (same marks,
+(Status, Title, Value, Effort) with Open / Closed and a button that opens Core
+on the Tasks pane, a Logs Timeline of the same 30-day history as the Logs Rail (same marks,
 Phase gutter coloring, day labels, and Phase totals; the minimised peek hides
 that day chrome) filtered by Timeline / Brain dumps / Metrics with load-older
 batching when needed, a brain dump composer that matches the popup (shared
@@ -100,7 +101,7 @@ burst, it is omitted). Each visible day has an Export control that downloads a
 chronological Markdown timeline of every event type for that calendar day,
 regardless of the active Logs filter.
 
-Each Phase has separate icon and color controls in the Phases Section, with a
+Each Phase has separate icon and color controls in the Phases pane of Core, with a
 broad preset palette and custom color picker; those choices drive the Greetings
 board, Calendar rail and wash, Insights mix and totals, Logs Raw Phase rows,
 and the Timeline time gutter (quiet surface tone when uncolored). Metric

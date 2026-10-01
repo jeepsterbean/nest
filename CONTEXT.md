@@ -95,7 +95,7 @@ way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
 Overview, Calendar, Insights, and Logs: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
-Icon and color live in the Phases Section.
+Icon and color live in the Phases pane of Core.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -152,21 +152,28 @@ A reusable label for brain dumps.
 Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The ten
-are Overview, Calendar, Insights, Logs, Tasks, Brain dump, Metrics, Phases,
-Assistant, and Settings. Overview shows the
+One primary destination in the dashboard, chosen from the **Sidebar**. The seven
+are Overview, Calendar, Insights, Logs, Core, Assistant, and Settings. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
 title —
 the Sidebar already names where you are. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these ten)
+_Avoid_: View, screen (for these seven)
 
 **Sidebar**:
 The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
-Tasks, Brain dump, Metrics, Phases, Assistant, Settings).
+Core, Assistant, Settings).
 _Avoid_: Nav, rail (for this strip)
+
+**Core**:
+The dashboard Section for Brain dump, Tasks, Metrics, and Phases. One Sidebar
+entry; a segmented control switches those panes. The last pane is remembered
+(Brain dump when unset). Each pane keeps its own controls, including its icon
+picker. Brain dump, Tasks, and Metrics still supply their Overview tile icons;
+Phases has no Overview tile.
+_Avoid_: Hub, home (Overview is the board you land on)
 
 **Greetings board**:
 The Overview strip with the typewriter greeting, live Phase, and Timer
@@ -197,11 +204,12 @@ _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
 Dashboard configuration for Assistant, Reminders, and Background. Phase icons
-and colors live in the Phases Section. Pulses and the full Metric list live in
-the Metrics Section. The Brain dump tile icon, Tags, and saved brain dump
-history live in the Brain dump Section; the Tasks, Logs, Metrics, and Phases
-icons are picked in their own Sections. One Sidebar entry; a segmented control
-switches panes. The last pane is remembered (Assistant when unset).
+and colors live in the Phases pane of Core. Pulses and the full Metric list live
+in the Metrics pane of Core. The Brain dump tile icon, Tags, and saved brain dump
+history live in the Brain dump pane of Core. The Tasks, Logs, Metrics, and Phases
+icons are picked in those panes; Logs remains its own Section. One Sidebar entry;
+a segmented control switches Settings panes. The last pane is remembered
+(Assistant when unset).
 _Avoid_: Preferences, admin
 
 **Logs**:
@@ -253,8 +261,8 @@ _Avoid_: Journal
   shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Tasks / Brain dump / Metrics / Phases / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "view" for Overview / Calendar / Insights / Logs / Core / Assistant / Settings — resolved: each is a **Section**. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a segmented destination inside Settings, Assistant, Brain dump, or Metrics.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a segmented destination inside Core, Settings, Assistant, Brain dump, or Metrics.

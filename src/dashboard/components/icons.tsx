@@ -59,12 +59,11 @@ export const xIcon = (
   </svg>
 );
 
-export const overviewIcon = (
+export const coreIcon = (
   <svg {...iconProps}>
-    <rect x="4" y="4" width="6" height="6" rx="1" />
-    <rect x="14" y="4" width="6" height="6" rx="1" />
-    <rect x="4" y="14" width="6" height="6" rx="1" />
-    <rect x="14" y="14" width="6" height="6" rx="1" />
+    <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 12 9 5 9-5" />
+    <path d="m3 16 9 5 9-5" />
   </svg>
 );
 
