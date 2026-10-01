@@ -38,6 +38,27 @@ describe("Logs preferences", () => {
     });
   });
 
+  it("keeps a stored Timeline view on the Rail", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({ view: "timeline" }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "rail",
+    });
+  });
+
+  it("defaults Timeline layout when a non-timeline view stored none", () => {
+    const storage = memory();
+    storage.setItem("nest:logs-preferences", JSON.stringify({ view: "dumps" }));
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "dumps",
+      timelineLayout: "raw",
+    });
+  });
+
   it("moves the retired Raw view under Timeline", () => {
     const storage = memory();
     storage.setItem("nest:logs-preferences", JSON.stringify({ view: "raw" }));

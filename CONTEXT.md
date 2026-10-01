@@ -253,7 +253,7 @@ _Avoid_: Journal
   shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Tasks / Brain dump / Metrics / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "view" for Overview / Calendar / Insights / Logs / Tasks / Brain dump / Metrics / Phases / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.

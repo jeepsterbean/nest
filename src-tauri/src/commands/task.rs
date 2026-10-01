@@ -1,4 +1,4 @@
-use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Row};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
@@ -6,6 +6,7 @@ use tauri::{AppHandle, State};
 use super::shared::with_phase_tx;
 use crate::error::{AppError, Result};
 use crate::models::{Task, TaskDependency, TaskStatusEvent, TaskWorkStretch};
+use crate::task::{fetch_task, map_task, touch_task, TASK_COLUMNS};
 use crate::task_graph::TaskGraph;
 use crate::task_lifecycle::bank_all_working_now;
 use crate::time::now_unix_secs;
@@ -42,45 +43,6 @@ pub(crate) fn validate_task_score(score: Option<i64>, label: &str) -> Result<Opt
     }
 }
 
-/// Working now, Worked time and the live start are derived from
-/// task_work_stretches rather than stored, so a corrected stretch moves the
-/// total. Selects using this must alias the tasks table as `t`. Correlated
-/// subqueries are illegal in RETURNING, so it cannot be used there.
-pub(crate) const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
-    EXISTS(SELECT 1 FROM task_work_stretches s \
-           WHERE s.task_id = t.id AND s.ended_at IS NULL), \
-    COALESCE((SELECT SUM(s.ended_at - s.started_at) FROM task_work_stretches s \
-              WHERE s.task_id = t.id AND s.ended_at IS NOT NULL), 0), \
-    (SELECT s.started_at FROM task_work_stretches s \
-     WHERE s.task_id = t.id AND s.ended_at IS NULL), \
-    t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at";
-
-pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
-    Ok(Task {
-        id: row.get(0)?,
-        title: row.get(1)?,
-        description: row.get(2)?,
-        status: row.get(3)?,
-        working_now: row.get(4)?,
-        worked_seconds: row.get(5)?,
-        work_started_at: row.get(6)?,
-        scope: row.get(7)?,
-        value: row.get(8)?,
-        effort: row.get(9)?,
-        parent_task_id: row.get(10)?,
-        created_at: row.get(11)?,
-        updated_at: row.get(12)?,
-    })
-}
-
-pub(crate) fn fetch_task(conn: &Connection, id: i64) -> Result<Task> {
-    conn.query_row(
-        &format!("SELECT {TASK_COLUMNS} FROM tasks t WHERE t.id = ?1"),
-        params![id],
-        map_task,
-    )
-    .map_err(Into::into)
-}
 #[tauri::command]
 pub fn list_tasks(state: State<'_, Mutex<Connection>>) -> Result<Vec<Task>> {
     let conn = state.lock().unwrap();
@@ -365,24 +327,12 @@ pub(crate) fn bank_task_work(conn: &Connection, id: i64, now: i64) -> Result<()>
     Ok(())
 }
 
-/// Starting and stopping work no longer writes to tasks, but Worked time is
-/// still a change to the task as far as the Updated column and its sorts care.
-pub(crate) fn touch_task(conn: &Connection, id: i64, now: i64) -> Result<()> {
-    conn.execute(
-        "UPDATE tasks SET updated_at = ?1 WHERE id = ?2",
-        params![now, id],
-    )?;
-    Ok(())
-}
-
 #[tauri::command]
 pub fn stop_all_working_now(
     app: AppHandle,
     state: State<'_, Mutex<Connection>>,
 ) -> Result<Vec<Task>> {
-    with_phase_tx(&app, &state, |tx| {
-        bank_all_working_now(tx, now_unix_secs())
-    })
+    with_phase_tx(&app, &state, |tx| bank_all_working_now(tx, now_unix_secs()))
 }
 
 /// Far past any real timestamp, standing in for an open stretch's end so the
@@ -631,32 +581,7 @@ pub fn reorder_tasks(state: State<'_, Mutex<Connection>>, ids: Vec<i64>) -> Resu
 pub(crate) mod tests {
     use super::*;
     use crate::migrations::migrations;
-
-    /// Replace a task's stretches with `banked` seconds of finished work plus,
-    /// optionally, one open stretch. Worked time is derived, so seeding it means
-    /// seeding the stretches it sums.
-    pub(crate) fn seed_work(conn: &Connection, task_id: i64, banked: i64, open_since: Option<i64>) {
-        conn.execute(
-            "DELETE FROM task_work_stretches WHERE task_id = ?1",
-            [task_id],
-        )
-        .unwrap();
-        if banked > 0 {
-            conn.execute(
-                "INSERT INTO task_work_stretches (task_id, started_at, ended_at) \
-                 VALUES (?1, 0, ?2)",
-                [task_id, banked],
-            )
-            .unwrap();
-        }
-        if let Some(started_at) = open_since {
-            conn.execute(
-                "INSERT INTO task_work_stretches (task_id, started_at) VALUES (?1, ?2)",
-                [task_id, started_at],
-            )
-            .unwrap();
-        }
-    }
+    use crate::task::tests::{seed_work, stretches, task_database};
 
     #[test]
     fn normalizes_task_scope_segments() {
@@ -666,18 +591,6 @@ pub(crate) mod tests {
         );
         assert_eq!(normalize_task_scope(Some(" /// ".into())), None);
         assert_eq!(normalize_task_scope(None), None);
-    }
-
-    pub(crate) fn task_database() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        conn.execute(
-            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
-             VALUES (1, 'Active', 'active', 1, 1)",
-            [],
-        )
-        .unwrap();
-        conn
     }
 
     #[test]
@@ -692,18 +605,6 @@ pub(crate) mod tests {
         let task = update_task_score_field(&conn, 1, "effort", Some(4)).unwrap();
         assert_eq!((task.value, task.effort), (Some(5), Some(4)));
         assert!(update_task_score_field(&conn, 1, "priority", Some(1)).is_err());
-    }
-
-    pub(crate) fn stretches(conn: &Connection, task_id: i64) -> Vec<(i64, i64, Option<i64>)> {
-        conn.prepare(
-            "SELECT id, started_at, ended_at FROM task_work_stretches \
-             WHERE task_id = ?1 ORDER BY started_at",
-        )
-        .unwrap()
-        .query_map([task_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
-        .unwrap()
-        .collect::<rusqlite::Result<_>>()
-        .unwrap()
     }
 
     #[test]

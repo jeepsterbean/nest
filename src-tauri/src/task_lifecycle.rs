@@ -3,9 +3,9 @@
 
 use rusqlite::{params, Connection};
 
-use crate::commands::task::{fetch_task, touch_task};
 use crate::error::Result;
 use crate::models::Task;
+use crate::task::{fetch_task, touch_task};
 
 /// Bank Worked time and clear Working now on every task that has it, returning
 /// the tasks it changed. RETURNING gives no row order; callers key by id. It
@@ -61,9 +61,8 @@ pub(crate) fn recover_open_stretches(conn: &Connection, now: i64) -> Result<usiz
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::task::change_task_working;
-    use crate::commands::task::tests::{seed_work, stretches, task_database};
     use crate::migrations::migrations;
+    use crate::task::tests::{seed_work, stretches, task_database};
 
     #[test]
     fn a_crashed_stretch_ends_at_the_last_heartbeat_not_at_the_next_launch() {
@@ -100,8 +99,6 @@ mod tests {
             [],
         )
         .unwrap();
-        change_task_working(&conn, 1, true).unwrap();
-        change_task_working(&conn, 2, true).unwrap();
         seed_work(&conn, 1, 10, Some(100));
         seed_work(&conn, 2, 5, Some(120));
 

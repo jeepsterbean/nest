@@ -8,6 +8,7 @@ mod migrations;
 mod models;
 mod phase;
 mod popup_placement;
+mod task;
 mod task_graph;
 mod task_lifecycle;
 mod time;

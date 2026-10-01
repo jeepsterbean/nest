@@ -78,9 +78,13 @@ export function readLogsPreferences(
     if (hasKey(LOG_VIEWS, value.view)) {
       return {
         view: value.view,
+        // Timeline saved before Rail / Raw was the rail. Other views never
+        // stored a layout, so they pick up the current Raw default.
         timelineLayout: hasKey(TIMELINE_LAYOUTS, value.timelineLayout)
           ? value.timelineLayout
-          : DEFAULT_LOGS_PREFERENCES.timelineLayout,
+          : value.view === "timeline"
+            ? "rail"
+            : DEFAULT_LOGS_PREFERENCES.timelineLayout,
       };
     }
     return migrateLegacyPreferences(value) ?? DEFAULT_LOGS_PREFERENCES;

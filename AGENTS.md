@@ -109,6 +109,8 @@ each fact in its closest authoritative source and link to it elsewhere.
   derivation and lock/sleep Offline in `phase.rs`; OpenAI streaming and the
   keychain API key in `assistant.rs`; work-stretch upkeep driven by app
   lifecycle events (startup recovery, quit, heartbeat) in `task_lifecycle.rs`.
+  Task row reads and the Updated stamp live in `task.rs`, shared by task
+  commands and that lifecycle upkeep.
 - Rust tests live in a `#[cfg(test)] mod tests` inside the file that owns the
   behavior.
 - Working now, Worked time and the live start are derived from

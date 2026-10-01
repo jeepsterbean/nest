@@ -106,8 +106,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Logs: `.dash-section--logs` with a `ViewToggle` (Timeline / Brain dumps /
   Phases / Metrics) and, only under Timeline, a second `ViewToggle` (Rail / Raw).
   `nest:logs-preferences` stores `view` and `timelineLayout` (Timeline + Raw
-  when unset; migrates the retired `raw` view and legacy `layout` +
-  `rawFilter`). Raw and filtered panes share day-grouped `.timeline` / `.event`
+  when unset). A stored Timeline view from before Rail / Raw keeps Rail; the
+  retired `raw` view and legacy `layout` + `rawFilter` migrate onto the same
+  pair. Raw and filtered panes share day-grouped `.timeline` / `.event`
   rows (`LogsEvents`); Rail keeps `.logs-chrono`, which has no Phase rows. The toolbar ends with a
   `.dash-section__tile-icon` picker, shared with the Tasks, Brain dump, Metrics,
   and Phases heads, that writes the `timeline` slot in `nest:overview-tile-icons`.
