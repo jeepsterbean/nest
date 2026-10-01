@@ -21,6 +21,8 @@ import { InsightsView } from "./views/InsightsView";
 import { LogsView } from "./views/LogsView";
 import { TasksView } from "./views/TasksView";
 import { BrainDumpView } from "./views/BrainDumpView";
+import { MetricsView } from "./views/MetricsView";
+import { PhasesView } from "./views/PhasesView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
 import { writeInsightsRangeMode } from "./lib/insights";
@@ -118,6 +120,8 @@ function DashboardInner() {
           {view === "logs" && <LogsView />}
           {view === "tasks" && <TasksView />}
           {view === "brainDump" && <BrainDumpView />}
+          {view === "metrics" && <MetricsView />}
+          {view === "phases" && <PhasesView />}
           {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
           {view === "settings" && <SettingsView />}
         </div>

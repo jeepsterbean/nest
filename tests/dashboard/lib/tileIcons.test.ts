@@ -40,6 +40,7 @@ describe("tile icons", () => {
       timeline: "calendar",
       brainDump: DEFAULT_TILE_ICONS.brainDump,
       metrics: "gauge",
+      phases: DEFAULT_TILE_ICONS.phases,
       controlPanel: DEFAULT_TILE_ICONS.controlPanel,
     });
   });
@@ -50,6 +51,15 @@ describe("tile icons", () => {
     expect(readTileIcons(storage)).toEqual({
       ...DEFAULT_TILE_ICONS,
       tasks: "heart",
+    });
+  });
+
+  it("writes the Phases Section icon", () => {
+    const storage = memory();
+    writeTileIcon("phases", "moon", storage);
+    expect(readTileIcons(storage)).toEqual({
+      ...DEFAULT_TILE_ICONS,
+      phases: "moon",
     });
   });
 });

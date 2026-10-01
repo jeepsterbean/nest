@@ -33,16 +33,12 @@ import { gridArea, OverviewTile } from "../components/OverviewTile";
 import { MetricCheckIn } from "../components/MetricCheckIn";
 import { ViewToggle } from "../components/ViewToggle";
 import { useComposerTagProps } from "../components/BrainDumpTags";
-import {
-  HISTORY_WINDOW_DAYS,
-  useDashboardData,
-} from "../context/DashboardDataContext";
+import { useDashboardData } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { lastHourInsight } from "../lib/insights";
-import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
+import { buildTimelineLogEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
 import { type TimelineLogEvent } from "../lib/timeline";
-import { historyStartSec } from "../lib/time";
 import {
   canHideTile,
   hiddenTileIds,
@@ -77,7 +73,7 @@ const EMPTY_COPY: Record<
 > = {
   timeline: {
     title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
+    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -177,7 +173,6 @@ export function OverviewView({
   }, []);
 
   const nowMs = useCurrentTime();
-  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const [timelineFilter, setTimelineFilter] =
     useState<OverviewTimelineFilter>("timeline");
   const [visibleEventCount, setVisibleEventCount] = useState(
@@ -207,21 +202,8 @@ export function OverviewView({
   );
 
   const historyEvents = useMemo(
-    () =>
-      buildLogExportEvents(
-        checkIns,
-        phaseCheckIns,
-        brainDumps,
-        taskWorkStretches,
-        historyFromSec,
-      ),
-    [
-      brainDumps,
-      checkIns,
-      historyFromSec,
-      phaseCheckIns,
-      taskWorkStretches,
-    ],
+    () => buildTimelineLogEvents(checkIns, brainDumps, taskWorkStretches),
+    [brainDumps, checkIns, taskWorkStretches],
   );
 
   const timelineEvents = useMemo(

@@ -17,8 +17,9 @@ export type WorkLogEvent =
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
 export type RawLogEvent = TimelineEvent | WorkLogEvent;
-/** Timeline rail: happenings plus settled Phase changes (raw flicker stays off). */
-export type TimelineLogEvent = RawLogEvent;
+/** Timeline rail: happenings only. The time gutter's color already carries the
+ * Phase in force, so Phase changes get no row of their own. */
+export type TimelineLogEvent = Exclude<RawLogEvent, { kind: "phase" }>;
 
 export type DayGroup<T extends { at: number } = TimelineEvent> = {
   key: number;

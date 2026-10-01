@@ -66,7 +66,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (so it is unreachable while Doing hides the Greetings board). It
   configures only the icons with no other home: the Overview Section and
   Control panel. Feature tiles take their icon from their own Section (Tasks,
-  Logs, and Brain dump heads; Settings → Metrics), and Last hour always uses
+  Logs, Brain dump, and Metrics heads), and Last hour always uses
   the shared Insights SVG. Choices are stored in `nest:overview-tile-icons`,
   with an `overview` slot for the Section. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
@@ -103,16 +103,18 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   legacy `nest:insights-range`). The toolbar title is a `DayPicker`
   (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
   Today and marks the title `.range-nav__live`.
-- Logs: `.dash-section--logs` with one `ViewToggle` (Timeline / Brain dumps /
-  Phases / Metrics / Raw). Last view is stored in `nest:logs-preferences` (Raw
-  when unset; migrates legacy `layout` + `rawFilter`). Phases is always
-  aggregated. Raw and filtered panes share day-grouped `.timeline` / `.event`
-  rows (`LogsEvents`); Timeline keeps `.logs-chrono`. The toolbar ends with a
-  `.dash-section__tile-icon` picker, shared with the Tasks and Brain dump heads, that
-  writes the `timeline` slot in `nest:overview-tile-icons`.
-- Sidebar: Overview, Logs, Tasks, and Brain dump render their picked `NestIcon` from
-  `nest:overview-tile-icons` (`overview` / `timeline` / `tasks` / `brainDump`); other
-  Sections keep their fixed SVGs.
+- Logs: `.dash-section--logs` with a `ViewToggle` (Timeline / Brain dumps /
+  Phases / Metrics) and, only under Timeline, a second `ViewToggle` (Rail / Raw).
+  `nest:logs-preferences` stores `view` and `timelineLayout` (Timeline + Raw
+  when unset; migrates the retired `raw` view and legacy `layout` +
+  `rawFilter`). Raw and filtered panes share day-grouped `.timeline` / `.event`
+  rows (`LogsEvents`); Rail keeps `.logs-chrono`, which has no Phase rows. The toolbar ends with a
+  `.dash-section__tile-icon` picker, shared with the Tasks, Brain dump, Metrics,
+  and Phases heads, that writes the `timeline` slot in `nest:overview-tile-icons`.
+- Sidebar: Overview, Logs, Tasks, Brain dump, Metrics, and Phases render their
+  picked `NestIcon` from `nest:overview-tile-icons` (`overview` / `timeline` /
+  `tasks` / `brainDump` / `metrics` / `phases`); other Sections keep their fixed
+  SVGs.
 - Assistant: `.dash-section--assistant` with Chat / Config panes via
   `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
@@ -156,15 +158,19 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
-- Settings: `.dash-section--settings` with Assistant / Metrics / Phases /
-  Reminders / Background panes
-  via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
-  (Metrics when unset). Panes stay mounted in `.settings-slot` through
-  `hidden` so Metrics sub-state survives switches. Metrics uses
-  `.settings-pane--metrics` (Pulses / Metrics sub-toggle), and tile icon panes
-  reuse `.tile-settings` with the phase-settings controls. Phase appearance
-  uses `--phase-color` / `--colored` on the Greetings board, Calendar rail and
-  wash, Insights mix and totals, and Logs Phase rows.
+- Metrics: `.dash-section--metrics` with Pulses / Metrics panes via shared
+  `ViewToggle` and a `.dash-section__tile-icon` picker for the `metrics` slot.
+  Last pane is stored in `nest:metrics-pane` (Pulses when unset). Panes stay
+  mounted in `.metrics-section__pane` through `hidden` so Pulse selection and
+  an unsent Metric name survive switches.
+- Phases: `.dash-section--phases` with a `.dash-section__tile-icon` picker for
+  the `phases` Sidebar slot (no Overview tile) and the Phase appearance list.
+  Phase appearance uses `--phase-color` / `--colored` on the Greetings board,
+  Calendar rail and wash, Insights mix and totals, and Logs Phase rows.
+- Settings: `.dash-section--settings` with Assistant / Reminders / Background
+  panes via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
+  (Assistant when unset). Panes stay mounted in `.settings-slot` through
+  `hidden` so Assistant drafts survive switches.
 
 ## Timeline grid
 

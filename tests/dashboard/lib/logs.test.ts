@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildLogExportEvents,
+  buildTimelineLogEvents,
   logDayMarkdown,
   readLogsPreferences,
   writeLogsPreferences,
@@ -21,17 +22,32 @@ const memory = () => {
 };
 
 describe("Logs preferences", () => {
-  it("defaults to Raw", () => {
-    expect(readLogsPreferences(memory())).toEqual({ view: "raw" });
+  it("defaults to the Raw Timeline", () => {
+    expect(readLogsPreferences(memory())).toEqual({
+      view: "timeline",
+      timelineLayout: "raw",
+    });
   });
 
-  it("round-trips the selected Logs view", () => {
+  it("round-trips the selected Logs view and Timeline layout", () => {
     const storage = memory();
-    writeLogsPreferences({ view: "timeline" }, storage);
-    expect(readLogsPreferences(storage)).toEqual({ view: "timeline" });
+    writeLogsPreferences({ view: "timeline", timelineLayout: "rail" }, storage);
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "rail",
+    });
   });
 
-  it("migrates legacy layout and filter onto a single view", () => {
+  it("moves the retired Raw view under Timeline", () => {
+    const storage = memory();
+    storage.setItem("nest:logs-preferences", JSON.stringify({ view: "raw" }));
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "raw",
+    });
+  });
+
+  it("migrates legacy layout and filter onto a view", () => {
     const storage = memory();
     storage.setItem(
       "nest:logs-preferences",
@@ -41,7 +57,10 @@ describe("Logs preferences", () => {
         phaseMode: "raw",
       }),
     );
-    expect(readLogsPreferences(storage)).toEqual({ view: "timeline" });
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "rail",
+    });
 
     storage.setItem(
       "nest:logs-preferences",
@@ -51,7 +70,7 @@ describe("Logs preferences", () => {
         phaseMode: "aggregated",
       }),
     );
-    expect(readLogsPreferences(storage)).toEqual({ view: "dumps" });
+    expect(readLogsPreferences(storage).view).toBe("dumps");
 
     storage.setItem(
       "nest:logs-preferences",
@@ -61,7 +80,10 @@ describe("Logs preferences", () => {
         phaseMode: "aggregated",
       }),
     );
-    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "raw",
+    });
   });
 
   it("falls back when the stored view is invalid", () => {
@@ -70,13 +92,34 @@ describe("Logs preferences", () => {
       "nest:logs-preferences",
       JSON.stringify({ view: "cards" }),
     );
-    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "raw",
+    });
   });
 
   it("recovers from malformed storage", () => {
     const storage = memory();
     storage.setItem("nest:logs-preferences", "{");
-    expect(readLogsPreferences(storage)).toEqual({ view: "raw" });
+    expect(readLogsPreferences(storage)).toEqual({
+      view: "timeline",
+      timelineLayout: "raw",
+    });
+  });
+});
+
+describe("Timeline feed", () => {
+  it("leaves Phase changes to the time gutter color", () => {
+    const events = buildTimelineLogEvents(
+      [],
+      [{ id: 1, createdAt: 110, text: "planning", tags: [] }],
+      [{ id: 1, taskId: 1, startedAt: 100, endedAt: 120 }],
+    );
+    expect(events.map((event) => event.kind)).toEqual([
+      "work-stop",
+      "dump",
+      "work-start",
+    ]);
   });
 });
 
@@ -160,7 +203,7 @@ describe("daily Logs export", () => {
     expect(markdown).toContain("> First line\n  > Second line");
   });
 
-  it("keeps settled Resting on the Timeline so Scoping-only dumps cannot hide away time", () => {
+  it("keeps settled Resting in the day export so Scoping-only dumps cannot hide away time", () => {
     const phase = (
       id: number,
       createdAt: number,

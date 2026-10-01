@@ -7,8 +7,6 @@ import {
   type SettingsPane,
 } from "../lib/settings";
 import { BackgroundView } from "./BackgroundView";
-import { MetricsView } from "./MetricsView";
-import { PhasesView } from "./PhasesView";
 import { RemindersView } from "./RemindersView";
 import { AssistantSettings } from "./AssistantSettings";
 
@@ -30,15 +28,9 @@ export function SettingsView() {
           onChange={selectPane}
         />
       </header>
-      {/* Keep panes mounted so Metrics sub-state survives pane switches. */}
+      {/* Keep panes mounted so Assistant drafts survive switches. */}
       <div className="settings-slot" hidden={pane !== "assistant"}>
         <AssistantSettings />
-      </div>
-      <div className="settings-slot" hidden={pane !== "metrics"}>
-        <MetricsView />
-      </div>
-      <div className="settings-slot" hidden={pane !== "phases"}>
-        <PhasesView />
       </div>
       <div className="settings-slot" hidden={pane !== "reminders"}>
         <RemindersView />

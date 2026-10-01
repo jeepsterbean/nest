@@ -141,7 +141,9 @@
   }
 
   .dash-section--settings,
-  .dash-section--brain-dump {
+  .dash-section--brain-dump,
+  .dash-section--metrics,
+  .dash-section--phases {
     padding: 0;
   }
 
@@ -149,8 +151,14 @@
     padding: 18px 18px 16px;
   }
 
-  .dash-section--brain-dump > .dash-section__head {
+  .dash-section--brain-dump > .dash-section__head,
+  .dash-section--metrics > .dash-section__head,
+  .dash-section--phases > .dash-section__head {
     padding: 18px 18px 16px;
+  }
+
+  .dash-section--phases > .dash-section__body {
+    padding: 0 18px 18px;
   }
 
   .brain-dump-section__pane:not([hidden]) {
@@ -159,18 +167,6 @@
 
   .settings-pane {
     padding: 0 18px 18px;
-  }
-
-  .settings-pane--metrics {
-    padding: 0;
-  }
-
-  .settings-pane__toolbar {
-    padding: 0 18px 12px;
-  }
-
-  .tile-settings--embedded {
-    padding: 0 18px 12px;
   }
 
   .pulse-workspace {
@@ -221,8 +217,7 @@
     padding: 18px;
   }
 
-  .pulse-detail__head,
-  .all-metrics__head {
+  .pulse-detail__head {
     flex-direction: column;
   }
 

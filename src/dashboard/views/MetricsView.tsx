@@ -26,9 +26,17 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useInlineRename } from "../hooks/useInlineRename";
 import { useListSort } from "../hooks/useListSort";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useTileIcons } from "../hooks/useTileIcons";
+import {
+  METRIC_PANES,
+  readMetricsPane,
+  writeMetricsPane,
+  type MetricsPane,
+} from "../lib/metricsPane";
+import { TILE_LABELS } from "../lib/overviewGrid";
+import { writeTileIcon } from "../lib/tileIcons";
 import { buildMetricSeries } from "../lib/timeline";
 import { formatTime } from "../lib/time";
-import { TileIconSettings } from "./TileIconSettings";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
 const METRIC_RANGES = [
@@ -36,11 +44,6 @@ const METRIC_RANGES = [
   { key: "1h", label: "1h", aria: "1 hour", seconds: 60 * 60 },
   { key: "3h", label: "3h", aria: "3 hours", seconds: 3 * 60 * 60 },
   { key: "1d", label: "1d", aria: "1 day", seconds: 24 * 60 * 60 },
-] as const;
-
-const METRIC_VIEWS = [
-  { key: "pulses", label: "Pulses" },
-  { key: "all", label: "Metrics" },
 ] as const;
 
 const METRIC_CHECK_IN_INTERVALS = [15, 30, 45, 60, 75, 90, 105, 120];
@@ -80,7 +83,8 @@ function MetricTrend({ values }: { values: number[] }) {
 
 export function MetricsView() {
   const { metrics, pulses, checkIns, metricCheckInSchedule, mutate } = useDashboardData();
-  const [view, setView] = useState<"pulses" | "all">("pulses");
+  const [pane, setPane] = useState<MetricsPane>(readMetricsPane);
+  const icons = useTileIcons();
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [addingPulse, setAddingPulse] = useState(false);
   const [addingMetric, setAddingMetric] = useState(false);
@@ -200,33 +204,46 @@ export function MetricsView() {
     },
   );
 
+  const selectPane = (key: MetricsPane) => {
+    writeMetricsPane(key);
+    setPane(key);
+  };
+
   return (
-    <div className="settings-pane settings-pane--metrics">
-      <TileIconSettings tileId="metrics" embedded />
-      <header className="settings-pane__toolbar">
-        <div className="metric-check-in-schedule">
-          <span>Metric check-in</span>
-          <MenuSelect
-            value={String(metricCheckInSchedule?.intervalMinutes ?? "")}
-            options={METRIC_CHECK_IN_INTERVALS.map((minutes) => ({
-              value: String(minutes),
-              label: `${minutes} min`,
-            }))}
-            placeholder="Interval"
-            ariaLabel="Metric check-in interval"
-            onChange={(value) => void mutate(() => setMetricCheckInInterval(Number(value)))}
+    <section className="dash-section dash-section--metrics">
+      <header className="dash-section__head">
+        <div className="dash-toolbar">
+          <ViewToggle
+            value={pane}
+            options={METRIC_PANES}
+            label="Metrics pane"
+            onChange={selectPane}
           />
-          <span>Next: {nextMetricCheckIn}</span>
+          <div className="metric-check-in-schedule">
+            <span>Metric check-in</span>
+            <MenuSelect
+              value={String(metricCheckInSchedule?.intervalMinutes ?? "")}
+              options={METRIC_CHECK_IN_INTERVALS.map((minutes) => ({
+                value: String(minutes),
+                label: `${minutes} min`,
+              }))}
+              placeholder="Interval"
+              ariaLabel="Metric check-in interval"
+              onChange={(value) => void mutate(() => setMetricCheckInInterval(Number(value)))}
+            />
+            <span>Next: {nextMetricCheckIn}</span>
+          </div>
         </div>
-        <ViewToggle
-          value={view}
-          options={METRIC_VIEWS}
-          label="Metric views"
-          onChange={setView}
+        <IconPickerButton
+          className="dash-section__tile-icon"
+          icon={icons.metrics}
+          label={`${TILE_LABELS.metrics} tile`}
+          onChange={(nextIcon) => writeTileIcon("metrics", nextIcon)}
         />
       </header>
 
-      {view === "pulses" ? (
+      {/* Keep panes mounted so Pulse selection and an unsent Metric name survive switches. */}
+      <div className="metrics-section__pane" hidden={pane !== "pulses"}>
         <div className="pulse-workspace">
           <aside className="pulse-sidebar" aria-label="Pulses">
             <div className="pulse-sidebar__head">
@@ -439,14 +456,9 @@ export function MetricsView() {
             )}
           </main>
         </div>
-      ) : (
+      </div>
+      <div className="metrics-section__pane" hidden={pane !== "all"}>
         <div className="all-metrics">
-          <header className="all-metrics__head">
-            <div>
-              <h3>All metrics</h3>
-              <span>Metrics stay here even when they are not part of a pulse.</span>
-            </div>
-          </header>
           <ul className="pulse-metrics pulse-metrics--all">
             {metrics.map((metric: Metric) => {
                 const membershipCount = pulses.filter((pulse) => pulse.metricIds.includes(metric.id)).length;
@@ -527,7 +539,7 @@ export function MetricsView() {
             </li>
           </ul>
         </div>
-      )}
-    </div>
+      </div>
+    </section>
   );
 }

@@ -2,8 +2,11 @@ import { NEST_ICONS } from "../components/PulseIcon";
 import { TILE_IDS, type TileId } from "./overviewGrid";
 
 export const TILE_ICONS_KEY = "nest:overview-tile-icons";
-export type ConfigurableOverviewIcon = "overview" | Exclude<TileId, "lastHour">;
-export type OverviewIcons = Record<TileId | "overview", string>;
+export type ConfigurableOverviewIcon =
+  | "overview"
+  | "phases"
+  | Exclude<TileId, "lastHour">;
+export type OverviewIcons = Record<TileId | "overview" | "phases", string>;
 
 export const DEFAULT_TILE_ICONS: OverviewIcons = {
   overview: "layout-grid",
@@ -12,6 +15,8 @@ export const DEFAULT_TILE_ICONS: OverviewIcons = {
   timeline: "calendar",
   brainDump: "brain",
   metrics: "gauge",
+  // Phases has no Overview tile; this slot is the Sidebar Section icon only.
+  phases: "activity",
   controlPanel: "compass",
 };
 
@@ -38,7 +43,7 @@ export function readTileIcons(
     if (!isTileIconsRecord(parsed)) return { ...DEFAULT_TILE_ICONS };
 
     const icons = { ...DEFAULT_TILE_ICONS };
-    for (const id of ["overview", ...TILE_IDS] as const) {
+    for (const id of ["overview", "phases", ...TILE_IDS] as const) {
       if (id === "lastHour") continue;
       const icon = parsed[id];
       if (isNestIconKey(icon)) icons[id] = icon;
@@ -67,6 +72,6 @@ export function writeTileIcon(
       window.dispatchEvent(new Event(TILE_ICONS_KEY));
     }
   } catch {
-    // Keep Settings usable when storage is unavailable.
+    // Keep icon pickers usable when storage is unavailable.
   }
 }

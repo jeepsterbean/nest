@@ -2,24 +2,26 @@ import { useMemo, useState } from "react";
 import { deleteMetricCheckIn } from "../../lib/commands";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import {
-  collapsePhaseCheckIns,
   buildRawLog,
   buildTimeline,
+  collapsePhaseCheckIns,
   groupByDay,
   phaseCheckInsInRange,
   type DayGroup,
   type RawLogEvent,
-  type TimelineEvent,
 } from "../lib/timeline";
 import {
   buildLogExportEvents,
+  buildTimelineLogEvents,
   downloadLogDay,
   LOG_EVENT_BATCH_SIZE,
   LOG_VIEWS,
   readLogsPreferences,
+  TIMELINE_LAYOUTS,
   writeLogsPreferences,
   type LogsPreferences,
   type LogsViewKey,
+  type TimelineLayoutKey,
 } from "../lib/logs";
 import {
   HISTORY_WINDOW_DAYS,
@@ -34,14 +36,16 @@ import { ViewToggle } from "../components/ViewToggle";
 import { LogsEvents } from "./LogsEvents";
 import { DayExportButton, LogsTimeline } from "./LogsTimeline";
 
-const EMPTY_COPY: Record<LogsViewKey, { title: string; body: string }> = {
+type EmptyCopyKey = Exclude<LogsViewKey, "timeline"> | TimelineLayoutKey;
+
+const EMPTY_COPY: Record<EmptyCopyKey, { title: string; body: string }> = {
   raw: {
     title: "Nothing here yet",
     body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
   },
-  timeline: {
+  rail: {
     title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
+    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
   },
   dumps: {
     title: "No brain dumps yet",
@@ -102,33 +106,30 @@ function DayArticle({
   );
 }
 
-function phaseEvents(checkIns: PhaseCheckIn[]): TimelineEvent[] {
-  return buildTimeline([], checkIns, []);
-}
-
 function filteredEvents(
-  view: Exclude<LogsViewKey, "raw" | "timeline">,
+  view: Exclude<LogsViewKey, "timeline">,
   checkIns: Parameters<typeof buildTimeline>[0],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: Parameters<typeof buildTimeline>[2],
   historyFromSec: number,
-): TimelineEvent[] {
+): RawLogEvent[] {
   switch (view) {
     case "dumps":
       return buildTimeline([], [], brainDumps);
     case "metrics":
       return buildTimeline(checkIns, [], []);
-    case "phases": {
-      // Always aggregate: collapse with the carry-in still present so a settle
-      // that matches the Phase already active at the window start is omitted;
-      // then drop the carry-in from the event list.
-      return phaseEvents(
+    case "phases":
+      // Collapse with the carry-in still present so a settle that matches the
+      // Phase already active at the window start is omitted; then drop the
+      // carry-in from the event list.
+      return buildTimeline(
+        [],
         phaseCheckInsInRange(
           collapsePhaseCheckIns(phaseCheckIns),
           historyFromSec,
         ),
+        [],
       );
-    }
   }
 }
 
@@ -153,7 +154,8 @@ export function LogsView() {
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
-  const { view } = preferences;
+  const { view, timelineLayout } = preferences;
+  const isRailTimeline = view === "timeline" && timelineLayout === "rail";
   const nowMs = useCurrentTime();
   const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const eventPhaseCheckIns = useMemo(
@@ -168,6 +170,11 @@ export function LogsView() {
   );
 
   const timelineEvents = useMemo(
+    () => buildTimelineLogEvents(checkIns, brainDumps, taskWorkStretches),
+    [brainDumps, checkIns, taskWorkStretches],
+  );
+
+  const exportEvents = useMemo(
     () =>
       buildLogExportEvents(
         checkIns,
@@ -188,23 +195,25 @@ export function LogsView() {
   const exportEventsByDay = useMemo(
     () =>
       new Map(
-        groupByDay(timelineEvents, nowMs).map((day) => [day.key, day.events]),
+        groupByDay(exportEvents, nowMs).map((day) => [day.key, day.events]),
       ),
-    [nowMs, timelineEvents],
+    [nowMs, exportEvents],
   );
 
   const listEvents = useMemo((): RawLogEvent[] => {
-    if (view === "timeline") return [];
-    if (view === "raw") return rawEvents;
-    return filteredEvents(
-      view,
-      checkIns,
-      phaseCheckIns,
-      brainDumps,
-      historyFromSec,
-    );
+    if (view !== "timeline") {
+      return filteredEvents(
+        view,
+        checkIns,
+        phaseCheckIns,
+        brainDumps,
+        historyFromSec,
+      );
+    }
+    return timelineLayout === "raw" ? rawEvents : [];
   }, [
     view,
+    timelineLayout,
     rawEvents,
     checkIns,
     phaseCheckIns,
@@ -252,9 +261,8 @@ export function LogsView() {
       tasks,
     });
 
-  const empty = EMPTY_COPY[view];
-  const eventCount =
-    view === "timeline" ? timelineEvents.length : listEvents.length;
+  const empty = EMPTY_COPY[view === "timeline" ? timelineLayout : view];
+  const eventCount = isRailTimeline ? timelineEvents.length : listEvents.length;
   const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
 
@@ -267,6 +275,16 @@ export function LogsView() {
           label="Logs view"
           onChange={(nextView) => updatePreferences({ view: nextView })}
         />
+        {view === "timeline" ? (
+          <ViewToggle
+            value={timelineLayout}
+            options={TIMELINE_LAYOUTS}
+            label="Timeline layout"
+            onChange={(nextLayout) =>
+              updatePreferences({ timelineLayout: nextLayout })
+            }
+          />
+        ) : null}
         {/* Logs shares the Overview Timeline tile's icon slot. */}
         <IconPickerButton
           className="dash-section__tile-icon"
@@ -281,7 +299,7 @@ export function LogsView() {
             <strong>{empty.title}</strong>
             <span>{empty.body}</span>
           </div>
-        ) : view === "timeline" ? (
+        ) : isRailTimeline ? (
           <LogsTimeline
             events={visibleTimelineEvents}
             phaseCheckIns={phaseCheckIns}

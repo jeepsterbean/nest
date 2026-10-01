@@ -1,0 +1,37 @@
+/* ---------- Metrics ---------- */
+
+.dashboard__inner--metrics {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dash-section--metrics {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.dash-section--metrics > .dash-section__head {
+  position: relative;
+  z-index: 20;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 22px 24px 16px;
+}
+
+.metrics-section__pane:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.metrics-section__pane .pulse-workspace,
+.metrics-section__pane .all-metrics {
+  flex: 1 1 auto;
+  min-height: 0;
+}

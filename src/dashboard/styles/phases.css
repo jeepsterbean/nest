@@ -1,0 +1,29 @@
+/* ---------- Phases ---------- */
+
+.dashboard__inner--phases {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dash-section--phases {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.dash-section--phases > .dash-section__head {
+  position: relative;
+  z-index: 20;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 22px 24px 16px;
+}
+
+.dash-section--phases > .dash-section__body {
+  overflow: auto;
+  padding: 0 24px 24px;
+}

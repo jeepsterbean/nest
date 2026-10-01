@@ -40,6 +40,8 @@ export type DashboardView =
   | "logs"
   | "tasks"
   | "brainDump"
+  | "metrics"
+  | "phases"
   | "assistant"
   | "settings";
 
@@ -47,7 +49,7 @@ export type DashboardView =
 const VIEWS: {
   key: DashboardView;
   label: string;
-  icon: ReactElement | { tileId: TileId | "overview" };
+  icon: ReactElement | { tileId: TileId | "overview" | "phases" };
 }[] = [
   { key: "overview", label: "Overview", icon: { tileId: "overview" } },
   { key: "calendar", label: "Calendar", icon: calendarIcon },
@@ -55,6 +57,8 @@ const VIEWS: {
   { key: "logs", label: "Logs", icon: { tileId: "timeline" } },
   { key: "tasks", label: "Tasks", icon: { tileId: "tasks" } },
   { key: "brainDump", label: "Brain dump", icon: { tileId: "brainDump" } },
+  { key: "metrics", label: "Metrics", icon: { tileId: "metrics" } },
+  { key: "phases", label: "Phases", icon: { tileId: "phases" } },
   { key: "assistant", label: "Assistant", icon: assistantIcon },
   { key: "settings", label: "Settings", icon: settingsIcon },
 ];

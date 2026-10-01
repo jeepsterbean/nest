@@ -3,9 +3,12 @@ import { setPhaseColor, setPhaseIcon } from "../../lib/commands";
 import { MetricColorPicker } from "../components/MetricColorPicker";
 import { IconPickerButton, NestIcon } from "../components/PulseIcon";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { useTileIcons } from "../hooks/useTileIcons";
+import { writeTileIcon } from "../lib/tileIcons";
 
 export function PhasesView() {
   const { phases, mutate } = useDashboardData();
+  const icons = useTileIcons();
   const [colorPickerPhaseId, setColorPickerPhaseId] = useState<number | null>(
     null,
   );
@@ -26,64 +29,78 @@ export function PhasesView() {
   }, [colorPickerPhaseId]);
 
   return (
-    <div className="settings-pane settings-pane--phases phase-settings">
-      <ul className="phase-settings__list">
-        {activePhases.map((phase) => (
-          <li
-            key={phase.id}
-            className={`phase-settings__row${
-              phase.color ? " phase-settings__row--colored" : ""
-            }`}
-            style={
-              phase.color
-                ? ({ "--phase-color": phase.color } as CSSProperties)
-                : undefined
-            }
-          >
-            <div className="phase-settings__controls">
-              <IconPickerButton
-                icon={phase.icon}
-                label={phase.name}
-                onChange={(icon) =>
-                  void mutate(() => setPhaseIcon(phase.id, icon))
-                }
-              />
-              <div
-                className="phase-settings__color-control"
-                ref={
-                  colorPickerPhaseId === phase.id ? openColorControlRef : null
+    <section className="dash-section dash-section--phases">
+      <header className="dash-section__head">
+        <IconPickerButton
+          className="dash-section__tile-icon"
+          icon={icons.phases}
+          label="Phases"
+          onChange={(nextIcon) => writeTileIcon("phases", nextIcon)}
+        />
+      </header>
+      <div className="dash-section__body">
+        <div className="phase-settings">
+          <ul className="phase-settings__list">
+            {activePhases.map((phase) => (
+              <li
+                key={phase.id}
+                className={`phase-settings__row${
+                  phase.color ? " phase-settings__row--colored" : ""
+                }`}
+                style={
+                  phase.color
+                    ? ({ "--phase-color": phase.color } as CSSProperties)
+                    : undefined
                 }
               >
-                <button
-                  type="button"
-                  className="phase-settings__control phase-settings__control--color"
-                  aria-label={`Choose color for ${phase.name}`}
-                  aria-expanded={colorPickerPhaseId === phase.id}
-                  title={phase.color ?? "No color"}
-                  onClick={() =>
-                    setColorPickerPhaseId((current) =>
-                      current === phase.id ? null : phase.id,
-                    )
-                  }
-                >
-                  <NestIcon name="palette" />
-                </button>
-                {colorPickerPhaseId === phase.id ? (
-                  <MetricColorPicker
-                    value={phase.color}
-                    label={`Color for ${phase.name}`}
-                    emptyLabel="No color"
-                    onChange={(color) =>
-                      void mutate(() => setPhaseColor(phase.id, color))
+                <div className="phase-settings__controls">
+                  <IconPickerButton
+                    icon={phase.icon}
+                    label={phase.name}
+                    onChange={(icon) =>
+                      void mutate(() => setPhaseIcon(phase.id, icon))
                     }
                   />
-                ) : null}
-              </div>
-            </div>
-            <strong>{phase.name}</strong>
-          </li>
-        ))}
-      </ul>
-    </div>
+                  <div
+                    className="phase-settings__color-control"
+                    ref={
+                      colorPickerPhaseId === phase.id
+                        ? openColorControlRef
+                        : null
+                    }
+                  >
+                    <button
+                      type="button"
+                      className="phase-settings__control phase-settings__control--color"
+                      aria-label={`Choose color for ${phase.name}`}
+                      aria-expanded={colorPickerPhaseId === phase.id}
+                      title={phase.color ?? "No color"}
+                      onClick={() =>
+                        setColorPickerPhaseId((current) =>
+                          current === phase.id ? null : phase.id,
+                        )
+                      }
+                    >
+                      <NestIcon name="palette" />
+                    </button>
+                    {colorPickerPhaseId === phase.id ? (
+                      <MetricColorPicker
+                        value={phase.color}
+                        label={`Color for ${phase.name}`}
+                        emptyLabel="No color"
+                        onChange={(color) =>
+                          void mutate(() => setPhaseColor(phase.id, color))
+                        }
+                      />
+                    ) : null}
+                  </div>
+                </div>
+                <strong>{phase.name}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }

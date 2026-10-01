@@ -14,7 +14,8 @@ reference by default.
 | Any implementation | `.agents/standards/coding-standards.md` |
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
 | Tasks table or Map | `docs/tasks.md` |
-| Overview, Calendar, Insights, or Logs | `docs/time-surfaces.md` |
+| Overview, Calendar, Insights, Logs, or Phases | `docs/time-surfaces.md` |
+| Metrics section, Pulses, or Metric check-in interval | `CONTEXT.md`, `UI.md` |
 | Timer or Popup | `docs/timer-popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
@@ -29,7 +30,8 @@ reference by default.
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
-| Overview, Calendar, Insights, Logs | `docs/time-surfaces.md` |
+| Overview, Calendar, Insights, Logs, Phases | `docs/time-surfaces.md` |
+| Metrics section chrome, Pulses / Metrics panes | `UI.md`, `CONTEXT.md` |
 | Timer / Popup | `docs/timer-popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
 | Assistant context assembly | `docs/assistant-context.md` |
@@ -72,11 +74,14 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 ## IPC and shared types
 
-- Frontend invokes only through `src/lib/commands.ts`.
-- Shared DTO shapes live in `src/lib/types.ts` and must stay aligned with Rust
-  models and command payloads in `src-tauri/src/`.
+- Frontend invokes only through `src/lib/commands/` (import the folder barrel).
+  The `commands/` and `types/` barrels are `export *` lines, so a new export
+  needs no barrel edit; a new file needs one line.
+- Shared DTO shapes live in `src/lib/types/` and must stay aligned with Rust
+  models in `src-tauri/src/models/` and command payloads in
+  `src-tauri/src/commands/`.
 - Do not call `invoke` ad hoc from views when a command helper exists or belongs
-  in `commands.ts`.
+  in `src/lib/commands/`.
 
 ## Database and Rust backend
 
@@ -93,8 +98,19 @@ each fact in its closest authoritative source and link to it elsewhere.
 - Task commands that can change Working now (`delete_task`, `set_task_status`,
   `set_task_working`, `stop_all_working_now`, `update_task_work_stretch`,
   `delete_task_work_stretch`) go through `with_phase_tx` so Phase sync and emit
-  stay in the same transaction. Lock/sleep Offline is a separate path because
-  it also writes PhaseSignals.
+  stay in the same transaction. Lock/sleep Offline is a separate path
+  (`phase.rs`) because it also writes PhaseSignals.
+- `src-tauri/src/commands/` holds only frontend-invoked Tauri commands, one
+  singular-named file per domain (`task.rs`, `brain_dump.rs`, matching
+  `models/` and `src/lib/commands/`). `lib.rs` registers each by full path
+  (`commands::task::list_tasks`); do not glob re-export from `commands`.
+  Logic that also runs outside a command lives in a top-level module of the
+  same domain: Timer state, cadence and persistence in `timer.rs`; Phase
+  derivation and lock/sleep Offline in `phase.rs`; OpenAI streaming and the
+  keychain API key in `assistant.rs`; work-stretch upkeep driven by app
+  lifecycle events (startup recovery, quit, heartbeat) in `task_lifecycle.rs`.
+- Rust tests live in a `#[cfg(test)] mod tests` inside the file that owns the
+  behavior.
 - Working now, Worked time and the live start are derived from
   `task_work_stretches` in `TASK_COLUMNS`, never stored on `tasks`, so a
   corrected stretch moves the total. Selects using it must alias `tasks` as
@@ -104,12 +120,12 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 - Entry: `src/main.tsx` / `src/App.tsx`. Two windows share the SPA: dashboard
   (default) and popup (`#/popup`).
-- Shared IPC and window-agnostic helpers live under `src/lib/` (`commands.ts`,
-  `types.ts`, drafts, Pulse visibility, reorder).
+- Shared IPC and window-agnostic helpers live under `src/lib/` (`commands/`,
+  `types/`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
   components, hooks). Popup code lives under `src/popup/`. Sections are
-  Overview, Calendar, Insights, Logs, Tasks, Brain dump, Assistant, and
-  Settings.
+  Overview, Calendar, Insights, Logs, Tasks, Brain dump, Metrics, Phases,
+  Assistant, and Settings.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
 - Prefer extending `src/dashboard/lib/` helpers over growing god-view

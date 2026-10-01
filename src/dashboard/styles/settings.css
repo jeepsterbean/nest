@@ -37,25 +37,10 @@
   min-height: 0;
 }
 
-.settings-pane--metrics {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  overflow: hidden;
-  padding: 0;
-}
-
-.settings-pane__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 24px 12px;
-}
-
 .metric-check-in-schedule {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-right: auto;
   color: var(--muted);
   font-size: 12px;
 }
@@ -178,15 +163,6 @@
 
 .phase-settings {
   max-width: 680px;
-}
-
-.tile-settings {
-  display: grid;
-  gap: 12px;
-}
-
-.tile-settings--embedded {
-  padding: 0 24px 12px;
 }
 
 .phase-settings__list {
@@ -526,8 +502,7 @@
   padding: 22px 24px 28px;
 }
 
-.pulse-detail__head,
-.all-metrics__head {
+.pulse-detail__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -758,11 +733,6 @@
 
 .all-metric__name:hover {
   color: var(--accent);
-}
-
-.all-metrics__head > div > span {
-  color: var(--muted);
-  font-size: 12.5px;
 }
 
 .pulse-detail__actions {
@@ -1011,13 +981,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: 22px 24px 28px;
-}
-
-.all-metrics__head h3 {
-  margin: 0 0 3px;
-  font-family: var(--serif);
-  font-size: 20px;
-  font-weight: 600;
 }
 
 .pulse-metrics--all .pulse-metric.pulse-metric--create {

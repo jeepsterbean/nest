@@ -15,26 +15,26 @@ const memory = () => {
 };
 
 describe("settings pane", () => {
-  it("defaults to Metrics and restores the last saved pane", () => {
+  it("defaults to Assistant and restores the last saved pane", () => {
     const storage = memory();
-    expect(readSettingsPane(storage)).toBe("metrics");
-    writeSettingsPane("phases", storage);
-    expect(readSettingsPane(storage)).toBe("phases");
+    expect(readSettingsPane(storage)).toBe("assistant");
+    writeSettingsPane("background", storage);
+    expect(readSettingsPane(storage)).toBe("background");
     writeSettingsPane("reminders", storage);
     expect(readSettingsPane(storage)).toBe("reminders");
   });
 
-  it("falls back to Metrics for an unknown stored pane", () => {
+  it("falls back to Assistant for an unknown stored pane", () => {
     const storage = memory();
     storage.setItem("nest:settings-pane", "scopes");
-    expect(readSettingsPane(storage)).toBe("metrics");
+    expect(readSettingsPane(storage)).toBe("assistant");
   });
 
-  it("falls back to Metrics for panes that moved into their Sections", () => {
+  it("falls back to Assistant for panes that moved into their Sections", () => {
     const storage = memory();
-    for (const moved of ["tags", "brainDump", "timeline", "tasks", "lastHour", "controlPanel"]) {
+    for (const moved of ["metrics", "phases", "tags", "brainDump", "timeline", "tasks", "lastHour", "controlPanel"]) {
       storage.setItem("nest:settings-pane", moved);
-      expect(readSettingsPane(storage)).toBe("metrics");
+      expect(readSettingsPane(storage)).toBe("assistant");
     }
   });
 });

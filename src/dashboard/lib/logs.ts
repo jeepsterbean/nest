@@ -16,6 +16,7 @@ import {
   collapsePhaseCheckIns,
   phaseCheckInsInRange,
   type RawLogEvent,
+  type TimelineLogEvent,
 } from "./timeline";
 
 export const LOG_VIEWS = [
@@ -23,33 +24,47 @@ export const LOG_VIEWS = [
   { key: "dumps", label: "Brain dumps" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
-  { key: "raw", label: "Raw" },
 ] as const;
 export type LogsViewKey = (typeof LOG_VIEWS)[number]["key"];
 
+/** Raw lives under Timeline: the same history as a flat feed with every Phase checkpoint. */
+export const TIMELINE_LAYOUTS = [
+  { key: "rail", label: "Rail" },
+  { key: "raw", label: "Raw" },
+] as const;
+export type TimelineLayoutKey = (typeof TIMELINE_LAYOUTS)[number]["key"];
+
 export type LogsPreferences = {
   view: LogsViewKey;
+  timelineLayout: TimelineLayoutKey;
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
 
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
 const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
-  view: "raw",
+  view: "timeline",
+  timelineLayout: "raw",
 };
-const VIEW_KEYS: ReadonlySet<string> = new Set(
-  LOG_VIEWS.map(({ key }) => key),
-);
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 
-/** Map legacy layout + rawFilter storage onto the single Logs view key. */
-const migrateLegacyView = (value: Record<string, unknown>): LogsViewKey | null => {
-  if (value.layout === "timeline") return "timeline";
-  if (value.rawFilter === "dumps") return "dumps";
-  if (value.rawFilter === "phases") return "phases";
-  if (value.rawFilter === "metrics") return "metrics";
-  if (value.layout === "raw" || value.rawFilter === "all") return "raw";
+const hasKey = <T extends string>(
+  options: readonly { key: T }[],
+  value: unknown,
+): value is T => options.some(({ key }) => key === value);
+
+/** Map the retired Raw view (once a switcher entry; older storage used
+ * layout + rawFilter) onto view + Timeline layout. */
+const migrateLegacyPreferences = (
+  value: Record<string, unknown>,
+): LogsPreferences | null => {
+  if (value.view === "raw") return { view: "timeline", timelineLayout: "raw" };
+  if (value.layout === "timeline") return { view: "timeline", timelineLayout: "rail" };
+  if (value.rawFilter === "dumps") return { view: "dumps", timelineLayout: "raw" };
+  if (value.rawFilter === "phases") return { view: "phases", timelineLayout: "raw" };
+  if (value.rawFilter === "metrics") return { view: "metrics", timelineLayout: "raw" };
+  if (value.layout === "raw") return { view: "timeline", timelineLayout: "raw" };
   return null;
 };
 
@@ -60,12 +75,15 @@ export function readLogsPreferences(
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
     const value: Record<string, unknown> =
       stored && typeof stored === "object" ? stored : {};
-    if (typeof value.view === "string" && VIEW_KEYS.has(value.view)) {
-      return { view: value.view as LogsViewKey };
+    if (hasKey(LOG_VIEWS, value.view)) {
+      return {
+        view: value.view,
+        timelineLayout: hasKey(TIMELINE_LAYOUTS, value.timelineLayout)
+          ? value.timelineLayout
+          : DEFAULT_LOGS_PREFERENCES.timelineLayout,
+      };
     }
-    return {
-      view: migrateLegacyView(value) ?? DEFAULT_LOGS_PREFERENCES.view,
-    };
+    return migrateLegacyPreferences(value) ?? DEFAULT_LOGS_PREFERENCES;
   } catch {
     return DEFAULT_LOGS_PREFERENCES;
   }
@@ -78,7 +96,21 @@ export function writeLogsPreferences(
   storage.setItem(LOGS_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
-/** Mixed Timeline / export feed: happenings plus settled Phase changes. */
+const isTimelineLogEvent = (event: RawLogEvent): event is TimelineLogEvent =>
+  event.kind !== "phase";
+
+/** Timeline rail feed for Logs and the Overview Timeline tile. */
+export function buildTimelineLogEvents(
+  checkIns: MetricCheckInWithRatings[],
+  brainDumps: BrainDump[],
+  taskWorkStretches: TaskWorkStretch[],
+): TimelineLogEvent[] {
+  return buildRawLog(checkIns, [], brainDumps, taskWorkStretches).filter(
+    isTimelineLogEvent,
+  );
+}
+
+/** Day export feed: happenings plus settled Phase changes. */
 export function buildLogExportEvents(
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
