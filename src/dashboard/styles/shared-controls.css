@@ -230,8 +230,8 @@
   margin: 0 0 14px;
 }
 
-/* Section-head icon picker for the Section's sidebar and Overview tile icon.
-   Sized to the segmented control so the head reads as one row. */
+/* Core pane icon picker. Tasks, Brain dump, and Metrics share it with their
+   Overview tile. Sized to the segmented control so the head reads as one row. */
 .dash-section__tile-icon {
   margin-left: auto;
 }

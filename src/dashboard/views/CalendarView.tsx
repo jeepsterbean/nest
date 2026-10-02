@@ -14,7 +14,7 @@ import {
 } from "../../lib/commands";
 import { openAtPct, RANGE_MODES } from "../lib/insights";
 import { isQuietPhase } from "../lib/period";
-import { phaseSessionsInWindow } from "../lib/timeline";
+import { columnPhaseSessions } from "../lib/timeline";
 import { layoutWorkBlocks } from "../lib/workTimeline";
 
 export function CalendarView() {
@@ -27,19 +27,7 @@ export function CalendarView() {
     const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
     const columns: GridColumn[] = range.columns.map((column) => ({
       ...column,
-      // Per column, so a Phase wash never spans midnight — and never past
-      // now, since the last checkpoint would otherwise paint the rest of the
-      // week in whatever Phase we happen to be in.
-      sessions:
-        column.from >= range.nowSec
-          ? []
-          : phaseSessionsInWindow(
-              phaseCheckIns,
-              column.from,
-              Math.min(column.to, range.nowSec),
-              isQuiet,
-              false,
-            ),
+      sessions: columnPhaseSessions(phaseCheckIns, column, range.nowSec, isQuiet),
       blocks: layoutWorkBlocks(
         taskWorkStretches,
         tasks,

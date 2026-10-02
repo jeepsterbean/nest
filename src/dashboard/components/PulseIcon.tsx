@@ -89,11 +89,17 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MetricColorPicker } from "./MetricColorPicker";
-import { insightsIcon } from "./icons";
+import {
+  AssistantIcon,
+  CalendarIcon,
+  CoreIcon,
+  InsightsIcon,
+  SettingsIcon,
+} from "./icons";
 
-export const NEST_ICONS = [
+const LUCIDE_NEST_ICONS = [
   { key: "layout-grid", label: "Overview", Icon: LayoutGrid },
   { key: "activity", label: "Activity", Icon: Activity },
   { key: "apple", label: "Nutrition", Icon: Apple },
@@ -187,6 +193,16 @@ export const NEST_ICONS = [
   Icon: LucideIcon;
 }>;
 
+// Section marks that are not in the Lucide set. Same picker as every other icon.
+export const NEST_ICONS = [
+  ...LUCIDE_NEST_ICONS,
+  { key: "date" as const, label: "Calendar", Icon: CalendarIcon },
+  { key: "insights" as const, label: "Insights", Icon: InsightsIcon },
+  { key: "core" as const, label: "Core", Icon: CoreIcon },
+  { key: "assistant" as const, label: "Assistant", Icon: AssistantIcon },
+  { key: "settings" as const, label: "Settings", Icon: SettingsIcon },
+];
+
 const ICONS = Object.fromEntries(
   NEST_ICONS.map(({ key, Icon }) => [key, Icon]),
 ) as Record<string, LucideIcon>;
@@ -209,7 +225,6 @@ export function nestIconLabel(name: string) {
 }
 
 export function NestIcon({ name, color }: { name: string; color?: string }) {
-  if (name === "insights") return insightsIcon;
   const Icon = ICONS[name] ?? Activity;
   return (
     <Icon
@@ -297,6 +312,10 @@ export function IconPickerButton({
   color,
   onColorChange,
   onChange,
+  children,
+  title,
+  ariaLabel,
+  ariaCurrent,
 }: {
   icon: string;
   label: string;
@@ -312,6 +331,12 @@ export function IconPickerButton({
   color?: string | null;
   onColorChange?: (color: string | null) => void;
   onChange: (icon: string) => void;
+  children?: ReactNode;
+  /** Native tooltip. Omit for the icon's friendly name. Pass "" for none. */
+  title?: string;
+  /** Replaces "Choose icon for {label}" when the trigger is also navigation. */
+  ariaLabel?: string;
+  ariaCurrent?: "page";
 }) {
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement | null>(null);
@@ -345,12 +370,14 @@ export function IconPickerButton({
         ref={triggerRef}
         type="button"
         className={triggerClassName}
-        aria-label={`Choose icon for ${label}`}
+        aria-label={ariaLabel ?? `Choose icon for ${label}`}
+        aria-current={ariaCurrent}
         aria-expanded={open}
-        title={nestIconLabel(icon)}
+        title={title === undefined ? nestIconLabel(icon) : title || undefined}
         onClick={() => setOpen((current) => !current)}
       >
         <NestIcon name={icon} color={iconColor} />
+        {children}
       </button>
       {open && (
         <IconPicker

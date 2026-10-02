@@ -5,7 +5,6 @@ import {
   useState,
   type FormEvent,
   type CSSProperties,
-  type ReactElement,
 } from "react";
 import { startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
@@ -13,7 +12,6 @@ import { useTileIcons } from "../hooks/useTileIcons";
 import {
   OVERVIEW_SETTINGS_ID,
   type OverviewLayoutController,
-  type TileId,
 } from "../lib/overviewGrid";
 import {
   advanceTypewriter,
@@ -22,17 +20,14 @@ import {
 } from "../lib/typewriter";
 import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
 import { phaseColor, phaseIcon, phaseName } from "../lib/period";
-import { NestIcon } from "./PulseIcon";
+import { IconPickerButton, NestIcon } from "./PulseIcon";
 import {
-  assistantIcon,
-  calendarIcon,
   chevronDownIcon,
   clockIcon,
-  coreIcon,
-  insightsIcon,
   saveLayoutIcon,
   settingsIcon,
 } from "./icons";
+import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
 export type DashboardView =
   | "overview"
@@ -43,19 +38,19 @@ export type DashboardView =
   | "assistant"
   | "settings";
 
-// Section icons share the Overview configuration where a corresponding slot exists.
+// Logs shares the Overview Timeline tile slot. The other Sections have their own.
 const VIEWS: {
   key: DashboardView;
   label: string;
-  icon: ReactElement | { tileId: TileId | "overview" | "phases" };
+  icon: ConfigurableOverviewIcon;
 }[] = [
-  { key: "overview", label: "Overview", icon: { tileId: "overview" } },
-  { key: "calendar", label: "Calendar", icon: calendarIcon },
-  { key: "insights", label: "Insights", icon: insightsIcon },
-  { key: "logs", label: "Logs", icon: { tileId: "timeline" } },
-  { key: "core", label: "Core", icon: coreIcon },
-  { key: "assistant", label: "Assistant", icon: assistantIcon },
-  { key: "settings", label: "Settings", icon: settingsIcon },
+  { key: "overview", label: "Overview", icon: "overview" },
+  { key: "calendar", label: "Calendar", icon: "calendar" },
+  { key: "insights", label: "Insights", icon: "insights" },
+  { key: "logs", label: "Logs", icon: "timeline" },
+  { key: "core", label: "Core", icon: "core" },
+  { key: "assistant", label: "Assistant", icon: "assistant" },
+  { key: "settings", label: "Settings", icon: "settings" },
 ];
 
 export function DashboardSidebar({
@@ -70,29 +65,43 @@ export function DashboardSidebar({
   return (
     <aside className="dash-sidebar">
       <nav className="dash-nav" aria-label="Dashboard sections">
-        {VIEWS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={
-              view === item.key
-                ? "dash-nav__btn dash-nav__btn--active"
-                : "dash-nav__btn"
-            }
-            aria-label={item.label}
-            aria-current={view === item.key ? "page" : undefined}
-            onClick={() => onSelectView(item.key)}
-          >
-            <span className="dash-nav__icon">
-              {"tileId" in item.icon ? (
-                <NestIcon name={tileIcons[item.icon.tileId]} />
-              ) : (
-                item.icon
-              )}
-            </span>
+        {VIEWS.map((item) => {
+          const label = (
             <span className="dash-nav__label">{item.label}</span>
-          </button>
-        ))}
+          );
+          // First click selects the Section. The selected icon opens the picker.
+          if (view === item.key) {
+            return (
+              <IconPickerButton
+                key={item.key}
+                controlClassName="dash-nav__picker"
+                triggerClassName="dash-nav__btn dash-nav__btn--active"
+                icon={tileIcons[item.icon]}
+                label={item.label}
+                title=""
+                ariaLabel={`${item.label}, choose icon`}
+                ariaCurrent="page"
+                onChange={(nextIcon) => writeTileIcon(item.icon, nextIcon)}
+              >
+                {label}
+              </IconPickerButton>
+            );
+          }
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="dash-nav__btn"
+              aria-label={item.label}
+              onClick={() => onSelectView(item.key)}
+            >
+              <span className="dash-nav__icon">
+                <NestIcon name={tileIcons[item.icon]} />
+              </span>
+              {label}
+            </button>
+          );
+        })}
       </nav>
     </aside>
   );

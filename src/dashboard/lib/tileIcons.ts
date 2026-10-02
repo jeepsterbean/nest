@@ -1,21 +1,39 @@
 import { NEST_ICONS } from "../components/PulseIcon";
-import { TILE_IDS, type TileId } from "./overviewGrid";
 
 export const TILE_ICONS_KEY = "nest:overview-tile-icons";
-export type ConfigurableOverviewIcon =
-  | "overview"
-  | "phases"
-  | Exclude<TileId, "lastHour">;
-export type OverviewIcons = Record<TileId | "overview" | "phases", string>;
+
+/** Icons a person can change. Last hour stays on the Insights mark. */
+const CONFIGURABLE_ICON_IDS = [
+  "overview",
+  "calendar",
+  "insights",
+  "timeline",
+  "core",
+  "assistant",
+  "settings",
+  "tasks",
+  "brainDump",
+  "metrics",
+  "phases",
+  "controlPanel",
+] as const;
+
+export type ConfigurableOverviewIcon = (typeof CONFIGURABLE_ICON_IDS)[number];
+export type OverviewIcons = Record<ConfigurableOverviewIcon | "lastHour", string>;
 
 export const DEFAULT_TILE_ICONS: OverviewIcons = {
   overview: "layout-grid",
+  calendar: "date",
+  insights: "insights",
+  timeline: "calendar",
+  core: "core",
+  assistant: "assistant",
+  settings: "settings",
   lastHour: "insights",
   tasks: "check",
-  timeline: "calendar",
   brainDump: "brain",
   metrics: "gauge",
-  // Phases has no Overview tile; this slot is the Sidebar Section icon only.
+  // Phases has no Overview tile. Its picker stays on the Phases pane.
   phases: "activity",
   controlPanel: "compass",
 };
@@ -43,8 +61,7 @@ export function readTileIcons(
     if (!isTileIconsRecord(parsed)) return { ...DEFAULT_TILE_ICONS };
 
     const icons = { ...DEFAULT_TILE_ICONS };
-    for (const id of ["overview", "phases", ...TILE_IDS] as const) {
-      if (id === "lastHour") continue;
+    for (const id of CONFIGURABLE_ICON_IDS) {
       const icon = parsed[id];
       if (isNestIconKey(icon)) icons[id] = icon;
     }

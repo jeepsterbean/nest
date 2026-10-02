@@ -5,11 +5,9 @@ import { useTileIcons } from "../hooks/useTileIcons";
 import { OVERVIEW_SETTINGS_ID, TILE_LABELS } from "../lib/overviewGrid";
 import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
-// Feature tiles take their icon from their own pane (Tasks, Logs,
-// Brain dump, Metrics). Tasks, Brain dump, and Metrics are Core panes.
-// Only icons with no other home live here.
+// Sidebar icons are picked on the Sidebar. Feature tiles are picked on their
+// own pane. Control panel has no other home.
 const OVERVIEW_OWNED_ICONS = [
-  "overview",
   "controlPanel",
 ] as const satisfies readonly ConfigurableOverviewIcon[];
 
@@ -67,7 +65,7 @@ export function OverviewSettings({
       </div>
       <ul className="phase-settings__list">
         {OVERVIEW_OWNED_ICONS.map((slot) => {
-          const label = slot === "overview" ? "Overview" : TILE_LABELS[slot];
+          const label = TILE_LABELS[slot];
           return (
             <li key={slot} className="phase-settings__row">
               <div className="phase-settings__controls">

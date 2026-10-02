@@ -12,7 +12,8 @@ import type {
 import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
-import { formatTime, toDateInput } from "./time";
+import { formatTime, startOfDayMs, toDateInput } from "./time";
+import type { RangeModeStore } from "./insights";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -31,15 +32,79 @@ export type LogKindKey = (typeof LOG_KINDS)[number]["key"];
 
 const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
 
-/** Selected kinds, kept non-empty and in LOG_KINDS order. */
+/** List groups events by day; Hours places one day's events on Calendar's
+ * hour grid. */
+export const LOG_SCALES = [
+  { key: "list", label: "List" },
+  { key: "hours", label: "Hours" },
+] as const;
+export type LogScaleKey = (typeof LOG_SCALES)[number]["key"];
+
+/** List and Hours share one selected day, paged one day at a time, with no
+ * Day / Week choice of its own. */
+export const LOGS_RANGE_STORE: RangeModeStore = {
+  read: () => "day",
+  write: () => {},
+};
+
+/** Distinct local day starts of a newest-first event list, newest first. */
+export const logDayKeys = (events: readonly { at: number }[]): number[] => {
+  const keys: number[] = [];
+  for (const event of events) {
+    const key = startOfDayMs(event.at);
+    if (keys[keys.length - 1] !== key) keys.push(key);
+  }
+  return keys;
+};
+
+/** The nearest day with entries before (-1) or after (1) `dayMs`. List skips
+ * empty days because it has no row to land on for them. */
+export const adjacentLogDay = (
+  dayKeys: readonly number[],
+  dayMs: number,
+  direction: -1 | 1,
+): number | null => {
+  if (direction < 0) return dayKeys.find((key) => key < dayMs) ?? null;
+  const later = dayKeys.filter((key) => key > dayMs);
+  return later[later.length - 1] ?? null;
+};
+
+/** The day group List scrolls to for `dayMs`: that day, else the nearest
+ * older day with entries, else the oldest one. */
+export const logJumpDay = (
+  dayKeys: readonly number[],
+  dayMs: number,
+): number | null =>
+  dayKeys.find((key) => key <= dayMs) ?? dayKeys[dayKeys.length - 1] ?? null;
+
+/** How many newest-first events List must render to show all of `dayMs`,
+ * rounded up to whole batches so Load older keeps its rhythm. */
+export const logEventCountThroughDay = (
+  events: readonly { at: number }[],
+  dayMs: number,
+) => {
+  const daySec = dayMs / 1000;
+  const needed = events.filter((event) => event.at >= daySec).length;
+  return Math.max(
+    LOG_EVENT_BATCH_SIZE,
+    Math.ceil(needed / LOG_EVENT_BATCH_SIZE) * LOG_EVENT_BATCH_SIZE,
+  );
+};
+
+/** Selected kinds, kept non-empty and in LOG_KINDS order. Stored as `scale`
+ * because older storage already used `layout` for something else. */
 export type LogsPreferences = {
   kinds: LogKindKey[];
+  scale: LogScaleKey;
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
 
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
-const DEFAULT_LOGS_PREFERENCES: LogsPreferences = { kinds: ALL_LOG_KINDS };
+const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
+  kinds: ALL_LOG_KINDS,
+  scale: "list",
+};
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -63,17 +128,22 @@ export function soloLogKind(
   return kinds.length === 1 && kinds[0] === key ? ALL_LOG_KINDS : [key];
 }
 
-/** Storage from before multi-select (`view` + `layout`) falls back to all kinds. */
+/** Storage from before multi-select (`view` + `layout`) falls back to all kinds
+ * on List. */
 export function readLogsPreferences(
   storage: LogsStorage = localStorage,
 ): LogsPreferences {
   try {
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
+    const isObject = stored !== null && typeof stored === "object";
     const kinds =
-      stored && typeof stored === "object" && Array.isArray(stored.kinds)
-        ? inKindOrder(stored.kinds)
-        : [];
-    return kinds.length > 0 ? { kinds } : DEFAULT_LOGS_PREFERENCES;
+      isObject && Array.isArray(stored.kinds) ? inKindOrder(stored.kinds) : [];
+    const scale: LogScaleKey =
+      isObject && stored.scale === "hours" ? "hours" : "list";
+    return {
+      kinds: kinds.length > 0 ? kinds : DEFAULT_LOGS_PREFERENCES.kinds,
+      scale,
+    };
   } catch {
     return DEFAULT_LOGS_PREFERENCES;
   }
@@ -172,6 +242,30 @@ export function taskStatusEventLabel(event: TaskStatusEvent): string {
   return `${label(event.fromStatus)} → ${label(event.toStatus)}`;
 }
 
+export type TaskChangeEvent = Extract<
+  RawLogEvent,
+  { kind: "work-start" | "work-stop" | "task-status" }
+>;
+
+export const isTaskChangeEvent = (event: RawLogEvent): event is TaskChangeEvent =>
+  event.kind === "work-start" ||
+  event.kind === "work-stop" ||
+  event.kind === "task-status";
+
+export const taskChangeTaskId = (event: TaskChangeEvent) =>
+  event.kind === "task-status" ? event.statusEvent.taskId : event.stretch.taskId;
+
+export function taskChangeLabel(event: TaskChangeEvent): string {
+  switch (event.kind) {
+    case "task-status":
+      return taskStatusEventLabel(event.statusEvent);
+    case "work-start":
+      return "Working now started";
+    case "work-stop":
+      return "Working now stopped";
+  }
+}
+
 function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
   const time = formatTime(event.at);
   switch (event.kind) {
@@ -205,11 +299,9 @@ function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
       return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
     }
     case "task-status":
-      return `- ${time} — ${taskStatusEventLabel(event.statusEvent)} — ${taskTitle(context.tasks, event.statusEvent.taskId)}`;
     case "work-start":
-      return `- ${time} — Working now started — ${taskTitle(context.tasks, event.stretch.taskId)}`;
     case "work-stop":
-      return `- ${time} — Working now stopped — ${taskTitle(context.tasks, event.stretch.taskId)}`;
+      return `- ${time} — ${taskChangeLabel(event)} — ${taskTitle(context.tasks, taskChangeTaskId(event))}`;
   }
 }
 

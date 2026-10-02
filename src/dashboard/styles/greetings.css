@@ -418,8 +418,36 @@
   color: var(--accent);
 }
 
+.dash-nav__picker {
+  position: relative;
+}
+
+.dash-nav__picker:has(.icon-picker) {
+  z-index: 5;
+}
+
+.dash-nav__picker .icon-picker {
+  top: 0;
+  left: calc(100% + 10px);
+}
+
+/* Lower Sections open upward so the grid stays in the window. */
+.dash-nav__picker:nth-last-child(-n + 3) .icon-picker {
+  top: auto;
+  bottom: 0;
+}
+
+.dash-nav__picker:has(.icon-picker) .dash-nav__btn {
+  transform: none;
+}
+
+.dash-nav__picker:has(.icon-picker) .dash-nav__label {
+  opacity: 0;
+}
+
 .dash-nav__icon,
-.dash-nav__icon svg {
+.dash-nav__icon svg,
+.dash-nav__btn > svg {
   width: 19px;
   height: 19px;
 }
@@ -428,8 +456,8 @@
   display: inline-flex;
 }
 
-/* Picked NestIcons default to a heavier stroke than the built-in nav SVGs. */
-.dash-nav__icon svg {
+.dash-nav__icon svg,
+.dash-nav__btn > svg {
   stroke-width: 1.8;
 }
 

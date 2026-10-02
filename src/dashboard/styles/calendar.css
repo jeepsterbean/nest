@@ -347,11 +347,23 @@
   opacity: 0.5;
 }
 
+.range-nav > .range-nav__today-icon {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.range-nav__today-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
 .range-nav__title {
   min-width: 8.5rem;
   color: var(--ink);
   font-size: 12px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -491,7 +503,7 @@
 }
 
 .day-picker__day:hover:not(:disabled) {
-  background: var(--surface-2);
+  background-color: var(--surface-2);
 }
 
 .day-picker__day:focus-visible {
@@ -505,8 +517,17 @@
 }
 
 .day-picker__day.is-selected {
-  background: var(--accent-soft);
+  background-color: var(--accent-soft);
   color: var(--ink);
+}
+
+/* Logs marks days with entries; the dot sits under the number so the
+   selected and today treatments still read. */
+.day-picker__day.has-entries {
+  background-image: radial-gradient(circle, var(--accent) 1.5px, transparent 2px);
+  background-position: center calc(100% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
 }
 
 .day-picker__day:disabled {

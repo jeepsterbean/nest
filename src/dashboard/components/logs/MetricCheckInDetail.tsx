@@ -7,7 +7,7 @@ type MetricCheckIn = {
   ratings: { metricId: number; value: number }[];
 };
 
-/** Per-metric ratings and delete; the timeline mark carries the Pulse icon. */
+/** Per-metric ratings and optional delete; the timeline mark carries the Pulse icon. */
 export function MetricCheckInDetail({
   checkIn,
   metrics,
@@ -15,7 +15,8 @@ export function MetricCheckInDetail({
 }: {
   checkIn: MetricCheckIn;
   metrics: Metric[];
-  onDelete: (id: number) => void;
+  /** Left out for read-only previews. */
+  onDelete?: (id: number) => void;
 }) {
   return (
     <>
@@ -45,15 +46,17 @@ export function MetricCheckInDetail({
           );
         })}
       </ul>
-      <button
-        type="button"
-        className="event__delete"
-        onClick={() => onDelete(checkIn.id)}
-        aria-label="Delete metric check-in"
-        title="Delete metric check-in"
-      >
-        ×
-      </button>
+      {onDelete ? (
+        <button
+          type="button"
+          className="event__delete"
+          onClick={() => onDelete(checkIn.id)}
+          aria-label="Delete metric check-in"
+          title="Delete metric check-in"
+        >
+          ×
+        </button>
+      ) : null}
     </>
   );
 }

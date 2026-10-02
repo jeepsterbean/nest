@@ -14,6 +14,8 @@ import {
 
 export type DayPickerProps = DayPickerBounds & {
   onPick: (dayMs: number) => void;
+  /** Day starts that hold entries, marked with a dot. */
+  markedDays?: ReadonlySet<number>;
 };
 
 const dayName = (dayMs: number) =>
@@ -30,6 +32,7 @@ export function DayPicker({
   nowMs,
   selected,
   onPick,
+  markedDays,
   children,
 }: DayPickerProps & { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -139,10 +142,15 @@ export function DayPicker({
                       cell.inMonth ? "" : "is-outside",
                       cell.isToday ? "is-today" : "",
                       cell.isSelected ? "is-selected" : "",
+                      markedDays?.has(cell.dayMs) ? "has-entries" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    aria-label={dayName(cell.dayMs)}
+                    aria-label={
+                      markedDays?.has(cell.dayMs)
+                        ? `${dayName(cell.dayMs)}, has entries`
+                        : dayName(cell.dayMs)
+                    }
                     aria-selected={cell.isSelected}
                     disabled={!cell.isPickable}
                     onClick={() => {
@@ -157,7 +165,7 @@ export function DayPicker({
             ))}
           </div>
           <p className="day-picker__note">
-            Insights reaches back {HISTORY_WINDOW_DAYS} days.
+            History reaches back {HISTORY_WINDOW_DAYS} days.
           </p>
         </div>
       ) : null}

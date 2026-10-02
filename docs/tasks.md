@@ -3,8 +3,8 @@
 Table and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md).
 CSS hooks and persistence keys live in [`UI.md`](../UI.md).
 
-The Tasks head ends with an icon picker; the picked icon marks Tasks in the
-sidebar and heads the Overview Tasks tile.
+The Tasks head ends with an icon picker; the picked icon heads the Overview
+Tasks tile. The Core Sidebar icon is separate and is picked on the Sidebar.
 
 ## Table
 

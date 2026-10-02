@@ -1,22 +1,8 @@
 import { DayPicker, type DayPickerProps } from "./DayPicker";
+import { chevronsRightIcon } from "./icons";
 import { ViewToggle } from "./ViewToggle";
 
-export function RangeToolbar<T extends string>({
-  label,
-  mode,
-  options,
-  title,
-  canGoBack,
-  isNow,
-  live = false,
-  dayPicker,
-  onMode,
-  onStep,
-  onToday,
-}: {
-  label: string;
-  mode: T;
-  options: readonly { key: T; label: string }[];
+type RangeNavProps = {
   title: string;
   canGoBack: boolean;
   isNow: boolean;
@@ -24,10 +10,21 @@ export function RangeToolbar<T extends string>({
   live?: boolean;
   /** When set, the title opens a day picker. */
   dayPicker?: DayPickerProps;
-  onMode: (key: T) => void;
   onStep: (direction: number) => void;
   onToday: () => void;
-}) {
+};
+
+/** Earlier / title / Later / Today paging, for toolbars that bring their own
+ * leading controls. */
+export function RangeNav({
+  title,
+  canGoBack,
+  isNow,
+  live = false,
+  dayPicker,
+  onStep,
+  onToday,
+}: RangeNavProps) {
   const titleContent = (
     <>
       {title}
@@ -41,6 +38,63 @@ export function RangeToolbar<T extends string>({
   );
 
   return (
+    <div className="range-nav">
+      {live ? null : (
+        <button
+          type="button"
+          aria-label="Earlier"
+          disabled={!canGoBack}
+          onClick={() => onStep(-1)}
+        >
+          ←
+        </button>
+      )}
+      {dayPicker ? (
+        <DayPicker label={title} {...dayPicker}>
+          {titleContent}
+        </DayPicker>
+      ) : (
+        <span className="range-nav__title">{titleContent}</span>
+      )}
+      {live ? null : (
+        <>
+          <button
+            type="button"
+            aria-label="Later"
+            disabled={isNow}
+            onClick={() => onStep(1)}
+          >
+            →
+          </button>
+          <button
+            type="button"
+            className="range-nav__today-icon"
+            aria-label="Today"
+            title="Today"
+            disabled={isNow}
+            onClick={onToday}
+          >
+            {chevronsRightIcon}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function RangeToolbar<T extends string>({
+  label,
+  mode,
+  options,
+  onMode,
+  ...nav
+}: RangeNavProps & {
+  label: string;
+  mode: T;
+  options: readonly { key: T; label: string }[];
+  onMode: (key: T) => void;
+}) {
+  return (
     <div className="dash-toolbar">
       <ViewToggle
         value={mode}
@@ -48,40 +102,7 @@ export function RangeToolbar<T extends string>({
         label={label}
         onChange={onMode}
       />
-      <div className="range-nav">
-        {live ? null : (
-          <button
-            type="button"
-            aria-label="Earlier"
-            disabled={!canGoBack}
-            onClick={() => onStep(-1)}
-          >
-            ←
-          </button>
-        )}
-        {dayPicker ? (
-          <DayPicker label={title} {...dayPicker}>
-            {titleContent}
-          </DayPicker>
-        ) : (
-          <span className="range-nav__title">{titleContent}</span>
-        )}
-        {live ? null : (
-          <>
-            <button
-              type="button"
-              aria-label="Later"
-              disabled={isNow}
-              onClick={() => onStep(1)}
-            >
-              →
-            </button>
-            <button type="button" disabled={isNow} onClick={onToday}>
-              Today
-            </button>
-          </>
-        )}
-      </div>
+      <RangeNav {...nav} />
     </div>
   );
 }

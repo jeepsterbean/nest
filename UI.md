@@ -64,12 +64,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   closed each launch, opens from the settings button at the end of the
   Greetings board row, and closes on its X, Escape, or a press outside it
   (so it is unreachable while Doing hides the Greetings board). It
-  configures only the icons with no other home: the Overview Section and
-  Control panel. Feature tiles take their icon from their own pane (Tasks,
-  Logs, Brain dump, and Metrics heads; Tasks, Brain dump, and Metrics are Core
-  panes), and Last hour always uses
-  the shared Insights SVG. Choices are stored in `nest:overview-tile-icons`,
-  with an `overview` slot for the Section. Last hour and Control panel keep the
+  configures only the Control panel icon. Sidebar Section icons are picked
+  from the Sidebar, and feature tiles take their icon from their own pane
+  (Tasks, Brain dump, and Metrics heads; those are Core panes). The Timeline
+  tile uses the Logs Sidebar icon. Last hour always uses the shared Insights
+  mark. Choices are stored in
+  `nest:overview-tile-icons`. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
   own header. The resize grip lives on the tile's own
   lower-right corner. The Greetings board row carries compact saved-layout
@@ -111,23 +111,39 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   with a hollow one. Timeline marks are bare kind-colored icons (no ring or
   rail) and Metric ratings are flat icon + number pairs, so rows avoid a
   column of circles. `nest:logs-preferences`
-  stores `kinds` (all four when unset or stored before multi-select). Logs is
-  always `.logs-chrono` (`LogsTimeline`), without Phase totals. Task lifecycle
-  rows (`.logs-chrono__row--task-status`) use the Tasks color and Plus / Check /
-  X / ArrowRight marks for creation / completion / cancellation / other status
-  changes. Phases on adds
+  stores `kinds` (all four when unset or stored before multi-select) and
+  `scale` (`list` when unset; not `layout`, which older storage used). The
+  toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: `RangeNav` with a
+  `DayPicker` (`markedDays` dots `.has-entries`), the selected day's
+  `.day-group__export`, and the List / Hours `ViewToggle` in
+  `.logs-toolbar__end`; then the filter chips and the List-only eye. List is `.logs-chrono`
+  (`LogsTimeline`), without Phase totals. Hours (`LogsHours`) is one day on
+  `TimelineFrame`; List day labels are `.day-group__open` buttons into Hours,
+  and groups carry `data-day-key` for the selected-day scroll; each
+  `.logs-hour` band scrolls horizontally when crowded and holds fixed-width
+  `.logs-hour__mark` buttons (Tasks tinted by
+  `--task-hue`), hover shows a `.logs-hour-card--preview` and a click pins the
+  full `.logs-hour-card`, placed by `placeStretchEditor`. Task lifecycle
+  rows and Working now boundaries use the configured Tasks icon as their timeline
+  mark. The `.task-log` body shows a stronger Task title. Work starts show only
+  that title; creation adds a Plus icon. Ordinary status changes show a leading
+  middle dot, compact status badges with shared status dots, an arrow, and an
+  em dash before the title. Completion, cancellation, and work stops retain
+  muted action labels with Check, X, and Stop icons respectively. Rows wrap to
+  preserve long titles and status transitions. Phases on adds
   settled Phase rows and colors the time column (`colorsTimeColumn`); Phases
   off leaves it quiet. With Phases alone, an eye icon button
   (`.logs-raw-toggle`, not stored) swaps the settled rows for every checkpoint
-  in the window. The toolbar ends with a
-  `.dash-section__tile-icon` picker, shared with the Tasks, Brain dump, Metrics,
-  and Phases heads, that writes the `timeline` slot in `nest:overview-tile-icons`.
-- Sidebar: Overview and Logs render their picked `NestIcon` from
-  `nest:overview-tile-icons` (`overview` / `timeline`). Core uses a fixed
-  four-square SVG. Other Sections keep their fixed SVGs. Tasks, Brain dump,
-  Metrics, and Phases icons are still picked in those Core pane heads
-  (`tasks` / `brainDump` / `metrics` / `phases`); Tasks, Brain dump, and Metrics
-  also mark their Overview tiles. Phases has no Overview tile.
+  in the window. The Logs icon is the `timeline` slot, picked from the Sidebar,
+  and it also heads the Overview Timeline tile.
+- Sidebar: every Section icon is a `NestIcon` from `nest:overview-tile-icons`
+  (`overview`, `calendar`, `insights`, `timeline` for Logs, `core`,
+  `assistant`, `settings`). The first click selects that Section. Clicking the
+  icon again while it is already selected opens `IconPickerButton`; a pick,
+  Escape, or an outside press closes it. Tasks, Brain dump, Metrics, and
+  Phases icons stay in those Core pane heads (`.dash-section__tile-icon`,
+  slots `tasks` / `brainDump` / `metrics` / `phases`). Tasks, Brain dump, and
+  Metrics also mark their Overview tiles. Phases has no Overview tile.
 - Core: one Sidebar entry. A `ViewToggle` (Brain dump / Tasks / Metrics /
   Phases) leads each pane head, beside that pane's own controls. The last pane
   is stored in `nest:core-pane` (Brain dump when unset). Panes stay mounted in
@@ -195,9 +211,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Timeline grid
 
-- In `TimelineGrid.tsx`, place every span with percentage `top` / `height` from
-  `placeOnWindow`, never `flex-grow`, so Work stretches and the Phase wash
-  align. Percentages use the column's real span and remain DST-safe.
+- `TimelineFrame.tsx` owns the shared grid (gutter, rules, rail, wash, now
+  line, scroll-to-now). Calendar's `TimelineGrid` and Logs Hours draw their
+  figure through `renderLane`.
+- Place every span with percentage `top` / `height` from `placeOnWindow`,
+  never `flex-grow`, so the figure and the Phase wash align. Percentages use
+  the column's real span and remain DST-safe.
 - Phase ground is a continuous `.tl__wash` tint with no border, radius, label,
   or click target. Day adds a `.tl__rail` of Phase icons left of hours; Week is
   wash only.

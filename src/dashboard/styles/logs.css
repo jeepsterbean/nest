@@ -1,3 +1,48 @@
+/* ---------- Logs toolbar ---------- */
+
+/* Two stable rows: the selected day and layout above, the kind filter below.
+   Controls stay in their slots across List and Hours. */
+.logs-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.logs-toolbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.logs-toolbar__end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* List day labels open that day in Hours; quiet until hovered. */
+.day-group__open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.day-group__open:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.day-group__open:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---------- Logs kind filter ---------- */
 
 /* Separate chips rather than a segmented bar: several kinds are usually on at
@@ -165,11 +210,58 @@
   font-size: 13px;
 }
 
-.log-detail--work {
-  overflow: hidden;
+.task-log {
+  flex-wrap: wrap;
+  gap: 4px 8px;
   color: var(--ink);
-  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.task-log__action,
+.task-log__statuses,
+.task-log__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-log__action {
+  color: var(--muted);
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.task-log__action-icon {
+  display: inline-flex;
+  color: var(--doing);
+}
+
+.task-log__action-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.task-log__statuses {
+  flex-wrap: wrap;
+}
+
+.task-log__status {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted) 8%, var(--surface));
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.task-log__separator {
+  color: var(--muted);
+}
+
+.task-log__title {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Logs timeline ---------- */
@@ -252,11 +344,6 @@
   width: 14px;
   height: 14px;
   stroke-width: 1.8;
-}
-
-.logs-chrono__row--work-start .logs-chrono__mark svg {
-  /* Play triangle reads left-heavy; nudge so it sits optically centered. */
-  transform: translateX(0.5px);
 }
 
 .logs-chrono__row--metrics {
@@ -350,4 +437,146 @@
   .logs-chrono__when {
     padding: 10px 8px;
   }
+}
+
+/* ---------- Hours layout ---------- */
+
+/* Busy hours scroll horizontally so every mark stays reachable within its hour. */
+.logs-hour {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 3px 4px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.logs-hour__mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--event-color) 28%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--event-color) 10%, var(--surface));
+  color: var(--event-color);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.logs-hour__mark svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.8;
+}
+
+.logs-hour__mark:hover,
+.logs-hour__mark--open {
+  background: color-mix(in srgb, var(--event-color) 22%, var(--surface));
+}
+
+.logs-hour__mark:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.logs-hour__mark--open {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.logs-hour__mark--metrics {
+  --event-color: var(--accent);
+}
+
+.logs-hour__mark--dump {
+  --event-color: var(--dump);
+}
+
+/* Same hue as the Task's Calendar card, so two Tasks in one hour differ at a
+   glance before their names are hovered. */
+.logs-hour__mark--task {
+  --event-color: hsl(var(--task-hue, 210) 60% 45%);
+}
+
+.logs-hour-card {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  gap: 8px;
+  width: 18rem;
+  max-height: min(60vh, 420px);
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.logs-hour-card--preview {
+  pointer-events: none;
+}
+
+.logs-hour-card--dump:not(.logs-hour-card--preview) {
+  padding: 0;
+}
+
+.logs-hour-card__head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.logs-hour-card__head time,
+.logs-hour-card__changes time {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.logs-hour-card__head strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-hour-card__metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logs-hour-card__summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.logs-hour-card__changes {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.logs-hour-card__changes li {
+  display: contents;
 }

@@ -1,9 +1,8 @@
 import { memo, useMemo, type CSSProperties } from "react";
-import { Download, Plus, Check, X, ArrowRight } from "lucide-react";
+import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
-import { NestIcon } from "../components/PulseIcon";
-import { isQuietPhase, phaseIcon, phaseName } from "../lib/period";
+import { isQuietPhase } from "../lib/period";
 import { formatTime, shiftDayMs } from "../lib/time";
 import {
   groupByDay,
@@ -12,35 +11,7 @@ import {
   type RawLogEvent,
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
-import { PlayMarkIcon, StopMarkIcon } from "../components/logs/workMarks";
-import { taskTitle, taskStatusEventLabel } from "../lib/logs";
-
-function timelineMarkLabel(
-  event: RawLogEvent,
-  phases: Phase[],
-  pulses: Pulse[],
-  tasks: Task[],
-) {
-  switch (event.kind) {
-    case "metrics": {
-      const pulse =
-        event.checkIn.pulseId === null
-          ? undefined
-          : pulses.find((item) => item.id === event.checkIn.pulseId);
-      return pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
-    }
-    case "dump":
-      return "Brain dump";
-    case "phase":
-      return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
-    case "task-status":
-      return `${taskStatusEventLabel(event.statusEvent)} — ${taskTitle(tasks, event.statusEvent.taskId)}`;
-    case "work-start":
-      return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
-    case "work-stop":
-      return `Stopped working on ${taskTitle(tasks, event.stretch.taskId)}`;
-  }
-}
+import { LogEventIcon, logEventLabel } from "../components/logs/LogEventMark";
 
 function TimelineMark({
   event,
@@ -53,12 +24,7 @@ function TimelineMark({
   pulses: Pulse[];
   tasks: Task[];
 }) {
-  const label = timelineMarkLabel(event, phases, pulses, tasks);
-  const pulse =
-    event.kind === "metrics" && event.checkIn.pulseId !== null
-      ? pulses.find((item) => item.id === event.checkIn.pulseId)
-      : undefined;
-
+  const label = logEventLabel(event, phases, pulses, tasks);
   return (
     <span
       className="logs-chrono__mark"
@@ -66,28 +32,7 @@ function TimelineMark({
       role="img"
       aria-label={label}
     >
-      {event.kind === "metrics" ? (
-        <NestIcon name={pulse?.icon ?? "activity"} />
-      ) : event.kind === "dump" ? (
-        <NestIcon name="notes" />
-      ) : event.kind === "phase" ? (
-        <NestIcon
-          name={phaseIcon(
-            event.checkIn.phaseId,
-            phases,
-            event.checkIn.phaseLabel,
-          )}
-        />
-      ) : event.kind === "task-status" ? (
-        event.statusEvent.fromStatus === null ? <Plus />
-          : event.statusEvent.toStatus === "completed" ? <Check />
-          : event.statusEvent.toStatus === "cancelled" ? <X />
-          : <ArrowRight />
-      ) : event.kind === "work-start" ? (
-        <PlayMarkIcon />
-      ) : (
-        <StopMarkIcon />
-      )}
+      <LogEventIcon event={event} phases={phases} pulses={pulses} />
     </span>
   );
 }
@@ -103,7 +48,7 @@ const eventKey = (event: RawLogEvent) =>
           ? `task-status-${event.statusEvent.id}`
           : `${event.kind}-${event.stretch.id}`;
 
-function DayExportButton({
+export function DayExportButton({
   label,
   dayKey,
   onExportDay,
@@ -139,6 +84,7 @@ export const LogsTimeline = memo(function LogsTimeline({
   onDeleteCheckIn,
   onToggleDump,
   onExportDay,
+  onOpenDay,
   nowMs,
   dayChrome = true,
   showPhaseTotals = true,
@@ -154,6 +100,8 @@ export const LogsTimeline = memo(function LogsTimeline({
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
   onExportDay?: (dayKey: number) => void;
+  /** Logs List turns each day label into a jump to that day in Hours. */
+  onOpenDay?: (dayKey: number) => void;
   nowMs: number;
   /** Overview's minimised peek hides the day label and Phase totals. */
   dayChrome?: boolean;
@@ -189,10 +137,27 @@ export const LogsTimeline = memo(function LogsTimeline({
         : [];
 
     return (
-      <article key={day.key} className="day-group logs-chrono-day">
+      <article
+        key={day.key}
+        className="day-group logs-chrono-day"
+        data-day-key={day.key}
+      >
         {dayChrome ? (
           <header className="day-group__head">
-            <h3 className="day-group__label">{day.label}</h3>
+            <h3 className="day-group__label">
+              {onOpenDay ? (
+                <button
+                  type="button"
+                  className="day-group__open"
+                  title="Open in Hours"
+                  onClick={() => onOpenDay(day.key)}
+                >
+                  {day.label}
+                </button>
+              ) : (
+                day.label
+              )}
+            </h3>
             <div className="day-group__meta">
               {showPhaseTotals ? (
                 <PhaseTotals sessions={daySessions} phases={phases} />

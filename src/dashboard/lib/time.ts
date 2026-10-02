@@ -64,6 +64,15 @@ export const snapToQuarterHour = (ts: number) => {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Local "Fri 02/10/2026" for range toolbar titles. Fixed-width fields, unlike
+ * "Today" or a spelled-out month, so paging never shifts the arrows beside it. */
+export const formatRangeDay = (tsSecs: number) => {
+  const d = new Date(tsSecs * 1000);
+  return `${WEEKDAY_SHORT[d.getDay()]} ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 /** Local YYYY-MM-DD for `<input type="date">`. */
 export const toDateInput = (ts: number) => {
   const d = new Date(ts * 1000);

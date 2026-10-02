@@ -5,8 +5,10 @@ Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in
 [`UI.md`](../UI.md).
 
 Insights and Calendar both offer Day and Week (Week starts Monday), anchored
-to real dates and paged with Earlier / Later / Today rather than measured back
-from now; paging stops where the loaded 30 days of history end. Each Section
+to real dates and paged with Earlier / Later / Today (a double arrow) rather
+than measured back from now. The range title reads as fixed-width dates, e.g.
+`Fri 02/10/2026` for Day and `Mon 28/09/2026 – Sun 04/10/2026` for Week, so
+paging never shifts the controls beside it; paging stops where the loaded 30 days of history end. Each Section
 remembers its own choice, so changing one leaves the other where it was
 (Calendar in `nest:date-range`, Insights in `nest:insights-range-mode`; first
 visit is Day, and Insights starts from Calendar's choice until it has one of
@@ -27,12 +29,11 @@ reloads, not on the minute clock.
 
 Overview has its own configuration panel that opens over the right side of
 the tile board from the Greetings board, closed by default. It lets
-the user choose the Overview Section icon and the Control panel icon. Feature
-tiles (Tasks, Timeline, Brain dump, Metric check-in) take their icon from
-their own pane or Section (Tasks, Logs, Brain dump, Metrics; Tasks, Brain dump,
-and Metrics are Core panes), and Last hour always
-uses the Insights icon. General Settings contains no Last hour or Control
-panel panes.
+the user choose the Control panel icon. The Overview Section icon is picked
+from the Sidebar. Feature tiles (Tasks, Timeline, Brain dump, Metric check-in)
+take their icon from their own pane (Tasks, Brain dump, and Metrics are Core
+panes; Timeline shares the Logs Sidebar icon), and Last hour always uses the
+Insights icon. General Settings contains no Last hour or Control panel panes.
 
 Overview is a persistent tile board with that summary, a read-only Tasks peek
 (Status, Title, Value, Effort) with Open / Closed and a button that opens Core
@@ -94,13 +95,47 @@ The history Section. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. A multi-select filter toggles Brain
 dumps, Phases, Metrics, and Tasks; all four are on by default. A click toggles
 one kind, and the last kind on stays on. A double click keeps only that kind,
-and double clicking the kind already alone turns all four back on. Logs is one
-day-grouped layout whatever the filter. Phases on adds settled Phase rows and
+and double clicking the kind already alone turns all four back on. A remembered
+List / Hours switch picks the layout.
+
+The toolbar has two rows that keep their slots in both layouts: the selected
+day (Earlier / day picker / Later / Today), that day's Export, and the List /
+Hours switch on top; the filter, plus the Phases-only eye in List, below. List
+and Hours share one selected day. The day picker dots days that hold entries
+for the current filter. Hours pages calendar days. List pages between days that
+hold entries, since an empty day has no row to land on, and scrolls to the
+picked day's group (an empty day lands on the nearest older one), loading older
+batches as needed. Scrolling List moves the selected day to the group at the
+top; above the first group a picked empty Today stays selected. Switching to
+List, or changing the filter there, scrolls back to the selected day. A List
+day label opens that day in Hours. Left / Right arrows step the day and `t`
+returns to Today while focus is outside text fields and dialogs.
+
+Hours shows one day at a time on Calendar's Day grid, paged and opened the same
+way: every hour keeps its full height, quiet ones included, and the grid opens
+on now or else the first logged hour. Phases on paints the Phase wash and rail;
+everything else lands as icons in the hour it happened, in time order. Each
+Metric check-in and brain dump is its own icon. A Task changed in that hour
+(created, status change, Working now start or stop) gets one icon, tinted like
+its Calendar card and using the configured Tasks icon; a Task Working now through an
+hour without a change has no icon there. Hover previews an icon: Pulse and
+scores, brain dump summary, or Task title and latest change. A click pins the
+full view: the read-only sticky, the check-in with delete, or every change the
+Task had that hour with times. Busy hours scroll horizontally to keep every icon
+reachable. The empty message appears only when both marks and the Phase wash
+are absent.
+
+List is one day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
 Tasks lists task creation, status changes (including completion, cancellation,
 and reopening), and Working now starts and stops. Lifecycle rows use the stored
 status-event timestamps and current Task titles; deleting a Task removes its
-history. The Overview Timeline keeps its Working now marks. With Phases alone, an eye button swaps
+history. Task rows share the configured Tasks timeline icon and an emphasized
+Task title. Working now starts show only the title; creation shows a plus and
+the title. Ordinary status changes show `· Previous → Next — Title`, with
+status badges. Stops, completions, and cancellations retain their action icon
+and label. The Overview Timeline keeps its Working now events with that same
+formatting. With Phases alone, an eye button swaps
 the settled rows for every Phase checkpoint in the window; it starts off
 whenever Phases becomes the only kind again. Logs shows no Phase totals.
 Settled Phase rows and the day export use the 60-second settle collapse (a burst lands on the Phase it settled
@@ -116,5 +151,4 @@ check-in, brain dump, and Working now start/stop icons sit directly on
 the timeline line. Logs does not show the day strip or outcome stats. Metric check-ins show the Pulse icon and Metric
 scores on one row at the same height as brain dumps and Working now marks.
 Brain dumps keep that row height when their read-only sticky opens. Pulse,
-Metric, and brain dump icons stand in for names. The top of Logs holds the filter, the Phases-only eye button, and an icon picker; the picked icon marks Logs in the sidebar and
-heads the Overview Timeline tile.
+Metric, and brain dump icons stand in for names. The Logs icon is picked from the Sidebar and heads the Overview Timeline tile.

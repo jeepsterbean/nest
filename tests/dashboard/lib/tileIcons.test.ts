@@ -34,14 +34,9 @@ describe("tile icons", () => {
       }),
     );
     expect(readTileIcons(storage)).toEqual({
-      overview: DEFAULT_TILE_ICONS.overview,
-      lastHour: "insights",
-      tasks: DEFAULT_TILE_ICONS.tasks,
+      ...DEFAULT_TILE_ICONS,
       timeline: "calendar",
-      brainDump: DEFAULT_TILE_ICONS.brainDump,
       metrics: "gauge",
-      phases: DEFAULT_TILE_ICONS.phases,
-      controlPanel: DEFAULT_TILE_ICONS.controlPanel,
     });
   });
 
@@ -60,6 +55,15 @@ describe("tile icons", () => {
     expect(readTileIcons(storage)).toEqual({
       ...DEFAULT_TILE_ICONS,
       phases: "moon",
+    });
+  });
+
+  it("writes a Sidebar icon and keeps the tile icons", () => {
+    const storage = memory();
+    writeTileIcon("calendar", "sun", storage);
+    expect(readTileIcons(storage)).toEqual({
+      ...DEFAULT_TILE_ICONS,
+      calendar: "sun",
     });
   });
 });

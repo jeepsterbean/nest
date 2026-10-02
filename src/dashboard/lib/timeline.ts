@@ -284,6 +284,25 @@ export const phaseSessionsInWindow = (
   return trimQuiet ? trimQuietPhaseSessions(sessions, isQuiet) : sessions;
 };
 
+/** One grid column's Phase wash: cut per column so it never spans midnight,
+ * and never past now, since the last checkpoint would otherwise paint the
+ * rest of the week in whatever Phase is current. */
+export const columnPhaseSessions = (
+  phaseCheckIns: PhaseCheckIn[],
+  column: { from: number; to: number },
+  nowSec: number,
+  isQuiet: (phaseId: number | null) => boolean,
+): PhaseSession[] =>
+  column.from >= nowSec
+    ? []
+    : phaseSessionsInWindow(
+        phaseCheckIns,
+        column.from,
+        Math.min(column.to, nowSec),
+        isQuiet,
+        false,
+      );
+
 // Per-metric rating values in chronological order, for sparklines and stats.
 export const buildMetricSeries = (
   checkIns: MetricCheckInWithRatings[],

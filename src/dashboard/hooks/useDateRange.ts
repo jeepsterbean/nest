@@ -8,7 +8,7 @@ import {
   type RangeModeKey,
   type RangeModeStore,
 } from "../lib/insights";
-import { historyStartSec, shiftDayMs } from "../lib/time";
+import { formatRangeDay, historyStartSec, shiftDayMs } from "../lib/time";
 import { useCurrentTime } from "./useCurrentTime";
 
 /** Day / Week range state plus Earlier / Later / Today paging. Calendar and
@@ -30,10 +30,11 @@ export function useDateRange(store: RangeModeStore = CALENDAR_RANGE_STORE) {
   const canGoBack =
     stepColumns(mode, anchorMs, -1, nowMs)[0].from >= earliestSec;
   const isNow = nowSec >= from && nowSec < to;
+  const lastColumn = columns[columns.length - 1];
   const title =
     columns.length === 1
-      ? columns[0].label
-      : `${columns[0].label} – ${columns[columns.length - 1].label}`;
+      ? formatRangeDay(from)
+      : `${formatRangeDay(from)} – ${formatRangeDay(lastColumn.from)}`;
 
   const selectMode = (key: RangeModeKey) => {
     setMode(key);

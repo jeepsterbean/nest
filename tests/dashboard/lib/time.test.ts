@@ -6,6 +6,7 @@ import {
   formatCompactDuration,
   formatDate,
   formatHourTick,
+  formatRangeDay,
   formatTime,
   formatWorkedTime,
   greetingForHour,
@@ -97,6 +98,11 @@ describe("format helpers", () => {
     expect(typeof formatTime(ts)).toBe("string");
     expect(typeof formatDate(ts)).toBe("string");
     expect(typeof formatHourTick(ts)).toBe("string");
+  });
+
+  it("formats range days as a zero-padded weekday and dd/mm/yyyy", () => {
+    expect(formatRangeDay(sec(new Date(2026, 9, 2, 15, 0)))).toBe("Fri 02/10/2026");
+    expect(formatRangeDay(sec(new Date(2026, 11, 28, 0, 0)))).toBe("Mon 28/12/2026");
   });
 
   it("formats compact durations in whole minutes", () => {
