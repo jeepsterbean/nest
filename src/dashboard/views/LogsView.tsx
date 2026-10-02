@@ -27,7 +27,7 @@ import { LogsTimeline } from "./LogsTimeline";
 
 const MIXED_EMPTY_COPY = {
   title: "Nothing here yet",
-  body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
+  body: "Metric check-ins, brain dumps, Phase changes, and task activity will land here.",
 };
 
 const EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> = {
@@ -44,8 +44,8 @@ const EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> = {
     body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
   },
   tasks: {
-    title: "No work stretches yet",
-    body: "Working now starts and stops will land here.",
+    title: "No task activity yet",
+    body: "Task creation, status changes, and Working now starts and stops will land here.",
   },
 };
 
@@ -93,6 +93,7 @@ export function LogsView() {
     phaseCheckIns,
     brainDumps,
     taskWorkStretches,
+    taskStatusEvents,
     loaded,
     mutate,
   } = useDashboardData();
@@ -119,6 +120,7 @@ export function LogsView() {
         brainDumps,
         taskWorkStretches,
         historyFromSec,
+        taskStatusEvents,
       ),
     [
       brainDumps,
@@ -126,6 +128,7 @@ export function LogsView() {
       historyFromSec,
       phaseCheckIns,
       taskWorkStretches,
+      taskStatusEvents,
     ],
   );
 
@@ -147,6 +150,7 @@ export function LogsView() {
         brainDumps,
         taskWorkStretches,
         historyFromSec,
+        taskStatusEvents,
       ),
     [
       kinds,
@@ -155,6 +159,7 @@ export function LogsView() {
       phaseCheckIns,
       brainDumps,
       taskWorkStretches,
+      taskStatusEvents,
       historyFromSec,
     ],
   );

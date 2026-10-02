@@ -1,5 +1,5 @@
 import { memo, useMemo, type CSSProperties } from "react";
-import { Download } from "lucide-react";
+import { Download, Plus, Check, X, ArrowRight } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { NestIcon } from "../components/PulseIcon";
@@ -13,7 +13,7 @@ import {
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
 import { PlayMarkIcon, StopMarkIcon } from "../components/logs/workMarks";
-import { taskTitle } from "../lib/logs";
+import { taskTitle, taskStatusEventLabel } from "../lib/logs";
 
 function timelineMarkLabel(
   event: RawLogEvent,
@@ -33,6 +33,8 @@ function timelineMarkLabel(
       return "Brain dump";
     case "phase":
       return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
+    case "task-status":
+      return `${taskStatusEventLabel(event.statusEvent)} — ${taskTitle(tasks, event.statusEvent.taskId)}`;
     case "work-start":
       return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
     case "work-stop":
@@ -76,6 +78,11 @@ function TimelineMark({
             event.checkIn.phaseLabel,
           )}
         />
+      ) : event.kind === "task-status" ? (
+        event.statusEvent.fromStatus === null ? <Plus />
+          : event.statusEvent.toStatus === "completed" ? <Check />
+          : event.statusEvent.toStatus === "cancelled" ? <X />
+          : <ArrowRight />
       ) : event.kind === "work-start" ? (
         <PlayMarkIcon />
       ) : (
@@ -92,7 +99,9 @@ const eventKey = (event: RawLogEvent) =>
       ? `dump-${event.dump.id}`
       : event.kind === "phase"
         ? `phase-${event.checkIn.id}`
-        : `${event.kind}-${event.stretch.id}`;
+        : event.kind === "task-status"
+          ? `task-status-${event.statusEvent.id}`
+          : `${event.kind}-${event.stretch.id}`;
 
 function DayExportButton({
   label,

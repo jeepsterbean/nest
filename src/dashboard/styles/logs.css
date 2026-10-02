@@ -268,7 +268,8 @@
 }
 
 .logs-chrono__row--work-start,
-.logs-chrono__row--work-stop {
+.logs-chrono__row--work-stop,
+.logs-chrono__row--task-status {
   --event-color: var(--doing);
 }
 

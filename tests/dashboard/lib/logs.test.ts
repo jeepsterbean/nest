@@ -12,6 +12,7 @@ import {
 import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
+  TaskStatusEvent,
 } from "../../../src/lib/types";
 
 const memory = () => {
@@ -274,5 +275,35 @@ describe("daily Logs export", () => {
         .filter((event) => event.kind === "phase")
         .map((event) => event.at),
     ).toEqual([900, 200, 100]);
+  });
+});
+
+
+describe("Task lifecycle history", () => {
+  const history: TaskStatusEvent[] = [
+    { id: 1, taskId: 7, fromStatus: null, toStatus: "active", createdAt: 100 },
+    { id: 2, taskId: 7, fromStatus: "active", toStatus: "completed", createdAt: 200 },
+    { id: 3, taskId: 7, fromStatus: "completed", toStatus: "up_next", createdAt: 200 },
+    { id: 4, taskId: 7, fromStatus: "up_next", toStatus: "cancelled", createdAt: 300 },
+    { id: 5, taskId: 7, fromStatus: "paused", toStatus: "cancelled", createdAt: 400 },
+  ];
+
+  it("filters lifecycle rows with Tasks and orders same-second transitions by id", () => {
+    const events = buildLogsEvents(["tasks"], false, [], [], [], [], 0, history);
+    expect(events.map((event) => event.kind === "task-status" ? event.statusEvent.id : null))
+      .toEqual([5, 4, 3, 2, 1]);
+    expect(buildLogsEvents(["dumps"], false, [], [], [], [], 0, history)).toEqual([]);
+  });
+
+  it("exports creation, completion, reopening, cancellation and retired statuses", () => {
+    const events = buildLogExportEvents([], [], [], [], 0, history);
+    const markdown = logDayMarkdown(0, events, { phases: [], metrics: [], pulses: [], tasks: [] });
+    expect(markdown).toContain("Created task · Active — Task 7");
+    expect(markdown).toContain("Completed task · Active → Completed — Task 7");
+    expect(markdown).toContain("Completed → Up next — Task 7");
+    expect(markdown).toContain("Cancelled task · Up next → Cancelled — Task 7");
+    expect(markdown).toContain("Cancelled task · Paused → Cancelled — Task 7");
+    expect(markdown.indexOf("Created task")).toBeLessThan(markdown.indexOf("Completed task"));
+    expect(markdown.indexOf("Completed task")).toBeLessThan(markdown.indexOf("Completed → Up next"));
   });
 });

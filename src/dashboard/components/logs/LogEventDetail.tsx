@@ -4,7 +4,7 @@ import type { RawLogEvent } from "../../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 import { MetricCheckInDetail } from "./MetricCheckInDetail";
 import { PhaseEventDetail } from "./PhaseEventDetail";
-import { taskTitle } from "../../lib/logs";
+import { taskTitle, taskStatusEventLabel } from "../../lib/logs";
 
 /** Event body beside the timeline mark, which already carries the event's icon. */
 export function LogEventDetail({
@@ -53,6 +53,12 @@ export function LogEventDetail({
             phaseLabel={event.checkIn.phaseLabel}
             phases={phases}
           />
+        </div>
+      );
+    case "task-status":
+      return (
+        <div className="log-detail log-detail--work">
+          {taskStatusEventLabel(event.statusEvent)} — {taskTitle(tasks, event.statusEvent.taskId)}
         </div>
       );
     case "work-start":

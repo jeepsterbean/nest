@@ -97,7 +97,10 @@ one kind, and the last kind on stays on. A double click keeps only that kind,
 and double clicking the kind already alone turns all four back on. Logs is one
 day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
-Tasks lists Working now starts and stops. With Phases alone, an eye button swaps
+Tasks lists task creation, status changes (including completion, cancellation,
+and reopening), and Working now starts and stops. Lifecycle rows use the stored
+status-event timestamps and current Task titles; deleting a Task removes its
+history. The Overview Timeline keeps its Working now marks. With Phases alone, an eye button swaps
 the settled rows for every Phase checkpoint in the window; it starts off
 whenever Phases becomes the only kind again. Logs shows no Phase totals.
 Settled Phase rows and the day export use the 60-second settle collapse (a burst lands on the Phase it settled

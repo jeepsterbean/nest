@@ -7,8 +7,10 @@ import type {
   Pulse,
   Task,
   TaskWorkStretch,
+  TaskStatusEvent,
 } from "../../lib/types";
 import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
+import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
 import { formatTime, toDateInput } from "./time";
 import {
@@ -109,6 +111,7 @@ export function buildLogsEvents(
   brainDumps: BrainDump[],
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
+  taskStatusEvents: TaskStatusEvent[] = [],
 ): RawLogEvent[] {
   // Collapse runs before the range cut so a settle matching the Phase already
   // active at the window start is omitted along with that carry-in.
@@ -125,6 +128,7 @@ export function buildLogsEvents(
     phaseRows,
     kinds.includes("dumps") ? brainDumps : [],
     kinds.includes("tasks") ? taskWorkStretches : [],
+    kinds.includes("tasks") ? taskStatusEvents : [],
   );
 }
 
@@ -135,6 +139,7 @@ export function buildLogExportEvents(
   brainDumps: BrainDump[],
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
+  taskStatusEvents: TaskStatusEvent[] = [],
 ) {
   return buildLogsEvents(
     ALL_LOG_KINDS,
@@ -144,6 +149,7 @@ export function buildLogExportEvents(
     brainDumps,
     taskWorkStretches,
     historyFromSec,
+    taskStatusEvents,
   );
 }
 
@@ -156,6 +162,15 @@ type LogExportContext = {
 
 export const taskTitle = (tasks: Task[], taskId: number) =>
   tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
+
+export function taskStatusEventLabel(event: TaskStatusEvent): string {
+  const label = (status: TaskStatusEvent["toStatus"]) =>
+    status === "paused" ? "Paused" : TASK_STATUS_LABEL[status];
+  if (event.fromStatus === null) return `Created task · ${label(event.toStatus)}`;
+  if (event.toStatus === "completed") return `Completed task · ${label(event.fromStatus)} → Completed`;
+  if (event.toStatus === "cancelled") return `Cancelled task · ${label(event.fromStatus)} → Cancelled`;
+  return `${label(event.fromStatus)} → ${label(event.toStatus)}`;
+}
 
 function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
   const time = formatTime(event.at);
@@ -189,6 +204,8 @@ function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
         .join("\n");
       return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
     }
+    case "task-status":
+      return `- ${time} — ${taskStatusEventLabel(event.statusEvent)} — ${taskTitle(context.tasks, event.statusEvent.taskId)}`;
     case "work-start":
       return `- ${time} — Working now started — ${taskTitle(context.tasks, event.stretch.taskId)}`;
     case "work-stop":
@@ -208,7 +225,9 @@ export function logDayMarkdown(
     day: "numeric",
   });
   const timeline = [...events]
-    .sort((a, b) => a.at - b.at)
+    .sort((a, b) => a.at - b.at ||
+      (a.kind === "task-status" && b.kind === "task-status"
+        ? a.statusEvent.id - b.statusEvent.id : 0))
     .map((event) => eventMarkdown(event, context))
     .join("\n");
   return `# Nest Logs — ${date}\n\n${timeline || "_No settled happenings._"}\n`;

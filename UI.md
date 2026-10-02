@@ -112,7 +112,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   rail) and Metric ratings are flat icon + number pairs, so rows avoid a
   column of circles. `nest:logs-preferences`
   stores `kinds` (all four when unset or stored before multi-select). Logs is
-  always `.logs-chrono` (`LogsTimeline`), without Phase totals. Phases on adds
+  always `.logs-chrono` (`LogsTimeline`), without Phase totals. Task lifecycle
+  rows (`.logs-chrono__row--task-status`) use the Tasks color and Plus / Check /
+  X / ArrowRight marks for creation / completion / cancellation / other status
+  changes. Phases on adds
   settled Phase rows and colors the time column (`colorsTimeColumn`); Phases
   off leaves it quiet. With Phases alone, an eye icon button
   (`.logs-raw-toggle`, not stored) swaps the settled rows for every checkpoint

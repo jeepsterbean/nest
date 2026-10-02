@@ -3,6 +3,7 @@ import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
   TaskWorkStretch,
+  TaskStatusEvent,
 } from "../../lib/types";
 import { dayLabel, startOfDayMs } from "./time";
 
@@ -16,7 +17,8 @@ export type WorkLogEvent =
   | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
-export type RawLogEvent = TimelineEvent | WorkLogEvent;
+export type RawLogEvent = TimelineEvent | WorkLogEvent
+  | { kind: "task-status"; at: number; statusEvent: TaskStatusEvent };
 /** Overview Timeline tile: happenings only. The time column's color already
  * carries the Phase in force, so Phase changes get no row of their own. */
 export type TimelineLogEvent = Exclude<RawLogEvent, { kind: "phase" }>;
@@ -47,14 +49,16 @@ const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
   phase: 2,
   "work-start": 3,
   "work-stop": 4,
+  "task-status": 5,
 };
 
-/** Newest-first event feed: Metric / dump / Phase plus Work stretch start & stop. */
+/** Newest-first event feed with optional Task lifecycle history. */
 export const buildRawLog = (
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: BrainDump[],
   stretches: TaskWorkStretch[],
+  taskStatusEvents: TaskStatusEvent[] = [],
 ): RawLogEvent[] => {
   const events: RawLogEvent[] = [
     ...checkIns.map((ci) => ({
@@ -79,8 +83,13 @@ export const buildRawLog = (
       events.push({ kind: "work-stop", at: stretch.endedAt, stretch });
     }
   }
+  for (const statusEvent of taskStatusEvents) {
+    events.push({ kind: "task-status", at: statusEvent.createdAt, statusEvent });
+  }
   return events.sort(
-    (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind],
+    (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind] ||
+      (a.kind === "task-status" && b.kind === "task-status"
+        ? b.statusEvent.id - a.statusEvent.id : 0),
   );
 };
 
