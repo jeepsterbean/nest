@@ -78,6 +78,31 @@ describe("windowInsight", () => {
       { phaseId: 2, from: 80, to: 200 },
     ]);
   });
+
+  it("counts a check-in past the minute-clock end without extending phase sessions", () => {
+    const insight = windowInsight(
+      [],
+      [],
+      [
+        {
+          id: 1,
+          createdAt: 150,
+          pulseId: null,
+          pulseName: null,
+          ratings: [],
+        },
+      ],
+      [phaseCheckIn(1, 0, 1)],
+      phases,
+      0,
+      100,
+      151,
+    );
+    expect(insight.sessions).toEqual([{ phaseId: 1, from: 0, to: 100 }]);
+    expect(insight.stats.find((stat) => stat.label === "Check-ins")?.value).toBe(
+      "1",
+    );
+  });
 });
 
 describe("last hour window", () => {
@@ -584,5 +609,21 @@ describe("insightCheckIns", () => {
 
   it("does not open a past range past its end", () => {
     expect(insightCheckInClosedTo(20, 50_000)).toBe(20);
+  });
+
+  it("does not clamp Last hour to the stale minute-clock end", () => {
+    const staleNowSec = 100;
+    const createdAt = 130;
+    const liveTo = insightCheckInClosedTo(staleNowSec, createdAt * 1000, true);
+    expect(liveTo).toBe(createdAt + 1);
+    expect(insightCheckInClosedTo(staleNowSec, createdAt * 1000)).toBe(staleNowSec);
+    expect(
+      insightCheckIns(
+        [checkIn(1, createdAt, 1, [{ metricId: 1, value: 4 }])],
+        [metric(1, "Energy")],
+        [pulse(1, "Body", [1])],
+        { from: staleNowSec - 3600, to: liveTo },
+      ),
+    ).toHaveLength(1);
   });
 });

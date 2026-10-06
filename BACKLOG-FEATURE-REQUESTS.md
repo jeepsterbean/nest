@@ -34,23 +34,8 @@ New data model. which basically, is textual summary of what the user is doing fr
 
 
 ## insights page 
-- currently useless, should probably be implemented when the LLM feature lands
-
-## Text entry
-- Turn off autocorrect, autocapitalisation and spellcheck in every text field
-  the app has, so typed text stays exactly as typed. The Brain dump editor
-  already behaves this way and is the only one that does. The fields that still
-  rewrite what you type:
-  - Tasks: task title rename, task description, the dashboard task composer, the
-    popup's active-task box, new child task, new scope, and the task name in the
-    timeline stretch editor.
-  - Names and renames: tags, reminders, pulses, metrics, and saved grid layouts.
-  - Brain dump: the "Find a tag" search box.
-  - Assistant: the chat composer, chat title rename, option names, the option
-    amount field, system instructions, prompt titles, prompt text, and the
-    message template.
-  - Settings: the OpenAI key field.
-
+- helpful to see overview of completed tasks
+- but the overview of time spent isnt very useful
 
 ## Note board
 figure out how the notes are arranged in the noteboard

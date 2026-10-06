@@ -266,8 +266,9 @@
 
 /* ---------- Logs timeline ---------- */
 
-/* Squared-off on purpose: rings, a rail, and nested pills on every row read
-   as a column of circles, so marks are bare icons and ratings are flat text. */
+/* Marks stay bare icons (a ring on every row reads as a column of circles).
+   The hairline behind them is the timeline. Today's clock row has no mark;
+   the stretch down to the next icon is a squiggle instead of that hairline. */
 
 .logs-chrono-day {
   text-align: left;
@@ -287,14 +288,136 @@
   --phase-gutter: var(--surface-2);
   --logs-time-column: 6rem;
   --logs-mark-column: 22px;
+  --logs-event-pad-left: 4px;
+  --logs-row: var(--surface);
+  --logs-spine-x: calc(
+    var(--logs-time-column) + var(--logs-event-pad-left) + var(--logs-mark-column) / 2
+  );
+  /* White stroke so the tile reads in both alpha and luminance masks. */
+  --logs-squiggle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M4 0C6.5 0 6.5 4 4 4C1.5 4 1.5 8 4 8' fill='none' stroke='%23fff' stroke-width='1.15'/%3E%3C/svg%3E");
+  position: relative;
   display: grid;
   grid-template-columns: var(--logs-time-column) minmax(0, 1fr);
   min-height: 42px;
-  background: var(--surface);
+  background: var(--logs-row);
+}
+
+/* One spine per day. It is drawn on the row, not the icon, so it crosses the
+   row padding and meets the next mark. It starts and ends on an icon center,
+   which leaves a single-event day as a mark alone. */
+.logs-chrono__row::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: var(--logs-spine-x);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.logs-chrono__row:first-child::after {
+  top: 50%;
+}
+
+.logs-chrono__row:last-child::after {
+  bottom: 50%;
+}
+
+/* The squiggle is split across the clock row and the next one so each piece
+   can be as tall as that row. Tiles meet at the shared edge, in phase. */
+.logs-chrono__row--now:first-child::after,
+.logs-chrono__row--after-now::before {
+  width: 8px;
+  background: var(--border);
+  -webkit-mask-image: var(--logs-squiggle);
+  mask-image: var(--logs-squiggle);
+  -webkit-mask-repeat: repeat-y;
+  mask-repeat: repeat-y;
+  -webkit-mask-size: 8px 8px;
+  mask-size: 8px 8px;
+}
+
+.logs-chrono__row--now:first-child::after {
+  top: 50%;
+  bottom: 0;
+  -webkit-mask-position: center bottom;
+  mask-position: center bottom;
+}
+
+.logs-chrono__row--after-now::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: var(--logs-spine-x);
+  top: 0;
+  height: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  -webkit-mask-position: center top;
+  mask-position: center top;
+}
+
+.logs-chrono__row--after-now::after {
+  top: 50%;
 }
 
 .logs-chrono__row + .logs-chrono__row {
   border-top: 1px solid var(--border);
+}
+
+.logs-chrono__row--now + .logs-chrono__row {
+  border-top: none;
+}
+
+.logs-chrono__row--now + .logs-chrono__row > .logs-chrono__when {
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+/* The live point on the spine. The halo breathes; the dot stays put so the
+   time remains the thing you read. */
+.logs-chrono__now {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 10px;
+  height: 10px;
+}
+
+.logs-chrono__now::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+  opacity: 0.4;
+  transform: scale(0.4);
+  animation: logs-now-breathe 2.4s ease-in-out infinite;
+}
+
+.logs-chrono__now::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--logs-row);
+}
+
+@keyframes logs-now-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.4);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .logs-chrono__row--colored {
@@ -327,10 +450,12 @@
   grid-template-columns: var(--logs-mark-column) minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  padding: 10px 12px 10px 4px;
+  padding: 10px 12px 10px var(--logs-event-pad-left);
 }
 
 .logs-chrono__mark {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -343,6 +468,8 @@
 .logs-chrono__mark svg {
   width: 14px;
   height: 14px;
+  background: var(--logs-row);
+  box-shadow: 0 0 0 3px var(--logs-row);
   stroke-width: 1.8;
 }
 
@@ -365,7 +492,7 @@
 }
 
 .logs-chrono__row:hover {
-  background: color-mix(in srgb, var(--muted) 5%, var(--surface));
+  --logs-row: color-mix(in srgb, var(--muted) 5%, var(--surface));
 }
 
 .logs-chrono__row:hover .logs-chrono__when {

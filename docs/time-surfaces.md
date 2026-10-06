@@ -63,9 +63,10 @@ by status as of that day's end (Active, Up next, Backlog, Completed,
 Cancelled), plus Completions and Cancellations with no Working now that
 day (0 Worked time). Metric check-ins sit in a dedicated column grouped by
 Pulse — average plus a tick per rating — even when the range has none.
-That column clips at a live now so a just-saved rating appears as soon as
-data reloads; Phase mix and the task ledger stay on the shared minute
-clock. Last hour uses that same board on a rolling 60-minute window;
+The Check-ins stat and that column clip at a live now, so a just-saved
+rating appears as soon as data reloads. Last hour does not clamp them to
+its minute-clock end. Phase mix and the task ledger stay on the shared
+minute clock. Last hour uses that same board on a rolling 60-minute window;
 Overview's Last hour tile is the stats and Phase totals from that window.
 
 ## Calendar
@@ -131,11 +132,10 @@ Tasks lists task creation, status changes (including completion, cancellation,
 and reopening), and Working now starts and stops. Lifecycle rows use the stored
 status-event timestamps and current Task titles; deleting a Task removes its
 history. Task rows share the configured Tasks timeline icon and an emphasized
-Task title. Working now starts show only the title; creation shows a plus and
-the title. Ordinary status changes show `· Previous → Next — Title`, with
-status badges. Stops, completions, and cancellations retain their action icon
-and label. The Overview Timeline keeps its Working now events with that same
-formatting. With Phases alone, an eye button swaps
+Task title. Every activity follows `Title — Activity`, with a compact activity
+tag in past tense: Added, Started, Paused, Completed, Cancelled, or
+Moved to Backlog / Up next / Active. Reopening a closed Task shows Reopened to
+its destination status. The Overview Timeline uses that same formatting. With Phases alone, an eye button swaps
 the settled rows for every Phase checkpoint in the window; it starts off
 whenever Phases becomes the only kind again. Logs shows no Phase totals.
 Settled Phase rows and the day export use the 60-second settle collapse (a burst lands on the Phase it settled
@@ -146,9 +146,11 @@ event type for that calendar day, regardless of the active Logs filter.
 Each Phase has separate icon and color controls in the Phases pane of Core, with a
 broad preset palette and custom color picker; those choices drive the Greetings
 board, Calendar rail and wash, Insights mix and totals, Logs Phase rows,
-and the Logs time column (quiet surface tone when uncolored). Metric
-check-in, brain dump, and Working now start/stop icons sit directly on
-the timeline line. Logs does not show the day strip or outcome stats. Metric check-ins show the Pulse icon and Metric
+and the Logs time column (quiet surface tone when uncolored). In List and
+the Overview Timeline, each day's icons sit on a hairline through the mark
+column, from the first mark to the last. Today opens with the current time
+and an empty event cell. A breathing dot marks that point on the spine, and
+the hairline from there to the next mark is a repeating squiggle. Logs does not show the day strip or outcome stats. Metric check-ins show the Pulse icon and Metric
 scores on one row at the same height as brain dumps and Working now marks.
 Brain dumps keep that row height when their read-only sticky opens. Pulse,
 Metric, and brain dump icons stand in for names. The Logs icon is picked from the Sidebar and heads the Overview Timeline tile.

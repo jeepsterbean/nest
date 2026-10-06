@@ -199,13 +199,19 @@ export const outcomeStats = (
   events: TaskStatusEvent[],
   checkIns: MetricCheckInWithRatings[],
   period: { from: number; to: number },
+  checkInTo = period.to,
 ): OutcomeStat[] => {
   const totals = completionTotals(tasks, events, period);
   return [
     { label: "Completed", value: String(totals.completed) },
     { label: "Value", value: String(totals.value) },
     { label: "Effort", value: String(totals.effort) },
-    { label: "Check-ins", value: String(countCheckIns(checkIns, period)) },
+    {
+      label: "Check-ins",
+      value: String(
+        countCheckIns(checkIns, { from: period.from, to: checkInTo }),
+      ),
+    },
   ];
 };
 
@@ -217,13 +223,17 @@ export const windowInsight = (
   phases: Phase[],
   fromSec: number,
   toSec: number,
+  checkInTo = toSec,
 ): WindowInsight => {
   const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
   return {
-    stats: outcomeStats(tasks, events, checkIns, {
-      from: fromSec,
-      to: toSec,
-    }),
+    stats: outcomeStats(
+      tasks,
+      events,
+      checkIns,
+      { from: fromSec, to: toSec },
+      checkInTo,
+    ),
     // Untrimmed: quiet edges stay as empty track rather than being squeezed out.
     sessions: phaseSessionsInWindow(
       phaseCheckIns,
@@ -427,11 +437,18 @@ export type InsightPulseGroup = {
 const average = (values: number[]) =>
   values.reduce((sum, value) => sum + value, 0) / values.length;
 
-/** Exclusive upper bound for the Insights check-in column. Uses a live now so
- * a just-saved rating is not held back by the shared minute clock. `+ 1`
- * matches dashboard reload (`to = now + 1`) against `createdAt < to`. */
-export const insightCheckInClosedTo = (rangeTo: number, nowMs: number) =>
-  Math.min(rangeTo, Math.floor(nowMs / 1000) + 1);
+/** Exclusive end for Insights check-ins. Live now + 1 matches dashboard reload
+ * (`to = now + 1`) against `createdAt < to`, so a just-saved rating is not held
+ * by the minute clock. Last hour's range end *is* that clock, so `live` must
+ * not clamp to it. A past range stays closed at its own end. */
+export const insightCheckInClosedTo = (
+  rangeTo: number,
+  nowMs: number,
+  live = false,
+) => {
+  const liveTo = Math.floor(nowMs / 1000) + 1;
+  return live ? liveTo : Math.min(rangeTo, liveTo);
+};
 
 /** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
 export const insightCheckIns = (

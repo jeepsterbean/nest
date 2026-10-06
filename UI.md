@@ -108,9 +108,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (`.logs-kind-filter`: Brain dumps / Phases / Metrics / Tasks; double click
   isolates a kind). Each chip uses its kind's timeline mark color (`--phase`
   for Phases); on chips are tinted with a filled square, off chips are dashed
-  with a hollow one. Timeline marks are bare kind-colored icons (no ring or
-  rail) and Metric ratings are flat icon + number pairs, so rows avoid a
-  column of circles. `nest:logs-preferences`
+  with a hollow one. Timeline marks are bare kind-colored icons on a hairline
+  through the mark column, from the first icon to the last in each day (no
+  ring). Today opens with `.logs-chrono__row--now`, the current time and an
+  empty event cell. `.logs-chrono__now` is a breathing dot on the spine;
+  `.logs-chrono__row--after-now` continues a repeating squiggle until the
+  next icon. Metric ratings are flat icon + number pairs,
+  so rows avoid a column of circles. `nest:logs-preferences`
   stores `kinds` (all four when unset or stored before multi-select) and
   `scale` (`list` when unset; not `layout`, which older storage used). The
   toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: `RangeNav` with a

@@ -3,10 +3,11 @@ import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { PhaseTotals } from "../components/DayReflection";
 import { isQuietPhase } from "../lib/period";
-import { formatTime, shiftDayMs } from "../lib/time";
+import { formatTime, shiftDayMs, startOfDayMs } from "../lib/time";
 import {
   groupByDay,
   mergePhaseCheckInsIntoEvents,
+  phaseCheckInAt,
   phaseSessionsInWindow,
   type RawLogEvent,
 } from "../lib/timeline";
@@ -34,6 +35,37 @@ function TimelineMark({
     >
       <LogEventIcon event={event} phases={phases} pulses={pulses} />
     </span>
+  );
+}
+
+/** Today's clock, above that day's marks. The event cell stays empty. */
+function CurrentTimeRow({
+  nowMs,
+  phase,
+}: {
+  nowMs: number;
+  phase: Phase | undefined;
+}) {
+  return (
+    <li
+      className={`logs-chrono__row logs-chrono__row--now${
+        phase?.color ? " logs-chrono__row--colored" : ""
+      }`}
+      style={
+        phase?.color
+          ? ({ "--phase-color": phase.color } as CSSProperties)
+          : undefined
+      }
+    >
+      <div className="logs-chrono__when">
+        <time dateTime={new Date(nowMs).toISOString()}>
+          {formatTime(Math.floor(nowMs / 1000))}
+        </time>
+      </div>
+      <div className="logs-chrono__event">
+        <span className="logs-chrono__now" aria-hidden="true" />
+      </div>
+    </li>
   );
 }
 
@@ -123,6 +155,12 @@ export const LogsTimeline = memo(function LogsTimeline({
   );
   const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
   const now = Math.floor(nowMs / 1000);
+  const todayKey = startOfDayMs(now);
+  const nowPhase = colorsTimeColumn
+    ? phases.find(
+        (item) => item.id === phaseCheckInAt(phaseCheckIns, now)?.phaseId,
+      )
+    : undefined;
 
   return days.map((day) => {
     const daySessions =
@@ -173,16 +211,20 @@ export const LogsTimeline = memo(function LogsTimeline({
           </header>
         ) : null}
         <ol className="logs-chrono">
-          {day.events.map((row) => {
+          {day.key === todayKey ? (
+            <CurrentTimeRow nowMs={nowMs} phase={nowPhase} />
+          ) : null}
+          {day.events.map((row, index) => {
             const { event, phaseCheckIn: checkpoint } = row;
             const phase = phases.find((item) => item.id === checkpoint?.phaseId);
+            const followsNow = day.key === todayKey && index === 0;
 
             return (
               <li
                 key={eventKey(event)}
                 className={`logs-chrono__row logs-chrono__row--${event.kind}${
                   phase?.color ? " logs-chrono__row--colored" : ""
-                }`}
+                }${followsNow ? " logs-chrono__row--after-now" : ""}`}
                 style={
                   phase?.color
                     ? ({ "--phase-color": phase.color } as CSSProperties)

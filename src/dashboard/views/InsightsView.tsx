@@ -33,6 +33,7 @@ export function InsightsView() {
   const insight = useMemo(() => {
     const nowSec = range.nowSec;
     const closedTo = Math.min(range.to, nowSec);
+    const checkInTo = insightCheckInClosedTo(range.to, Date.now(), range.live);
     const blocks = layoutWorkBlocks(
       taskWorkStretches,
       tasks,
@@ -48,6 +49,7 @@ export function InsightsView() {
       phases,
       range.from,
       closedTo,
+      checkInTo,
     );
     return {
       stats,
@@ -60,7 +62,7 @@ export function InsightsView() {
       ),
       checkIns: insightCheckIns(checkIns, metrics, pulses, {
         from: range.from,
-        to: insightCheckInClosedTo(range.to, Date.now()),
+        to: checkInTo,
       }),
       sessions,
     };
@@ -76,6 +78,7 @@ export function InsightsView() {
     range.columns,
     range.from,
     range.to,
+    range.live,
     range.nowMs,
     range.nowSec,
   ]);
