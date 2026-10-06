@@ -17,13 +17,12 @@ import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
 import { CalendarView } from "./views/CalendarView";
-import { InsightsView } from "./views/InsightsView";
 import { LogsView } from "./views/LogsView";
 import { CoreView } from "./views/CoreView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
 import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
-import { writeInsightsRangeMode } from "./lib/insights";
+import { openLastHourOnCalendar } from "./lib/insights";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -114,9 +113,9 @@ function DashboardInner() {
                 selectCorePane("tasks");
                 setView("core");
               }}
-              onOpenLastHourInsights={() => {
-                writeInsightsRangeMode("lastHour");
-                setView("insights");
+              onOpenLastHour={() => {
+                openLastHourOnCalendar();
+                setView("calendar");
               }}
               overviewLayout={overviewLayout}
               settingsOpen={overviewSettingsOpen}
@@ -124,7 +123,6 @@ function DashboardInner() {
             />
           )}
           {view === "calendar" && <CalendarView />}
-          {view === "insights" && <InsightsView />}
           {view === "logs" && <LogsView />}
           {view === "core" && (
             <CoreView pane={corePane} onSelectPane={selectCorePane} />

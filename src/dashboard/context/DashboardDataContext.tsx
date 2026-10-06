@@ -46,7 +46,7 @@ import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 import { historyStartSec } from "../lib/time";
 
-/** How many calendar days of history Calendar and Insights can page through. */
+/** How many calendar days of history Calendar can page through. */
 export const HISTORY_WINDOW_DAYS = 30;
 
 export type DashboardData = {

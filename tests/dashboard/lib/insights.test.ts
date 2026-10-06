@@ -9,15 +9,16 @@ import {
   stepColumns,
   outcomeStats,
   readRangeMode,
-  lastHourColumn,
+  readCalendarDisplay,
+  readCalendarRangeMode,
   lastHourInsight,
   lastHourPeriod,
   lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
-  readInsightsRangeMode,
+  openLastHourOnCalendar,
   windowInsight,
-  writeInsightsRangeMode,
-  writeRangeMode,
+  writeCalendarDisplay,
+  writeCalendarRangeMode,
 } from "../../../src/dashboard/lib/insights";
 
 describe("insightBrainDumps", () => {
@@ -110,11 +111,6 @@ describe("last hour window", () => {
     expect(lastHourPeriod(10_000)).toEqual({
       from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
       to: 10_000,
-    });
-    expect(lastHourColumn(10_000)).toEqual({
-      from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
-      to: 10_000,
-      label: "Last hour",
     });
   });
 
@@ -265,9 +261,17 @@ describe("insight range memory", () => {
 
   it("defaults to Day and restores the last saved mode", () => {
     const storage = memory();
-    expect(readRangeMode(storage)).toBe("day");
-    writeRangeMode("week", storage);
+    expect(readCalendarRangeMode(storage)).toBe("day");
+    writeCalendarRangeMode("week", storage);
+    expect(readCalendarRangeMode(storage)).toBe("week");
     expect(readRangeMode(storage)).toBe("week");
+  });
+
+  it("pages Last hour as Day, since it sits on today's Day grid", () => {
+    const storage = memory();
+    writeCalendarRangeMode("lastHour", storage);
+    expect(readCalendarRangeMode(storage)).toBe("lastHour");
+    expect(readRangeMode(storage)).toBe("day");
   });
 
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
@@ -280,28 +284,30 @@ describe("insight range memory", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "week");
     expect(readRangeMode(storage)).toBe("week");
-    writeRangeMode("day", storage);
+    writeCalendarRangeMode("day", storage);
     expect(storage.getItem("nest:date-range")).toBe("day");
     expect(readRangeMode(storage)).toBe("day");
   });
 
-  it("keeps Insights' range separate from Calendar's", () => {
+  it("shows the grid and Insights together until another display is saved", () => {
     const storage = memory();
-    writeRangeMode("week", storage);
-    writeInsightsRangeMode("lastHour", storage);
-    expect(readInsightsRangeMode(storage)).toBe("lastHour");
-    expect(readRangeMode(storage)).toBe("week");
-    writeInsightsRangeMode("day", storage);
-    expect(readInsightsRangeMode(storage)).toBe("day");
-    expect(readRangeMode(storage)).toBe("week");
+    expect(readCalendarDisplay(storage)).toBe("both");
+    writeCalendarDisplay("insights", storage);
+    expect(readCalendarDisplay(storage)).toBe("insights");
+    storage.setItem("nest:calendar-display", "split");
+    expect(readCalendarDisplay(storage)).toBe("both");
   });
 
-  it("starts Insights from Calendar's range until Insights saves its own", () => {
+  it("opens Last hour with its Insights in view", () => {
     const storage = memory();
-    writeRangeMode("week", storage);
-    expect(readInsightsRangeMode(storage)).toBe("week");
-    storage.setItem("nest:insights-range-mode", "month");
-    expect(readInsightsRangeMode(storage)).toBe("week");
+    writeCalendarDisplay("calendar", storage);
+    openLastHourOnCalendar(storage);
+    expect(readCalendarRangeMode(storage)).toBe("lastHour");
+    expect(readCalendarDisplay(storage)).toBe("both");
+
+    writeCalendarDisplay("insights", storage);
+    openLastHourOnCalendar(storage);
+    expect(readCalendarDisplay(storage)).toBe("insights");
   });
 
   it("labels Last hour with the clock span it covers", () => {

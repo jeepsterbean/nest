@@ -96,13 +96,13 @@ const matchesTimelineFilter = (
 
 export function OverviewView({
   onOpenTasks,
-  onOpenLastHourInsights,
+  onOpenLastHour,
   overviewLayout,
   settingsOpen,
   onCloseSettings,
 }: {
   onOpenTasks: () => void;
-  onOpenLastHourInsights: () => void;
+  onOpenLastHour: () => void;
   overviewLayout: Pick<
     OverviewLayoutController,
     "layout" | "resize" | "minimise" | "expand" | "hide" | "show" | "applyLayout"
@@ -569,8 +569,8 @@ export function OverviewView({
           onOpenSection={
             tile.id === "lastHour"
               ? {
-                  label: "Open Last hour in Insights",
-                  open: onOpenLastHourInsights,
+                  label: "Open Last hour in Calendar",
+                  open: onOpenLastHour,
                 }
               : undefined
           }

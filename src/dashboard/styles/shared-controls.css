@@ -220,7 +220,7 @@
 
 /* ---------- Shared chrome ---------- */
 
-/* One segmented control for every section: Tasks, Logs, Insights, Metrics. */
+/* One segmented control for every section: Tasks, Logs, Calendar, Metrics. */
 .dash-toolbar {
   display: flex;
   flex-wrap: wrap;

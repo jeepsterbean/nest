@@ -94,7 +94,7 @@ stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
-Overview, Calendar, Insights, and Logs: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Overview, Calendar (with Insights), and Logs: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
 Icon and color live in the Phases pane of Core.
 _Avoid_: Status, Working now, Scope
 
@@ -152,19 +152,20 @@ A reusable label for brain dumps.
 Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The seven
-are Overview, Calendar, Insights, Logs, Core, Assistant, and Settings. Overview shows the
+One primary destination in the dashboard, chosen from the **Sidebar**. The six
+are Overview, Calendar, Logs, Core, Assistant, and Settings. Insights is part
+of Calendar, not a Section of its own. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
 title —
 the Sidebar already names where you are. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these seven)
+_Avoid_: View, screen (for these six)
 
 **Sidebar**:
-The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
-Core, Assistant, Settings).
+The left strip that switches **Sections** (Overview, Calendar, Logs, Core,
+Assistant, Settings).
 _Avoid_: Nav, rail (for this strip)
 
 **Core**:
@@ -261,7 +262,7 @@ _Avoid_: Journal
   shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Core / Assistant / Settings — resolved: each is a **Section**. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
+- "view" for Overview / Calendar / Logs / Core / Assistant / Settings — resolved: each is a **Section**. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.

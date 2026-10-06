@@ -40,7 +40,6 @@
 
 .dash-section--tasks,
 .dash-section--logs,
-.dash-section--insights,
 .dash-section--calendar {
   display: flex;
   min-height: 0;

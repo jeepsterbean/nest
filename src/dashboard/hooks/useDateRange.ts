@@ -12,7 +12,7 @@ import { formatRangeDay, historyStartSec, shiftDayMs } from "../lib/time";
 import { useCurrentTime } from "./useCurrentTime";
 
 /** Day / Week range state plus Earlier / Later / Today paging. Calendar and
- * Insights each pass their own store, but share this so paging guards cannot
+ * Logs each pass their own store, but share this so paging guards cannot
  * drift. */
 export function useDateRange(store: RangeModeStore = CALENDAR_RANGE_STORE) {
   const [mode, setMode] = useState(store.read);

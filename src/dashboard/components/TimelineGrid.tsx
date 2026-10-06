@@ -22,7 +22,12 @@ import {
   type StretchTimes,
   type WorkBlock,
 } from "../lib/workTimeline";
-import { pxOf, TimelineFrame, type FrameColumn } from "./TimelineFrame";
+import {
+  pxOf,
+  TimelineFrame,
+  type FrameColumn,
+  type TimeSpan,
+} from "./TimelineFrame";
 
 /** A block this tall fits its title; twice that also fits its start–end line. */
 const TITLE_PX = 18;
@@ -125,6 +130,7 @@ export function TimelineGrid({
   columns,
   phases,
   mode,
+  span,
   scrollPct,
   nowSec,
   selected,
@@ -135,6 +141,7 @@ export function TimelineGrid({
   columns: GridColumn[];
   phases: Phase[];
   mode: "day" | "week";
+  span?: TimeSpan | null;
   scrollPct: number | null;
   nowSec: number;
   selected: StretchEdit | null;
@@ -313,6 +320,7 @@ export function TimelineGrid({
       columns={columns}
       phases={phases}
       mode={mode}
+      span={span}
       scrollPct={scrollPct}
       nowSec={nowSec}
       colsRef={colsRef}
@@ -503,8 +511,21 @@ function StretchEditor({
     // The card is fixed to the viewport but belongs to a block inside a
     // scrolling grid. Once that block has scrolled out of the grid entirely,
     // the card would sit over unrelated UI editing something unseen — close it.
-    const clip = anchor.closest(".tl__scroll")?.getBoundingClientRect();
-    if (clip && (rect.bottom <= clip.top || rect.top >= clip.bottom)) {
+    // Pinned chrome obscures stretches before they leave the scroll viewport.
+    const scroll = anchor.closest<HTMLElement>(".tl__scroll");
+    const clip = scroll?.getBoundingClientRect();
+    const gutter = scroll?.querySelector(".tl__gutter")?.getBoundingClientRect();
+    const heads = scroll?.querySelector(".tl__heads")?.getBoundingClientRect();
+    const columnGap = scroll ? parseFloat(getComputedStyle(scroll).columnGap) || 0 : 0;
+    const visibleTop = Math.max(clip?.top ?? 0, heads?.bottom ?? 0);
+    const visibleLeft = Math.max(clip?.left ?? 0, (gutter?.right ?? 0) + columnGap);
+    if (
+      clip &&
+      (rect.bottom <= visibleTop ||
+        rect.top >= clip.bottom ||
+        rect.right <= visibleLeft ||
+        rect.left >= clip.right)
+    ) {
       onCancel();
       return;
     }

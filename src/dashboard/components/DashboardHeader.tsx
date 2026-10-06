@@ -32,7 +32,6 @@ import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 export type DashboardView =
   | "overview"
   | "calendar"
-  | "insights"
   | "logs"
   | "core"
   | "assistant"
@@ -46,7 +45,6 @@ const VIEWS: {
 }[] = [
   { key: "overview", label: "Overview", icon: "overview" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
-  { key: "insights", label: "Insights", icon: "insights" },
   { key: "logs", label: "Logs", icon: "timeline" },
   { key: "core", label: "Core", icon: "core" },
   { key: "assistant", label: "Assistant", icon: "assistant" },

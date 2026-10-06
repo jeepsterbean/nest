@@ -6,7 +6,6 @@ export const TILE_ICONS_KEY = "nest:overview-tile-icons";
 const CONFIGURABLE_ICON_IDS = [
   "overview",
   "calendar",
-  "insights",
   "timeline",
   "core",
   "assistant",
@@ -24,7 +23,6 @@ export type OverviewIcons = Record<ConfigurableOverviewIcon | "lastHour", string
 export const DEFAULT_TILE_ICONS: OverviewIcons = {
   overview: "layout-grid",
   calendar: "date",
-  insights: "insights",
   timeline: "calendar",
   core: "core",
   assistant: "assistant",

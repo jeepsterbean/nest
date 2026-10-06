@@ -66,57 +66,44 @@ export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
 export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
 
-export const INSIGHTS_RANGE_MODES = [
+export const CALENDAR_RANGE_MODES = [
   ...RANGE_MODES,
   { key: "lastHour", label: "Last hour" },
 ] as const;
 
-export type InsightsRangeMode = (typeof INSIGHTS_RANGE_MODES)[number]["key"];
+export type CalendarRangeMode = (typeof CALENDAR_RANGE_MODES)[number]["key"];
 
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
-const INSIGHTS_RANGE_MODE_KEY = "nest:insights-range-mode";
-const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
-const INSIGHTS_MODE_KEYS = new Set<string>(
-  INSIGHTS_RANGE_MODES.map((item) => item.key),
+const CALENDAR_MODE_KEYS = new Set<string>(
+  CALENDAR_RANGE_MODES.map((item) => item.key),
 );
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const readRangeMode = (
+export const readCalendarRangeMode = (
   storage: RangeStorage = localStorage,
-): RangeModeKey => {
+): CalendarRangeMode => {
   const stored =
     storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
-  return MODE_KEYS.has(stored ?? "") ? (stored as RangeModeKey) : "day";
+  return CALENDAR_MODE_KEYS.has(stored ?? "")
+    ? (stored as CalendarRangeMode)
+    : "day";
 };
 
-export const writeRangeMode = (
-  key: RangeModeKey,
+export const writeCalendarRangeMode = (
+  key: CalendarRangeMode,
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(RANGE_MODE_KEY, key);
 };
 
-/**
- * Insights keeps its own range so choosing Week there leaves Calendar alone.
- * Until Insights has saved a Day or Week it starts from Calendar's choice,
- * which is what the two used to share.
- */
-export const readInsightsRangeMode = (
+/** Last hour sits on today's Day grid, so its Day / Week paging reads as Day. */
+export const readRangeMode = (
   storage: RangeStorage = localStorage,
-): InsightsRangeMode => {
-  const stored = storage.getItem(INSIGHTS_RANGE_MODE_KEY);
-  return INSIGHTS_MODE_KEYS.has(stored ?? "")
-    ? (stored as InsightsRangeMode)
-    : readRangeMode(storage);
-};
-
-export const writeInsightsRangeMode = (
-  key: InsightsRangeMode,
-  storage: RangeStorage = localStorage,
-) => {
-  storage.setItem(INSIGHTS_RANGE_MODE_KEY, key);
+): RangeModeKey => {
+  const mode = readCalendarRangeMode(storage);
+  return mode === "lastHour" ? "day" : mode;
 };
 
 /** Where one Day / Week range hook reads and saves its mode. */
@@ -127,13 +114,48 @@ export type RangeModeStore = {
 
 export const CALENDAR_RANGE_STORE: RangeModeStore = {
   read: () => readRangeMode(),
-  write: (key) => writeRangeMode(key),
+  write: (key) => writeCalendarRangeMode(key),
 };
 
-/** Last hour has no Day / Week of its own; leaving it by picking a date lands on Day. */
-export const INSIGHTS_RANGE_STORE: RangeModeStore = {
-  read: () => (readInsightsRangeMode() === "week" ? "week" : "day"),
-  write: (key) => writeInsightsRangeMode(key),
+/** What Calendar shows beside its range: the grid and Insights together,
+ * or either alone. */
+export const CALENDAR_DISPLAYS = [
+  { key: "both", label: "Both" },
+  { key: "calendar", label: "Calendar" },
+  { key: "insights", label: "Insights" },
+] as const;
+
+export type CalendarDisplay = (typeof CALENDAR_DISPLAYS)[number]["key"];
+
+const CALENDAR_DISPLAY_KEY = "nest:calendar-display";
+const CALENDAR_DISPLAY_KEYS = new Set<string>(
+  CALENDAR_DISPLAYS.map((item) => item.key),
+);
+
+export const readCalendarDisplay = (
+  storage: Pick<Storage, "getItem"> = localStorage,
+): CalendarDisplay => {
+  const stored = storage.getItem(CALENDAR_DISPLAY_KEY);
+  return CALENDAR_DISPLAY_KEYS.has(stored ?? "")
+    ? (stored as CalendarDisplay)
+    : "both";
+};
+
+export const writeCalendarDisplay = (
+  display: CalendarDisplay,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(CALENDAR_DISPLAY_KEY, display);
+};
+
+/** Open Calendar on Last hour with its Insights in view. A grid-only choice
+ * would hide the summary the Overview tile linked to, so it widens to Both;
+ * Insights alone already shows it. */
+export const openLastHourOnCalendar = (storage: RangeStorage = localStorage) => {
+  writeCalendarRangeMode("lastHour", storage);
+  if (readCalendarDisplay(storage) === "calendar") {
+    writeCalendarDisplay("both", storage);
+  }
 };
 
 /** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
@@ -150,11 +172,6 @@ export type InsightColumn = { from: number; to: number; label: string };
 export const lastHourSpanLabel = (nowSec: number) => {
   const { from, to } = lastHourPeriod(nowSec);
   return `${formatTime(from)} – ${formatTime(to)}`;
-};
-
-export const lastHourColumn = (nowSec: number): InsightColumn => {
-  const period = lastHourPeriod(nowSec);
-  return { ...period, label: "Last hour" };
 };
 
 /** Monday-first start of the week holding `dayMs`. */

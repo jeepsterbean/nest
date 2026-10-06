@@ -45,9 +45,9 @@ describe("InsightLedger", () => {
     expect(html).toMatch(/>2<\/span> Cancelled/);
   });
 
-  it("scales Task bars to the group's longest Task", () => {
-    expect(html).toContain("--share:1");
-    expect(html).toContain("--share:0.5");
+  it("lists each Task without a share bar", () => {
+    expect(html).not.toContain("insight-share");
+    expect(html).not.toContain("--share:");
   });
 
   it("says no time instead of a dash when a group has no Worked time", () => {

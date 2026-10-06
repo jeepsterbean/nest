@@ -96,8 +96,18 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   drop target. The top-right
   `.floating-brain-dumps-toggle` hides or restores
   free stickies without minimising them or hiding the Note Board.
-- Calendar: timetable `.tl` under `.dash-section--calendar`.
-- Insights: `.dash-section--insights` with `.insight-mix` (one grid of four
+- Calendar: `.dash-section--calendar` (container `calendar`) holds the
+  timetable `.tl` and Insights in `.calendar-body`, whose
+  `.calendar-body--both` / `--calendar` / `--insights` follows the toolbar's
+  `.calendar-display` toggle (stored in `nest:calendar-display`, Both when
+  unset). Both puts `.calendar-body__grid` and a 20rem
+  `.calendar-body__insights` column side by side, each scrolling on its own;
+  at a Section width of 640px or less Insights moves under the grid. Week
+  scrolls sideways once its days fall below `--tl-day-min` (7.5rem), with
+  `.tl__heads`, `.tl__corner`, and `.tl__gutter` pinned. Last hour marks its
+  window on today's Day grid with `.tl__span` in the lane and
+  `.tl__span-mark` on the gutter.
+- Insights (inside Calendar): `.insights-body` with `.insight-mix` (one grid of four
   `.insight-mix__row` Phase rows of name and duration),
   followed by Brain dumps, Tasks, and Metrics as direct `.insight-list` children
   of `.insights-body`. All four align left with 28px between rows and use
@@ -113,13 +123,13 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.insight-outcome` ledger lines: an `.insight-outcome__toggle` of
   `.insight-outcome__label` led by its `.insight-outcome__count`, then a
   dot-separated `.insight-outcome__total`, packed together; open, `.insight-outcome__tasks` lists swatch,
-  title, task-hue share bar, time, in a scroll box about five rows tall whose
+  title, time, in a scroll box about five rows tall whose
   `is-clipped-above` / `is-clipped-below` masks come from
   `useScrollOverflow`; an empty group is dimmed and disabled), and
   `.insight-pulses` (`.insight-pulse__toggle` disclosure per Pulse:
   `.insight-pulse__count` before `.insight-pulse__name`, then average,
-  over one-line `.insight-metric` rows). Its range lives in `nest:insights-range-mode`, apart
-  from Calendar's `nest:date-range` (Day when unset; Calendar also reads
+  over one-line `.insight-metric` rows). It shares Calendar's range in
+  `nest:date-range` (Day, Week, or Last hour; Day when unset; also reads
   legacy `nest:insights-range`). The toolbar title is a `DayPicker`
   (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
   Today and marks the title `.range-nav__live`.
@@ -160,7 +170,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   in the window. The Logs icon is the `timeline` slot, picked from the Sidebar,
   and it also heads the Overview Timeline tile.
 - Sidebar: every Section icon is a `NestIcon` from `nest:overview-tile-icons`
-  (`overview`, `calendar`, `insights`, `timeline` for Logs, `core`,
+  (`overview`, `calendar`, `timeline` for Logs, `core`,
   `assistant`, `settings`). The first click selects that Section. Clicking the
   icon again while it is already selected opens `IconPickerButton`; a pick,
   Escape, or an outside press closes it. Tasks, Brain dump, Metrics, and

@@ -1,29 +1,41 @@
-# Overview, Calendar, Insights, and Logs
+# Overview, Calendar, and Logs
 
 How those Sections show Phase, Worked time, and history. Domain words and
 Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in
 [`UI.md`](../UI.md).
 
-Insights and Calendar both offer Day and Week (Week starts Monday), anchored
-to real dates and paged with Earlier / Later / Today (a double arrow) rather
-than measured back from now. The range title reads as fixed-width dates, e.g.
-`Fri 02/10/2026` for Day and `Mon 28/09/2026 – Sun 04/10/2026` for Week, so
-paging never shifts the controls beside it; paging stops where the loaded 30 days of history end. Each Section
-remembers its own choice, so changing one leaves the other where it was
-(Calendar in `nest:date-range`, Insights in `nest:insights-range-mode`; first
-visit is Day, and Insights starts from Calendar's choice until it has one of
-its own). Insights also has Last hour — a rolling 60 minutes from now, titled
-with the clock span it covers and marked live, with no paging. On Insights the
-range title opens a month of days: any day from the loaded history through
-today can be picked, older and future days are greyed out, and picking a day
-while on Last hour switches to Day.
+Calendar offers Day and Week (Week starts Monday), anchored to real dates and
+paged with Earlier / Later / Today (a double arrow) rather than measured back
+from now. The range title reads as fixed-width dates, e.g. `Fri 02/10/2026`
+for Day and `Mon 28/09/2026 – Sun 04/10/2026` for Week, so paging never
+shifts the controls beside it; paging stops where the loaded 30 days of
+history end. Calendar also has Last hour — a rolling 60 minutes from now,
+titled with the clock span it covers and marked live, with no paging. The
+choice is remembered in `nest:date-range` (first visit is Day). The range
+title opens a month of days: any day from the loaded history through today
+can be picked, older and future days are greyed out, and picking a day while
+on Last hour switches to Day.
+
+The grid and Insights share that one range. A Both / Calendar / Insights
+toggle at the end of the toolbar picks what Calendar shows, remembered in
+`nest:calendar-display` (Both on first visit). Both puts Insights in a column
+at the right of the grid; each scrolls on its own. At a Section width of 640px
+or less, Insights moves under the grid. Insights alone fills the Section.
+
+Last hour draws today's Day grid and marks the trailing hour on it: a quiet
+tint across the lane and an accent bracket on the hour gutter. That mark moves
+with the minute clock while the grid stays put. Just after midnight the mark
+clips at the day's start, while Insights still reads the full hour. At midnight
+the grid follows the clock onto the new day. Choosing
+Last hour leaves Week for Day, so leaving it lands on Day.
 
 ## Overview
 
-Overview's Last hour tile summarizes the same rolling 60 minutes as Insights'
-Last hour filter: outcome stats (Completed, Value, Effort, Check-ins) and
+Overview's Last hour tile summarizes the same rolling 60 minutes as
+Calendar's Last hour: outcome stats (Completed, Value, Effort, Check-ins) and
 duration totals for Doing, Scoping, Resting, and Offline (Idle time is
-counted as Offline). Clicking its icon opens Insights on Last hour. A quiet hour still shows those figures as 0, not as
+counted as Offline). Clicking its icon opens Calendar on Last hour, switching a Calendar-only
+display to Both so the summary stays in view. A quiet hour still shows those figures as 0, not as
 missing. The tile keeps its own refresh: it recomputes when dashboard data
 reloads, not on the minute clock.
 
@@ -56,9 +68,10 @@ Sidebar.
 
 ## Insights
 
-Phases, Brain dumps, Tasks, and Metrics stack as four left-aligned rows.
-Each uses the former Brain dumps / Metrics column width, with a 16rem minimum;
-at content widths of 720px or less, each fills the available width.
+Insights is part of Calendar. Phases, Brain dumps, Tasks, and Metrics stack as four left-aligned rows.
+Alone, each uses one third of the content width, with a 16rem minimum; at
+content widths of 720px or less (always, in the Both column), each fills the
+available width.
 Brain dumps summarizes the selected range. Saved dumps count by their recorded time. Untagged always leads the
 list, including at 0. Tags then show the number of dumps carrying each Tag,
 ordered by frequency then name; a dump with several Tags contributes to each
@@ -86,7 +99,7 @@ All three groups always show, in that order, even when empty, so the ledger
 keeps one shape from range to range. Each group is one collapsed ledger line
 read as a short phrase: Task count, label, and the group's total Worked time
 ("no time" when 0). Opening it lists each Task with
-a bar scaled to the group's longest Task and its Worked time, longest first.
+its Worked time, longest first.
 A long group scrolls inside a box about five rows tall, faded at the edge
 with more Tasks, so it never sets the board's height. An empty group
 cannot open. Groups start collapsed on every visit.
@@ -110,7 +123,12 @@ per calendar day, each column a Phase wash behind its Work stretches. A
 stretch carries its Task title and times inside the block when it is tall
 enough; concurrent stretches sit side by side, since multiple Tasks may be
 Working now. A line marks the current time. Quiet time reads as empty track
-rather than being squeezed out. An open stretch's live end stays pinned to
+rather than being squeezed out. When the grid is too narrow for seven days at
+their minimum width, Week scrolls sideways rather than squeezing them; the day
+heads and the hour gutter stay pinned, and opening a Week brings today's day
+into view. A stretch editor closes once its stretch scrolls out of the visible
+grid in either direction, including behind the pinned day heads or hour gutter.
+An open stretch's live end stays pinned to
 now. That stretch cannot be moved or resized on Calendar — its bottom edge is
 an unfinished line, and Working now is cleared from the Task, not from the
 grid. Clicking a stretch opens an editor beside that stretch — left or right

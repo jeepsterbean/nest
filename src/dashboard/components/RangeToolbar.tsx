@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { DayPicker, type DayPickerProps } from "./DayPicker";
 import { chevronsRightIcon } from "./icons";
 import { ViewToggle } from "./ViewToggle";
@@ -87,12 +88,15 @@ export function RangeToolbar<T extends string>({
   mode,
   options,
   onMode,
+  children,
   ...nav
 }: RangeNavProps & {
   label: string;
   mode: T;
   options: readonly { key: T; label: string }[];
   onMode: (key: T) => void;
+  /** Controls after the paging, e.g. Calendar's display choice. */
+  children?: ReactNode;
 }) {
   return (
     <div className="dash-toolbar">
@@ -103,6 +107,7 @@ export function RangeToolbar<T extends string>({
         onChange={onMode}
       />
       <RangeNav {...nav} />
+      {children}
     </div>
   );
 }

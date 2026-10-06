@@ -14,7 +14,7 @@ reference by default.
 | Any implementation | `.agents/standards/coding-standards.md` |
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
 | Tasks table or Map | `docs/tasks.md` |
-| Overview, Calendar, Insights, Logs, or Phases | `docs/time-surfaces.md` |
+| Overview, Calendar (and its Insights), Logs, or Phases | `docs/time-surfaces.md` |
 | Metrics section, Pulses, or Metric check-in interval | `CONTEXT.md`, `UI.md` |
 | Timer or Popup | `docs/timer-popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
@@ -30,7 +30,7 @@ reference by default.
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
-| Overview, Calendar, Insights, Logs, Phases | `docs/time-surfaces.md` |
+| Overview, Calendar (and its Insights), Logs, Phases | `docs/time-surfaces.md` |
 | Metrics section chrome, Pulses / Metrics panes | `UI.md`, `CONTEXT.md` |
 | Timer / Popup | `docs/timer-popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
@@ -126,7 +126,8 @@ each fact in its closest authoritative source and link to it elsewhere.
   `types/`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
   components, hooks). Popup code lives under `src/popup/`. Sections are
-  Overview, Calendar, Insights, Logs, Core, Assistant, and Settings. Core
+  Overview, Calendar, Logs, Core, Assistant, and Settings. Calendar holds
+  Insights beside its grid. Core
   holds Brain dump, Tasks, Metrics, and Phases.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.

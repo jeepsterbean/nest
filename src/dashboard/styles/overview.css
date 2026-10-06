@@ -411,7 +411,6 @@
   .dashboard__inner--overview,
   .dashboard__inner--logs,
   .dashboard__inner--tasks,
-  .dashboard__inner--insights,
   .dashboard__inner--calendar {
     height: 100vh;
     min-height: 0;

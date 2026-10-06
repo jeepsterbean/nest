@@ -56,18 +56,6 @@ export function InsightLedger({ groups }: { groups: InsightOutcomeGroup[] }) {
 const ledgerDuration = (seconds: number) =>
   seconds > 0 ? formatCompactDuration(seconds) : "no time";
 
-function TaskShareBar({ seconds, of }: { seconds: number; of: number }) {
-  const share = of > 0 ? Math.min(1, seconds / of) : 0;
-  return (
-    <span className="insight-share" aria-hidden="true">
-      <span
-        className="insight-share__fill"
-        style={{ "--share": share } as CSSProperties}
-      />
-    </span>
-  );
-}
-
 function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
   const [open, setOpen] = useState(false);
   const tasksRef = useRef<HTMLUListElement>(null);
@@ -75,8 +63,6 @@ function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
   const label = INSIGHT_OUTCOME_LABEL[group.outcome];
   const isEmpty = group.rows.length === 0;
   const tasksId = `insight-outcome-${group.outcome}`;
-  // Rows arrive longest first, so the first row is the group's scale.
-  const longestTaskSeconds = group.rows[0]?.seconds ?? 0;
   const tasksClassName = [
     "insight-outcome__tasks",
     overflow.above ? "is-clipped-above" : "",
@@ -129,7 +115,6 @@ function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
               key={row.task.id}
               task={row.task}
               seconds={row.seconds}
-              longestTaskSeconds={longestTaskSeconds}
             />
           ))}
         </ul>
@@ -141,11 +126,9 @@ function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
 function InsightTaskRow({
   task,
   seconds,
-  longestTaskSeconds,
 }: {
   task: Task;
   seconds: number;
-  longestTaskSeconds: number;
 }) {
   return (
     <li
@@ -156,7 +139,6 @@ function InsightTaskRow({
       <span className="insight-task__title" title={task.title}>
         {task.title}
       </span>
-      <TaskShareBar seconds={seconds} of={longestTaskSeconds} />
       <span className={`insight-task__time${seconds > 0 ? "" : " is-none"}`}>
         {ledgerDuration(seconds)}
       </span>
