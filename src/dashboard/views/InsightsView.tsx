@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { DayStats, PhaseMix } from "../components/DayReflection";
+import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
+  InsightBrainDumps,
   InsightLedger,
 } from "../components/InsightBoard";
 import { RangeToolbar } from "../components/RangeToolbar";
@@ -11,8 +12,9 @@ import {
   INSIGHTS_RANGE_MODES,
   insightCheckInClosedTo,
   insightCheckIns,
-  insightDays,
-  windowInsight,
+  insightBrainDumps,
+  insightTaskGroups,
+  windowPhaseSessions,
 } from "../lib/insights";
 import { layoutWorkBlocks } from "../lib/workTimeline";
 
@@ -26,6 +28,7 @@ export function InsightsView() {
     checkIns,
     phaseCheckIns,
     phases,
+    brainDumps,
     loaded,
   } = useDashboardData();
   const range = useInsightsRange();
@@ -41,20 +44,19 @@ export function InsightsView() {
       range.to,
       range.nowMs,
     );
-    const { stats, sessions } = windowInsight(
-      tasks,
-      taskStatusEvents,
-      checkIns,
+    const sessions = windowPhaseSessions(
       phaseCheckIns,
       phases,
       range.from,
       closedTo,
-      checkInTo,
     );
     return {
-      stats,
-      days: insightDays(
-        range.columns,
+      brainDumps: insightBrainDumps(brainDumps, {
+        from: range.from,
+        to: checkInTo,
+      }),
+      taskGroups: insightTaskGroups(
+        { from: range.from, to: range.to },
         blocks,
         tasks,
         taskStatusEvents,
@@ -67,6 +69,7 @@ export function InsightsView() {
       sessions,
     };
   }, [
+    brainDumps,
     tasks,
     taskStatusEvents,
     taskWorkStretches,
@@ -75,7 +78,6 @@ export function InsightsView() {
     checkIns,
     phaseCheckIns,
     phases,
-    range.columns,
     range.from,
     range.to,
     range.live,
@@ -106,17 +108,19 @@ export function InsightsView() {
       <div className="dash-section__body">
         {!loaded ? null : (
           <div className="insights-body">
-            <div className="insight-summary">
-              <DayStats stats={insight.stats} />
+            <section className="insight-list" aria-label="Phases">
+              <h3>Phases</h3>
               <PhaseMix sessions={insight.sessions} phases={phases} />
-            </div>
-            <div className="insights-board">
-              <InsightLedger
-                days={insight.days}
-                mode={range.mode === "week" ? "week" : "day"}
-              />
+            </section>
+            <InsightBrainDumps summary={insight.brainDumps} />
+            <section className="insight-list" aria-label="Tasks">
+              <h3>Tasks</h3>
+              <InsightLedger groups={insight.taskGroups} />
+            </section>
+            <section className="insight-list" aria-label="Metrics">
+              <h3>Metrics</h3>
               <InsightCheckIns groups={insight.checkIns} />
-            </div>
+            </section>
           </div>
         )}
       </div>

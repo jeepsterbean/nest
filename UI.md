@@ -97,9 +97,28 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.floating-brain-dumps-toggle` hides or restores
   free stickies without minimising them or hiding the Note Board.
 - Calendar: timetable `.tl` under `.dash-section--calendar`.
-- Insights: scoreboard `.dash-section--insights` with `.insight-summary`
-  (outcome `.day-stats` plus `.insight-mix`), `.insight-ledger`, and
-  `.insight-pulses`. Its range lives in `nest:insights-range-mode`, apart
+- Insights: `.dash-section--insights` with `.insight-mix` (one grid of four
+  `.insight-mix__row` Phase rows of name and duration),
+  followed by Brain dumps, Tasks, and Metrics as direct `.insight-list` children
+  of `.insights-body`. All four align left with 28px between rows and use
+  the former right-column width: one third of the content width after a 48px
+  column gap, with a 16rem minimum capped at the available width. At container
+  widths of 720px or less, rows fill the available width. Its Tag list scrolls within
+  8rem and uses the shared `.brain-dump-tag` pills with counts aligned right.
+  Phases, Brain dumps, Tasks, and Metrics use matching `.insight-list` headings.
+  Generic `.insight-list` list styles exclude `.insight-mix` (its shared
+  name/duration grid) and `.insight-outcome__tasks` (its scroll box and
+  `[hidden]` collapse).
+  The Tasks row uses `.insight-ledger` (every range, Week included, is one ledger of
+  `.insight-outcome` ledger lines: an `.insight-outcome__toggle` of
+  `.insight-outcome__label` led by its `.insight-outcome__count`, then a
+  dot-separated `.insight-outcome__total`, packed together; open, `.insight-outcome__tasks` lists swatch,
+  title, task-hue share bar, time, in a scroll box about five rows tall whose
+  `is-clipped-above` / `is-clipped-below` masks come from
+  `useScrollOverflow`; an empty group is dimmed and disabled), and
+  `.insight-pulses` (`.insight-pulse__toggle` disclosure per Pulse:
+  `.insight-pulse__count` before `.insight-pulse__name`, then average,
+  over one-line `.insight-metric` rows). Its range lives in `nest:insights-range-mode`, apart
   from Calendar's `nest:date-range` (Day when unset; Calendar also reads
   legacy `nest:insights-range`). The toolbar title is a `DayPicker`
   (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /

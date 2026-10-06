@@ -1,121 +1,139 @@
-import type { CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
+import { ChevronRight } from "lucide-react";
 import type { Task } from "../../lib/types";
-import type {
-  InsightDay,
-  InsightMetricRow,
-  InsightPulseGroup,
-  InsightTaskRow as WorkedRow,
+import {
+  INSIGHT_OUTCOME_LABEL,
+  type InsightBrainDumpSummary,
+  type InsightMetricRow,
+  type InsightOutcomeGroup,
+  type InsightPulseGroup,
 } from "../lib/insights";
 import { taskHue } from "../lib/period";
-import { TASK_STATUS_LABEL } from "../lib/tasks";
 import { formatCompactDuration } from "../lib/time";
+import { useScrollOverflow } from "../hooks/useScrollOverflow";
 import { NestIcon } from "./PulseIcon";
 
-/** Day: status groups. Week: one row per weekday. */
-export function InsightLedger({
-  days,
-  mode,
-}: {
-  days: InsightDay[];
-  mode: "day" | "week";
-}) {
-  if (mode === "day") {
-    const day = days[0];
-    if (!day) return null;
-    return (
-      <div className="insight-ledger insight-ledger--day">
-        <InsightDayTasks day={day} showBars />
-      </div>
-    );
-  }
-
+export function InsightBrainDumps({ summary }: { summary: InsightBrainDumpSummary }) {
   return (
-    <div className="insight-ledger insight-ledger--week">
-      {days.map((day) => (
-        <article
-          key={day.from}
-          className={[
-            "insight-week__row",
-            day.isToday ? "is-today" : "",
-            day.isFuture ? "is-future" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
+    <section className="insight-list insight-brain-dumps" aria-label="Brain dumps">
+      <h3>
+        Brain dumps
+        <span className="insight-list__count">{summary.count}</span>
+      </h3>
+      {summary.count === 0 ? (
+        <p className="insight-quiet">No brain dumps in this period.</p>
+      ) : (
+        <ul className="insight-brain-dumps__tags" aria-label="Tags">
+          <li>
+            <span className="insight-quiet">Untagged</span>
+            <span className="insight-list__count">{summary.untaggedCount}</span>
+          </li>
+          {summary.tags.map((tag) => (
+            <li key={tag.id}>
+              <span className="brain-dump-tag" title={tag.name}>{tag.name}</span>
+              <span className="insight-list__count">{tag.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** The range's Tasks, grouped by what happened to them, as ledger lines:
+ * count, label, total. Every group shows, empty or not, so the ledger keeps
+ * one shape from range to range; each starts collapsed. */
+export function InsightLedger({ groups }: { groups: InsightOutcomeGroup[] }) {
+  return (
+    <div className="insight-ledger">
+      {groups.map((group) => (
+        <InsightOutcome key={group.outcome} group={group} />
+      ))}
+    </div>
+  );
+}
+
+const ledgerDuration = (seconds: number) =>
+  seconds > 0 ? formatCompactDuration(seconds) : "no time";
+
+function TaskShareBar({ seconds, of }: { seconds: number; of: number }) {
+  const share = of > 0 ? Math.min(1, seconds / of) : 0;
+  return (
+    <span className="insight-share" aria-hidden="true">
+      <span
+        className="insight-share__fill"
+        style={{ "--share": share } as CSSProperties}
+      />
+    </span>
+  );
+}
+
+function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
+  const [open, setOpen] = useState(false);
+  const tasksRef = useRef<HTMLUListElement>(null);
+  const overflow = useScrollOverflow(tasksRef);
+  const label = INSIGHT_OUTCOME_LABEL[group.outcome];
+  const isEmpty = group.rows.length === 0;
+  const tasksId = `insight-outcome-${group.outcome}`;
+  // Rows arrive longest first, so the first row is the group's scale.
+  const longestTaskSeconds = group.rows[0]?.seconds ?? 0;
+  const tasksClassName = [
+    "insight-outcome__tasks",
+    overflow.above ? "is-clipped-above" : "",
+    overflow.below ? "is-clipped-below" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const className = [
+    "insight-outcome",
+    open && !isEmpty ? "is-open" : "",
+    isEmpty ? "is-empty" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <section className={className}>
+      <button
+        type="button"
+        className="insight-outcome__toggle"
+        aria-expanded={isEmpty ? undefined : open}
+        aria-controls={isEmpty ? undefined : tasksId}
+        aria-label={`${label}, ${group.rows.length} ${
+          group.rows.length === 1 ? "Task" : "Tasks"
+        }, ${ledgerDuration(group.seconds)}`}
+        disabled={isEmpty}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <ChevronRight className="insight-outcome__chevron" aria-hidden="true" />
+        <span className="insight-outcome__label">
+          <span className="insight-outcome__count">{group.rows.length}</span>{" "}
+          {label}
+        </span>
+        <span
+          className={`insight-outcome__total${
+            group.seconds > 0 ? "" : " is-none"
+          }`}
         >
-          <h3>{day.label}</h3>
-          {day.isFuture ? (
-            <p className="insight-quiet insight-quiet--span">Later</p>
-          ) : (
-            <InsightDayTasks day={day} quietClass="insight-quiet--span" />
-          )}
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function InsightDayTasks({
-  day,
-  showBars = false,
-  quietClass,
-}: {
-  day: InsightDay;
-  showBars?: boolean;
-  quietClass?: string;
-}) {
-  if (day.groups.length === 0) {
-    return (
-      <p className={["insight-quiet", quietClass].filter(Boolean).join(" ")}>
-        Quiet
-      </p>
-    );
-  }
-  const busiest = Math.max(
-    ...day.groups.flatMap((group) => group.rows.map((row) => row.seconds)),
-  );
-  return (
-    <div className="insight-day-tasks">
-      {day.groups.map((group) => (
-        <InsightTaskList
-          key={group.status}
-          label={TASK_STATUS_LABEL[group.status]}
-          showBars={showBars}
-          busiest={busiest}
-          rows={group.rows}
-        />
-      ))}
-    </div>
-  );
-}
-
-function InsightTaskList({
-  label,
-  showBars = false,
-  busiest,
-  rows,
-}: {
-  label: string;
-  showBars?: boolean;
-  busiest: number;
-  rows: WorkedRow[];
-}) {
-  return (
-    <section className="insight-list">
-      <h3>{label}</h3>
-      <ul>
-        {rows.map((row) => (
-          <InsightTaskRow
-            key={row.task.id}
-            task={row.task}
-            seconds={row.seconds}
-            barPct={
-              showBars && busiest > 0 && row.seconds > 0
-                ? Math.max((row.seconds / busiest) * 100, 4)
-                : undefined
-            }
-          />
-        ))}
-      </ul>
+          {ledgerDuration(group.seconds)}
+        </span>
+      </button>
+      {isEmpty ? null : (
+        <ul
+          id={tasksId}
+          ref={tasksRef}
+          className={tasksClassName}
+          hidden={!open}
+        >
+          {group.rows.map((row) => (
+            <InsightTaskRow
+              key={row.task.id}
+              task={row.task}
+              seconds={row.seconds}
+              longestTaskSeconds={longestTaskSeconds}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -123,11 +141,11 @@ function InsightTaskList({
 function InsightTaskRow({
   task,
   seconds,
-  barPct,
+  longestTaskSeconds,
 }: {
   task: Task;
   seconds: number;
-  barPct?: number;
+  longestTaskSeconds: number;
 }) {
   return (
     <li
@@ -135,79 +153,79 @@ function InsightTaskRow({
       style={{ "--task-hue": taskHue(task.id) } as CSSProperties}
     >
       <span className="insight-task__swatch" aria-hidden="true" />
-      <span className="insight-task__title">{task.title}</span>
-      <span className="insight-task__meta">
-        {seconds > 0 ? formatCompactDuration(seconds) : null}
-        {task.value !== null ? (
-          <span
-            className={`rating-pill rating-pill--v${task.value}`}
-            title={`Value ${task.value}`}
-          >
-            {task.value}
-          </span>
-        ) : null}
-        {task.effort !== null ? (
-          <span
-            className={`rating-pill rating-pill--v${task.effort}`}
-            title={`Effort ${task.effort}`}
-          >
-            {task.effort}
-          </span>
-        ) : null}
+      <span className="insight-task__title" title={task.title}>
+        {task.title}
       </span>
-      {barPct != null ? (
-        <span
-          className="insight-task__bar"
-          style={{ width: `${barPct}%` }}
-          aria-hidden="true"
-        />
-      ) : null}
+      <TaskShareBar seconds={seconds} of={longestTaskSeconds} />
+      <span className={`insight-task__time${seconds > 0 ? "" : " is-none"}`}>
+        {ledgerDuration(seconds)}
+      </span>
     </li>
   );
 }
 
-/** Metric check-ins for the range. The column stays even when the range is quiet. */
+/** Metric check-ins for the range. The column stays even when the range is
+ * quiet. Each Pulse collapses to its average so a long Pulse does not set the
+ * board's height. */
 export function InsightCheckIns({ groups }: { groups: InsightPulseGroup[] }) {
   return (
     <aside className="insight-pulses" aria-label="Metric check-ins">
-      <h3>Metric check-ins</h3>
       {groups.length === 0 ? (
-        <p className="insight-quiet">None</p>
+        <p className="insight-quiet">No Metric check-ins</p>
       ) : (
         groups.map((group) => (
-          <section key={group.pulseId ?? "none"} className="insight-pulse">
-            <header>
-              <NestIcon name={group.icon} />
-              <h4>{group.name}</h4>
-              <span>
-                {group.checkInCount}{" "}
-                {group.checkInCount === 1 ? "check-in" : "check-ins"}
-              </span>
-            </header>
-            <ul>
-              {group.metrics.map((metric) => (
-                <MetricRibbon key={metric.metricId} metric={metric} />
-              ))}
-            </ul>
-          </section>
+          <InsightPulse key={group.pulseId ?? "none"} group={group} />
         ))
       )}
     </aside>
   );
 }
 
+function InsightPulse({ group }: { group: InsightPulseGroup }) {
+  const [open, setOpen] = useState(false);
+  const metricsId = `insight-pulse-${group.pulseId ?? "none"}`;
+  const countLabel = `${group.checkInCount} ${
+    group.checkInCount === 1 ? "check-in" : "check-ins"
+  }`;
+  return (
+    <section className={`insight-pulse${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="insight-pulse__toggle"
+        aria-expanded={open}
+        aria-controls={metricsId}
+        aria-label={`${group.name}, ${countLabel}${
+          group.average !== null ? `, ${group.average.toFixed(1)}` : ""
+        }`}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <NestIcon name={group.icon} />
+        <span className="insight-pulse__count">{group.checkInCount}</span>
+        <span className="insight-pulse__name">{group.name}</span>
+        {group.average !== null ? (
+          <span className="insight-pulse__avg">{group.average.toFixed(1)}</span>
+        ) : null}
+        <ChevronRight className="insight-pulse__chevron" aria-hidden="true" />
+      </button>
+      <ul id={metricsId} hidden={!open}>
+        {group.metrics.map((metric) => (
+          <MetricRibbon key={metric.metricId} metric={metric} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
   return (
     <li className="insight-metric">
-      <div className="insight-metric__head">
-        <span className="insight-metric__name">
-          <NestIcon name={metric.icon} color={metric.color} />
-          {metric.name}
-        </span>
-        <span className="insight-metric__avg">{metric.average.toFixed(1)}</span>
-      </div>
-      <p
+      <span className="insight-metric__name">
+        <NestIcon name={metric.icon} color={metric.color} />
+        {metric.name}
+      </span>
+      <span
         className="insight-metric__ribbon"
+        role="img"
         aria-label={`${metric.values.length} ratings`}
       >
         {metric.values.map((value, index) => (
@@ -217,7 +235,8 @@ function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
             title={String(value)}
           />
         ))}
-      </p>
+      </span>
+      <span className="insight-metric__avg">{metric.average.toFixed(1)}</span>
     </li>
   );
 }

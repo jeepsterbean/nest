@@ -1,4 +1,5 @@
 import type {
+  BrainDump,
   Metric,
   MetricCheckInWithRatings,
   Phase,
@@ -9,6 +10,7 @@ import type {
   TaskStatus,
   TaskStatusEvent,
 } from "../../lib/types";
+
 import { resolveMetricColorFromList } from "../../lib/metricColors";
 import {
   cancelledInPeriod,
@@ -24,6 +26,36 @@ import {
 } from "./timeline";
 import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
 import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
+
+export type InsightBrainDumpSummary = {
+  count: number;
+  tags: { id: number; name: string; count: number }[];
+  untaggedCount: number;
+};
+
+export function insightBrainDumps(
+  brainDumps: BrainDump[],
+  period: Period,
+): InsightBrainDumpSummary {
+  const dumps = brainDumps.filter(
+    (dump) => dump.createdAt >= period.from && dump.createdAt < period.to,
+  );
+  const tags = new Map<number, InsightBrainDumpSummary["tags"][number]>();
+  for (const dump of dumps) {
+    for (const tag of dump.tags) {
+      const existing = tags.get(tag.id);
+      if (existing) existing.count += 1;
+      else tags.set(tag.id, { ...tag, count: 1 });
+    }
+  }
+  return {
+    count: dumps.length,
+    tags: [...tags.values()].sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+    ),
+    untaggedCount: dumps.filter((dump) => dump.tags.length === 0).length,
+  };
+}
 
 export const RANGE_MODES = [
   { key: "day", label: "Day" },
@@ -199,21 +231,30 @@ export const outcomeStats = (
   events: TaskStatusEvent[],
   checkIns: MetricCheckInWithRatings[],
   period: { from: number; to: number },
-  checkInTo = period.to,
 ): OutcomeStat[] => {
   const totals = completionTotals(tasks, events, period);
   return [
     { label: "Completed", value: String(totals.completed) },
     { label: "Value", value: String(totals.value) },
     { label: "Effort", value: String(totals.effort) },
-    {
-      label: "Check-ins",
-      value: String(
-        countCheckIns(checkIns, { from: period.from, to: checkInTo }),
-      ),
-    },
+    { label: "Check-ins", value: String(countCheckIns(checkIns, period)) },
   ];
 };
+
+/** Untrimmed: quiet edges stay as empty track rather than being squeezed out. */
+export const windowPhaseSessions = (
+  phaseCheckIns: PhaseCheckIn[],
+  phases: Phase[],
+  fromSec: number,
+  toSec: number,
+): PhaseSession[] =>
+  phaseSessionsInWindow(
+    phaseCheckIns,
+    fromSec,
+    toSec,
+    (phaseId) => isQuietPhase(phaseId, phases),
+    false,
+  );
 
 export const windowInsight = (
   tasks: Task[],
@@ -223,27 +264,10 @@ export const windowInsight = (
   phases: Phase[],
   fromSec: number,
   toSec: number,
-  checkInTo = toSec,
-): WindowInsight => {
-  const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
-  return {
-    stats: outcomeStats(
-      tasks,
-      events,
-      checkIns,
-      { from: fromSec, to: toSec },
-      checkInTo,
-    ),
-    // Untrimmed: quiet edges stay as empty track rather than being squeezed out.
-    sessions: phaseSessionsInWindow(
-      phaseCheckIns,
-      fromSec,
-      toSec,
-      isQuiet,
-      false,
-    ),
-  };
-};
+): WindowInsight => ({
+  stats: outcomeStats(tasks, events, checkIns, { from: fromSec, to: toSec }),
+  sessions: windowPhaseSessions(phaseCheckIns, phases, fromSec, toSec),
+});
 
 /** Last hour tile and Insights Last hour use the same rolling window. */
 export const lastHourInsight = (
@@ -268,27 +292,28 @@ export const lastHourInsight = (
 
 export type InsightTaskRow = { task: Task; seconds: number };
 
-export type InsightStatusGroup = {
-  status: TaskStatus;
+/** What happened to a Task over a range. Exclusive and exhaustive by
+ * construction: a Task has one status at the range's end, and anything not
+ * closed there is Incomplete. */
+export type InsightOutcome = "completed" | "cancelled" | "incomplete";
+
+export const INSIGHT_OUTCOME_LABEL: Record<InsightOutcome, string> = {
+  completed: "Completed",
+  cancelled: "Cancelled",
+  incomplete: "Incomplete",
+};
+
+export type InsightOutcomeGroup = {
+  outcome: InsightOutcome;
   rows: InsightTaskRow[];
+  /** Worked time of every row, so a collapsed group still reads as one total. */
+  seconds: number;
 };
 
-export type InsightDay = {
-  label: string;
-  from: number;
-  to: number;
-  isFuture: boolean;
-  isToday: boolean;
-  groups: InsightStatusGroup[];
-};
-
-/** Live work first, then closed. Omit empty statuses. */
-const INSIGHT_STATUS_ORDER: TaskStatus[] = [
-  "active",
-  "up_next",
-  "backlog",
+const INSIGHT_OUTCOME_ORDER: InsightOutcome[] = [
   "completed",
   "cancelled",
+  "incomplete",
 ];
 
 const asLiveStatus = (
@@ -299,7 +324,7 @@ const asLiveStatus = (
   return status ?? fallback;
 };
 
-/** Status at `at`. A later completion must not rewrite an earlier day's group. */
+/** Status at `at`. A change after the range must not rewrite its outcome. */
 const statusAt = (
   task: Task,
   events: TaskStatusEvent[],
@@ -317,105 +342,86 @@ const statusAt = (
   return last ? asLiveStatus(last.toStatus, task.status) : task.status;
 };
 
-const closedStatusInPeriod = (
-  taskId: number,
+const outcomeAt = (
+  task: Task,
   events: TaskStatusEvent[],
-  period: Period,
-): "completed" | "cancelled" | null => {
-  let last: "completed" | "cancelled" | null = null;
-  const ordered = [...events].sort(
-    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
-  );
-  for (const event of ordered) {
-    if (event.taskId !== taskId) continue;
-    if (event.createdAt < period.from || event.createdAt >= period.to) continue;
-    if (event.toStatus === "completed" || event.toStatus === "cancelled") {
-      last = event.toStatus;
-    }
-  }
-  return last;
+  at: number,
+): InsightOutcome => {
+  const status = statusAt(task, events, at);
+  return status === "completed" || status === "cancelled"
+    ? status
+    : "incomplete";
 };
 
-const groupInsightTasks = (
-  rows: InsightTaskRow[],
-  events: TaskStatusEvent[],
-  period: Period,
-): InsightStatusGroup[] => {
-  const buckets = new Map<TaskStatus, InsightTaskRow[]>();
-  for (const row of rows) {
-    const closed = closedStatusInPeriod(row.task.id, events, period);
-    const status =
-      row.seconds > 0
-        ? statusAt(row.task, events, period.to)
-        : (closed ?? statusAt(row.task, events, period.to));
-    const list = buckets.get(status);
-    if (list) list.push(row);
-    else buckets.set(status, [row]);
-  }
-  return INSIGHT_STATUS_ORDER.flatMap((status) => {
-    const grouped = buckets.get(status);
-    if (!grouped?.length) return [];
-    return [
-      {
-        status,
-        rows: [...grouped].sort(
-          (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
-        ),
-      },
-    ];
-  });
-};
-
-const mergeClosedTasks = (
+/** Tasks with Worked time in the range, plus Tasks closed in it and still
+ * closed at its end. A closure later reopened says nothing on its own, so
+ * without Worked time it is left out. */
+const ledgerRows = (
   worked: InsightTaskRow[],
   tasks: Task[],
   events: TaskStatusEvent[],
   period: Period,
 ): InsightTaskRow[] => {
   const byId = new Map(worked.map((row) => [row.task.id, row]));
-  for (const task of [
-    ...completedInPeriod(tasks, events, period),
-    ...cancelledInPeriod(tasks, events, period),
-  ]) {
+  for (const task of completedInPeriod(tasks, events, period)) {
+    if (outcomeAt(task, events, period.to) !== "completed") continue;
+    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
+  }
+  for (const task of cancelledInPeriod(tasks, events, period)) {
+    if (outcomeAt(task, events, period.to) !== "cancelled") continue;
     if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
   }
   return [...byId.values()];
 };
 
-/** One ledger per calendar column: Tasks with Worked time that day, plus
- * Completions and Cancellations with no Working now, grouped by status as of
- * that day's end. Future days stay empty rather than quiet. */
-export const insightDays = (
-  columns: InsightColumn[],
+const groupByOutcome = (
+  rows: InsightTaskRow[],
+  events: TaskStatusEvent[],
+  period: Period,
+): InsightOutcomeGroup[] => {
+  const buckets = new Map<InsightOutcome, InsightTaskRow[]>();
+  for (const row of rows) {
+    const outcome = outcomeAt(row.task, events, period.to);
+    const list = buckets.get(outcome);
+    if (list) list.push(row);
+    else buckets.set(outcome, [row]);
+  }
+  return INSIGHT_OUTCOME_ORDER.map((outcome) => {
+    const rows = [...(buckets.get(outcome) ?? [])].sort(
+      (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
+    );
+    return {
+      outcome,
+      rows,
+      seconds: rows.reduce((sum, row) => sum + row.seconds, 0),
+    };
+  });
+};
+
+/** The range's ledger, grouped by what happened to each Task: Completed or
+ * Cancelled when it ends the range closed, otherwise Incomplete. All three
+ * groups always return, in that order, so an empty one still shows.
+ * Completions and Cancellations with no Working now still list, with 0 Worked
+ * time. Week sums each Task across its days. */
+export const insightTaskGroups = (
+  range: Period,
   blocks: WorkBlock[],
   tasks: Task[],
   events: TaskStatusEvent[],
   nowSec: number,
-): InsightDay[] =>
-  columns.map((column) => {
-    const isFuture = nowSec < column.from;
-    const closedTo = Math.min(column.to, nowSec);
-    const period = { from: column.from, to: closedTo };
-    return {
-      label: column.label,
-      from: column.from,
-      to: column.to,
-      isFuture,
-      isToday: nowSec >= column.from && nowSec < column.to,
-      groups: isFuture
-        ? []
-        : groupInsightTasks(
-            mergeClosedTasks(
-              workTotalsInSpan(blocks, column.from, closedTo),
-              tasks,
-              events,
-              period,
-            ),
-            events,
-            period,
-          ),
-    };
-  });
+): InsightOutcomeGroup[] => {
+  const period = { from: range.from, to: Math.min(range.to, nowSec) };
+  const rows =
+    nowSec < range.from
+      ? []
+      : ledgerRows(
+          workTotalsInSpan(blocks, period.from, period.to),
+          tasks,
+          events,
+          period,
+        );
+  return groupByOutcome(rows, events, period);
+};
 
 export type InsightMetricRow = {
   metricId: number;
@@ -431,6 +437,9 @@ export type InsightPulseGroup = {
   name: string;
   icon: string;
   checkInCount: number;
+  /** Mean of every rating in the group, so a collapsed Pulse still reads as one
+   * number. Null when its check-ins carry no ratings. */
+  average: number | null;
   metrics: InsightMetricRow[];
 };
 
@@ -450,7 +459,8 @@ export const insightCheckInClosedTo = (
   return live ? liveTo : Math.min(rangeTo, liveTo);
 };
 
-/** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
+/** Metric check-ins in the range, grouped by Pulse, ratings in time order.
+ * Every current Pulse is listed, including one with no check-ins in the range. */
 export const insightCheckIns = (
   checkIns: MetricCheckInWithRatings[],
   metrics: Metric[],
@@ -460,12 +470,13 @@ export const insightCheckIns = (
   const inRange = checkIns
     .filter((checkIn) => checkIn.createdAt >= period.from && checkIn.createdAt < period.to)
     .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
-  if (inRange.length === 0) return [];
 
   const metricById = new Map(metrics.map((metric) => [metric.id, metric]));
   const pulseById = new Map(pulses.map((pulse) => [pulse.id, pulse]));
   const pulseIndex = new Map(pulses.map((pulse, index) => [pulse.id, index]));
-  const groups = new Map<number | null, MetricCheckInWithRatings[]>();
+  const groups = new Map<number | null, MetricCheckInWithRatings[]>(
+    pulses.map((pulse) => [pulse.id, []]),
+  );
   for (const checkIn of inRange) {
     const key = checkIn.pulseId;
     const list = groups.get(key);
@@ -490,9 +501,12 @@ export const insightCheckIns = (
     ];
     return {
       pulseId,
-      name: pulse?.name ?? items[0].pulseName ?? "Metric check-in",
+      name: pulse?.name ?? items[0]?.pulseName ?? "Metric check-in",
       icon: pulse?.icon ?? "activity",
       checkInCount: items.length,
+      average: valuesByMetric.size > 0
+        ? average([...valuesByMetric.values()].flat())
+        : null,
       metrics: metricIds.map((metricId) => {
         const metric = metricById.get(metricId);
         const values = valuesByMetric.get(metricId) ?? [];

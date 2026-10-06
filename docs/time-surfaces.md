@@ -20,8 +20,8 @@ while on Last hour switches to Day.
 
 ## Overview
 
-Overview's Last hour tile is the compact surface of Insights' Last hour
-filter: the same outcome stats (Completed, Value, Effort, Check-ins) and
+Overview's Last hour tile summarizes the same rolling 60 minutes as Insights'
+Last hour filter: outcome stats (Completed, Value, Effort, Check-ins) and
 duration totals for Doing, Scoping, Resting, and Offline (Idle time is
 counted as Offline). Clicking its icon opens Insights on Last hour. A quiet hour still shows those figures as 0, not as
 missing. The tile keeps its own refresh: it recomputes when dashboard data
@@ -56,18 +56,52 @@ Sidebar.
 
 ## Insights
 
-Insights is the longer look for Day, Week, or Last hour. Every range shows
-outcome stats (Completed, Value, Effort, Check-ins; a quiet range still
-prints 0) above a Phase mix, then Tasks with Worked time that day grouped
-by status as of that day's end (Active, Up next, Backlog, Completed,
-Cancelled), plus Completions and Cancellations with no Working now that
-day (0 Worked time). Metric check-ins sit in a dedicated column grouped by
-Pulse — average plus a tick per rating — even when the range has none.
-The Check-ins stat and that column clip at a live now, so a just-saved
-rating appears as soon as data reloads. Last hour does not clamp them to
+Phases, Brain dumps, Tasks, and Metrics stack as four left-aligned rows.
+Each uses the former Brain dumps / Metrics column width, with a 16rem minimum;
+at content widths of 720px or less, each fills the available width.
+Brain dumps summarizes the selected range. Saved dumps count by their recorded time. Untagged always leads the
+list, including at 0. Tags then show the number of dumps carrying each Tag,
+ordered by frequency then name; a dump with several Tags contributes to each
+Tag and once to the total. An empty range shows 0 and a quiet empty message. The summary
+uses the same live end as Metric check-ins so freshly saved dumps appear
+after data reloads.
+
+Insights is the review of a Day, Week, or Last hour, not a view of live
+work. Every range opens on the Phase mix, which gives each of the four
+live Phases its own row (0m included): name and duration. Then one ledger for the whole range groups each Task by what
+happened to it, never by live status:
+
+- Completed / Cancelled: closed at the range's end by a closure inside it.
+- Incomplete: everything else with Worked time in the range, whatever its
+  open status (Active, Up next, Backlog).
+
+A Task has one status at the range's end, so the three are exclusive and
+exhaustive. A closure reopened within the range does not count; without
+Worked time that Task is left out. Completions and Cancellations with no
+Working now still list, with 0 Worked time. Week sums each Task across its
+days rather than listing day by day. Deleted Tasks take their status history
+with them, so they never appear.
+
+All three groups always show, in that order, even when empty, so the ledger
+keeps one shape from range to range. Each group is one collapsed ledger line
+read as a short phrase: Task count, label, and the group's total Worked time
+("no time" when 0). Opening it lists each Task with
+a bar scaled to the group's longest Task and its Worked time, longest first.
+A long group scrolls inside a box about five rows tall, faded at the edge
+with more Tasks, so it never sets the board's height. An empty group
+cannot open. Groups start collapsed on every visit.
+
+Metric check-ins sit in a dedicated row grouped by
+Pulse. Every Pulse is listed, including one with no check-ins in the range
+(count 0, no average). A range with no Pulses and no check-ins stays quiet.
+Each Pulse is one collapsed row (the check-in count before the Pulse name,
+including 0, and the average of all its ratings); opening it lists one line
+per Metric that was rated, with a tick per rating and that Metric's average.
+That row clips at a live now, so a just-saved
+rating appears as soon as data reloads. Last hour does not clamp it to
 its minute-clock end. Phase mix and the task ledger stay on the shared
 minute clock. Last hour uses that same board on a rolling 60-minute window;
-Overview's Last hour tile is the stats and Phase totals from that window.
+Overview's Last hour tile shows outcome stats and Phase totals for that window.
 
 ## Calendar
 

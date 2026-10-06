@@ -4,105 +4,127 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  align-items: flex-start;
   min-height: 100%;
   container-type: inline-size;
 }
 
-.insight-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.insight-summary .day-stats {
-  margin: 0;
-}
-
-.insights-board {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.7fr);
-  gap: 32px 48px;
-  align-items: start;
+.insights-body > .insight-list {
+  width: min(100%, max(16rem, calc((100% - 48px) / 3)));
   min-width: 0;
 }
 
+.insight-list .insight-brain-dumps__tags {
+  max-height: 8rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.insight-brain-dumps__tags li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.insight-brain-dumps__tags .brain-dump-tag {
+  min-width: 0;
+  cursor: default;
+}
+
+/* Rows share one grid so every duration lines up. */
 .insight-mix {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.insight-mix .day-group__totals {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 7px 24px;
+  align-items: center;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.insight-mix__bar {
-  display: flex;
-  height: 7px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 14%, var(--surface));
+.insight-mix__row {
+  --mix-tone: var(--muted);
+  display: contents;
+  color: var(--mix-tone);
 }
 
-.insight-mix__empty {
-  flex: 1;
+.insight-mix__row--doing {
+  --mix-tone: var(--doing);
 }
 
-.insight-mix__seg {
-  min-width: 2px;
+.insight-mix__row--scoping {
+  --mix-tone: var(--phase);
 }
 
-.insight-mix__seg--doing {
-  background: var(--doing);
+.insight-mix__row--resting {
+  --mix-tone: color-mix(in srgb, var(--muted) 70%, var(--ink));
 }
 
-.insight-mix__seg--scoping {
-  background: var(--phase);
+.insight-mix__row--offline {
+  --mix-tone: color-mix(in srgb, var(--queue) 60%, var(--muted));
 }
 
-.insight-mix__seg--resting {
-  background: color-mix(in srgb, var(--muted) 50%, var(--surface));
+.insight-mix__row--colored {
+  --mix-tone: var(--phase-color);
 }
 
-.insight-mix__seg--offline {
-  background: color-mix(in srgb, var(--queue) 42%, var(--surface));
+.insight-mix__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 550;
 }
 
-.insight-mix__seg--colored {
-  background: var(--phase-color);
+.insight-mix__name svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  stroke-width: 1.9;
 }
 
-.insight-ledger--day {
-  min-width: 0;
+.insight-mix__duration {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.insight-day-tasks {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
+.insight-mix__row.is-empty .insight-mix__name,
+.insight-mix__row.is-empty .insight-mix__duration {
+  opacity: 0.55;
 }
+
 
 .insight-list {
   min-width: 0;
 }
 
-.insight-list h3,
-.insight-pulses > h3,
-.insight-week__row > h3 {
-  margin: 0;
+.insight-list h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
   font-family: var(--serif);
   font-size: 15.5px;
   font-weight: 600;
 }
 
-.insight-list h3 {
-  margin-bottom: 10px;
+.insight-list__count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
-.insight-list ul {
+/* Lists with their own layout opt out: this selector outranks a single class,
+ * so it would override their gaps and their [hidden] display. */
+.insight-list ul:not(.insight-mix, .insight-outcome__tasks) {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -114,24 +136,175 @@
   font-size: 13px;
 }
 
+/* Ledger lines read as one short phrase: count, label, total. */
+.insight-ledger {
+  /* Chevron width plus the toggle gap, so open Tasks start under the count. */
+  --ledger-gutter: 20px;
+  --ledger-time-width: 56px;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.insight-outcome__toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.insight-outcome__toggle:disabled {
+  cursor: default;
+}
+
+.insight-outcome__toggle:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.insight-outcome__chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  align-self: center;
+  color: var(--muted);
+  stroke-width: 2;
+  transition: transform 0.15s, color 0.15s;
+}
+
+.insight-outcome__toggle:hover .insight-outcome__chevron,
+.insight-outcome.is-open .insight-outcome__chevron {
+  color: var(--ink);
+}
+
+.insight-outcome.is-open .insight-outcome__chevron {
+  transform: rotate(90deg);
+}
+
+.insight-outcome.is-empty .insight-outcome__chevron {
+  visibility: hidden;
+}
+
+.insight-outcome__label {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.insight-outcome__count {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-share {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.insight-share__fill {
+  display: block;
+  width: calc(var(--share, 0) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: hsl(var(--task-hue, 210) 50% 42% / 0.75);
+}
+
+.insight-outcome__total {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-outcome__total::before {
+  content: "·";
+  margin-right: 8px;
+}
+
+.insight-outcome__total.is-none,
+.insight-task__time.is-none {
+  color: var(--muted);
+  font-weight: 450;
+  opacity: 0.75;
+}
+
+.insight-outcome.is-empty .insight-outcome__toggle > * {
+  opacity: 0.5;
+}
+
+/* About five rows tall, so a busy Completed group scrolls in place instead
+ * of setting the board's height. The fade marks the edge with more Tasks. */
+.insight-outcome__tasks {
+  --tasks-fade: 14px;
+  display: flex;
+  min-width: 0;
+  max-height: 124px;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 10px var(--ledger-gutter);
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.insight-outcome__tasks[hidden] {
+  display: none;
+}
+
+.insight-outcome__tasks.is-clipped-above {
+  mask-image: linear-gradient(transparent, #000 var(--tasks-fade));
+}
+
+.insight-outcome__tasks.is-clipped-below {
+  mask-image: linear-gradient(#000 calc(100% - var(--tasks-fade)), transparent);
+}
+
+.insight-outcome__tasks.is-clipped-above.is-clipped-below {
+  mask-image: linear-gradient(
+    transparent,
+    #000 var(--tasks-fade),
+    #000 calc(100% - var(--tasks-fade)),
+    transparent
+  );
+}
+
 .insight-task {
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-  column-gap: 8px;
-  row-gap: 4px;
+  grid-template-columns: 6px minmax(0, 1fr) minmax(48px, 40%) var(
+      --ledger-time-width
+    );
   align-items: center;
+  column-gap: 8px;
+  padding: 2px 0;
 }
 
 .insight-task__swatch {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: hsl(var(--task-hue, 210) 50% 42%);
 }
 
+
 @media (prefers-color-scheme: dark) {
   .insight-task__swatch {
     background: hsl(var(--task-hue, 210) 45% 62%);
+  }
+
+  .insight-share__fill {
+    background: hsl(var(--task-hue, 210) 45% 62% / 0.75);
   }
 }
 
@@ -139,144 +312,117 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 550;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.insight-task__meta {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
+.insight-task__time {
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.insight-task__bar {
-  grid-column: 2 / -1;
-  height: 3px;
-  border-radius: 2px;
-  background: color-mix(
-    in srgb,
-    hsl(var(--task-hue, 210) 50% 50%) 50%,
-    var(--border)
-  );
-}
-
-.insight-ledger--week {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.insight-week__row {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 8px 20px;
-  align-items: start;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-}
-
-.insight-week__row > h3 {
-  padding-top: 1px;
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.insight-week__row.is-today > h3 {
-  color: var(--accent);
-}
-
-.insight-week__row.is-future {
-  opacity: 0.48;
-}
-
-.insight-quiet--span {
-  grid-column: 2 / -1;
-  padding-top: 1px;
-}
-
-.insight-ledger--week .insight-day-tasks {
-  gap: 14px;
-}
-
-.insight-ledger--week .insight-list {
-  min-width: 0;
-}
-
-.insight-ledger--week .insight-list h3 {
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 650;
-}
-
-.insight-ledger--week .insight-list ul {
-  gap: 4px;
+  text-align: right;
 }
 
 .insight-pulses {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 6px;
   min-width: 0;
-  padding-top: 2px;
 }
 
-.insight-pulses > h3 {
-  margin: 0 0 12px;
-}
-
-.insight-pulse header {
+.insight-pulse__toggle {
   display: flex;
-  align-items: baseline;
+  width: 100%;
+  align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.insight-pulse header svg {
+.insight-pulse__toggle:hover {
+  background: var(--surface-2);
+}
+
+.insight-pulse__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.insight-pulse__toggle > svg:first-child {
   display: block;
   width: 14px;
   height: 14px;
   flex: none;
-  align-self: center;
   stroke-width: 1.9;
 }
 
-.insight-pulse header h4 {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.insight-pulse header span {
+.insight-pulse__count {
+  flex: none;
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
+.insight-pulse__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight-pulse__avg {
+  min-width: 2.2em;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.insight-pulse__chevron {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--muted);
+  stroke-width: 2;
+  transition: transform 0.15s;
+}
+
+.insight-pulse.is-open .insight-pulse__chevron {
+  transform: rotate(90deg);
+}
+
+/* Metric columns line up with the Pulse row above: name, ticks, then an
+ * average under the Pulse average and a gutter under the chevron. */
 .insight-pulse ul {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
+  gap: 2px;
+  margin: 2px 0 8px;
+  padding: 0 calc(6px + 13px + 8px) 0 6px;
   list-style: none;
 }
 
-.insight-metric__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+.insight-pulse ul[hidden] {
+  display: none;
+}
+
+.insight-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.2em;
+  align-items: center;
   gap: 10px;
+  min-height: 22px;
 }
 
 .insight-metric__name {
@@ -286,7 +432,7 @@
   gap: 6px;
   overflow: hidden;
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -303,19 +449,20 @@
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .insight-metric__ribbon {
   display: flex;
   gap: 2px;
-  height: 13px;
-  margin: 6px 0 0;
+  height: 11px;
+  overflow: hidden;
 }
 
 .insight-metric__tick {
   flex: 1 1 0;
   min-width: 3px;
-  max-width: 10px;
+  max-width: 8px;
   border-radius: 1px;
 }
 
@@ -326,9 +473,8 @@
 .insight-metric__tick--v5 { background: var(--rating-5); }
 
 @container (max-width: 720px) {
-  .insights-board {
-    grid-template-columns: 1fr;
-    gap: 24px;
+  .insights-body > .insight-list {
+    width: 100%;
   }
 }
 
@@ -438,41 +584,6 @@
 
 .day-group__total--colored {
   color: var(--phase-color);
-}
-
-.day-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 16px;
-  margin: 0 0 12px;
-  padding: 0;
-}
-
-.day-stats__cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.day-stats dt {
-  order: 2;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
-
-.day-stats dd {
-  order: 1;
-  margin: 0;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
 }
 
 .event__phase {

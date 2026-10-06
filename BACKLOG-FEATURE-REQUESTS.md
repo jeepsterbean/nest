@@ -28,6 +28,10 @@ APIs, schema, or code structure.
 
 ## Inactivity pause and resume
 - P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes resumes what was paused, No leaves them paused.
+6:18 PM
+
+- P2: its important to remember that the start session SOP is not only for the start of the day but everytime i sit back down. nest should open it everytime im back from being offline or from rest.
+
 
 ## Status
 New data model. which basically, is textual summary of what the user is doing from time A to B
@@ -36,6 +40,7 @@ New data model. which basically, is textual summary of what the user is doing fr
 ## insights page 
 - helpful to see overview of completed tasks
 - but the overview of time spent isnt very useful
+- i want to track user usage rate. how many tasks i create, how many tasks i start using. how many tasks are allocated V/E, how many braind umps are created
 
 ## Note board
 figure out how the notes are arranged in the noteboard
