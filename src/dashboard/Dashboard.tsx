@@ -10,6 +10,7 @@ import {
   DashboardSidebar,
   type DashboardView,
 } from "./components/DashboardHeader";
+import { CorePaneSidebar } from "./components/CorePaneSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
@@ -80,7 +81,7 @@ function DashboardInner() {
   }, []);
 
   return (
-    <main className="dashboard">
+    <main className={`dashboard${view === "core" ? " dashboard--core" : ""}`}>
       {/* Provider (and sticky board) must live under .dashboard so theme
           tokens like --surface / --dump resolve on the notes. */}
       <FloatingBrainDumpsProvider>
@@ -90,6 +91,9 @@ function DashboardInner() {
           tuning={backgroundTuning}
         />
         <DashboardSidebar view={view} onSelectView={setView} />
+        {view === "core" && (
+          <CorePaneSidebar pane={corePane} onSelectPane={selectCorePane} />
+        )}
         <div
           className={`dashboard__inner dashboard__inner--${surface}${
             view === "core" ? " dashboard__inner--core" : ""
@@ -125,7 +129,7 @@ function DashboardInner() {
           {view === "calendar" && <CalendarView />}
           {view === "logs" && <LogsView />}
           {view === "core" && (
-            <CoreView pane={corePane} onSelectPane={selectCorePane} />
+            <CoreView pane={corePane} />
           )}
           {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
           {view === "settings" && <SettingsView />}

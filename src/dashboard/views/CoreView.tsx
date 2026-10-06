@@ -6,22 +6,20 @@ import { TasksView } from "./TasksView";
 
 /** One Section for Brain dump, Tasks, Metrics, and Phases. Panes stay mounted
  *  so filters, selection, and unsent names survive switches. */
-export function CoreView({ pane, onSelectPane }: CorePaneControls) {
-  const controls = { pane, onSelectPane };
-
+export function CoreView({ pane }: Pick<CorePaneControls, "pane">) {
   return (
     <>
       <div className="core-slot" hidden={pane !== "brainDump"}>
-        <BrainDumpView {...controls} />
+        <BrainDumpView />
       </div>
       <div className="core-slot" hidden={pane !== "tasks"}>
-        <TasksView {...controls} />
+        <TasksView pane={pane} />
       </div>
       <div className="core-slot" hidden={pane !== "metrics"}>
-        <MetricsView {...controls} />
+        <MetricsView />
       </div>
       <div className="core-slot" hidden={pane !== "phases"}>
-        <PhasesView {...controls} />
+        <PhasesView />
       </div>
     </>
   );

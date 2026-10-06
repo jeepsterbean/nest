@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { setPhaseColor, setPhaseIcon } from "../../lib/commands";
-import { CorePaneToggle } from "../components/CorePaneToggle";
 import { MetricColorPicker } from "../components/MetricColorPicker";
 import { IconPickerButton, NestIcon } from "../components/PulseIcon";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { useTileIcons } from "../hooks/useTileIcons";
-import type { CorePaneControls } from "../lib/corePane";
-import { writeTileIcon } from "../lib/tileIcons";
 
-export function PhasesView({ pane, onSelectPane }: CorePaneControls) {
+export function PhasesView() {
   const { phases, mutate } = useDashboardData();
-  const icons = useTileIcons();
   const [colorPickerPhaseId, setColorPickerPhaseId] = useState<number | null>(
     null,
   );
@@ -32,15 +27,6 @@ export function PhasesView({ pane, onSelectPane }: CorePaneControls) {
 
   return (
     <section className="dash-section dash-section--phases">
-      <header className="dash-section__head">
-        <CorePaneToggle pane={pane} onSelectPane={onSelectPane} />
-        <IconPickerButton
-          className="dash-section__tile-icon"
-          icon={icons.phases}
-          label="Phases"
-          onChange={(nextIcon) => writeTileIcon("phases", nextIcon)}
-        />
-      </header>
       <div className="dash-section__body">
         <div className="phase-settings">
           <ul className="phase-settings__list">

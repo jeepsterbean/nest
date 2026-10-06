@@ -173,12 +173,19 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (`overview`, `calendar`, `timeline` for Logs, `core`,
   `assistant`, `settings`). The first click selects that Section. Clicking the
   icon again while it is already selected opens `IconPickerButton`; a pick,
-  Escape, or an outside press closes it. Tasks, Brain dump, Metrics, and
-  Phases icons stay in those Core pane heads (`.dash-section__tile-icon`,
-  slots `tasks` / `brainDump` / `metrics` / `phases`). Tasks, Brain dump, and
-  Metrics also mark their Overview tiles. Phases has no Overview tile.
-- Core: one Sidebar entry. A `ViewToggle` (Brain dump / Tasks / Metrics /
-  Phases) leads each pane head, beside that pane's own controls. The last pane
+  Escape, or an outside press closes it. Core pane icons live in the separate
+  Core navigation rail
+  (slots `tasks` / `brainDump` / `metrics` / `phases`). Selecting the active
+  pane again opens its icon picker. Tasks, Brain dump, and Metrics also mark
+  their Overview tiles. Phases has no Overview tile.
+- Core: one main Sidebar entry. `.core-sidebar` sits between the main Sidebar
+  and `.dashboard__inner` as a quieter bordered panel under a serif `Core`
+  heading, with four icon-and-label rows (Brain dump / Tasks / Metrics /
+  Phases). Each icon sits on a tile tinted with that pane's Logs kind color
+  (`--pane-tone`: `--dump`, `--doing`, `--accent`, `--phase`); the selected
+  row is raised on `--surface` with a solid tile. Below 861px it drops the
+  heading and labels and keeps the tiles, with accessible names and tooltips.
+  Pane headers hold their own controls. The last pane
   is stored in `nest:core-pane` (Brain dump when unset). Panes stay mounted in
   `.core-slot` through `hidden` so filters, selection, and unsent names survive
   switches. `.dashboard__inner` also takes the active pane's layout class
@@ -275,8 +282,8 @@ and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
 read-only sticky positioned 12px to the right of the opening cursor and centered
 on its y-coordinate. It closes on an outside click or Escape.
 The Brain dump pane of Core (`BrainDumpView`, `.dash-section--brain-dump`) has a
-head with the Core `ViewToggle`, a History / Tags `ViewToggle`, and, at its right end, the Overview tile
-icon picker. The last pane is stored in `nest:brain-dump-pane` (History when
+head with a History / Tags `ViewToggle`. The Core navigation rail holds its
+Overview tile icon picker. The last pane is stored in `nest:brain-dump-pane` (History when
 unset). Both panes stay mounted in `.brain-dump-section__pane` through `hidden`
 so History filters and an unsent Tag name survive switches.
 `BrainDumpHistory` has range/tag controls and groups previews under local-day
