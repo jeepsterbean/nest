@@ -11,19 +11,19 @@
 
 @media (max-width: 860px) {
   .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) 24px;
+    grid-template-columns: minmax(0, 1fr) 24px;
     grid-template-areas:
-      "name graph remove"
-      "stats graph remove";
+      "name remove"
+      "ratings remove";
     gap: 4px 12px;
     padding: 9px 0;
   }
 
   .pulse-metric--ordered {
-    grid-template-columns: 14px minmax(0, 1fr) minmax(110px, 150px) 24px;
+    grid-template-columns: 14px minmax(0, 1fr) 24px;
     grid-template-areas:
-      "handle name graph remove"
-      "handle stats graph remove";
+      "handle name remove"
+      "handle ratings remove";
   }
 
   .pulse-metric--ordered > .reorder-handle {
@@ -34,13 +34,9 @@
     grid-area: name;
   }
 
-  .pulse-metric__stats {
-    grid-area: stats;
-    justify-content: flex-start;
-  }
-
-  .pulse-metric__graph {
-    grid-area: graph;
+  .pulse-metric__ratings {
+    grid-area: ratings;
+    padding: 0;
   }
 
   .pulse-metric__remove {
@@ -48,11 +44,11 @@
   }
 
   .pulse-metrics--all .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "name graph"
-      "membership graph"
-      "stats graph";
+      "name"
+      "membership"
+      "ratings";
   }
 
   .all-metric__membership {
@@ -218,18 +214,6 @@
   .pulse-detail,
   .all-metrics {
     padding: 18px;
-  }
-
-  .pulse-detail__head {
-    flex-direction: column;
-  }
-
-  /* Wraps so the full-width .view-toggle below doesn't crowd out delete. */
-  .pulse-detail__actions {
-    width: 100%;
-    max-width: none;
-    flex-wrap: wrap;
-    justify-content: space-between;
   }
 
   .overview-panel__scroll {

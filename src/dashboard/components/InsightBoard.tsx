@@ -205,21 +205,25 @@ function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
         <NestIcon name={metric.icon} color={metric.color} />
         {metric.name}
       </span>
-      <span
-        className="insight-metric__ribbon"
-        role="img"
-        aria-label={`${metric.values.length} ratings: ${metric.values.join(", ")}`}
-      >
-        {metric.values.map((value, index) => (
-          <span
-            key={`${metric.metricId}-${index}`}
-            className={`rating-pill rating-pill--v${value}`}
-          >
-            {value}
-          </span>
-        ))}
-      </span>
+      <RatingRibbon values={metric.values} />
       <span className="insight-metric__avg">{metric.average.toFixed(1)}</span>
     </li>
+  );
+}
+
+/** One rating pill per Metric check-in, oldest first. */
+export function RatingRibbon({ values }: { values: number[] }) {
+  return (
+    <span
+      className="insight-metric__ribbon"
+      role="img"
+      aria-label={`${values.length} ratings: ${values.join(", ")}`}
+    >
+      {values.map((value, index) => (
+        <span key={index} className={`rating-pill rating-pill--v${value}`}>
+          {value}
+        </span>
+      ))}
+    </span>
   );
 }

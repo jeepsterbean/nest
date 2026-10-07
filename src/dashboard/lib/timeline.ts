@@ -300,7 +300,7 @@ export const columnPhaseSessions = (
         false,
       );
 
-// Per-metric rating values in chronological order, for sparklines and stats.
+// Per-metric rating values in chronological order.
 export const buildMetricSeries = (
   checkIns: MetricCheckInWithRatings[],
 ): Map<number, number[]> => {

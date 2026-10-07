@@ -247,11 +247,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   in `nest:metrics-pane` (Pulses when unset). Panes stay mounted in
   `.metrics-section__pane` through `hidden` so Pulse selection and an unsent
   Metric name survive switches. `.pulse-detail__title` names the selected
-  Pulse beside its icon. Metric rows (`.pulse-metric`, 46px) read name,
-  sparkline, then latest / average / entries, and cap at 760px so the stats
-  stay near the name on wide windows. A too-short series draws a dashed
-  `.sparkline--empty` baseline, since the stats already say so. Remove (×)
-  shows on row hover or focus.
+  Pulse beside its icon. Metric rows (`.pulse-metric`, 46px) read name, then
+  today's ratings since local midnight as the Insights `RatingRibbon` (one
+  pill per Metric check-in, no average), or a quiet `No check-ins`. Both panes
+  share that window and there is no range control. Rows cap at 760px so the
+  ribbon stays near the name on wide windows. Remove (×) shows on row hover or
+  focus.
 - Phases: `.dash-section--phases` is a read-only `.phase-guide`: an intro on
   how Phase is derived and one bordered `.phase-list` (`<ol>` as Doing,
   Scoping, Resting, Offline from `src/dashboard/lib/phaseGuide.ts`). Each

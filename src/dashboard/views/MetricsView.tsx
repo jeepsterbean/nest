@@ -19,7 +19,7 @@ import type { Metric } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
 import { IconPickerButton, NestIcon, nestIconLabel } from "../components/PulseIcon";
-import { Sparkline } from "../components/Sparkline";
+import { RatingRibbon } from "../components/InsightBoard";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useInlineRename } from "../hooks/useInlineRename";
@@ -31,15 +31,10 @@ import {
   writeMetricsPane,
   type MetricsPane,
 } from "../lib/metricsPane";
+import { startOfDayMs } from "../lib/time";
 import { buildMetricSeries } from "../lib/timeline";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
-const METRIC_RANGES = [
-  { key: "30m", label: "30m", aria: "30 minutes", seconds: 30 * 60 },
-  { key: "1h", label: "1h", aria: "1 hour", seconds: 60 * 60 },
-  { key: "3h", label: "3h", aria: "3 hours", seconds: 3 * 60 * 60 },
-  { key: "1d", label: "1d", aria: "1 day", seconds: 24 * 60 * 60 },
-] as const;
 
 function TrashIcon() {
   return (
@@ -49,28 +44,15 @@ function TrashIcon() {
   );
 }
 
-function MetricTrend({ values }: { values: number[] }) {
-  const latest = values[values.length - 1];
-  const average = values.length
-    ? values.reduce((sum, value) => sum + value, 0) / values.length
-    : null;
+function TodayRatings({ values }: { values: number[] }) {
   return (
-    <>
-      <div className="pulse-metric__graph">
-        <Sparkline values={values} />
-      </div>
-      <div className="pulse-metric__stats">
-        {latest === undefined ? (
-          <span>No entries yet</span>
-        ) : (
-          <>
-            <span className={`rating-pill rating-pill--v${latest}`}>{latest}</span>
-            <span>avg {average?.toFixed(1)}</span>
-            <span>{values.length} {values.length === 1 ? "entry" : "entries"}</span>
-          </>
-        )}
-      </div>
-    </>
+    <div className="pulse-metric__ratings">
+      {values.length ? (
+        <RatingRibbon values={values} />
+      ) : (
+        <span className="pulse-metric__quiet">No check-ins</span>
+      )}
+    </div>
   );
 }
 
@@ -83,7 +65,6 @@ export function MetricsView() {
   const [newPulseName, setNewPulseName] = useState("");
   const [newMetricName, setNewMetricName] = useState("");
   const [hiddenPulseIds, setHiddenPulseIds] = useState(readHiddenPulseIds);
-  const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
   const nowMs = useCurrentTime();
 
   const metricRename = useInlineRename({
@@ -126,20 +107,20 @@ export function MetricsView() {
   const availableMetrics = selectedPulse
     ? metrics.filter((metric) => !selectedPulse.metricIds.includes(metric.id))
     : [];
-  const allSeries = useMemo(() => buildMetricSeries(checkIns), [checkIns]);
-  const rangeSeconds = METRIC_RANGES.find((range) => range.key === metricRange)?.seconds ?? 86400;
+  const todayStartSec = startOfDayMs(nowMs / 1000) / 1000;
+  const todayCheckIns = useMemo(
+    () => checkIns.filter((checkIn) => checkIn.createdAt >= todayStartSec),
+    [checkIns, todayStartSec],
+  );
+  const allSeries = useMemo(() => buildMetricSeries(todayCheckIns), [todayCheckIns]);
   const pulseSeries = useMemo(
     () =>
       buildMetricSeries(
         selectedPulse
-          ? checkIns.filter(
-              (checkIn) =>
-                checkIn.pulseId === selectedPulse.id &&
-                checkIn.createdAt >= nowMs / 1000 - rangeSeconds,
-            )
+          ? todayCheckIns.filter((checkIn) => checkIn.pulseId === selectedPulse.id)
           : [],
       ),
-    [checkIns, nowMs, rangeSeconds, selectedPulse],
+    [todayCheckIns, selectedPulse],
   );
 
   const onCreatePulse = async (event: FormEvent) => {
@@ -343,12 +324,6 @@ export function MetricsView() {
                     <h2>{selectedPulse.name}</h2>
                   </div>
                   <div className="pulse-detail__actions">
-                    <ViewToggle
-                      value={metricRange}
-                      options={METRIC_RANGES}
-                      label="Metric history range"
-                      onChange={setMetricRange}
-                    />
                     <button
                       type="button"
                       className="pulse-delete"
@@ -384,7 +359,7 @@ export function MetricsView() {
                         </span>
                         <strong>{metric.name}</strong>
                       </div>
-                      <MetricTrend values={pulseSeries.get(metric.id) ?? []} />
+                      <TodayRatings values={pulseSeries.get(metric.id) ?? []} />
                       <button
                         type="button"
                         className="pulse-metric__remove"
@@ -474,7 +449,7 @@ export function MetricsView() {
                   <span className="all-metric__membership">
                     {membershipCount ? `In ${membershipCount} ${membershipCount === 1 ? "pulse" : "pulses"}` : "Not in a pulse"}
                   </span>
-                  <MetricTrend values={allSeries.get(metric.id) ?? []} />
+                  <TodayRatings values={allSeries.get(metric.id) ?? []} />
                 </li>
               );
             })}
