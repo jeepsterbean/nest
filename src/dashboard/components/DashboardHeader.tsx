@@ -6,6 +6,7 @@ import {
   type CSSProperties,
 } from "react";
 import { startTimer } from "../../lib/commands";
+import { SIMPLIFIED_VIEW } from "../../lib/simplifiedView";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { OVERVIEW_SETTINGS_ID } from "../lib/overviewGrid";
@@ -51,7 +52,9 @@ export function DashboardSidebar({
   return (
     <aside className="dash-sidebar">
       <nav className="dash-nav" aria-label="Dashboard sections">
-        {VIEWS.map((item) => {
+        {VIEWS.filter((item) =>
+          !SIMPLIFIED_VIEW || item.key === "calendar" || item.key === "core",
+        ).map((item) => {
           const label = (
             <span className="dash-nav__label">{item.label}</span>
           );

@@ -27,6 +27,11 @@ completed or dismissed.
 
 ## Popup
 
+With `SIMPLIFIED_VIEW` enabled in `src/lib/simplifiedView.ts`, the Popup offers
+Brain dump and Tasks and metrics. Chat stays unmounted and its ⌘3 shortcut is
+disabled. Restored panel selections omit Chat; a Chat-only selection falls back
+to Brain dump. An explicitly empty selection still hides every panel.
+
 The popup has the Timer bar across the top (countdown, interval, and a line
 that drains with the remaining time; click the countdown to pick an
 interval) and an icon-only strip down the left with one toggle per panel:

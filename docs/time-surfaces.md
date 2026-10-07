@@ -41,6 +41,12 @@ Last hour leaves Week for Day, so leaving it lands on Day.
 
 ## Overview
 
+`SIMPLIFIED_VIEW` in `src/lib/simplifiedView.ts` enables the simplified interface.
+When enabled, the dashboard starts on Calendar and offers Calendar and Core;
+Overview, Assistant, and Settings are hidden. Setting it to `false` restores
+all sections and Overview startup. Saved data and configuration remain in place,
+including the background preferences used by the dashboard.
+
 Overview's Last hour tile is Insights for the same rolling 60 minutes as
 Calendar's Last hour, computed by the same code: Phases, Brain dumps, Tasks,
 and Metrics side by side, wrapping as the tile narrows and scrolling inside

@@ -1,4 +1,5 @@
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { SIMPLIFIED_VIEW } from "../lib/simplifiedView";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardDataProvider, useDashboardData } from "./context/DashboardDataContext";
@@ -39,7 +40,12 @@ import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
-  const [view, setView] = useState<DashboardView>("overview");
+  const [selectedView, setView] = useState<DashboardView>(
+    SIMPLIFIED_VIEW ? "calendar" : "overview",
+  );
+  const view = SIMPLIFIED_VIEW && selectedView !== "calendar" && selectedView !== "core"
+    ? "calendar"
+    : selectedView;
   const [calendarPresentation, setCalendarPresentation] =
     useState<CalendarPresentation>(readCalendarPresentation);
   const calendarRange = useCalendarRange();

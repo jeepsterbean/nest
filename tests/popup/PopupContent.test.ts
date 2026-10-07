@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../../src/popup/windowDrag", () => ({
   startPopupWindowDrag: vi.fn(),
 }));
+vi.mock("../../src/lib/simplifiedView", () => ({ SIMPLIFIED_VIEW: false }));
 
 import {
   adjacentTimerInterval,

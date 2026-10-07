@@ -9,6 +9,7 @@ import {
 } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { pulseActivity } from "../lib/activityPulse";
+import { SIMPLIFIED_VIEW } from "../lib/simplifiedView";
 import {
   createTask,
   getMetricCheckInSchedule,
@@ -208,7 +209,7 @@ export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
 export type PopupPanelId = "dump" | "now" | "assistant";
 
 /** Sidebar order, which is also the left-to-right order of the panels. */
-export const POPUP_PANELS = [
+export const POPUP_PANELS = ([
   { id: "dump", label: "Brain dump", shortcutKey: "1", tileIcon: "brainDump" },
   { id: "now", label: "Tasks and metrics", shortcutKey: "2", tileIcon: "tasks" },
   {
@@ -222,7 +223,7 @@ export const POPUP_PANELS = [
   label: string;
   shortcutKey: string;
   tileIcon: TileId | "assistant";
-}>;
+}>).filter((panel) => !SIMPLIFIED_VIEW || panel.id !== "assistant");
 
 const POPUP_PANELS_KEY = "nest:popup-panels";
 const POPUP_TAB_KEY = "nest:popup-tab";
@@ -273,6 +274,7 @@ export function initialPopupPanels(
     const saved = parsePopupPanels(stored);
     // An empty string is "every panel hidden"; other unreadable text is not.
     if (saved.length > 0 || stored.trim() === "") return saved;
+    if (SIMPLIFIED_VIEW && stored.split(",").includes("assistant")) return ["dump"];
   }
   if (lastTab === "overview") return POPUP_PANELS.map((panel) => panel.id);
   return [POPUP_PANELS.find((panel) => panel.id === lastTab)?.id ?? "dump"];
@@ -294,7 +296,7 @@ export function popupAssistantMounted(
   visible: readonly PopupPanelId[],
   opened: boolean,
 ) {
-  return opened || visible.includes("assistant");
+  return !SIMPLIFIED_VIEW && (opened || visible.includes("assistant"));
 }
 
 /** ⌘1 / ⌘2 / ⌘3 toggle one panel; a held key repeats, which must not. */
