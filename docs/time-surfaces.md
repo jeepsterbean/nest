@@ -46,8 +46,8 @@ Calendar's Last hour, computed by the same code: Phases, Brain dumps, Tasks,
 and Metrics side by side, wrapping as the tile narrows and scrolling inside
 the tile once an opened group outgrows it. Clicking its icon opens Calendar
 on Last hour with Insights shown so the summary stays in view. A quiet hour
-still shows every section, with 0s rather than gaps. The tile keeps its own
-refresh: it recomputes when dashboard data reloads, not on the minute clock.
+still shows every section, with 0s rather than gaps. The tile follows the same
+minute clock as Calendar Last hour.
 
 Overview has its own configuration panel that opens over the right side of
 the tile board from the Greetings board, closed by default. It lets

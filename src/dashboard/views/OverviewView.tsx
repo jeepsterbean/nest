@@ -163,23 +163,12 @@ export function OverviewView({
     [setBrainDumpDraft],
   );
 
-  // The tile follows dashboard reloads, not the minute clock, so its window
-  // is read from the wall clock whenever the data it summarizes changes.
+  // Same minute clock as Calendar Last hour, so the tile and Insights stay on
+  // one window.
   const lastHourWindow = useMemo(() => {
-    const nowMs = Date.now();
     const nowSec = Math.floor(nowMs / 1000);
     return { ...lastHourPeriod(nowSec), nowMs, nowSec };
-  }, [
-    tasks,
-    taskStatusEvents,
-    taskWorkStretches,
-    checkIns,
-    phaseCheckIns,
-    phases,
-    metrics,
-    pulses,
-    brainDumps,
-  ]);
+  }, [nowMs]);
 
   const historyEvents = useMemo(
     () =>
