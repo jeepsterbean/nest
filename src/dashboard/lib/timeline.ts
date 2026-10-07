@@ -300,18 +300,3 @@ export const columnPhaseSessions = (
         false,
       );
 
-// Per-metric rating values in chronological order.
-export const buildMetricSeries = (
-  checkIns: MetricCheckInWithRatings[],
-): Map<number, number[]> => {
-  const map = new Map<number, number[]>();
-  const chronological = [...checkIns].sort((a, b) => a.createdAt - b.createdAt);
-  for (const ci of chronological) {
-    for (const r of ci.ratings) {
-      const values = map.get(r.metricId);
-      if (values) values.push(r.value);
-      else map.set(r.metricId, [r.value]);
-    }
-  }
-  return map;
-};

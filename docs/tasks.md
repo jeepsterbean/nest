@@ -13,6 +13,11 @@ remembered (`nest:task-view`). The table filters by any set of persisted
 statuses — Backlog, Up next, Active, Completed, Cancelled — with Open /
 Closed / All presets; first visit is Open. New tasks are created Active.
 
+The header places Table / Map on its first row. Table shows a separate row
+below for Open / Closed / All, Status, and right-aligned Sort controls. The
+header ends with a subtle divider above the workspace. Scopes uses quiet
+surface highlights, keeping the task table visually primary.
+
 The **Tasks scope sidebar** belongs to the table; the Map has none. Table
 columns can be reordered and resized (`nest:task-table`). Working now is
 started from the detail panel, not from the table or the Map.

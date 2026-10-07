@@ -23,15 +23,683 @@
   padding: 22px 24px 16px;
 }
 
-.metrics-section__pane:not([hidden]) {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
+.metrics-edit-toggle {
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-.metrics-section__pane .pulse-workspace,
-.metrics-section__pane .all-metrics {
-  flex: 1 1 auto;
-  min-height: 0;
+.metrics-edit-toggle:hover {
+  color: var(--ink);
 }
+
+.metrics-edit-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Name, day strip, latest value. The axis repeats it so hour labels line up with every strip. */
+.metrics-board {
+  --metric-columns: minmax(110px, 190px) minmax(0, 1fr) 34px;
+  --metric-row-inset: 12px;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+
+.metrics-board > * {
+  width: 100%;
+  max-width: 1080px;
+}
+
+.metrics-board__empty {
+  min-height: 220px;
+  justify-content: center;
+}
+
+.metrics-board__empty .btn-accent {
+  margin-top: 8px;
+}
+
+.metrics-board button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Pulse groups ---------- */
+
+.metric-group {
+  display: grid;
+  gap: 8px;
+}
+
+.metric-group.is-dragging {
+  opacity: 0.38;
+}
+
+.metric-group.is-drop-target > .metric-group__rows {
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
+.metric-group__head {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.metrics-board[data-editing] .metric-group__head {
+  cursor: grab;
+}
+
+.metric-group__head h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-group__head .metric-group__quiet-title {
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-group__icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.metric-group__icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.metric-group__note {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.metric-group__name {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.metric-group__name:hover {
+  color: var(--accent);
+}
+
+.metric-group__head .rename-input {
+  max-width: 280px;
+  font-size: 14px;
+}
+
+.metric-group__popup {
+  display: inline-flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.metric-group__delete {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.metric-group__delete:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.metric-group__delete svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.metric-group__rows {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  list-style: none;
+  transition: background-color 0.14s ease;
+}
+
+/* ---------- Popup visibility switch ---------- */
+
+.pulse-visibility {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-visibility input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.pulse-visibility span {
+  position: relative;
+  width: 22px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.16s ease;
+}
+
+.pulse-visibility span::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(50, 43, 33, 0.25);
+  transition: transform 0.16s ease;
+}
+
+.pulse-visibility input:checked + span {
+  background: var(--accent);
+}
+
+.pulse-visibility input:checked + span::after {
+  transform: translateX(10px);
+}
+
+.pulse-visibility input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Metric rows ---------- */
+
+.metric-row {
+  display: grid;
+  min-height: 46px;
+  grid-template-columns: var(--metric-columns);
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--metric-row-inset);
+  border-bottom: 1px solid var(--border);
+}
+
+.metric-row:last-child {
+  border-bottom: none;
+}
+
+.metric-row--edit {
+  grid-template-columns: 14px minmax(0, 1fr) 24px;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.metric-row--edit.metric-row--unordered {
+  grid-template-columns: minmax(0, 1fr);
+  cursor: default;
+}
+
+.metric-row.is-drop-target {
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
+.metric-row.is-dragging {
+  opacity: 0.38;
+}
+
+.metric-row--quiet {
+  display: flex;
+  min-height: 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-row__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-row__identity > span:first-child {
+  display: inline-flex;
+  flex: none;
+}
+
+.metric-row__identity > span:first-child svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  stroke-width: 1.8;
+}
+
+.metric-row__identity > strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-row__name {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.metric-row__name:hover {
+  color: var(--accent);
+}
+
+.metric-row__identity .rename-input {
+  max-width: 260px;
+  font-size: 13px;
+}
+
+.metric-row__latest {
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.metric-row__latest[data-value="1"] { color: var(--rating-1); }
+.metric-row__latest[data-value="2"] { color: var(--rating-2); }
+.metric-row__latest[data-value="3"] { color: var(--rating-3); }
+.metric-row__latest[data-value="4"] { color: var(--rating-4); }
+.metric-row__latest[data-value="5"] { color: var(--rating-5); }
+
+.metric-row__remove {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.metric-row__remove:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.metric-icon-control {
+  position: relative;
+  flex: none;
+}
+
+.metric-icon-control:has(.icon-picker) {
+  z-index: 12;
+}
+
+.metric-icon-trigger {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.metric-icon-trigger:hover,
+.metric-icon-trigger[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+
+.metric-icon-trigger svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+
+.reorder-handle {
+  display: grid;
+  width: 14px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  color: var(--muted);
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.metric-row--edit:hover .reorder-handle,
+.metric-group__head:hover > .reorder-handle {
+  opacity: 0.9;
+}
+
+.reorder-handle svg {
+  width: 11px;
+  height: 11px;
+}
+
+.list-sort-in-progress,
+.list-sort-in-progress * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* ---------- Add rows and composers ---------- */
+
+.metric-row--add {
+  min-height: 40px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  transition: background-color 0.14s ease;
+}
+
+.metric-row--add:has(.metric-row__add-button) {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+}
+
+.metric-row--add:has(.menu-select__trigger:hover:not(:disabled)),
+.metric-row--add:has(.menu-select__trigger[aria-expanded="true"]) {
+  background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+}
+
+.metric-row__plus {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.metric-row--add .menu-select__trigger {
+  min-height: 30px;
+  padding: 0 10px 0 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.metric-row--add .menu-select__trigger:hover:not(:disabled),
+.metric-row--add .menu-select__trigger:focus-visible,
+.metric-row--add .menu-select__trigger[aria-expanded="true"] {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.metric-row--add .menu-select__trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.metric-row__add-button {
+  display: grid;
+  width: 100%;
+  min-height: 40px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--metric-row-inset);
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.metric-row__add-button:hover {
+  background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+}
+
+.metric-row-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-row-composer input {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.metric-row-composer input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.metric-row-composer button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.metric-row-composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.metrics-new-pulse.metric-row__add-button {
+  border: 1.5px dashed var(--border);
+}
+
+form.metrics-new-pulse {
+  max-width: 420px;
+}
+
+/* ---------- Day strip ---------- */
+
+.metric-axis {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: grid;
+  grid-template-columns: var(--metric-columns);
+  gap: 12px;
+  margin-bottom: -10px;
+  padding: 6px calc(var(--metric-row-inset) + 1px);
+  background: var(--surface);
+}
+
+.metric-axis > .metric-day__track {
+  grid-column: 2;
+  height: 14px;
+}
+
+.metric-axis span {
+  position: absolute;
+  top: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.metric-day {
+  height: 30px;
+}
+
+.metric-day[data-stacked] {
+  height: 48px;
+}
+
+/* Inset so a dot at midnight or end of day keeps its whole pill inside the row. */
+.metric-day__track {
+  position: relative;
+  height: 100%;
+  margin: 0 11px;
+}
+
+.metric-day__track::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.metric-axis > .metric-day__track::before {
+  display: none;
+}
+
+.metric-day__tick {
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.metric-day__tick[data-major] {
+  top: 12%;
+  bottom: 12%;
+  background: var(--border-strong);
+}
+
+/* The rest of the day stays visibly unlived so an empty strip reads as "not yet". */
+.metric-day__later {
+  position: absolute;
+  top: 0;
+  right: -11px;
+  bottom: 0;
+  border-left: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.metric-day__dot.rating-pill {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--surface);
+  font-size: 11px;
+  transform: translate(-50%, -50%);
+}
+
+.metric-day[data-stacked] .metric-day__dot[data-lane="0"] {
+  top: 70%;
+}
+
+.metric-day[data-stacked] .metric-day__dot[data-lane="1"] {
+  top: 28%;
+}
+
+/* Opaque fills so a stacked pill never shows the one beneath it. */
+.metric-day__dot.rating-pill--v1 { background: color-mix(in srgb, var(--rating-1) 20%, var(--surface)); }
+.metric-day__dot.rating-pill--v2 { background: color-mix(in srgb, var(--rating-2) 20%, var(--surface)); }
+.metric-day__dot.rating-pill--v3 { background: color-mix(in srgb, var(--rating-3) 22%, var(--surface)); }
+.metric-day__dot.rating-pill--v4 { background: color-mix(in srgb, var(--rating-4) 20%, var(--surface)); }
+.metric-day__dot.rating-pill--v5 { background: color-mix(in srgb, var(--rating-5) 20%, var(--surface)); }

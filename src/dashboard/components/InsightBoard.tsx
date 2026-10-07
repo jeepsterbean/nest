@@ -212,7 +212,7 @@ function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
 }
 
 /** One rating pill per Metric check-in, oldest first. */
-export function RatingRibbon({ values }: { values: number[] }) {
+function RatingRibbon({ values }: { values: number[] }) {
   return (
     <span
       className="insight-metric__ribbon"

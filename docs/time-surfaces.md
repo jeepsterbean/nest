@@ -211,8 +211,10 @@ and double clicking the kind already alone turns all four back on. That
 selection is the same one Calendar's Logs figure uses.
 
 Timeline uses the Calendar Section sidebar: the Calendar / Timeline selector,
-then Last hour / Day / Week and an always-visible month calendar. Timeline is fixed
-to Day; Last hour and Week are disabled, and older saved range modes are ignored.
+then an always-visible month calendar, separated from the presentation selector
+by a quiet divider. Calendar groups Last hour / Day / Week with its month calendar
+below that divider. Timeline is fixed to Day and shows only the month calendar;
+older saved range modes are ignored.
 The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
 The mini calendar dots dates with recorded entries. The toolbar shows the selected

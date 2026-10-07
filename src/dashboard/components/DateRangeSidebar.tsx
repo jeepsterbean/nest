@@ -47,17 +47,18 @@ export function DateRangeSidebar({
       label="Calendar presentation"
       onChange={onPresentation}
     />
-    <ViewToggle
-      value={range.mode}
-      options={CALENDAR_RANGE_MODES.map((mode) => ({
-        ...mode,
-        disabled: presentation === "timeline" && mode.key !== "day",
-      }))}
-      label={`${presentation === "calendar" ? "Calendar" : "Timeline"} range`}
-      onChange={onMode}
-    />
-    <div className={`range-sidebar__month${range.live ? " range-sidebar__month--live" : ""}`}>
-      <DayCalendar earliestSec={range.earliestSec} nowMs={range.nowMs} selected={selected} onPick={onPick} markedDays={markedDays} />
+    <div className="range-sidebar__dates">
+      {presentation === "calendar" && (
+        <ViewToggle
+          value={range.mode}
+          options={CALENDAR_RANGE_MODES}
+          label="Calendar range"
+          onChange={onMode}
+        />
+      )}
+      <div className={`range-sidebar__month${range.live ? " range-sidebar__month--live" : ""}`}>
+        <DayCalendar earliestSec={range.earliestSec} nowMs={range.nowMs} selected={selected} onPick={onPick} markedDays={markedDays} />
+      </div>
     </div>
   </>, target);
 }

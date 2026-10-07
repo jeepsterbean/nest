@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildMetricSeries,
   buildRawLog,
   collapsePhaseCheckIns,
   groupByDay,
@@ -164,20 +163,6 @@ describe("mergePhaseCheckInsIntoEvents", () => {
       1,
       null,
     ]);
-  });
-});
-
-describe("buildMetricSeries", () => {
-  it("groups values per metric in chronological order with multi-rating fan-out", () => {
-    const series = buildMetricSeries([
-      metricCheckIn(1, 100, [
-        { metricId: 1, value: 3 },
-        { metricId: 2, value: 5 },
-      ]),
-      metricCheckIn(2, 50, [{ metricId: 1, value: 2 }]),
-    ]);
-    expect(series.get(1)).toEqual([2, 3]);
-    expect(series.get(2)).toEqual([5]);
   });
 });
 

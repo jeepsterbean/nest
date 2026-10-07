@@ -10,49 +10,30 @@
 }
 
 @media (max-width: 860px) {
-  .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) 24px;
+  .metric-row:not(.metric-row--edit, .metric-row--add, .metric-row--quiet) {
+    grid-template-columns: minmax(0, 1fr) 34px;
     grid-template-areas:
-      "name remove"
-      "ratings remove";
-    gap: 4px 12px;
-    padding: 9px 0;
+      "name latest"
+      "day day";
+    gap: 2px 12px;
+    padding-top: 8px;
+    padding-bottom: 6px;
   }
 
-  .pulse-metric--ordered {
-    grid-template-columns: 14px minmax(0, 1fr) 24px;
-    grid-template-areas:
-      "handle name remove"
-      "handle ratings remove";
-  }
-
-  .pulse-metric--ordered > .reorder-handle {
-    grid-area: handle;
-  }
-
-  .pulse-metric > .metric-identity {
+  .metric-row > .metric-row__identity {
     grid-area: name;
   }
 
-  .pulse-metric__ratings {
-    grid-area: ratings;
-    padding: 0;
+  .metric-row > .metric-day {
+    grid-area: day;
   }
 
-  .pulse-metric__remove {
-    grid-area: remove;
+  .metric-row > .metric-row__latest {
+    grid-area: latest;
   }
 
-  .pulse-metrics--all .pulse-metric {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "name"
-      "membership"
-      "ratings";
-  }
-
-  .all-metric__membership {
-    grid-area: membership;
+  .metric-axis {
+    display: none;
   }
 
   .overview-grid {
@@ -168,52 +149,12 @@
     padding: 0 18px 18px;
   }
 
-  .pulse-workspace {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
+  .metrics-board {
+    padding: 0 18px 18px;
   }
 
-  .pulse-sidebar {
-    min-height: auto;
-    overflow: visible;
-    padding: 12px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .pulse-sidebar__head {
-    padding-bottom: 6px;
-  }
-
-  .pulse-list {
-    flex-direction: row;
-    min-height: auto;
-    overflow-y: hidden;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .pulse-list li {
-    flex: 0 0 auto;
-    max-width: 180px;
-  }
-
-  .pulse-list button,
-  .pulse-list__rename {
-    min-width: 116px;
-  }
-
-  .pulse-composer {
-    max-width: 300px;
-  }
-
-  .pulse-detail {
-    overflow: visible;
-  }
-
-  .pulse-detail,
-  .all-metrics {
-    padding: 18px;
+  .metric-group__head {
+    flex-wrap: wrap;
   }
 
   .overview-panel__scroll {

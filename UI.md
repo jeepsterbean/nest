@@ -242,17 +242,28 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
-- Metrics: `.dash-section--metrics` with Pulses / Metrics panes via shared
-  `ViewToggle`; its icon is picked from the Core Sidebar. Last pane is stored
-  in `nest:metrics-pane` (Pulses when unset). Panes stay mounted in
-  `.metrics-section__pane` through `hidden` so Pulse selection and an unsent
-  Metric name survive switches. `.pulse-detail__title` names the selected
-  Pulse beside its icon. Metric rows (`.pulse-metric`, 46px) read name, then
-  today's ratings since local midnight as the Insights `RatingRibbon` (one
-  pill per Metric check-in, no average), or a quiet `No check-ins`. Both panes
-  share that window and there is no range control. Rows cap at 760px so the
-  ribbon stays near the name on wide windows. Remove (×) shows on row hover or
-  focus.
+- Metrics: `.dash-section--metrics` reads one local day at a time through the
+  shared `DateNavigation` (previous, next, back to today; it opens on today and
+  cannot pass it). Days older than the dashboard's history window load on
+  demand through `useDayRecords`. Its icon is picked from the Core Sidebar. `.metrics-board`
+  lists one `.metric-group` per Pulse (icon and serif name, `Hidden from popup`
+  when hidden), then a `Not in a pulse` group for Metrics outside every Pulse.
+  Each `.metric-row` (46px, columns from `--metric-columns`) reads name, a
+  `.metric-day` strip, and the latest rating as a serif number tinted by its
+  rating color (`—` when none). The strip runs midnight to midnight: hour
+  ticks every 3 hours, on today a shaded `.metric-day__later` from now to the
+  end of the day, and one `.metric-day__dot` rating pill per Metric check-in placed at
+  its time. A check-in within 45 minutes of the previous one lifts into a
+  second lane. A Pulse row only plots that Pulse's check-ins. A sticky
+  `.metric-axis` above the groups labels 6, 12 and 18 o'clock on the same
+  columns, and hides under 860px, where the strip wraps under the name.
+  Setup lives behind the header `Edit` / `Done` toggle (not persisted): strips
+  hide; Pulse headings gain a grip, icon picker, click-to-rename name,
+  `Show in popup` switch and delete; Metric rows gain a grip, icon and color
+  picker, click-to-rename name and remove (×), all always visible. Pulses drag
+  by their heading, Metrics within their Pulse. `Add metric` offers existing
+  Metrics or `New metric…`, which creates and adds in one step; `New pulse`
+  closes the list. Leaving Edit drops open composers.
 - Phases: `.dash-section--phases` is a read-only `.phase-guide`: an intro on
   how Phase is derived and one bordered `.phase-list` (`<ol>` as Doing,
   Scoping, Resting, Offline from `src/dashboard/lib/phaseGuide.ts`). Each
@@ -343,11 +354,12 @@ surfaces or editor dependencies, use the
 - Calendar range sidebar: `.dashboard--range-sidebar` reserves a 224px
   Section rail (200px below 861px). `.range-sidebar` holds the Section title,
   a full-width Calendar / Timeline `ViewToggle` stored in
-  `nest:calendar-presentation`, a full-width Last hour / Day / Week
-  `ViewToggle`, and the inline `DayCalendar`
+  `nest:calendar-presentation`, and a `.range-sidebar__dates` group separated
+  by spacing and a subtle divider. Calendar's date group holds a full-width
+  Last hour / Day / Week `ViewToggle` and the inline `DayCalendar`
   with a muted month header (faded in Last hour until hovered; Timeline dots
   `.has-entries` days). Calendar remembers its range in `nest:date-range`.
-  Timeline stays on Day, with Last hour and Week disabled; saved `nest:logs-range`
+  Timeline stays on Day and shows only `DayCalendar`; saved `nest:logs-range`
   modes are ignored. Each presentation keeps its selected date for the session.
   The highlighted days are the range;
   there is no range title text. At 600px or

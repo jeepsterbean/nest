@@ -5,8 +5,9 @@ import { startPointerDrag } from "../lib/pointerDrag";
 /** Ignore selector for rows built from controls, e.g. task cards. */
 export const CARD_CONTROLS =
   "button, a, input, textarea, select, [contenteditable='true']";
-const IGNORE =
-  "input, textarea, select, .pulse-visibility, .pulse-metric__remove, .menu-select, .icon-picker, .metric-icon-trigger";
+/** Controls inside sortable rows that must keep their own pointer behavior. */
+export const LIST_SORT_IGNORE =
+  "input, textarea, select, .pulse-visibility, .metric-row__remove, .metric-group__delete, .menu-select, .icon-picker, .metric-icon-trigger";
 
 type Session = {
   removeListeners: () => void;
@@ -30,7 +31,7 @@ export function useListSort(
   // can tell which lane took the drop. Negative ids are lane placeholders.
   onReorder: (ids: number[], draggedId: number, targetId: number) => void,
   /** Rows whose controls must stay clickable pass their own selector. */
-  ignore: string = IGNORE,
+  ignore: string = LIST_SORT_IGNORE,
 ) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [overId, setOverId] = useState<number | null>(null);

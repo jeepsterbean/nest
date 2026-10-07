@@ -618,9 +618,16 @@
   white-space: nowrap;
 }
 
-.range-sidebar__month {
-  padding-top: 12px;
+.range-sidebar__dates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 20px;
   border-top: 1px solid var(--border);
+}
+
+.range-sidebar__month {
   transition: opacity 0.15s;
 }
 

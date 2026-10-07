@@ -274,73 +274,71 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
 
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
-      <header className="dash-section__head">
-        <div className="dash-toolbar">
-          {taskView === "table" && (
-            <>
-              <ViewToggle
-                value={tableStatusPreset}
-                options={TASK_STATUS_PRESETS}
-                label="Task status preset"
-                onChange={(key) => {
-                  const preset = TASK_STATUS_PRESETS.find((item) => item.key === key);
-                  if (preset) setTableStatuses([...preset.statuses]);
-                }}
-              />
-              <details ref={statusFilterRef} className="task-status-filter">
-                <summary className="task-status-filter__trigger">
-                  Status{tableStatusPreset ? "" : ` (${tableStatuses.length})`}
-                  {chevronDownIcon}
-                </summary>
-                <div className="task-status-filter__menu">
-                  {TASK_STATUSES.map((status) => (
-                    <label className="task-status-filter__option" key={status}>
-                      <input
-                        type="checkbox"
-                        checked={tableStatuses.includes(status)}
-                        onChange={() =>
-                          setTableStatuses((selected) =>
-                            toggleTaskStatusFilter(selected, status),
-                          )
-                        }
-                      />
-                      <span
-                        className={`status-dot status-dot--${status}`}
-                        aria-hidden="true"
-                      />
-                      <span>{TASK_STATUS_LABEL[status]}</span>
-                      <span className="task-status-filter__count">
-                        {
-                          scopedTasks.filter((task) => task.status === status)
-                            .length
-                        }
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </details>
-              <MenuSelect
-                className="task-table-sort"
-                value={tableSort}
-                options={TASK_TABLE_SORT_OPTIONS}
-                placeholder="Sort"
-                ariaLabel="Sort tasks"
-                onChange={(value) => setTableSort(value as TaskTableSort)}
-              />
-            </>
-          )}
-          <ViewToggle
-            value={taskView}
-            options={TASK_VIEWS}
-            label="Task view"
-            onChange={(key) => {
-              writeTaskView(key);
-              setTaskView(key);
-              // The map has no scope tree, so it must not stay scope-filtered.
-              if (key === "map") setSelectedTaskScope(null);
-            }}
-          />
-        </div>
+      <header className="dash-section__head task-header">
+        <ViewToggle
+          value={taskView}
+          options={TASK_VIEWS}
+          label="Task view"
+          onChange={(key) => {
+            writeTaskView(key);
+            setTaskView(key);
+            // The map has no scope tree, so it must not stay scope-filtered.
+            if (key === "map") setSelectedTaskScope(null);
+          }}
+        />
+        {taskView === "table" && (
+          <div className="dash-toolbar task-header__filters">
+            <ViewToggle
+              value={tableStatusPreset}
+              options={TASK_STATUS_PRESETS}
+              label="Task status preset"
+              onChange={(key) => {
+                const preset = TASK_STATUS_PRESETS.find((item) => item.key === key);
+                if (preset) setTableStatuses([...preset.statuses]);
+              }}
+            />
+            <details ref={statusFilterRef} className="task-status-filter">
+              <summary className="task-status-filter__trigger">
+                Status{tableStatusPreset ? "" : ` (${tableStatuses.length})`}
+                {chevronDownIcon}
+              </summary>
+              <div className="task-status-filter__menu">
+                {TASK_STATUSES.map((status) => (
+                  <label className="task-status-filter__option" key={status}>
+                    <input
+                      type="checkbox"
+                      checked={tableStatuses.includes(status)}
+                      onChange={() =>
+                        setTableStatuses((selected) =>
+                          toggleTaskStatusFilter(selected, status),
+                        )
+                      }
+                    />
+                    <span
+                      className={`status-dot status-dot--${status}`}
+                      aria-hidden="true"
+                    />
+                    <span>{TASK_STATUS_LABEL[status]}</span>
+                    <span className="task-status-filter__count">
+                      {
+                        scopedTasks.filter((task) => task.status === status)
+                          .length
+                      }
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </details>
+            <MenuSelect
+              className="task-table-sort"
+              value={tableSort}
+              options={TASK_TABLE_SORT_OPTIONS}
+              placeholder="Sort"
+              ariaLabel="Sort tasks"
+              onChange={(value) => setTableSort(value as TaskTableSort)}
+            />
+          </div>
+        )}
       </header>
 
       {!loaded ? (
