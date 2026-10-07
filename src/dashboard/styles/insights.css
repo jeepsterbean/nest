@@ -379,7 +379,7 @@
   transform: rotate(90deg);
 }
 
-/* Metric columns line up with the Pulse row above: name, ticks, then an
+/* Metric columns line up with the Pulse row above: name, ratings, then an
  * average under the Pulse average and a gutter under the chevron. */
 .insight-pulse ul {
   display: flex;
@@ -431,23 +431,18 @@
 
 .insight-metric__ribbon {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
-  height: 11px;
-  overflow: hidden;
 }
 
-.insight-metric__tick {
-  flex: 1 1 0;
-  min-width: 3px;
-  max-width: 8px;
-  border-radius: 1px;
+.insight-metric__ribbon .rating-pill {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: 11px;
 }
-
-.insight-metric__tick--v1 { background: var(--rating-1); }
-.insight-metric__tick--v2 { background: var(--rating-2); }
-.insight-metric__tick--v3 { background: var(--rating-3); }
-.insight-metric__tick--v4 { background: var(--rating-4); }
-.insight-metric__tick--v5 { background: var(--rating-5); }
 
 @container (max-width: 720px) {
   .insights-body > .insight-list {

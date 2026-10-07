@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { DateNavigation } from "../../../src/dashboard/components/DateNavigation";
 import { DayCalendar } from "../../../src/dashboard/components/DayPicker";
 import { LogsTimeline } from "../../../src/dashboard/views/LogsTimeline";
 
@@ -26,5 +27,28 @@ describe("date navigation and empty Timeline", () => {
       onToggleDump: () => {}, nowMs, showCurrentTime,
     }));
     expect(markup.includes("logs-chrono__row--now")).toBe(showCurrentTime);
+  });
+});
+
+
+describe("shared date control", () => {
+  it("disables forward navigation on Today and includes the Brain dump shortcut", () => {
+    const markup = renderToStaticMarkup(createElement(DateNavigation, {
+      label: "Today", unit: "day", canGoNext: false,
+      onPrevious: () => {}, onNext: () => {}, onToday: () => {},
+    }));
+    expect(markup).toMatch(/aria-label="Next day" disabled=""/);
+    expect(markup).toContain('aria-label="Go to today"');
+    expect(markup).toContain('class="date-navigation__label"');
+  });
+
+  it("keeps the month picker free of a separate Today action", () => {
+    const markup = renderToStaticMarkup(createElement(DateNavigation, {
+      label: "October 2026", unit: "month", canGoPrevious: false, canGoNext: false,
+      onPrevious: () => {}, onNext: () => {},
+    }));
+    expect(markup).toMatch(/aria-label="Previous month" disabled=""/);
+    expect(markup).toMatch(/aria-label="Next month" disabled=""/);
+    expect(markup).not.toContain('aria-label="Go to today"');
   });
 });

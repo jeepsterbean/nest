@@ -6,7 +6,7 @@ export function ViewToggle<T extends string>({
   onChange,
 }: {
   value: T | null;
-  options: readonly { key: T; label: string; aria?: string }[];
+  options: readonly { key: T; label: string; aria?: string; disabled?: boolean }[];
   label: string;
   onChange: (key: T) => void;
 }) {
@@ -23,6 +23,7 @@ export function ViewToggle<T extends string>({
           }
           aria-label={option.aria}
           aria-pressed={value === option.key}
+          disabled={option.disabled}
           onClick={() => onChange(option.key)}
         >
           {option.label}

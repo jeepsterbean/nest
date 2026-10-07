@@ -11,7 +11,7 @@
 
 @media (max-width: 860px) {
   .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) 32px;
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) 24px;
     grid-template-areas:
       "name graph remove"
       "stats graph remove";
@@ -20,7 +20,7 @@
   }
 
   .pulse-metric--ordered {
-    grid-template-columns: 18px minmax(0, 1fr) minmax(110px, 150px) 32px;
+    grid-template-columns: 14px minmax(0, 1fr) minmax(110px, 150px) 24px;
     grid-template-areas:
       "handle name graph remove"
       "handle stats graph remove";

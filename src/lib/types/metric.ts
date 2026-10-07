@@ -35,8 +35,3 @@ export type MetricRatingInput = {
 export type MetricCheckInWithRatings = MetricCheckIn & {
   ratings: MetricRating[];
 };
-
-export type MetricCheckInSchedule = {
-  intervalMinutes: number;
-  nextDueAt: number;
-};

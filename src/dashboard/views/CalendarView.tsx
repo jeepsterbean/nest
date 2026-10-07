@@ -171,8 +171,7 @@ export function CalendarView({
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
         onMode={(mode) => { range.selectMode(mode); setSelected(null); }}
-        onPick={(dayMs) => { range.goToDay(dayMs); setSelected(null); }}
-        onToday={() => { range.goToday(); setSelected(null); }} />
+        onPick={(dayMs) => { range.goToDay(dayMs); setSelected(null); }} />
       <div className="dash-toolbar calendar-panel-controls">
         <ViewToggle
           value={figure}

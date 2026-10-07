@@ -10,7 +10,6 @@ import {
   reorderPulseMetrics,
   reorderPulses,
   setMetricColor,
-  setMetricCheckInInterval,
   setMetricIcon,
   setPulseIcon,
 } from "../../lib/commands";
@@ -33,7 +32,6 @@ import {
   type MetricsPane,
 } from "../lib/metricsPane";
 import { buildMetricSeries } from "../lib/timeline";
-import { formatTime } from "../lib/time";
 
 const LAST_PULSE_KEY = "nest:last-pulse-id";
 const METRIC_RANGES = [
@@ -42,8 +40,6 @@ const METRIC_RANGES = [
   { key: "3h", label: "3h", aria: "3 hours", seconds: 3 * 60 * 60 },
   { key: "1d", label: "1d", aria: "1 day", seconds: 24 * 60 * 60 },
 ] as const;
-
-const METRIC_CHECK_IN_INTERVALS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 function TrashIcon() {
   return (
@@ -60,6 +56,9 @@ function MetricTrend({ values }: { values: number[] }) {
     : null;
   return (
     <>
+      <div className="pulse-metric__graph">
+        <Sparkline values={values} />
+      </div>
       <div className="pulse-metric__stats">
         {latest === undefined ? (
           <span>No entries yet</span>
@@ -71,15 +70,12 @@ function MetricTrend({ values }: { values: number[] }) {
           </>
         )}
       </div>
-      <div className="pulse-metric__graph">
-        <Sparkline values={values} />
-      </div>
     </>
   );
 }
 
 export function MetricsView() {
-  const { metrics, pulses, checkIns, metricCheckInSchedule, mutate } = useDashboardData();
+  const { metrics, pulses, checkIns, mutate } = useDashboardData();
   const [pane, setPane] = useState<MetricsPane>(readMetricsPane);
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(null);
   const [addingPulse, setAddingPulse] = useState(false);
@@ -89,11 +85,6 @@ export function MetricsView() {
   const [hiddenPulseIds, setHiddenPulseIds] = useState(readHiddenPulseIds);
   const [metricRange, setMetricRange] = useState<(typeof METRIC_RANGES)[number]["key"]>("1d");
   const nowMs = useCurrentTime();
-  const nextMetricCheckIn = metricCheckInSchedule === null
-    ? "Loading…"
-    : metricCheckInSchedule.nextDueAt <= nowMs / 1000
-      ? "Due now"
-      : formatTime(metricCheckInSchedule.nextDueAt);
 
   const metricRename = useInlineRename({
     rename: renameMetric,
@@ -215,20 +206,6 @@ export function MetricsView() {
             label="Metrics pane"
             onChange={selectPane}
           />
-          <div className="metric-check-in-schedule">
-            <span>Metric check-in</span>
-            <MenuSelect
-              value={String(metricCheckInSchedule?.intervalMinutes ?? "")}
-              options={METRIC_CHECK_IN_INTERVALS.map((minutes) => ({
-                value: String(minutes),
-                label: `${minutes} min`,
-              }))}
-              placeholder="Interval"
-              ariaLabel="Metric check-in interval"
-              onChange={(value) => void mutate(() => setMetricCheckInInterval(Number(value)))}
-            />
-            <span>Next: {nextMetricCheckIn}</span>
-          </div>
         </div>
       </header>
 
@@ -352,16 +329,19 @@ export function MetricsView() {
             {selectedPulse ? (
               <>
                 <header className="pulse-detail__head">
-                  <IconPickerButton
-                    key={selectedPulse.id}
-                    controlClassName="pulse-icon-control"
-                    triggerClassName="pulse-icon-trigger"
-                    icon={selectedPulse.icon}
-                    label={selectedPulse.name}
-                    onChange={(icon) =>
-                      void mutate(() => setPulseIcon(selectedPulse.id, icon))
-                    }
-                  />
+                  <div className="pulse-detail__title">
+                    <IconPickerButton
+                      key={selectedPulse.id}
+                      controlClassName="pulse-icon-control"
+                      triggerClassName="pulse-icon-trigger"
+                      icon={selectedPulse.icon}
+                      label={selectedPulse.name}
+                      onChange={(icon) =>
+                        void mutate(() => setPulseIcon(selectedPulse.id, icon))
+                      }
+                    />
+                    <h2>{selectedPulse.name}</h2>
+                  </div>
                   <div className="pulse-detail__actions">
                     <ViewToggle
                       value={metricRange}

@@ -25,10 +25,11 @@ import {
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useCalendarRange } from "../hooks/useCalendarRange";
 import type { CalendarPresentation } from "../lib/insights";
-import { formatRangeDay, historyStartSec } from "../lib/time";
+import { dayLabel, historyStartSec } from "../lib/time";
+import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { LogKindToggle, LogsRawToggle } from "../components/logs/LogKindToggle";
-import { DayExportButton, LogsTimeline } from "./LogsTimeline";
+import { LogsTimeline } from "./LogsTimeline";
 
 export function LogsView({
   range,
@@ -194,13 +195,17 @@ export function LogsView({
     <section className="dash-section dash-section--timeline">
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
-        markedDays={markedDays} onMode={range.selectMode} onPick={range.goToDay} onToday={range.goToday} />
+        markedDays={markedDays} onMode={range.selectMode} onPick={range.goToDay} />
       <div className="dash-toolbar logs-toolbar">
         <div className="logs-toolbar__row">
-          <DayExportButton
-            label={formatRangeDay(selectedDayMs / 1000)}
-            dayKey={selectedDayMs}
-            onExportDay={exportDay}
+          <DateNavigation
+            label={dayLabel(selectedDayMs / 1000, nowMs)}
+            unit="day"
+            canGoPrevious={canGoBack}
+            canGoNext={!isNow}
+            onPrevious={() => step(-1)}
+            onNext={() => step(1)}
+            onToday={goToday}
           />
         </div>
         <div className="logs-toolbar__row">

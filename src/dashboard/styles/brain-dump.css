@@ -9,7 +9,7 @@
 .dash-section--brain-dump {
   display: grid;
   min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   padding: 0;
 }
@@ -26,55 +26,103 @@
 .brain-dump-section__pane:not([hidden]) {
   min-height: 0;
   overflow: auto;
-  padding: 0 24px 24px;
+  padding: 22px 24px 24px;
 }
 
 /* ---------- History ---------- */
 
 .brain-dump-history__filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
   margin: 0 0 20px;
 }
 
-.brain-dump-history__filters .menu-select {
-  width: 180px;
-}
-
-.brain-dump-history__day + .brain-dump-history__day {
-  margin-top: 24px;
-}
-
-.brain-dump-history__day-label {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+.brain-dump-history__day {
+  container: brain-dump-day / inline-size;
 }
 
 .brain-dump-history__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  align-items: start;
+  grid-auto-rows: 154px;
   gap: 14px;
 }
 
 /* The item is the sticky: text cuts off above a Tag strip pinned to its
    bottom edge. It stays overflow-visible so the Tag menu can escape it. */
 .brain-dump-history__item {
+  position: relative;
   display: flex;
   height: 154px;
+  min-width: 0;
+  min-height: 0;
   flex-direction: column;
   border: 1px solid color-mix(in srgb, var(--dump) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 6px;
   /* A lighter wash than the 36% floating sticky keeps a full grid calm. */
   background: color-mix(in srgb, var(--dump) 20%, var(--surface));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.brain-dump-history__item:hover,
+.brain-dump-history__item--composer {
+  grid-column: span 2;
+  grid-row: span 3;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--dump) 6%, var(--surface));
+  box-shadow: var(--shadow);
+}
+
+.brain-dump-history__peel {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+}
+
+/* The three dumps beside the composer share its leftover two-column track;
+   later rows pack at one cell each. */
+.brain-dump-history__item--wide {
+  grid-column: span 2;
+}
+
+/* The composer-plus-wide-dumps layout needs four 220px tracks (4 × 220 +
+   3 × 14 gap = 922px). Narrower, a span 2 would add an implicit column or
+   leave a hole beside the composer, so the composer takes the full row and
+   every dump packs at one cell. */
+@container brain-dump-day (max-width: 921px) {
+  .brain-dump-history__item--composer {
+    grid-column: 1 / -1;
+  }
+
+  .brain-dump-history__item--wide {
+    grid-column: auto;
+  }
+}
+
+.brain-dump-history__item--composer .brain-dump-surface {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Tag menus must escape the composer; the editor pane still scrolls. */
+.brain-dump-history__item--composer .brain-dump-surface__scroll {
+  overflow: visible;
+}
+
+.brain-dump-history__item--composer .brain-dump-surface__editor,
+.brain-dump-history__item--composer .brain-dump-surface__input {
+  cursor: text;
+}
+
+.brain-dump-history__item--composer .brain-dump-surface__input {
+  flex: 1 0 auto;
+}
+
+.brain-dump-history__item:hover:not(.brain-dump-history__item--composer),
 .brain-dump-history__item:has(.brain-dump-history__open:focus-visible) {
   border-color: color-mix(in srgb, var(--dump) 48%, var(--border));
   box-shadow: var(--shadow);
@@ -89,7 +137,7 @@
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-radius: 13px 13px 0 0;
+  border-radius: 5px 5px 0 0;
   outline: none;
   cursor: pointer;
 }
@@ -100,10 +148,14 @@
   background: transparent;
 }
 
+.brain-dump-history__open .saved-brain-dump > time {
+  padding-right: 28px;
+}
+
 .brain-dump-history__item .brain-dump-tags {
   flex: none;
   border-top-color: color-mix(in srgb, var(--dump) 24%, var(--border));
-  border-radius: 0 0 13px 13px;
+  border-radius: 0 0 5px 5px;
   background: color-mix(in srgb, var(--dump) 30%, var(--surface));
 }
 
@@ -117,99 +169,99 @@
   background: color-mix(in srgb, var(--dump) 18%, var(--surface));
 }
 
+.brain-dump-history__item--composer .brain-dump-tags {
+  align-self: stretch;
+  /* 0, not auto: auto top in this column leaves a dead zone that looks like
+     the editor while the caret stays on a one-line field under the header. */
+  margin: 0 -18px -18px;
+  padding: 0 8px 6px;
+  height: 36px;
+  border-top-color: color-mix(in srgb, var(--dump) 22%, var(--border));
+  border-radius: 0;
+  background: transparent;
+}
+
+.brain-dump-history__item--composer .brain-dump-tags__scroll {
+  padding: 5px 6px 3px;
+}
+
+.brain-dump-history__item--composer .brain-dump-tags__more {
+  margin-right: 2px;
+}
+
 /* Open downward: upward would be clipped by the pane for the first row. */
 .brain-dump-history__item .brain-dump-tags__menu {
   top: calc(100% + 5px);
   bottom: auto;
 }
 
-/* ---------- Tags ---------- */
+/* ---------- Day and Tag filters ---------- */
 
-.tags-view {
-  max-width: 680px;
-}
-
-.tags-view__create {
+.brain-dump-filter-tags {
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.tags-view__create input,
-.tags-view__list input {
-  min-width: 0;
   flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: none;
-  background: var(--surface);
-}
-
-.tags-view__create input:focus,
-.tags-view__list input:focus {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-
-.tags-view__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.tags-view__list li {
-  display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 7px 9px 7px 14px;
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
 }
 
-.tags-view__list li:last-child {
-  border-bottom: 0;
-}
-
-.tags-view__name {
-  min-width: 0;
+.brain-dump-filter-tags__scroll {
+  display: flex;
   flex: 1;
-  padding: 5px 0;
-  overflow: hidden;
-  border: 0;
-  background: transparent;
-  font-weight: 700;
-  text-align: left;
-  text-overflow: ellipsis;
+  min-width: 0;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.brain-dump-filter-tags .brain-dump-tag {
+  flex: none;
+  min-height: 30px;
   white-space: nowrap;
 }
 
-.tags-view__list li > span,
-.tags-view__empty {
-  color: var(--muted);
-  font-size: 12px;
+.brain-dump-filter-tags [aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 
-.tags-view__delete {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  padding: 6px;
-  place-items: center;
+.brain-dump-filter-popup {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.brain-dump-filter-popup > button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  text-align: left;
 }
 
-.tags-view__delete:hover {
-  background: color-mix(in srgb, #d64545 10%, transparent);
-  color: #b93434;
+.brain-dump-filter-popup > button:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.tags-view__delete svg {
-  width: 16px;
-  height: 16px;
+.brain-dump-filter-popup input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.brain-dump-filter-popup form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }

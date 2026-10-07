@@ -96,7 +96,8 @@ quitting, the next launch ends the stretch where it was last known live. Clickin
 leaves dashboard attention even if the Nest window is still key.
 Overview and Calendar (Calendar, Insights, and Timeline presentations):
 [`docs/time-surfaces.md`](./docs/time-surfaces.md).
-Icon and color live in the Phases pane of Core.
+Each Phase has a fixed icon and color. The Phases pane of Core explains each
+Phase; `src/dashboard/lib/phaseGuide.ts` mirrors the derivation above.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -106,23 +107,13 @@ A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
 
 **Metric**:
-A 1–5 rating scored as part of a Metric check-in. Silence on the scoring
-panel skips that Metric for the Metric check-in interval without saving a
-rating. Remaining Metrics in the Pulse can still be scored, and the Metric
-check-in stays due while any of them are left; the due dots quiet only once
-every shown Metric is silenced. Silence expires on its own; it does not hide
-a Pulse.
+A 1–5 rating scored as part of a manual Metric check-in.
 _Avoid_: mute, snooze
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
-in that Pulse is finished. Every saved Metric check-in advances the one global
-Metric check-in schedule; deleting history does not rewind it. Metrics
-controls its 15–120 minute interval in 15-minute steps and shows the
-next time. Changing that interval leaves the next time intact until the next
-Metric check-in is saved. When overdue, Metrics shows `Due now`; the Popup
-shows the Metric scoring glow and the due dot on Tasks and metrics. It
-does not open the Popup itself.
+in that Pulse is finished. Metric check-ins are manual and have no schedule
+or due state. Deleting history removes the saved record and its ratings.
 _Avoid_: Pulse check-in
 
 **Timer**:
@@ -205,8 +196,8 @@ Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Sidebar (alone — that word means the Section switcher)
 
 **Settings**:
-Dashboard configuration for Assistant, Reminders, and Background. Phase icons
-and colors live in the Phases pane of Core. Pulses and the full Metric list live
+Dashboard configuration for Assistant, Reminders, and Background. The Phases
+pane of Core explains each Phase. Pulses and the full Metric list live
 in the Metrics pane of Core. The Brain dump tile icon, Tags, and saved brain dump
 history live in the Brain dump pane of Core. The Tasks, Metrics, and Phases
 icons are picked in those panes. One Sidebar entry;

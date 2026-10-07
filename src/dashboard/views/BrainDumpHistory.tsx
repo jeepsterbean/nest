@@ -1,37 +1,116 @@
 import { useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { updateBrainDumpTags } from "../../lib/commands";
+import type { BrainDump } from "../../lib/types";
+import { trimBrainDumpDraft } from "../../lib/brainDumpDraft";
 import { BrainDumpTags } from "../components/BrainDumpTags";
-import { MenuSelect } from "../components/MenuSelect";
+import { BrainDumpFilters } from "../components/BrainDumpFilters";
+import { BrainDumpSurface } from "../components/BrainDumpSurface";
+import { floatingDraftIcon } from "../components/icons";
 import {
   SavedBrainDump,
   SavedBrainDumpPopover,
   type SavedBrainDumpPosition,
 } from "../components/SavedBrainDump";
-import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { filterBrainDumpHistory, groupBrainDumpsByDay } from "../lib/brainDumpHistory";
+import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
+import { filterBrainDumpHistory } from "../lib/brainDumpHistory";
+import { dayLabel, formatTime, startOfDayMs } from "../lib/time";
+import { selectedDayMs as resolveSelectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
+import { useBrainDumpComposer } from "../hooks/useBrainDumpComposer";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useBrainDumpsForDay } from "../hooks/useBrainDumpsForDay";
+
+function PeelToStickyButton({
+  className,
+  disabled = false,
+  onClick,
+}: {
+  className?: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-label="Make brain dump a floating draft"
+      title="Make floating draft"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {floatingDraftIcon}
+    </button>
+  );
+}
+
+function BrainDumpTodayComposer() {
+  const { tags } = useDashboardData();
+  const composer = useBrainDumpComposer();
+  const nowMs = useCurrentTime();
+  const nowSec = Math.floor(nowMs / 1000);
+
+  return (
+    <div className="brain-dump-history__item brain-dump-history__item--composer">
+      <BrainDumpSurface
+        layout="overview"
+        className="brain-dump-surface--anchored"
+        text={composer.draft.text}
+        tagIds={composer.draft.tagIds}
+        tags={tags}
+        textareaLabel="Brain dump"
+        headerStart={
+          <time
+            className="brain-dump-history-controls__submitted"
+            dateTime={new Date(nowMs).toISOString()}
+            aria-label="Current time"
+          >
+            {formatTime(nowSec)}
+          </time>
+        }
+        headerEnd={
+          <div className="brain-dump-history-controls">
+            <PeelToStickyButton
+              disabled={!trimBrainDumpDraft(composer.draft)}
+              onClick={composer.peelToFloating}
+            />
+          </div>
+        }
+        onTextChange={composer.setText}
+        onTagsChange={composer.setTagIds}
+        dismissPopupsOnOutsideInteraction
+        onKeyDown={(event) => composer.handleShortcutKeyDown(event)}
+      />
+    </div>
+  );
+}
 
 export function BrainDumpHistory() {
-  const { brainDumps, tags, loaded, mutate } = useDashboardData();
-  const [days, setDays] = useState("7");
+  const { tags, mutate } = useDashboardData();
+  const { forkToFloating } = useFloatingBrainDumpsContext();
+  const [anchorMs, setAnchorMs] = useState<number | null>(null);
   const [tagId, setTagId] = useState("");
   const [openedDump, setOpenedDump] = useState<{
-    dump: (typeof brainDumps)[number];
+    dump: BrainDump;
     position: SavedBrainDumpPosition;
   } | null>(null);
   const nowMs = useCurrentTime();
+  const selectedDayMs = resolveSelectedDayMs(anchorMs, nowMs);
+  const todayMs = startOfDayMs(nowMs / 1000);
+  const isToday = selectedDayMs === todayMs;
+  const { dumps: brainDumps, loaded } = useBrainDumpsForDay(selectedDayMs, nowMs);
   const dumps = useMemo(
-    () => filterBrainDumpHistory(brainDumps, Number(days), tagId, Date.now()),
-    [brainDumps, days, tagId, nowMs],
+    () => filterBrainDumpHistory(brainDumps, selectedDayMs, tagId),
+    [brainDumps, selectedDayMs, tagId],
   );
-  const dumpDays = useMemo(() => groupBrainDumpsByDay(dumps, nowMs), [dumps, nowMs]);
+  const selectedLabel = dayLabel(selectedDayMs / 1000, nowMs);
+  const showGrid = isToday || dumps.length > 0;
+  const showEmpty = dumps.length === 0 && (!isToday || Boolean(tagId) || !loaded);
 
-  const openDump = (dump: (typeof brainDumps)[number], event: MouseEvent<HTMLElement>) => {
+  const openDump = (dump: BrainDump, event: MouseEvent<HTMLElement>) => {
     setOpenedDump({ dump, position: { x: event.clientX, y: event.clientY } });
   };
 
-  const openDumpFromKeyboard = (dump: (typeof brainDumps)[number], event: KeyboardEvent<HTMLElement>) => {
+  const openDumpFromKeyboard = (dump: BrainDump, event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
@@ -40,27 +119,35 @@ export function BrainDumpHistory() {
 
   return (
     <div className="brain-dump-history">
-      <div className="brain-dump-history__filters">
-        <ViewToggle
-          value={days}
-          options={[{ key: "1", label: "1d" }, { key: "3", label: "3d" }, { key: "7", label: "7d" }]}
-          label="Past brain dumps range"
-          onChange={setDays}
-        />
-        <MenuSelect
-          value={tagId}
-          options={[{ value: "", label: "All tags" }, ...tags.map((tag) => ({ value: String(tag.id), label: tag.name }))]}
-          placeholder="All tags"
-          ariaLabel="Filter brain dumps by tag"
-          onChange={setTagId}
-        />
-      </div>
-      {dumpDays.map((day) => (
-        <section key={day.dayMs} className="brain-dump-history__day" aria-label={day.label}>
-          <h3 className="brain-dump-history__day-label">{day.label}</h3>
+      <BrainDumpFilters
+        dayLabel={selectedLabel}
+        onPreviousDay={() => setAnchorMs((current) => stepSelectedDay(current, -1, nowMs))}
+        onNextDay={() => setAnchorMs((current) => stepSelectedDay(current, 1, nowMs))}
+        canGoNext={selectedDayMs < todayMs}
+        onToday={() => setAnchorMs(null)}
+        tagId={tagId}
+        onTagChange={setTagId}
+      />
+      {showGrid && (
+        <section className="brain-dump-history__day" aria-label={selectedLabel}>
           <div className="brain-dump-history__grid">
-            {day.dumps.map((dump) => (
-              <div key={dump.id} className="brain-dump-history__item">
+            {isToday ? <BrainDumpTodayComposer /> : null}
+            {dumps.map((dump, index) => (
+              <div
+                key={dump.id}
+                className={`brain-dump-history__item${
+                  isToday && index < 3 ? " brain-dump-history__item--wide" : ""
+                }`}
+              >
+                <PeelToStickyButton
+                  className="event-dump__edit-title brain-dump-history__peel"
+                  onClick={() =>
+                    forkToFloating({
+                      text: dump.text,
+                      tagIds: dump.tags.map((tag) => tag.id),
+                    })
+                  }
+                />
                 <div
                   className="brain-dump-history__open"
                   role="button"
@@ -81,7 +168,7 @@ export function BrainDumpHistory() {
             ))}
           </div>
         </section>
-      ))}
+      )}
       {openedDump && (
         <SavedBrainDumpPopover
           dump={openedDump.dump}
@@ -90,8 +177,8 @@ export function BrainDumpHistory() {
           onClose={() => setOpenedDump(null)}
         />
       )}
-      {dumps.length === 0 && <p className="empty-state" role="status">
-        {loaded ? "No brain dumps in this range with these tags." : "Loading brain dumps…"}
+      {showEmpty && <p className="empty-state" role="status">
+        {loaded ? "No brain dumps on this day with these tags." : "Loading brain dumps…"}
       </p>}
     </div>
   );

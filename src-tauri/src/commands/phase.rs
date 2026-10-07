@@ -2,8 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::sync::Mutex;
 use tauri::State;
 
-use super::shared::{valid_color, valid_icon};
-use crate::error::{AppError, Result};
+use crate::error::Result;
 use crate::models::{Phase, PhaseCheckIn};
 
 pub(crate) const PHASE_COLUMNS: &str = "id, name, icon, color, created_at, inactive_since";
@@ -47,15 +46,6 @@ pub(crate) fn fetch_latest_phase_check_in(
         .optional()
         .map_err(Into::into)
 }
-pub(crate) fn fetch_phase(conn: &Connection, id: i64) -> Result<Phase> {
-    conn.query_row(
-        &format!("SELECT {PHASE_COLUMNS} FROM phases WHERE id = ?1"),
-        params![id],
-        map_phase,
-    )
-    .map_err(Into::into)
-}
-
 #[tauri::command]
 pub fn list_phases(
     state: State<'_, Mutex<Connection>>,
@@ -75,44 +65,6 @@ pub fn list_phases(
         .query_map([], map_phase)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
-}
-
-#[tauri::command]
-pub fn set_phase_icon(state: State<'_, Mutex<Connection>>, id: i64, icon: String) -> Result<Phase> {
-    if !valid_icon(&icon) {
-        return Err(AppError::InvalidInput("invalid Phase icon".into()));
-    }
-    let conn = state.lock().unwrap();
-    if conn.execute(
-        "UPDATE phases SET icon = ?1 WHERE id = ?2",
-        params![icon, id],
-    )? == 0
-    {
-        return Err(AppError::NotFound(format!("Phase {id}")));
-    }
-    fetch_phase(&conn, id)
-}
-
-#[tauri::command]
-pub fn set_phase_color(
-    state: State<'_, Mutex<Connection>>,
-    id: i64,
-    color: Option<String>,
-) -> Result<Phase> {
-    if let Some(ref value) = color {
-        if !valid_color(value) {
-            return Err(AppError::InvalidInput("invalid Phase color".into()));
-        }
-    }
-    let conn = state.lock().unwrap();
-    if conn.execute(
-        "UPDATE phases SET color = ?1 WHERE id = ?2",
-        params![color, id],
-    )? == 0
-    {
-        return Err(AppError::NotFound(format!("Phase {id}")));
-    }
-    fetch_phase(&conn, id)
 }
 
 #[tauri::command]

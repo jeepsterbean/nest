@@ -13,7 +13,7 @@ import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
 import { formatTime, startOfDayMs, toDateInput } from "./time";
-import { CALENDAR_RANGE_MODES, type CalendarRangeStore } from "./insights";
+import type { CalendarRangeStore } from "./insights";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -57,8 +57,8 @@ export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }>
   };
 
 export const LOGS_CALENDAR_RANGE_STORE: CalendarRangeStore = {
-  read: () => CALENDAR_RANGE_MODES.find((mode) => mode.key === localStorage.getItem("nest:logs-range"))?.key ?? "day",
-  write: (mode) => localStorage.setItem("nest:logs-range", mode),
+  read: () => "day",
+  write: () => {},
 };
 
 /** Distinct local day starts of a newest-first event list, newest first. */

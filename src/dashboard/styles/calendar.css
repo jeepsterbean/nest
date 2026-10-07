@@ -387,44 +387,6 @@
 
 /* ---------- Day calendar (range sidebar month) ---------- */
 
-.day-picker__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 8px;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.day-picker__head button {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.day-picker__head button:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.day-picker__head button:disabled {
-  cursor: default;
-  opacity: 0.35;
-}
-
-.day-picker__head svg {
-  width: 14px;
-  height: 14px;
-}
-
 .day-picker__grid {
   display: flex;
   flex-direction: column;
@@ -666,41 +628,6 @@
    works and switches to Day. */
 .range-sidebar__month--live:not(:hover, :focus-within) {
   opacity: 0.55;
-}
-
-.range-sidebar .day-picker__head {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.range-sidebar__today {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.range-sidebar__today:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.range-sidebar__today:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.range-sidebar__today svg {
-  width: 13px;
-  height: 13px;
 }
 
 /* Work stretch / Logs sits at the left. Insights opens as a column at the

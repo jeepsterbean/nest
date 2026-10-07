@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -12,7 +11,6 @@ import { pulseActivity } from "../lib/activityPulse";
 import { SIMPLIFIED_VIEW } from "../lib/simplifiedView";
 import {
   createTask,
-  getMetricCheckInSchedule,
   getTimerState,
   latestPhaseCheckIn,
   listMetrics,
@@ -32,7 +30,6 @@ import {
 import { subscribeTauriEvent } from "../lib/tauriListen";
 import type {
   TimerState,
-  MetricCheckInSchedule,
   Metric,
   MetricRatingInput,
   Phase,
@@ -67,13 +64,12 @@ import {
 } from "../lib/brainDumpDraft";
 import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
-import { readSilencedMetricIds } from "../lib/metricSilence";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import { assistantIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
-import { MetricCheckIn, firstScorablePulse } from "../dashboard/components/MetricCheckIn";
+import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
 import { AssistantView } from "../dashboard/views/AssistantView";
@@ -95,21 +91,10 @@ type LoadState = {
   pulses: Pulse[];
   tasks: Task[];
   timer: TimerState;
-  metricCheckInSchedule: MetricCheckInSchedule;
   tags: Tag[];
   phases: Phase[];
   latestPhase: PhaseCheckIn | null;
 };
-
-const EMPTY_SILENCE: ReadonlySet<number> = new Set();
-
-export function isMetricCheckInDue(
-  nextDueAt: number,
-  nowMs = Date.now(),
-  silencedMetricIds: ReadonlySet<number> = EMPTY_SILENCE,
-) {
-  return silencedMetricIds.size === 0 && nextDueAt <= nowMs / 1000;
-}
 
 function PlayIcon() {
   return (
@@ -505,14 +490,11 @@ export function adjacentTimerInterval(current: number, direction: -1 | 1) {
 /** Sidebar of independent panel toggles; several can be pressed at once. */
 export function PopupPanelToggles({
   visible,
-  metricDue,
   icons,
   toggleRefs,
   onToggle,
 }: {
   visible: readonly PopupPanelId[];
-  /** Tasks keeps the Metric due dot even while its panel is hidden. */
-  metricDue: boolean;
   icons: Record<TileId, string>;
   toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>>;
   onToggle: (id: PopupPanelId) => void;
@@ -524,9 +506,7 @@ export function PopupPanelToggles({
           key={id}
           ref={toggleRefs[id]}
           type="button"
-          className={`popup-tabs__tab${
-            id === "now" && metricDue ? " popup-tabs__tab--due" : ""
-          }`}
+          className="popup-tabs__tab"
           aria-label={label}
           aria-pressed={visible.includes(id)}
           aria-keyshortcuts={`Meta+${shortcutKey}`}
@@ -652,7 +632,6 @@ function PopupContent({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timerPickerOpen, setTimerPickerOpen] = useState(false);
   const [schedulingTimer, setSchedulingTimer] = useState(false);
-  const [silenceEpoch, setSilenceEpoch] = useState(0);
   // Per-summon remount: the combination comes from the saved preference, the
   // same for a manual summon and a Timer-triggered one.
   const [visiblePanels, setVisiblePanels] = useState<PopupPanelId[]>(() =>
@@ -718,19 +697,7 @@ function PopupContent({
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
-  const silencedMetricIds = useMemo(
-    () => readSilencedMetricIds(nowMs),
-    [nowMs, silenceEpoch],
-  );
   const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
-  const metricDue =
-    loaded !== null &&
-    isMetricCheckInDue(
-      loaded.metricCheckInSchedule.nextDueAt,
-      nowMs,
-      silencedMetricIds,
-    ) &&
-    firstScorablePulse(visiblePulses, silencedMetricIds) !== null;
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -775,7 +742,6 @@ function PopupContent({
       listPulses(),
       listTasks(),
       getTimerState(),
-      getMetricCheckInSchedule(),
       listTags(),
       listPhases(true),
       latestPhaseCheckIn(),
@@ -786,7 +752,6 @@ function PopupContent({
           pulses,
           tasks,
           timer,
-          metricCheckInSchedule,
           tags,
           phases,
           latestPhase,
@@ -797,7 +762,6 @@ function PopupContent({
             pulses,
             tasks,
             timer,
-            metricCheckInSchedule,
             tags,
             phases,
             latestPhase,
@@ -818,13 +782,12 @@ function PopupContent({
       void Promise.all([
         listTasks(),
         getTimerState(),
-        getMetricCheckInSchedule(),
         listTags(),
         latestPhaseCheckIn(),
-      ]).then(([tasks, timer, metricCheckInSchedule, tags, latestPhase]) => {
+      ]).then(([tasks, timer, tags, latestPhase]) => {
         setLoaded((current) =>
           current
-            ? { ...current, tasks, timer, metricCheckInSchedule, tags, latestPhase }
+            ? { ...current, tasks, timer, tags, latestPhase }
             : current,
         );
       });
@@ -1506,7 +1469,6 @@ function PopupContent({
 
       <PopupPanelToggles
         visible={visiblePanels}
-        metricDue={metricDue}
         icons={icons}
         toggleRefs={toggleRefs}
         onToggle={togglePanel}
@@ -1544,10 +1506,6 @@ function PopupContent({
           metrics={loaded.metrics}
           pulses={visiblePulses}
           submitting={submitting}
-          due={metricDue}
-          nowMs={nowMs}
-          silenceMinutes={loaded.metricCheckInSchedule.intervalMinutes}
-          onSilence={() => setSilenceEpoch((epoch) => epoch + 1)}
           emptyCopy={
             loaded.pulses.length
               ? "No pulses are shown in the popup. Turn one on in Metrics."

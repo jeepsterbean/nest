@@ -52,10 +52,8 @@ control; hiding the panel that holds focus returns focus to its toggle.
 The Metric scoring panel opens on the first Metric of the first visible Pulse.
 Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
 shown there; finishing the last Metric of a Pulse saves a Metric check-in and
-closes the popup. A Silence control beside the Metric title skips that Metric
-for the Metric check-in interval. Once nothing is left to score, the due glow
-stays off and so does the dot on Tasks and metrics, which the toggle keeps
-while its panel is hidden.
+closes the popup. Metric scoring is manual and always available; it has no
+interval, due glow, or due dot.
 
 ⌘1, ⌘2 and ⌘3 toggle Brain dump, Tasks and metrics, and Chat in sidebar
 order, including while typing in Brain dump or Chat. A held key repeats but
@@ -63,7 +61,7 @@ toggles once. None of the three is an editing chord, so Copy, Cut and Paste
 stay themselves. The chords only count when the Popup itself has the
 keystroke; with the Dashboard focused they belong to the Dashboard. Tab and
 Shift+Tab are ordinary focus navigation, the panel toggles included. Timer,
-Dashboard, task, and Silence controls are pointer-only; Metric ratings use
+Dashboard and task controls are pointer-only; Metric ratings use
 the bare 1–5 number keys, which ⌘ keeps apart from the panel chords.
 
 Opening the dashboard from the popup dismisses it.

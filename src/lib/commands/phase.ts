@@ -5,14 +5,6 @@ export function listPhases(includeInactive: boolean): Promise<Phase[]> {
   return invoke("list_phases", { includeInactive });
 }
 
-export function setPhaseIcon(id: number, icon: string): Promise<Phase> {
-  return invoke("set_phase_icon", { id, icon });
-}
-
-export function setPhaseColor(id: number, color: string | null): Promise<Phase> {
-  return invoke("set_phase_color", { id, color });
-}
-
 export function latestPhaseCheckIn(
   includeIdle = true,
 ): Promise<PhaseCheckIn | null> {

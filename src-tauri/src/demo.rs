@@ -81,7 +81,7 @@ pub fn seed(conn: &mut Connection, now: i64) -> Result<()> {
     seed_metric_check_ins(&tx, &days, cutoff, &metrics)?;
     seed_brain_dumps(&tx, &day_start, cutoff)?;
     seed_assistant_chat(&tx, &day_start)?;
-    seed_schedules(&tx, now)?;
+    seed_timer(&tx, now)?;
     tx.commit()?;
     Ok(())
 }
@@ -711,13 +711,7 @@ fn seed_assistant_chat(tx: &Transaction, day_start: &dyn Fn(i64) -> i64) -> Resu
     Ok(())
 }
 
-/// A Metric check-in comes due a few minutes in, so the Popup's scoring glow
-/// can be shown without waiting long.
-fn seed_schedules(tx: &Transaction, now: i64) -> Result<()> {
-    tx.execute(
-        "UPDATE metric_check_in_schedule SET interval_minutes = 90, next_due_at = ?1 WHERE id = 1",
-        params![now + 5 * 60],
-    )?;
+fn seed_timer(tx: &Transaction, now: i64) -> Result<()> {
     tx.execute(
         "UPDATE timer_schedule SET interval_minutes = 25, next_due_at = ?1, waiting_for_response = 0 \
          WHERE id = 1",

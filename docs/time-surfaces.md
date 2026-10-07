@@ -9,7 +9,11 @@ sidebar. The presentation is remembered in `nest:calendar-presentation`
 (Calendar when unset). Each presentation keeps its own range, so switching
 away and back restores where it was, including its selected date. These anchors
 survive Section navigation during the current dashboard session; app restarts
-open on today.
+open on today. Today follows the clock across midnight; historical dates stay
+fixed. Date selection and paging enforce the Today limit in shared navigation
+logic as well as in the controls. Direct selections clamp to loaded history;
+paging stops before a page starts outside it. The month header shares its
+arrow control with Brain dump, with fixed button positions and centered icons.
 
 The Calendar presentation offers Day and Week (Week starts Monday), anchored to real dates
 rather than measured back from now; history stops where the loaded 30 days
@@ -19,8 +23,7 @@ lives in a Section sidebar matching Core: a Last hour / Day / Week segmented
 control over an always-visible Monday-first month calendar. The calendar's
 highlight is the range, so the sidebar shows no range title text: it
 highlights the selected day or week, and Last hour highlights the dates it
-overlaps. Back to today appears below the month only when the range is away
-from now. Dates outside the loaded history and future dates are disabled;
+overlaps. Dates outside the loaded history and future dates are disabled;
 picking a date during Last hour switches to Day. The month calendar has one Tab
 stop; arrow keys move focus by a day or week, Home / End move to the week
 edges, and Enter / Space selects the focused date.
@@ -141,7 +144,9 @@ Pulse. Every Pulse is listed, including one with no check-ins in the range
 (count 0, no average). A range with no Pulses and no check-ins stays quiet.
 Each Pulse is one collapsed row (the check-in count before the Pulse name,
 including 0, and the average of all its ratings); opening it lists one line
-per Metric that was rated, with a tick per rating and that Metric's average.
+per Metric that was rated, with a compact colored number per rating and that
+Metric's average. Ratings stay in time order and wrap within their column so
+every score remains readable.
 That row clips at a live now, so a just-saved
 rating appears as soon as data reloads. Last hour does not clamp it to
 its minute-clock end. Phase mix and the task ledger stay on the shared
@@ -206,19 +211,19 @@ and double clicking the kind already alone turns all four back on. That
 selection is the same one Calendar's Logs figure uses.
 
 Timeline uses the Calendar Section sidebar: the Calendar / Timeline selector,
-then Last hour / Day / Week and an always-visible month calendar. Its range mode is remembered separately
-in `nest:logs-range`. The list contains only
-entries in that range, grouped by day, with older batches loaded as needed.
-Loaded batches stay open as Last hour advances; selecting another range resets
-the batch.
-The mini calendar dots dates with recorded entries. The toolbar retains the
-daily Export, kind filters, and Phases-only eye.
-Export covers the first day in the range and names that day; each day also has
-its own Export. Files use the Nest Timeline heading and `nest-timeline-*` name.
+then Last hour / Day / Week and an always-visible month calendar. Timeline is fixed
+to Day; Last hour and Week are disabled, and older saved range modes are ignored.
+The list contains only entries in the selected day, with older batches loaded as
+needed. Selecting another day resets the batch.
+The mini calendar dots dates with recorded entries. The toolbar shows the selected
+day with Previous day, Next day, and Go to today controls shared with Brain dump,
+followed by kind filters and the Phases-only eye. Previous day stops at loaded
+history, and Next day stops at Today. Each day's entries retain their own Export.
+Files use the Nest Timeline heading and `nest-timeline-*` name.
 A day label switches to the Calendar presentation, opens that day on its Logs
 figure, and switches Calendar's range to Day.
-Left / Right arrows page the selected Day or Week and `t` returns to Today
-while focus is outside interactive controls. Last hour follows the clock.
+Left / Right arrows page the selected day and `t` returns to Today
+while focus is outside interactive controls. Today follows the clock across midnight.
 
 The list is one day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
@@ -238,9 +243,8 @@ on; if that equals the Phase before the burst, it is omitted). Each visible day
 has an Export control that downloads a chronological Markdown timeline of every
 event type for that calendar day, regardless of the active kind filter.
 
-Each Phase has separate icon and color controls in the Phases pane of Core, with a
-broad preset palette and custom color picker; those choices drive the Greetings
-board, Calendar rail and wash, Insights mix and totals, Timeline Phase rows,
+Each Phase has a fixed icon and color (set by migration, not editable), which
+drive the Greetings board, Calendar rail and wash, Insights mix and totals, Timeline Phase rows,
 and the Timeline time column (quiet surface tone when uncolored). In Timeline and
 the Overview Timeline, each day's icons sit on a hairline through the mark
 column, from the first mark to the last. When the selected range includes now, today opens with the current time

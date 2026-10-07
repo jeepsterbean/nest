@@ -1,4 +1,3 @@
-import { RotateCcw } from "lucide-react";
 import { createPortal } from "react-dom";
 import { DayCalendar, type DayPickerProps } from "./DayPicker";
 import { ViewToggle } from "./ViewToggle";
@@ -17,7 +16,6 @@ export function DateRangeSidebar({
   onPresentation,
   onMode,
   onPick,
-  onToday,
   markedDays,
 }: {
   target: HTMLElement | null;
@@ -34,7 +32,6 @@ export function DateRangeSidebar({
   onPresentation: (presentation: CalendarPresentation) => void;
   onMode: (mode: CalendarRangeMode) => void;
   onPick: DayPickerProps["onPick"];
-  onToday: () => void;
   markedDays?: ReadonlySet<number>;
 }) {
   if (!target) return null;
@@ -52,17 +49,15 @@ export function DateRangeSidebar({
     />
     <ViewToggle
       value={range.mode}
-      options={CALENDAR_RANGE_MODES}
+      options={CALENDAR_RANGE_MODES.map((mode) => ({
+        ...mode,
+        disabled: presentation === "timeline" && mode.key !== "day",
+      }))}
       label={`${presentation === "calendar" ? "Calendar" : "Timeline"} range`}
       onChange={onMode}
     />
     <div className={`range-sidebar__month${range.live ? " range-sidebar__month--live" : ""}`}>
       <DayCalendar earliestSec={range.earliestSec} nowMs={range.nowMs} selected={selected} onPick={onPick} markedDays={markedDays} />
     </div>
-    {range.isNow ? null : (
-      <button type="button" className="range-sidebar__today" onClick={onToday}>
-        <RotateCcw aria-hidden="true" />Back to today
-      </button>
-    )}
   </>, target);
 }

@@ -9,17 +9,10 @@ import {
 } from "react";
 import {
   deleteMetricCheckIn,
-  submitBrainDump,
   submitMetricCheckIn,
 } from "../../lib/commands";
 import { readHiddenPulseIds } from "../../lib/pulseVisibility";
-import {
-  isBrainDumpPeelShortcut,
-  isBrainDumpSubmitShortcut,
-  trimBrainDumpDraft,
-  useBrainDumpDraft,
-  useRecentBrainDumpHistory,
-} from "../../lib/brainDumpDraft";
+import { useRecentBrainDumpHistory } from "../../lib/brainDumpDraft";
 import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
 import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
@@ -33,6 +26,7 @@ import {
   HISTORY_WINDOW_DAYS,
   useDashboardData,
 } from "../context/DashboardDataContext";
+import { useBrainDumpComposer } from "../hooks/useBrainDumpComposer";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { lastHourPeriod } from "../lib/insights";
@@ -95,7 +89,6 @@ export function OverviewView({
     loaded,
     mutate,
     setError,
-    metricCheckInSchedule,
   } = useDashboardData();
   const gridRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -119,9 +112,8 @@ export function OverviewView({
       window.matchMedia("(max-width: 860px)").matches,
   );
   const mainDumpRef = useRef<HTMLElement | null>(null);
-  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
-  const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const brainDumpComposer = useBrainDumpComposer();
+  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpComposer.draft;
   const [metricSubmitting, setMetricSubmitting] = useState(false);
   const brainDumpDraftRevision = `${brainDumpText}\n${brainDumpTagIds.join(",")}`;
   const brainDumpHistory = useRecentBrainDumpHistory(
@@ -156,12 +148,6 @@ export function OverviewView({
   const phasesOnly = timelineKinds.length === 1 && timelineKinds[0] === "phases";
   const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
   const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
-
-  const handleTagsChange = useCallback(
-    (tagIds: number[]) =>
-      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
-    [setBrainDumpDraft],
-  );
 
   // Same minute clock as Calendar Last hour, so the tile and Insights stay on
   // one window.
@@ -235,31 +221,6 @@ export function OverviewView({
     setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
   }, []);
 
-  const submitOverviewDump = async () => {
-    if (!trimBrainDumpDraft(brainDumpDraft) || brainDumpSubmitting) return;
-    setBrainDumpSubmitting(true);
-    const ok = await mutate(() =>
-      submitBrainDump(brainDumpDraft.text, brainDumpTagIds),
-    );
-    if (ok) {
-      setBrainDumpDraft({ text: "", tagIds: [] });
-      await brainDumpHistory.refresh();
-    }
-    setBrainDumpSubmitting(false);
-  };
-
-  const peelToFloating = useCallback(() => {
-    if (brainDumpHistory.viewingHistory) return;
-    if (forkToFloating(brainDumpDraft)) {
-      setBrainDumpDraft({ text: "", tagIds: [] });
-    }
-  }, [
-    brainDumpDraft,
-    brainDumpHistory.viewingHistory,
-    forkToFloating,
-    setBrainDumpDraft,
-  ]);
-
   const peelViewedDumpToFloating = useCallback(() => {
     const viewedDump = brainDumpHistory.viewingDump;
     if (!viewedDump) return;
@@ -280,33 +241,10 @@ export function OverviewView({
       !event.nativeEvent.isComposing
     ) {
       event.preventDefault();
-      if (!event.shiftKey) void submitOverviewDump();
+      if (!event.shiftKey) void brainDumpComposer.submit(brainDumpHistory.refresh);
       return;
     }
-    if (
-      isBrainDumpPeelShortcut({
-        key: event.key,
-        shiftKey: event.shiftKey,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        isComposing: event.nativeEvent.isComposing,
-      })
-    ) {
-      event.preventDefault();
-      peelToFloating();
-      return;
-    }
-    if (
-      isBrainDumpSubmitShortcut({
-        key: event.key,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        isComposing: event.nativeEvent.isComposing,
-      })
-    ) {
-      event.preventDefault();
-      void submitOverviewDump();
-    }
+    brainDumpComposer.handleShortcutKeyDown(event, brainDumpHistory.refresh);
   };
 
   const visiblePulses = useMemo(
@@ -494,10 +432,8 @@ export function OverviewView({
               {chrome?.action}
             </>
           }
-          onTextChange={(text) =>
-            setBrainDumpDraft((draft) => ({ ...draft, text }))
-          }
-          onTagsChange={handleTagsChange}
+          onTextChange={brainDumpComposer.setText}
+          onTagsChange={brainDumpComposer.setTagIds}
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
           dismissPopupsOnOutsideInteraction
@@ -512,8 +448,6 @@ export function OverviewView({
         metrics={metrics}
         pulses={visiblePulses}
         submitting={metricSubmitting}
-        nowMs={nowMs}
-        silenceMinutes={metricCheckInSchedule?.intervalMinutes}
         emptyCopy={
           pulses.length
             ? "No Pulses are shown. Turn one on in Settings."

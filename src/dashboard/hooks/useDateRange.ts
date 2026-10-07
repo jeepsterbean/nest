@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
   insightColumns,
@@ -6,24 +6,30 @@ import {
   stepColumns,
   type RangeModeKey,
 } from "../lib/insights";
-import { formatRangeDate, formatRangeDay, historyStartSec, shiftDayMs } from "../lib/time";
+import { formatRangeDate, formatRangeDay, historyStartSec, startOfDayMs } from "../lib/time";
+import { boundedDayMs, selectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
 import { useCurrentTime } from "./useCurrentTime";
 
 /** Date paging is independent of persisted presentation mode. */
 export function useDateRange(mode: RangeModeKey) {
-  const [anchorMs, setAnchorMs] = useState(Date.now);
+  const [anchorMs, setAnchorMs] = useState<number | null>(null);
   const nowMs = useCurrentTime();
+  // Read the clock through a ref so `step` keeps one identity across ticks and
+  // keyboard listeners that depend on it are not re-registered each minute.
+  const nowMsRef = useRef(nowMs);
+  nowMsRef.current = nowMs;
 
+  const effectiveAnchorMs = selectedDayMs(anchorMs, nowMs);
   const columns = useMemo(
-    () => insightColumns(mode, anchorMs, nowMs),
-    [mode, anchorMs, nowMs],
+    () => insightColumns(mode, effectiveAnchorMs, nowMs),
+    [mode, effectiveAnchorMs, nowMs],
   );
   const from = columns[0].from;
   const to = columns[columns.length - 1].to;
   const nowSec = Math.floor(nowMs / 1000);
   const earliestSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const canGoBack =
-    stepColumns(mode, anchorMs, -1, nowMs)[0].from >= earliestSec;
+    stepColumns(mode, effectiveAnchorMs, -1, nowMs)[0].from >= earliestSec;
   const isNow = nowSec >= from && nowSec < to;
   const lastColumn = columns[columns.length - 1];
   const title =
@@ -32,10 +38,18 @@ export function useDateRange(mode: RangeModeKey) {
       : `${formatRangeDate(from)} – ${formatRangeDate(lastColumn.from)}`;
 
   const step = useCallback((direction: number) => {
-    setAnchorMs((current) => shiftDayMs(current, direction * MODE_DAYS[mode]));
+    setAnchorMs((current) => {
+      const now = nowMsRef.current;
+      const earliest = historyStartSec(now, HISTORY_WINDOW_DAYS);
+      if (stepColumns(mode, selectedDayMs(current, now), direction, now)[0].from < earliest) return current;
+      return stepSelectedDay(current, direction * MODE_DAYS[mode], now);
+    });
   }, [mode]);
-  const goToday = useCallback(() => setAnchorMs(Date.now()), []);
-  const goToDay = useCallback((dayMs: number) => setAnchorMs(dayMs), []);
+  const goToday = useCallback(() => setAnchorMs(null), []);
+  const goToDay = useCallback((dayMs: number) => {
+    const bounded = boundedDayMs(dayMs, nowMs, earliestSec);
+    setAnchorMs(bounded === startOfDayMs(nowMs / 1000) ? null : bounded);
+  }, [nowMs, earliestSec]);
 
   return {
     mode,

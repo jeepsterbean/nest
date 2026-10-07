@@ -208,14 +208,15 @@ function MetricRibbon({ metric }: { metric: InsightMetricRow }) {
       <span
         className="insight-metric__ribbon"
         role="img"
-        aria-label={`${metric.values.length} ratings`}
+        aria-label={`${metric.values.length} ratings: ${metric.values.join(", ")}`}
       >
         {metric.values.map((value, index) => (
           <span
             key={`${metric.metricId}-${index}`}
-            className={`insight-metric__tick insight-metric__tick--v${value}`}
-            title={String(value)}
-          />
+            className={`rating-pill rating-pill--v${value}`}
+          >
+            {value}
+          </span>
         ))}
       </span>
       <span className="insight-metric__avg">{metric.average.toFixed(1)}</span>

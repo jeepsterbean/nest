@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   Metric,
   MetricCheckIn,
-  MetricCheckInSchedule,
   MetricCheckInWithRatings,
   MetricRatingInput,
   Pulse,
@@ -89,14 +88,4 @@ export function listMetricCheckIns(
 
 export function deleteMetricCheckIn(id: number): Promise<void> {
   return invoke("delete_metric_check_in", { id });
-}
-
-export function getMetricCheckInSchedule(): Promise<MetricCheckInSchedule> {
-  return invoke("get_metric_check_in_schedule");
-}
-
-export function setMetricCheckInInterval(
-  minutes: number,
-): Promise<MetricCheckInSchedule> {
-  return invoke("set_metric_check_in_interval", { minutes });
 }

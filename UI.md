@@ -92,11 +92,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   kept from before the sidebar) and the selection with its edited flag in
   `nest:overview-layout-selection`. Tiles
   stack by stored y/x order below 861px, where drag and resize are disabled.
-  `MetricCheckIn` is shared with the Popup. The Metric title carries
-  `.metric-step__silence`, a pointer-only control that skips that Metric for
-  the Metric check-in interval (`nest:silenced-metrics`); the due glow drops
-  only when the Pulse has no Metric left to score. The read-only Tasks peek
-  uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. The
+  `MetricCheckIn` is shared with the Popup for manual scoring. The read-only
+  Tasks peek uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. The
   Overview Timeline tile uses `LogsTimeline` for the same 30-day history as
   Calendar's Timeline presentation, with `dayChrome` on when expanded, the same
   `.logs-kind-filter` chips and Phases-only `.logs-raw-toggle` (kinds start as
@@ -148,7 +145,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `useScrollOverflow`; an empty group is dimmed and disabled), and
   `.insight-pulses` (`.insight-pulse__toggle` disclosure per Pulse:
   `.insight-pulse__count` before `.insight-pulse__name`, then average,
-  over one-line `.insight-metric` rows). It shares Calendar's range in
+  over `.insight-metric` rows with a wrapping `.insight-metric__ribbon` of
+  compact shared `.rating-pill` scores and a right-aligned average). It shares Calendar's range in
   `nest:date-range` (Day, Week, or Last hour; Day when unset; also reads
   legacy `nest:insights-range`), picked in the range sidebar.
 - Timeline presentation: `.dash-section--timeline` with multi-select filter chips
@@ -166,7 +164,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `scale` from the retired List / Hours switch is ignored) and is shared with
   Calendar's Logs figure. The
   toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: the selected day's
-  `.day-group__export`, then the filter chips and the Phases-only eye. The list is `.logs-chrono`
+  `DateNavigation` (Previous day, Next day, Go to today), then the filter chips and the Phases-only eye. The list is `.logs-chrono`
   (`LogsTimeline`), without Phase totals. Day labels are `.day-group__open` buttons that open that day on Calendar's Logs figure,
   and groups follow the selected date range. Task lifecycle
   rows and Working now boundaries use the configured Tasks icon as their timeline
@@ -233,9 +231,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   grid with the Timer across the top (`grid-column: 1 / -1`) and a 48px
   `.popup-tabs` strip on the left. The strip holds one toggle per panel, each
   `aria-pressed` for its own panel, so any of the eight combinations can be
-  showing. Tasks and metrics keeps `.popup-tabs__tab--due` for the Metric
-  check-in dot even while its panel is hidden; silencing every shown Metric
-  clears it. Panels are `.popup-pane` in one grid row, placed left to right in
+  showing. Panels are `.popup-pane` in one grid row, placed left to right in
   DOM order: Brain dump, Tasks and metrics, Chat.
   The element's own `grid-template-columns` is `48px repeat(n, minmax(0, 1fr))`
   for the n visible panels, so they split the width evenly;
@@ -247,14 +243,24 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
 - Metrics: `.dash-section--metrics` with Pulses / Metrics panes via shared
-  `ViewToggle` and a `.dash-section__tile-icon` picker for the `metrics` slot.
-  Last pane is stored in `nest:metrics-pane` (Pulses when unset). Panes stay
-  mounted in `.metrics-section__pane` through `hidden` so Pulse selection and
-  an unsent Metric name survive switches.
-- Phases: `.dash-section--phases` with a `.dash-section__tile-icon` picker for
-  the `phases` slot (no Overview tile, and not the Core Sidebar icon) and the
-  Phase appearance list.
-  Phase appearance uses `--phase-color` / `--colored` on the Greetings board,
+  `ViewToggle`; its icon is picked from the Core Sidebar. Last pane is stored
+  in `nest:metrics-pane` (Pulses when unset). Panes stay mounted in
+  `.metrics-section__pane` through `hidden` so Pulse selection and an unsent
+  Metric name survive switches. `.pulse-detail__title` names the selected
+  Pulse beside its icon. Metric rows (`.pulse-metric`, 46px) read name,
+  sparkline, then latest / average / entries, and cap at 760px so the stats
+  stay near the name on wide windows. A too-short series draws a dashed
+  `.sparkline--empty` baseline, since the stats already say so. Remove (×)
+  shows on row hover or focus.
+- Phases: `.dash-section--phases` is a read-only `.phase-guide`: an intro on
+  how Phase is derived and one bordered `.phase-list` (`<ol>` as Doing,
+  Scoping, Resting, Offline from `src/dashboard/lib/phaseGuide.ts`). Each
+  `.phase-row` reads a 24px tinted `.phase-row__icon`, the name, and
+  `.phase-row__meaning` in the column to its right; under a 480px container the
+  meaning wraps beneath the name. The current Phase's row carries
+  `data-current`, and its icon breathes a halo in its color. Its icon is picked from the Core
+  Sidebar; Phases has no Overview tile.
+  Phase appearance uses `--phase-color` on the Phases list, Greetings board,
   Calendar rail and wash, Insights mix and totals, and Timeline Phase rows.
 - Settings: `.dash-section--settings` with Assistant / Reminders / Background
   panes via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
@@ -294,14 +300,34 @@ and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
 read-only sticky positioned 12px to the right of the opening cursor and centered
 on its y-coordinate. It closes on an outside click or Escape.
 The Brain dump pane of Core (`BrainDumpView`, `.dash-section--brain-dump`) has a
-head with a History / Tags `ViewToggle`. The Core navigation rail holds its
-Overview tile icon picker. The last pane is stored in `nest:brain-dump-pane` (History when
-unset). Both panes stay mounted in `.brain-dump-section__pane` through `hidden`
-so History filters and an unsent Tag name survive switches.
-`BrainDumpHistory` has range/tag controls and groups previews under local-day
-labels (`.brain-dump-history__day`), each with a responsive
+single History surface in `.brain-dump-section__pane`. The Core navigation rail
+holds its Overview tile icon picker. `BrainDumpHistory` defaults to Today;
+previous/next arrows navigate local calendar days, and a double-forward
+chevron returns to Today. Next day is disabled on Today; navigation is capped
+at Today. `.brain-dump-filter-tags__scroll`
+holds all Tag filters and All tags on a separate row below the day navigator;
+Add tag stays pinned alongside it. `DateNavigation` is shared with the
+Calendar/Timeline month picker: centered 14px chevrons in 26px buttons, common
+focus/disabled styles, and stationary arrow positions. The day label occupies
+a fixed 220px; the month label fills the fixed sidebar width between arrows.
+Only Brain dump supplies the optional double-forward Today action.
+Tag context menus support right-click and Shift+F10, with Rename and Delete.
+The menus and Tag name forms use a portal under `.dashboard` to escape
+scrolling containers while inheriting the opaque light/dark theme surfaces.
+The selected day has a responsive
 `.brain-dump-history__grid` of 154px-tall `.brain-dump-history__item` stickies
-in a light `--dump` wash; inside a day, previews show only the time. Text cuts
+in a light `--dump` wash; inside a day, previews show only the time. On Today,
+`.brain-dump-history__item--composer` spans two columns and three rows and
+holds a writeable `BrainDumpSurface` (`layout="overview"`) that shares the
+Overview/popup draft. Its frame, editor padding, and Tag strip match the
+Overview dump tile; saved history stickies, floating drafts, docked Note Board
+rows, the Note Board frame, and `SavedBrainDump` / its popover use that same
+6px corner radius. The header shows the live clock time on the left and a
+control that peels the live draft on the right. Each saved dump has
+`.brain-dump-history__peel` at the top right to copy it into a floating draft.
+The next three dumps use `.brain-dump-history__item--wide` (two columns, one
+row); later dumps are single cells. Past days keep the dump grid only.
+Text cuts
 off inside `.brain-dump-history__open`, which opens the same cursor-positioned
 sticky, above a `BrainDumpTags` strip pinned to the bottom edge
 (`selectedOnly`): the dump's Tags as static chips in a sideways-scrolling row,
@@ -319,9 +345,10 @@ surfaces or editor dependencies, use the
   `nest:calendar-presentation`, a full-width Last hour / Day / Week
   `ViewToggle`, and the inline `DayCalendar`
   with a muted month header (faded in Last hour until hovered; Timeline dots
-  `.has-entries` days), and a `Back to today` text action shown only away from
-  now. Calendar and Timeline remember their ranges independently in
-  `nest:date-range` and `nest:logs-range`. The highlighted days are the range;
+  `.has-entries` days). Calendar remembers its range in `nest:date-range`.
+  Timeline stays on Day, with Last hour and Week disabled; saved `nest:logs-range`
+  modes are ignored. Each presentation keeps its selected date for the session.
+  The highlighted days are the range;
   there is no range title text. At 600px or
   less the range controls move above the content beside the main Sidebar.
   `.calendar-panel-controls` holds a Work stretch / Logs `ViewToggle` at the

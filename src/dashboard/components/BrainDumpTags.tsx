@@ -19,7 +19,7 @@ export function composerTags(tags: Tag[], selectedIds: number[]) {
   return [...selected, ...recent];
 }
 
-// Shared by both composers: while browsing a saved dump, show its own tags
+// Shared by the composers: while browsing a saved dump, show its own tags
 // read-only instead of the live tag list/draft selection.
 export function useComposerTagProps(
   tags: Tag[],

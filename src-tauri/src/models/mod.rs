@@ -12,8 +12,7 @@ pub use assistant::{
 };
 pub use brain_dump::{BrainDump, BrainDumpTag, Tag};
 pub use metric::{
-    Metric, MetricCheckIn, MetricCheckInSchedule, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Pulse,
+    Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput, Pulse,
 };
 pub use phase::{Phase, PhaseCheckIn};
 pub use reminder::Reminder;

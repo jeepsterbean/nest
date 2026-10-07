@@ -1,6 +1,6 @@
 /* ---------- Logs toolbar ---------- */
 
-/* Two stable rows: the selected day's export above, the kind filter below. */
+/* Two stable rows: day navigation above, the kind filter below. */
 .logs-toolbar {
   flex-direction: column;
   align-items: stretch;

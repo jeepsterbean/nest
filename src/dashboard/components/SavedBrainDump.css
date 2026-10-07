@@ -5,7 +5,7 @@
   min-width: 0;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--dump) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--dump) 36%, var(--surface));
   color: var(--ink);
   font-size: 12.6px;
@@ -58,7 +58,7 @@
   max-height: min(320px, calc(100dvh - 32px));
   padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: 6px;
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: auto;

@@ -50,7 +50,7 @@ describe("simplified view", () => {
     expect(togglePopupPanel(["dump"], "assistant")).toEqual(["dump"]);
     expect(popupAssistantMounted(["assistant"], true)).toBe(false);
     const html = renderToStaticMarkup(createElement(PopupPanelToggles, {
-      visible: ["dump"], metricDue: false, icons: DEFAULT_TILE_ICONS,
+      visible: ["dump"], icons: DEFAULT_TILE_ICONS,
       toggleRefs: {
         dump: createRef<HTMLButtonElement>(),
         now: createRef<HTMLButtonElement>(),

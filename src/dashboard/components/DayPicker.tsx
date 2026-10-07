@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DateNavigation } from "./DateNavigation";
 import {
   canShowEarlierMonth,
   canShowLaterMonth,
@@ -60,25 +60,11 @@ export function DayCalendar({ earliestSec, nowMs, selected, onPick, markedDays }
   };
   return (
     <div className="day-calendar">
-      <header className="day-picker__head">
-        <button
-          type="button"
-          aria-label="Earlier month"
-          disabled={!canShowEarlierMonth(monthMs, earliestSec)}
-          onClick={() => setMonthMs(shiftMonthMs(monthMs, -1))}
-        >
-          <ChevronLeft />
-        </button>
-        <span aria-live="polite">{monthTitle(monthMs)}</span>
-        <button
-          type="button"
-          aria-label="Later month"
-          disabled={!canShowLaterMonth(monthMs, nowMs)}
-          onClick={() => setMonthMs(shiftMonthMs(monthMs, 1))}
-        >
-          <ChevronRight />
-        </button>
-      </header>
+      <DateNavigation label={monthTitle(monthMs)} unit="month"
+        canGoPrevious={canShowEarlierMonth(monthMs, earliestSec)}
+        canGoNext={canShowLaterMonth(monthMs, nowMs)}
+        onPrevious={() => setMonthMs(shiftMonthMs(monthMs, -1))}
+        onNext={() => setMonthMs(shiftMonthMs(monthMs, 1))} />
       <div className="day-picker__grid" role="grid" aria-label={monthTitle(monthMs)}>
         <div className="day-picker__week" role="row">
           {WEEKDAY_INITIALS.map((initial, index) => (

@@ -1,93 +1,50 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { setPhaseColor, setPhaseIcon } from "../../lib/commands";
-import { MetricColorPicker } from "../components/MetricColorPicker";
-import { IconPickerButton, NestIcon } from "../components/PulseIcon";
+import type { CSSProperties } from "react";
+import { NestIcon } from "../components/PulseIcon";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { phaseMeaning, phasesInGuideOrder } from "../lib/phaseGuide";
 
 export function PhasesView() {
-  const { phases, mutate } = useDashboardData();
-  const [colorPickerPhaseId, setColorPickerPhaseId] = useState<number | null>(
-    null,
+  const { phases, latestPhase } = useDashboardData();
+  const activePhases = phasesInGuideOrder(
+    phases.filter((phase) => phase.inactiveSince === null),
   );
-  // Held by the color control that owns the open picker, so a press on its
-  // row's icon trigger or another row's controls closes it.
-  const openColorControlRef = useRef<HTMLDivElement | null>(null);
-  const activePhases = phases.filter((phase) => phase.inactiveSince === null);
-
-  useEffect(() => {
-    if (colorPickerPhaseId === null) return;
-    const closePicker = (event: PointerEvent) => {
-      if (!openColorControlRef.current?.contains(event.target as Node)) {
-        setColorPickerPhaseId(null);
-      }
-    };
-    document.addEventListener("pointerdown", closePicker);
-    return () => document.removeEventListener("pointerdown", closePicker);
-  }, [colorPickerPhaseId]);
+  const currentPhaseId = latestPhase?.phaseId ?? null;
 
   return (
     <section className="dash-section dash-section--phases">
       <div className="dash-section__body">
-        <div className="phase-settings">
-          <ul className="phase-settings__list">
-            {activePhases.map((phase) => (
-              <li
-                key={phase.id}
-                className={`phase-settings__row${
-                  phase.color ? " phase-settings__row--colored" : ""
-                }`}
-                style={
-                  phase.color
-                    ? ({ "--phase-color": phase.color } as CSSProperties)
-                    : undefined
-                }
-              >
-                <div className="phase-settings__controls">
-                  <IconPickerButton
-                    icon={phase.icon}
-                    label={phase.name}
-                    onChange={(icon) =>
-                      void mutate(() => setPhaseIcon(phase.id, icon))
-                    }
-                  />
-                  <div
-                    className="phase-settings__color-control"
-                    ref={
-                      colorPickerPhaseId === phase.id
-                        ? openColorControlRef
-                        : null
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="phase-settings__control phase-settings__control--color"
-                      aria-label={`Choose color for ${phase.name}`}
-                      aria-expanded={colorPickerPhaseId === phase.id}
-                      title={phase.color ?? "No color"}
-                      onClick={() =>
-                        setColorPickerPhaseId((current) =>
-                          current === phase.id ? null : phase.id,
-                        )
-                      }
-                    >
-                      <NestIcon name="palette" />
-                    </button>
-                    {colorPickerPhaseId === phase.id ? (
-                      <MetricColorPicker
-                        value={phase.color}
-                        label={`Color for ${phase.name}`}
-                        emptyLabel="No color"
-                        onChange={(color) =>
-                          void mutate(() => setPhaseColor(phase.id, color))
-                        }
-                      />
-                    ) : null}
-                  </div>
-                </div>
-                <strong>{phase.name}</strong>
-              </li>
-            ))}
-          </ul>
+        <div className="phase-guide">
+          <p className="phase-guide__intro">
+            Nest reads your Phase from what the Mac is doing, never from
+            anything you enter, and saves a checkpoint each time it changes.
+          </p>
+          <ol className="phase-list">
+            {activePhases.map((phase) => {
+              const meaning = phaseMeaning(phase.name);
+              return (
+                <li
+                  key={phase.id}
+                  className="phase-row"
+                  data-current={
+                    phase.id === currentPhaseId ? "true" : undefined
+                  }
+                  style={
+                    phase.color
+                      ? ({ "--phase-color": phase.color } as CSSProperties)
+                      : undefined
+                  }
+                >
+                  <span className="phase-row__icon">
+                    <NestIcon name={phase.icon} />
+                  </span>
+                  <span className="phase-row__name">{phase.name}</span>
+                  {meaning ? (
+                    <p className="phase-row__meaning">{meaning}</p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
         </div>
       </div>
     </section>

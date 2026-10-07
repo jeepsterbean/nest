@@ -6,65 +6,10 @@ use tauri::State;
 use super::shared::{valid_color, valid_icon};
 use crate::error::{AppError, Result};
 use crate::models::{
-    Metric, MetricCheckIn, MetricCheckInSchedule, MetricCheckInWithRatings, MetricRating,
-    MetricRatingInput, Pulse,
+    Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput, Pulse,
 };
 use crate::time::now_unix_secs;
 
-pub(crate) const METRIC_CHECK_IN_INTERVAL_MINUTES: i64 = 15;
-pub(crate) const METRIC_CHECK_IN_MAX_INTERVAL_MINUTES: i64 = 120;
-
-pub(crate) fn validate_metric_check_in_interval(minutes: i64) -> Result<i64> {
-    if (METRIC_CHECK_IN_INTERVAL_MINUTES..=METRIC_CHECK_IN_MAX_INTERVAL_MINUTES)
-        .contains(&minutes)
-        && minutes % METRIC_CHECK_IN_INTERVAL_MINUTES == 0
-    {
-        Ok(minutes)
-    } else {
-        Err(AppError::InvalidInput(
-            "Metric check-in interval must be 15 to 120 minutes in 15-minute steps".into(),
-        ))
-    }
-}
-
-pub(crate) fn metric_check_in_schedule(conn: &Connection) -> Result<MetricCheckInSchedule> {
-    conn.query_row(
-        "SELECT interval_minutes, next_due_at FROM metric_check_in_schedule WHERE id = 1",
-        [],
-        |row| {
-            Ok(MetricCheckInSchedule {
-                interval_minutes: row.get(0)?,
-                next_due_at: row.get(1)?,
-            })
-        },
-    )
-    .map_err(Into::into)
-}
-
-pub(crate) fn advance_metric_check_in_schedule(tx: &Transaction<'_>, now: i64) -> Result<()> {
-    let interval_minutes: i64 = tx.query_row(
-        "SELECT interval_minutes FROM metric_check_in_schedule WHERE id = 1",
-        [],
-        |row| row.get(0),
-    )?;
-    tx.execute(
-        "UPDATE metric_check_in_schedule SET next_due_at = ?1 WHERE id = 1",
-        params![now + interval_minutes * 60],
-    )?;
-    Ok(())
-}
-
-pub(crate) fn update_metric_check_in_interval(
-    conn: &Connection,
-    minutes: i64,
-) -> Result<MetricCheckInSchedule> {
-    let minutes = validate_metric_check_in_interval(minutes)?;
-    conn.execute(
-        "UPDATE metric_check_in_schedule SET interval_minutes = ?1 WHERE id = 1",
-        params![minutes],
-    )?;
-    metric_check_in_schedule(conn)
-}
 pub(crate) const METRIC_COLUMNS: &str = "id, name, icon, created_at, color";
 pub(crate) fn map_metric(row: &Row<'_>) -> rusqlite::Result<Metric> {
     Ok(Metric {
@@ -456,25 +401,8 @@ pub fn submit_metric_check_in(
     let tx = conn.transaction()?;
     let now = now_unix_secs();
     let check_in = record_metric_check_in(&tx, pulse_id, &ratings, now)?;
-    advance_metric_check_in_schedule(&tx, now)?;
     tx.commit()?;
     Ok(check_in)
-}
-
-#[tauri::command]
-pub fn get_metric_check_in_schedule(
-    state: State<'_, Mutex<Connection>>,
-) -> Result<MetricCheckInSchedule> {
-    metric_check_in_schedule(&state.lock().unwrap())
-}
-
-#[tauri::command]
-pub fn set_metric_check_in_interval(
-    state: State<'_, Mutex<Connection>>,
-    minutes: i64,
-) -> Result<MetricCheckInSchedule> {
-    let conn = state.lock().unwrap();
-    update_metric_check_in_interval(&conn, minutes)
 }
 
 #[tauri::command]
@@ -699,31 +627,5 @@ mod tests {
             .collect::<rusqlite::Result<_>>()
             .unwrap();
         assert_eq!(ratings, vec![(10, 4), (11, 2)]);
-    }
-
-    #[test]
-    fn metric_check_in_schedule_advances_with_its_saved_interval() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
-        let initial = metric_check_in_schedule(&conn).unwrap();
-        let updated = update_metric_check_in_interval(&conn, 120).unwrap();
-        assert_eq!(updated.interval_minutes, 120);
-        assert_eq!(updated.next_due_at, initial.next_due_at);
-
-        let tx = conn.transaction().unwrap();
-        advance_metric_check_in_schedule(&tx, 1_000).unwrap();
-        tx.commit().unwrap();
-
-        let next_due_at: i64 = conn
-            .query_row(
-                "SELECT next_due_at FROM metric_check_in_schedule WHERE id = 1",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(next_due_at, 8_200);
-        assert!(validate_metric_check_in_interval(15).is_ok());
-        assert!(validate_metric_check_in_interval(120).is_ok());
-        assert!(validate_metric_check_in_interval(125).is_err());
     }
 }

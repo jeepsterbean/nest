@@ -581,7 +581,9 @@
 }
 
 .brain-dump-surface--overview .brain-dump-surface__input {
-  padding: 0;
+  /* Keep 1px so WKWebView can paint an empty-line caret. The editor clips
+     overflow-x, and a caret on that edge disappears while focus stays. */
+  padding: 0 1px;
 }
 
 .brain-dump-surface--overview > .brain-dump-surface__scroll > .brain-dump-tags {
@@ -603,7 +605,7 @@
   pointer-events: auto;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, #ece5d8 20%, #2d251e);
-  border-radius: 14px;
+  border-radius: 6px;
   background:
     repeating-linear-gradient(
       0deg,
@@ -743,7 +745,7 @@
   height: 200px;
   pointer-events: auto;
   border: 1px solid color-mix(in srgb, var(--sticky-tint) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 6px;
   /* Paper wash strong enough to read as a real sticky tint. */
   --sticky-tint: var(--dump);
   background: color-mix(in srgb, var(--sticky-tint) 36%, var(--surface));
@@ -764,7 +766,7 @@
   min-width: 0;
   height: 28px;
   flex: none;
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: none;
 }
 

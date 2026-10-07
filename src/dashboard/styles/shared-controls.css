@@ -283,8 +283,13 @@
   transition: background 0.15s, color 0.15s;
 }
 
-.view-toggle__btn:hover {
+.view-toggle__btn:hover:not(:disabled) {
   color: var(--ink);
+}
+
+.view-toggle__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .view-toggle__btn:focus-visible {
@@ -424,4 +429,69 @@
 .btn-accent:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Date navigation keeps arrows stationary while labels change. */
+.date-navigation {
+  display: flex;
+  flex: none;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.date-navigation__label {
+  width: 220px;
+  flex: none;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-navigation--month {
+  width: 100%;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.date-navigation--month .date-navigation__label {
+  width: 0;
+  flex: 1;
+}
+
+.date-navigation button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  line-height: 1;
+}
+
+.date-navigation button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.date-navigation button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.date-navigation button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.date-navigation button svg {
+  width: 14px;
+  height: 14px;
 }

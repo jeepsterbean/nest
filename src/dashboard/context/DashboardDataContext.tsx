@@ -11,7 +11,6 @@ import {
 import { subscribeTauriEvent } from "../../lib/tauriListen";
 import {
   getTimerState,
-  getMetricCheckInSchedule,
   latestPhaseCheckIn,
   listBrainDumps,
   listMetricCheckIns,
@@ -39,7 +38,6 @@ import type {
   TaskStatusEvent,
   TaskWorkStretch,
   TimerState,
-  MetricCheckInSchedule,
   Tag,
 } from "../../lib/types";
 import { buildScopeTree, type ScopeTree } from "../lib/scope";
@@ -65,7 +63,6 @@ export type DashboardData = {
   reminders: Reminder[];
   latestPhase: PhaseCheckIn | null;
   timerState: TimerState | null;
-  metricCheckInSchedule: MetricCheckInSchedule | null;
   scopeTree: ScopeTree;
   loaded: boolean;
   error: string | null;
@@ -95,8 +92,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [timerState, setTimerState] =
     useState<TimerState | null>(null);
-  const [metricCheckInSchedule, setMetricCheckInSchedule] =
-    useState<MetricCheckInSchedule | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const reloadRequest = useRef(0);
@@ -107,7 +102,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = historyStartSec(now * 1000, HISTORY_WINDOW_DAYS);
       const to = now + 1;
-      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, tags, reminders, lp, timer, metricSchedule] =
+      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, tags, reminders, lp, timer] =
         await Promise.all([
           listTasks(),
           listTaskDependencies(),
@@ -123,7 +118,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
           listReminders(),
           latestPhaseCheckIn(),
           getTimerState(),
-          getMetricCheckInSchedule(),
         ]);
       if (request !== reloadRequest.current) return;
       setTasks(t);
@@ -140,7 +134,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setReminders(reminders);
       setLatestPhase(lp);
       setTimerState(timer);
-      setMetricCheckInSchedule(metricSchedule);
     } catch (e) {
       if (request === reloadRequest.current) setError(String(e));
     } finally {
@@ -196,7 +189,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       reminders,
       latestPhase,
       timerState,
-      metricCheckInSchedule,
       scopeTree,
       loaded,
       error,
@@ -220,7 +212,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       reminders,
       latestPhase,
       timerState,
-      metricCheckInSchedule,
       scopeTree,
       loaded,
       error,

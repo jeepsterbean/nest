@@ -1,10 +1,8 @@
 export function Sparkline({ values }: { values: number[] }) {
+  // The row's stats already say how many entries exist, so a too-short
+  // series draws only a quiet baseline instead of repeating that in words.
   if (values.length < 2) {
-    return (
-      <div className="sparkline sparkline--empty">
-        {values.length === 1 ? "First entry logged" : "No entries yet"}
-      </div>
-    );
+    return <div className="sparkline sparkline--empty" aria-hidden="true" />;
   }
   const width = 100;
   const height = 32;
