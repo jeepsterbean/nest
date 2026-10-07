@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useId, useRef, useState, type CSSProperties } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Task } from "../../lib/types";
 import {
@@ -62,7 +62,7 @@ function InsightOutcome({ group }: { group: InsightOutcomeGroup }) {
   const overflow = useScrollOverflow(tasksRef);
   const label = INSIGHT_OUTCOME_LABEL[group.outcome];
   const isEmpty = group.rows.length === 0;
-  const tasksId = `insight-outcome-${group.outcome}`;
+  const tasksId = useId();
   const tasksClassName = [
     "insight-outcome__tasks",
     overflow.above ? "is-clipped-above" : "",
@@ -165,7 +165,7 @@ export function InsightCheckIns({ groups }: { groups: InsightPulseGroup[] }) {
 
 function InsightPulse({ group }: { group: InsightPulseGroup }) {
   const [open, setOpen] = useState(false);
-  const metricsId = `insight-pulse-${group.pulseId ?? "none"}`;
+  const metricsId = useId();
   const countLabel = `${group.checkInCount} ${
     group.checkInCount === 1 ? "check-in" : "check-ins"
   }`;

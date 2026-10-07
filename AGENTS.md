@@ -14,7 +14,7 @@ reference by default.
 | Any implementation | `.agents/standards/coding-standards.md` |
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
 | Tasks table or Map | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Logs, or Phases | `docs/time-surfaces.md` |
+| Overview, Calendar (and its Insights), Timeline, or Phases | `docs/time-surfaces.md` |
 | Metrics section, Pulses, or Metric check-in interval | `CONTEXT.md`, `UI.md` |
 | Timer or Popup | `docs/timer-popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
@@ -30,7 +30,7 @@ reference by default.
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Logs, Phases | `docs/time-surfaces.md` |
+| Overview, Calendar (and its Insights), Timeline, Phases | `docs/time-surfaces.md` |
 | Metrics section chrome, Pulses / Metrics panes | `UI.md`, `CONTEXT.md` |
 | Timer / Popup | `docs/timer-popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
@@ -126,8 +126,8 @@ each fact in its closest authoritative source and link to it elsewhere.
   `types/`, drafts, Pulse visibility, reorder).
 - Dashboard code lives under `src/dashboard/` (views, `task/`, context, lib,
   components, hooks). Popup code lives under `src/popup/`. Sections are
-  Overview, Calendar, Logs, Core, Assistant, and Settings. Calendar holds
-  Insights beside its grid. Core
+  Overview, Calendar, Core, Assistant, and Settings. Calendar switches between
+  Calendar and Timeline, and holds Insights beside Calendar. Core
   holds Brain dump, Tasks, Metrics, and Phases.
 - Keep view files thin when possible: data loading and mutation go through
   `DashboardDataContext`; pure derivations belong in `src/dashboard/lib/`.
@@ -146,8 +146,8 @@ each fact in its closest authoritative source and link to it elsewhere.
 - User-facing copy should match the calm, private tone in `.impeccable.md` and
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-  check-in. The dashboard timer due phrase `time to check in!` is the
-  exception. Popup timer UI shows countdown only. Metric check-in remains the
+  check-in. The dashboard timer due phrase is `Timer due`. Popup timer UI
+  shows countdown only. Metric check-in remains the
   saved Pulse scoring record.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options

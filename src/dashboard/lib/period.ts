@@ -1,5 +1,4 @@
 import type {
-  MetricCheckInWithRatings,
   Phase,
   Task,
   TaskStatusEvent,
@@ -12,12 +11,6 @@ export type Period = { from: number; to: number };
 
 const inPeriod = (at: number, period: Period) =>
   at >= period.from && at < period.to;
-
-export type CompletionTotals = {
-  completed: number;
-  value: number;
-  effort: number;
-};
 
 /** Tasks moved to `toStatus` inside the window, in first-move order. */
 export function tasksMovedToInPeriod(
@@ -64,33 +57,6 @@ export function cancelledInPeriod(
 ): Task[] {
   return tasksMovedToInPeriod(tasks, events, period, "cancelled");
 }
-
-/**
- * What a period actually recorded: every task with a completion event inside
- * the window. Scores are the task's current ones.
- */
-export function completionTotals(
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  period: Period,
-): CompletionTotals {
-  const totals: CompletionTotals = {
-    completed: 0,
-    value: 0,
-    effort: 0,
-  };
-  for (const task of completedInPeriod(tasks, events, period)) {
-    totals.completed += 1;
-    if (task.value !== null) totals.value += task.value;
-    if (task.effort !== null) totals.effort += task.effort;
-  }
-  return totals;
-}
-
-export const countCheckIns = (
-  checkIns: MetricCheckInWithRatings[],
-  period: Period,
-) => checkIns.filter((checkIn) => inPeriod(checkIn.createdAt, period)).length;
 
 export const phaseName = (
   phaseId: number | null,

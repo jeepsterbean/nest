@@ -5,9 +5,10 @@ import { useTileIcons } from "../hooks/useTileIcons";
 import { OVERVIEW_SETTINGS_ID, TILE_LABELS } from "../lib/overviewGrid";
 import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
-// Sidebar icons are picked on the Sidebar. Feature tiles are picked on their
-// own pane. Control panel has no other home.
+// Timeline no longer has its own Sidebar entry, and Control panel has no
+// separate pane, so Overview owns both icon choices.
 const OVERVIEW_OWNED_ICONS = [
+  "timeline",
   "controlPanel",
 ] as const satisfies readonly ConfigurableOverviewIcon[];
 

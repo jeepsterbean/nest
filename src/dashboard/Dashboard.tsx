@@ -11,6 +11,7 @@ import {
   type DashboardView,
 } from "./components/DashboardHeader";
 import { CorePaneSidebar } from "./components/CorePaneSidebar";
+import { OverviewLayoutSidebar } from "./components/OverviewLayoutSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
@@ -23,7 +24,15 @@ import { CoreView } from "./views/CoreView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
 import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
-import { openLastHourOnCalendar } from "./lib/insights";
+import {
+  openLastHourOnCalendar,
+  readCalendarPresentation,
+  writeCalendarFigure,
+  writeCalendarPresentation,
+  type CalendarPresentation,
+} from "./lib/insights";
+import { useCalendarRange } from "./hooks/useCalendarRange";
+import { LOGS_CALENDAR_RANGE_STORE } from "./lib/logs";
 import { phaseName, phaseTone } from "./lib/period";
 import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
@@ -31,11 +40,22 @@ import "./Dashboard.css";
 
 function DashboardInner() {
   const [view, setView] = useState<DashboardView>("overview");
+  const [calendarPresentation, setCalendarPresentation] =
+    useState<CalendarPresentation>(readCalendarPresentation);
+  const calendarRange = useCalendarRange();
+  const timelineRange = useCalendarRange(LOGS_CALENDAR_RANGE_STORE);
   const [corePane, setCorePane] = useState<CorePane>(readCorePane);
   const selectCorePane = useCallback((pane: CorePane) => {
     writeCorePane(pane);
     setCorePane(pane);
   }, []);
+  const selectCalendarPresentation = useCallback(
+    (presentation: CalendarPresentation) => {
+      writeCalendarPresentation(presentation);
+      setCalendarPresentation(presentation);
+    },
+    [],
+  );
   const overviewLayout = useOverviewLayout();
   const [overviewSettingsOpen, setOverviewSettingsOpen] = useState(false);
   const closeOverviewSettings = useCallback(
@@ -55,7 +75,15 @@ function DashboardInner() {
   // surface takes the top of the content area. Timer stays on the Popup.
   const showGreetings = view === "overview" && !isDoing;
   // Core panes reuse the layout rules written for their former Sections.
-  const surface = view === "core" ? corePane : view;
+  const surface =
+    view === "core"
+      ? corePane
+      : view === "calendar"
+        ? calendarPresentation
+        : view;
+  const hasRangeSidebar = view === "calendar";
+  const hasSectionSidebar = view === "core" || view === "overview" || hasRangeSidebar;
+  const [rangeSidebarTarget, setRangeSidebarTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -81,7 +109,9 @@ function DashboardInner() {
   }, []);
 
   return (
-    <main className={`dashboard${view === "core" ? " dashboard--core" : ""}`}>
+    <main
+      className={`dashboard${hasSectionSidebar ? " dashboard--section-sidebar" : ""}${hasRangeSidebar ? " dashboard--range-sidebar" : ""}`}
+    >
       {/* Provider (and sticky board) must live under .dashboard so theme
           tokens like --surface / --dump resolve on the notes. */}
       <FloatingBrainDumpsProvider>
@@ -94,6 +124,8 @@ function DashboardInner() {
         {view === "core" && (
           <CorePaneSidebar pane={corePane} onSelectPane={selectCorePane} />
         )}
+        {view === "overview" && <OverviewLayoutSidebar {...overviewLayout} />}
+        {hasRangeSidebar && <aside className="section-sidebar range-sidebar" ref={setRangeSidebarTarget} />}
         <div
           className={`dashboard__inner dashboard__inner--${surface}${
             view === "core" ? " dashboard__inner--core" : ""
@@ -101,7 +133,6 @@ function DashboardInner() {
         >
           {showGreetings && (
             <DashboardHeader
-              overviewLayout={overviewLayout}
               overviewSettings={{
                 open: overviewSettingsOpen,
                 onToggle: () => setOverviewSettingsOpen((open) => !open),
@@ -119,6 +150,8 @@ function DashboardInner() {
               }}
               onOpenLastHour={() => {
                 openLastHourOnCalendar();
+                calendarRange.selectMode("lastHour");
+                selectCalendarPresentation("calendar");
                 setView("calendar");
               }}
               overviewLayout={overviewLayout}
@@ -126,8 +159,28 @@ function DashboardInner() {
               onCloseSettings={closeOverviewSettings}
             />
           )}
-          {view === "calendar" && <CalendarView />}
-          {view === "logs" && <LogsView />}
+          {view === "calendar" && calendarPresentation === "calendar" && (
+            <CalendarView
+              sidebarTarget={rangeSidebarTarget}
+              presentation={calendarPresentation}
+              onPresentation={selectCalendarPresentation}
+              range={calendarRange}
+            />
+          )}
+          {view === "calendar" && calendarPresentation === "timeline" && (
+            <LogsView
+              range={timelineRange}
+              sidebarTarget={rangeSidebarTarget}
+              presentation={calendarPresentation}
+              onPresentation={selectCalendarPresentation}
+              onOpenLogsDay={(dayMs) => {
+                calendarRange.selectMode("day");
+                writeCalendarFigure("logs");
+                calendarRange.goToDay(dayMs);
+                selectCalendarPresentation("calendar");
+              }}
+            />
+          )}
           {view === "core" && (
             <CoreView pane={corePane} />
           )}

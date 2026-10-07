@@ -8,12 +8,12 @@ live in [`docs/editor.md`](./editor.md). CSS hooks live in [`UI.md`](../UI.md).
 
 Overview and the popup share the text and selected-tag draft, and independently
 browse the five most recent saved dumps (Cmd/Ctrl+Enter to save). Saved
-checklist boxes show their recorded state in history and Logs; edit the
+checklist boxes show their recorded state in history, Timeline, and Calendar Logs; edit the
 content by forking it into a draft.
 
 ## Saved dumps
 
-Expanding a saved dump in Logs opens a read-only sticky 12px to the right of
+Expanding a saved dump in Timeline opens a read-only sticky 12px to the right of
 the cursor, centered at its height, and it closes on an outside click or
 Escape. It has no editing or action controls; collapsible lists are unfolded
 for reading. The Brain dump pane of Core switches between two panes, History and
@@ -25,7 +25,7 @@ and measures back from the current time. Each preview pins a Tag strip to its
 bottom edge, like a sticky: its Tags scroll sideways, and the `…` menu pinned
 at the right adds or removes Tags on that saved dump right away. Tags manages Tags (add, rename,
 delete).
-Logs can edit a saved dump's Tags, and fork a saved dump into a new unsaved
+Timeline can edit a saved dump's Tags, and fork a saved dump into a new unsaved
 floating draft (text and Tags). A saved brain dump being browsed in Overview
 can also be copied into a new floating draft.
 

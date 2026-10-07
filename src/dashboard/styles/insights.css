@@ -516,53 +516,6 @@
   outline-offset: 2px;
 }
 
-.day-group__totals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.day-group__total {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.day-group__total-icon {
-  display: inline-flex;
-  flex: none;
-}
-
-.day-group__total-icon svg {
-  display: block;
-  width: 13px;
-  height: 13px;
-  stroke-width: 1.9;
-}
-
-.day-group__total--doing {
-  color: var(--doing);
-}
-
-.day-group__total--scoping {
-  color: var(--phase);
-}
-
-.day-group__total--resting,
-.day-group__total--offline,
-.day-group__total--idle,
-.day-group__total--unknown {
-  color: var(--muted);
-}
-
-.day-group__total--colored {
-  color: var(--phase-color);
-}
-
 .event__phase {
   font-size: 13px;
   font-weight: 500;

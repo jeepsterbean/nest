@@ -12,16 +12,13 @@ export type TimelineEvent =
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
   | { kind: "dump"; at: number; dump: BrainDump };
 
-/** Working-now boundaries derived from Work stretches (Logs + Overview Timeline). */
+/** Working-now boundaries derived from Work stretches (Timeline, Calendar Logs, and Overview Timeline). */
 export type WorkLogEvent =
   | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
 export type RawLogEvent = TimelineEvent | WorkLogEvent
   | { kind: "task-status"; at: number; statusEvent: TaskStatusEvent };
-/** Overview Timeline tile: happenings only. The time column's color already
- * carries the Phase in force, so Phase changes get no row of their own. */
-export type TimelineLogEvent = Exclude<RawLogEvent, { kind: "phase" }>;
 
 export type DayGroup<T extends { at: number } = TimelineEvent> = {
   key: number;
@@ -38,7 +35,7 @@ export type PhaseSession = {
 export type PhaseTotal = { phaseId: number | null; seconds: number };
 
 // Window-switching writes a checkpoint per change; bursts inside this window
-// are still settling, not a Logs-worthy beat.
+// are still settling, excluded from settled Phase rows.
 export const PHASE_SETTLE_SECONDS = 60;
 
 // Independent popup submissions can land in the same second; rank them so the

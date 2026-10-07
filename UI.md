@@ -9,7 +9,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Sections have no title; the Sidebar names the current place. The Greetings
   board greeting on Overview is not a Section title.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
-  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Logs, Section,
+  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs, Section,
   Sidebar, and Greetings board.
 - Reuse `MenuSelect`, `NestIcon`, task menus, and shared icons in
   `icons.tsx` before adding controls. Open icon pickers only through
@@ -28,7 +28,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   always omit it; Overview during Doing adds `.dashboard__inner--no-greetings`
   so content fills the area beside the Sidebar. Timer stays on the Popup.
 - Sections show no title. Top controls stay in `.dash-section__head` or a
-  sibling toolbar such as `RangeToolbar`; each Section keeps its own.
+  sibling toolbar; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere,
   for single-select only. No per-Section size overrides.
 - Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
@@ -64,25 +64,44 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   closed each launch, opens from the settings button at the end of the
   Greetings board row, and closes on its X, Escape, or a press outside it
   (so it is unreachable while Doing hides the Greetings board). It
-  configures only the Control panel icon. Sidebar Section icons are picked
+  configures the Timeline and Control panel icons. Sidebar Section icons are picked
   from the Sidebar, and feature tiles take their icon from their own pane
-  (Tasks, Brain dump, and Metrics heads; those are Core panes). The Timeline
-  tile uses the Logs Sidebar icon. Last hour always uses the shared Insights
+  (Tasks, Brain dump, and Metrics heads; those are Core panes). Timeline and
+  Control panel are configured in Overview settings. Last hour always uses the shared Insights
   mark. Choices are stored in
   `nest:overview-tile-icons`. Last hour and Control panel keep the
   default `.overview-tile__head`; the other tiles inline that icon into their
-  own header. The resize grip lives on the tile's own
-  lower-right corner. The Greetings board row carries compact saved-layout
-  controls beside the Timer: `.dash-header__layout-name` captures a snapshot
-  name and `.dash-header__layout-save` stores the current board under that
-  name, keeping up to five snapshots in `nest:overview-layout-snapshots`. Tiles
+  own header. Last hour renders Calendar's `InsightsPanel` with
+  `variant="tile"` (`.insights-body--tile`): the four `.insight-list`
+  sections sit side by side, wrap below about 11rem each, and scroll inside
+  the tile body, with the head icon top-aligned to their headings. The resize grip lives on the tile's own
+  lower-right corner. Saved grid layouts live in the Overview Section sidebar
+  (`OverviewLayoutSidebar`, `.overview-layouts`); see
+  `docs/time-surfaces.md` for the rules. Each row has a picked icon, an
+  `.overview-layouts__edited` dot on the tile corner while the selected layout
+  has unsaved changes, Save · Revert links under it, and a ⋯
+  `.overview-layouts__menu` (Rename, Delete with an in-menu confirm). The ⋯
+  stays out of the hit target until the row is hovered, focused, or open.
+  Switching away from an edited board asks first in the inline
+  `.overview-layouts__confirm`: Save and switch, or Save as new when the board
+  belongs to no layout. The dashed `.overview-layouts__add` row turns into an
+  inline name field. An outside press that finds text there saves the name
+  without activating the control under the pointer. Below 861px, fields, Save ·
+  Revert, and prompts open beside the rail. Layouts persist in
+  `nest:overview-layout-snapshots` (a key
+  kept from before the sidebar) and the selection with its edited flag in
+  `nest:overview-layout-selection`. Tiles
   stack by stored y/x order below 861px, where drag and resize are disabled.
   `MetricCheckIn` is shared with the Popup. The Metric title carries
   `.metric-step__silence`, a pointer-only control that skips that Metric for
   the Metric check-in interval (`nest:silenced-metrics`); the due glow drops
   only when the Pulse has no Metric left to score. The read-only Tasks peek
-  uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. Timeline
-  uses the same 30-day history as Logs, with `dayChrome` on when expanded.
+  uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. The
+  Overview Timeline tile uses `LogsTimeline` for the same 30-day history as
+  Calendar's Timeline presentation, with `dayChrome` on when expanded, the same
+  `.logs-kind-filter` chips and Phases-only `.logs-raw-toggle` (kinds start as
+  all four and are not stored), and no Phase totals. The chip row
+  (`.logs-kind-filter`) scrolls sideways when the tile is too narrow.
   There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
@@ -97,15 +116,16 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.floating-brain-dumps-toggle` hides or restores
   free stickies without minimising them or hiding the Note Board.
 - Calendar: `.dash-section--calendar` (container `calendar`) holds the
-  timetable `.tl` and Insights in `.calendar-body`, whose
-  `.calendar-body--both` / `--calendar` / `--insights` follows the toolbar's
-  `.calendar-display` toggle (stored in `nest:calendar-display`, Both when
-  unset). Both puts `.calendar-body__grid` and a 20rem
+  timetable `.tl` and Insights in `.calendar-body`, which gains
+  `.calendar-body--both` while the toolbar's `.calendar-insights-toggle`
+  (`aria-pressed`, right-panel glyph, inside `.calendar-panel-controls`) shows
+  Insights (stored in `nest:calendar-display`, shown when unset). Both puts
+  `.calendar-body__grid` and a 20rem
   `.calendar-body__insights` column side by side, each scrolling on its own;
-  at a Section width of 640px or less Insights moves under the grid. Week
+  at a Section width of 640px or less Insights moves under Calendar. Week
   scrolls sideways once its days fall below `--tl-day-min` (7.5rem), with
   `.tl__heads`, `.tl__corner`, and `.tl__gutter` pinned. Last hour marks its
-  window on today's Day grid with `.tl__span` in the lane and
+  window on today in Day with `.tl__span` in the lane and
   `.tl__span-mark` on the gutter.
 - Insights (inside Calendar): `.insights-body` with `.insight-mix` (one grid of four
   `.insight-mix__row` Phase rows of name and duration),
@@ -130,12 +150,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.insight-pulse__count` before `.insight-pulse__name`, then average,
   over one-line `.insight-metric` rows). It shares Calendar's range in
   `nest:date-range` (Day, Week, or Last hour; Day when unset; also reads
-  legacy `nest:insights-range`). The toolbar title is a `DayPicker`
-  (`.day-picker`, `.day-picker__panel`); Last hour hides Earlier / Later /
-  Today and marks the title `.range-nav__live`.
-- Logs: `.dash-section--logs` with multi-select filter chips
+  legacy `nest:insights-range`), picked in the range sidebar.
+- Timeline presentation: `.dash-section--timeline` with multi-select filter chips
   (`.logs-kind-filter`: Brain dumps / Phases / Metrics / Tasks; double click
-  isolates a kind). Each chip uses its kind's timeline mark color (`--phase`
+  isolates a kind; the row scrolls sideways when the toolbar is too narrow). Each chip uses its kind's timeline mark color (`--phase`
   for Phases); on chips are tinted with a filled square, off chips are dashed
   with a hollow one. Timeline marks are bare kind-colored icons on a hairline
   through the mark column, from the first icon to the last in each day (no
@@ -144,47 +162,41 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.logs-chrono__row--after-now` continues a repeating squiggle until the
   next icon. Metric ratings are flat icon + number pairs,
   so rows avoid a column of circles. `nest:logs-preferences`
-  stores `kinds` (all four when unset or stored before multi-select) and
-  `scale` (`list` when unset; not `layout`, which older storage used). The
-  toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: `RangeNav` with a
-  `DayPicker` (`markedDays` dots `.has-entries`), the selected day's
-  `.day-group__export`, and the List / Hours `ViewToggle` in
-  `.logs-toolbar__end`; then the filter chips and the List-only eye. List is `.logs-chrono`
-  (`LogsTimeline`), without Phase totals. Hours (`LogsHours`) is one day on
-  `TimelineFrame`; List day labels are `.day-group__open` buttons into Hours,
-  and groups carry `data-day-key` for the selected-day scroll; each
-  `.logs-hour` band scrolls horizontally when crowded and holds fixed-width
-  `.logs-hour__mark` buttons (Tasks tinted by
-  `--task-hue`), hover shows a `.logs-hour-card--preview` and a click pins the
-  full `.logs-hour-card`, placed by `placeStretchEditor`. Task lifecycle
+  stores `kinds` (all four when unset or stored before multi-select; a stored
+  `scale` from the retired List / Hours switch is ignored) and is shared with
+  Calendar's Logs figure. The
+  toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: the selected day's
+  `.day-group__export`, then the filter chips and the Phases-only eye. The list is `.logs-chrono`
+  (`LogsTimeline`), without Phase totals. Day labels are `.day-group__open` buttons that open that day on Calendar's Logs figure,
+  and groups follow the selected date range. Task lifecycle
   rows and Working now boundaries use the configured Tasks icon as their timeline
-  mark. The `.task-log` body shows a stronger Task title. Work starts show only
-  that title; creation adds a Plus icon. Ordinary status changes show a leading
-  middle dot, compact status badges with shared status dots, an arrow, and an
-  em dash before the title. Completion, cancellation, and work stops retain
-  muted action labels with Check, X, and Stop icons respectively. Rows wrap to
-  preserve long titles and status transitions. Phases on adds
+  mark. The `.task-log` body shows an emphasized Task title, an em dash,
+  and a compact activity badge (`Title — Activity`). Rows wrap to preserve
+  long titles. Phases on adds
   settled Phase rows and colors the time column (`colorsTimeColumn`); Phases
   off leaves it quiet. With Phases alone, an eye icon button
   (`.logs-raw-toggle`, not stored) swaps the settled rows for every checkpoint
-  in the window. The Logs icon is the `timeline` slot, picked from the Sidebar,
-  and it also heads the Overview Timeline tile.
+  in the window. The Timeline icon is the `timeline` slot, picked in Overview
+  settings, and it also heads the Overview Timeline tile.
 - Sidebar: every Section icon is a `NestIcon` from `nest:overview-tile-icons`
-  (`overview`, `calendar`, `timeline` for Logs, `core`,
-  `assistant`, `settings`). The first click selects that Section. Clicking the
+  (`overview`, `calendar`, `core`, `assistant`, `settings`). The first click selects that Section. Clicking the
   icon again while it is already selected opens `IconPickerButton`; a pick,
   Escape, or an outside press closes it. Core pane icons live in the separate
   Core navigation rail
   (slots `tasks` / `brainDump` / `metrics` / `phases`). Selecting the active
   pane again opens its icon picker. Tasks, Brain dump, and Metrics also mark
   their Overview tiles. Phases has no Overview tile.
-- Core: one main Sidebar entry. `.core-sidebar` sits between the main Sidebar
-  and `.dashboard__inner` as a quieter bordered panel under a serif `Core`
-  heading, with four icon-and-label rows (Brain dump / Tasks / Metrics /
-  Phases). Each icon sits on a tile tinted with that pane's Logs kind color
-  (`--pane-tone`: `--dump`, `--doing`, `--accent`, `--phase`); the selected
-  row is raised on `--surface` with a solid tile. Below 861px it drops the
-  heading and labels and keeps the tiles, with accessible names and tooltips.
+- Section sidebar: Core, Overview, and Calendar add a second rail, `.section-sidebar`
+  (grid class `.dashboard--section-sidebar`), between the main Sidebar and
+  `.dashboard__inner`: a quieter bordered panel under a serif Section heading
+  with `.section-nav__button` icon-and-label rows. Each icon sits on a tile
+  tinted with `--pane-tone`; the selected row is raised on `--surface` with a
+  solid tile, and selecting it again opens its icon picker. Below 861px the
+  rail drops the heading and labels and keeps the tiles, with accessible names
+  and tooltips.
+- Core: one main Sidebar entry. Its Section sidebar rows are Brain dump /
+  Tasks / Metrics / Phases, each toned with that pane's Logs kind color
+  (`--dump`, `--doing`, `--accent`, `--phase`).
   Pane headers hold their own controls. The last pane
   is stored in `nest:core-pane` (Brain dump when unset). Panes stay mounted in
   `.core-slot` through `hidden` so filters, selection, and unsent names survive
@@ -243,16 +255,16 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   the `phases` slot (no Overview tile, and not the Core Sidebar icon) and the
   Phase appearance list.
   Phase appearance uses `--phase-color` / `--colored` on the Greetings board,
-  Calendar rail and wash, Insights mix and totals, and Logs Phase rows.
+  Calendar rail and wash, Insights mix and totals, and Timeline Phase rows.
 - Settings: `.dash-section--settings` with Assistant / Reminders / Background
   panes via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
   (Assistant when unset). Panes stay mounted in `.settings-slot` through
   `hidden` so Assistant drafts survive switches.
 
-## Timeline grid
+## Calendar timetable
 
-- `TimelineFrame.tsx` owns the shared grid (gutter, rules, rail, wash, now
-  line, scroll-to-now). Calendar's `TimelineGrid` and Logs Hours draw their
+- `TimelineFrame.tsx` owns the shared Calendar chrome (gutter, rules, rail, wash, now
+  line, scroll-to-now). Calendar's `TimelineGrid` and Logs figure draw their
   figure through `renderLane`.
 - Place every span with percentage `top` / `height` from `placeOnWindow`,
   never `flex-grow`, so the figure and the Phase wash align. Percentages use
@@ -300,3 +312,24 @@ Editor ownership, synchronization, dependency findings, diagnosis, and manual
 checks live in [docs/editor.md](./docs/editor.md). For changes to editable
 surfaces or editor dependencies, use the
 [brain-dump-text-editor skill](./.agents/skills/brain-dump-text-editor/SKILL.md).
+
+- Calendar range sidebar: `.dashboard--range-sidebar` reserves a 224px
+  Section rail (200px below 861px). `.range-sidebar` holds the Section title,
+  a full-width Calendar / Timeline `ViewToggle` stored in
+  `nest:calendar-presentation`, a full-width Last hour / Day / Week
+  `ViewToggle`, and the inline `DayCalendar`
+  with a muted month header (faded in Last hour until hovered; Timeline dots
+  `.has-entries` days), and a `Back to today` text action shown only away from
+  now. Calendar and Timeline remember their ranges independently in
+  `nest:date-range` and `nest:logs-range`. The highlighted days are the range;
+  there is no range title text. At 600px or
+  less the range controls move above the content beside the main Sidebar.
+  `.calendar-panel-controls` holds a Work stretch / Logs `ViewToggle` at the
+  left (`nest:calendar-figure`, Work stretch when unset). Logs reveals the
+  kind chips. The Insights toggle stays at the right; Calendar is
+  always shown. Logs Week is one shared week: one hour gutter and a
+  column per day. Calendar Logs (`LogsHours`) draws `.logs-hour` bands on
+  `TimelineFrame`; each band scrolls horizontally when crowded and holds
+  fixed-width `.logs-hour__mark` buttons (Tasks tinted by `--task-hue`).
+  Hover shows a `.logs-hour-card--preview` and a click pins the full
+  `.logs-hour-card`, placed by `placeStretchEditor`.

@@ -114,20 +114,15 @@
     margin-left: 0;
   }
 
-  .dash-header__layouts {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .dashboard {
     grid-template-columns: 52px minmax(0, 1fr);
   }
 
-  .dashboard--core {
+  .dashboard--section-sidebar {
     grid-template-columns: 52px 54px minmax(0, 1fr);
   }
 
-  .core-sidebar {
+  .section-sidebar {
     padding: 18px 0;
   }
 

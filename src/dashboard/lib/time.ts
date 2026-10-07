@@ -66,12 +66,16 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/** Local "Fri 02/10/2026" for range toolbar titles. Fixed-width fields, unlike
- * "Today" or a spelled-out month, so paging never shifts the arrows beside it. */
-export const formatRangeDay = (tsSecs: number) => {
+/** Local "02/10/2026" for range titles. Fixed-width fields, unlike "Today" or
+ * a spelled-out month, so paging never shifts the arrows beside it. */
+export const formatRangeDate = (tsSecs: number) => {
   const d = new Date(tsSecs * 1000);
-  return `${WEEKDAY_SHORT[d.getDay()]} ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
+
+/** Local "Fri 02/10/2026" for a single-day range title. */
+export const formatRangeDay = (tsSecs: number) =>
+  `${WEEKDAY_SHORT[new Date(tsSecs * 1000).getDay()]} ${formatRangeDate(tsSecs)}`;
 
 /** Local YYYY-MM-DD for `<input type="date">`. */
 export const toDateInput = (ts: number) => {

@@ -223,26 +223,6 @@ export const placeStretchEditor = (
   };
 };
 
-/** Sum of Work stretch seconds inside [from, to). Open stretches run to now.
- * Concurrent stretches add, matching per-Task Worked time. */
-export const workedSecondsInSpan = (
-  stretches: Pick<TaskWorkStretch, "startedAt" | "endedAt">[],
-  from: number,
-  to: number,
-  nowMs: number = Date.now(),
-) => {
-  const now = Math.floor(nowMs / 1000);
-  const end = Math.min(to, now);
-  if (end <= from) return 0;
-  let total = 0;
-  for (const stretch of stretches) {
-    const spanTo = stretch.endedAt ?? now;
-    const clipped = Math.min(spanTo, end) - Math.max(stretch.startedAt, from);
-    if (clipped > 0) total += clipped;
-  }
-  return total;
-};
-
 /** Worked seconds per Task inside [from, to), busiest first. Clips each block
  * so an overnight stretch splits cleanly across calendar days. */
 export const workTotalsInSpan = (

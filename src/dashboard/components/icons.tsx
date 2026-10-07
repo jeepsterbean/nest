@@ -48,12 +48,6 @@ export const chevronRightIcon = (
   </svg>
 );
 
-export const chevronsRightIcon = (
-  <svg {...iconProps}>
-    <polyline points="6 6 12 12 6 18" />
-    <polyline points="13 6 19 12 13 18" />
-  </svg>
-);
 
 export const checkIcon = (
   <svg {...iconProps}>
@@ -77,14 +71,6 @@ export function CoreIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-export const saveLayoutIcon = (
-  <svg {...iconProps}>
-    <rect x="4" y="4" width="16" height="16" rx="3" />
-    <path d="M8 12h8" />
-    <path d="M12 8v8" />
-  </svg>
-);
 
 export function InsightsIcon(props: SVGProps<SVGSVGElement>) {
   return (

@@ -174,7 +174,7 @@ fn phase_emoji(name: &str) -> &'static str {
 /// ponytail: 1 frame/sec off the existing loop; shorten the sleep to spin faster.
 const TIMER_DUE_FRAMES: [&str; 8] = ["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗"];
 
-/// `🎯 Doing 12:34` counting down, animated clock while the check-in is due.
+/// `🎯 Doing 12:34` counting down, animated clock while the Timer is due.
 /// Countdown format matches `formatTimerCountdown` in the frontend.
 fn tray_title(phase: &str, timer: &Timer, now: i64, tick: u64) -> String {
     if timer.waiting_for_response {

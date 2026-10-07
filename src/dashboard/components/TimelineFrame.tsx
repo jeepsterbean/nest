@@ -42,7 +42,7 @@ const placeSessions = (column: FrameColumn, phases: Phase[]) =>
     };
   });
 
-/** Vertical day grid shared by Calendar and the Logs Hours layout: hours down
+/** Vertical day grid shared by Calendar's Work stretch and Logs figures: hours down
  * the gutter, one column per day. Phase is the ground — a continuous wash
  * behind the column, keyed by icon on the rail left of the hours; each caller
  * draws its own figure on top through `renderLane`. Every span is placed by

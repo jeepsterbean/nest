@@ -1,22 +1,17 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
-  CALENDAR_RANGE_STORE,
   insightColumns,
   MODE_DAYS,
   stepColumns,
   type RangeModeKey,
-  type RangeModeStore,
 } from "../lib/insights";
-import { formatRangeDay, historyStartSec, shiftDayMs } from "../lib/time";
+import { formatRangeDate, formatRangeDay, historyStartSec, shiftDayMs } from "../lib/time";
 import { useCurrentTime } from "./useCurrentTime";
 
-/** Day / Week range state plus Earlier / Later / Today paging. Calendar and
- * Logs each pass their own store, but share this so paging guards cannot
- * drift. */
-export function useDateRange(store: RangeModeStore = CALENDAR_RANGE_STORE) {
-  const [mode, setMode] = useState(store.read);
-  const [anchorMs, setAnchorMs] = useState(() => Date.now());
+/** Date paging is independent of persisted presentation mode. */
+export function useDateRange(mode: RangeModeKey) {
+  const [anchorMs, setAnchorMs] = useState(Date.now);
   const nowMs = useCurrentTime();
 
   const columns = useMemo(
@@ -34,15 +29,13 @@ export function useDateRange(store: RangeModeStore = CALENDAR_RANGE_STORE) {
   const title =
     columns.length === 1
       ? formatRangeDay(from)
-      : `${formatRangeDay(from)} – ${formatRangeDay(lastColumn.from)}`;
+      : `${formatRangeDate(from)} – ${formatRangeDate(lastColumn.from)}`;
 
-  const selectMode = (key: RangeModeKey) => {
-    setMode(key);
-    store.write(key);
-  };
-  const step = (direction: number) => {
+  const step = useCallback((direction: number) => {
     setAnchorMs((current) => shiftDayMs(current, direction * MODE_DAYS[mode]));
-  };
+  }, [mode]);
+  const goToday = useCallback(() => setAnchorMs(Date.now()), []);
+  const goToDay = useCallback((dayMs: number) => setAnchorMs(dayMs), []);
 
   return {
     mode,
@@ -55,9 +48,8 @@ export function useDateRange(store: RangeModeStore = CALENDAR_RANGE_STORE) {
     canGoBack,
     isNow,
     title,
-    selectMode,
     step,
-    goToday: () => setAnchorMs(Date.now()),
-    goToDay: (dayMs: number) => setAnchorMs(dayMs),
+    goToday,
+    goToDay,
   };
 }

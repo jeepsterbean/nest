@@ -4,7 +4,7 @@ Countdown, due behavior, and the Popup panels. Domain words live in
 [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in [`UI.md`](../UI.md).
 
 Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-check-in. The dashboard timer due phrase `time to check in!` is the exception.
+check-in. The dashboard timer due phrase is `Timer due`.
 Popup timer UI shows countdown only. Metric check-in remains the saved Pulse
 scoring record.
 

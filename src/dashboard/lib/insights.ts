@@ -9,14 +9,13 @@ import type {
   Task,
   TaskStatus,
   TaskStatusEvent,
+  TaskWorkStretch,
 } from "../../lib/types";
 
 import { resolveMetricColorFromList } from "../../lib/metricColors";
 import {
   cancelledInPeriod,
   completedInPeriod,
-  completionTotals,
-  countCheckIns,
   isQuietPhase,
   type Period,
 } from "./period";
@@ -25,7 +24,11 @@ import {
   type PhaseSession,
 } from "./timeline";
 import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
-import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
+import {
+  layoutWorkBlocks,
+  workTotalsInSpan,
+  type WorkBlock,
+} from "./workTimeline";
 
 export type InsightBrainDumpSummary = {
   count: number;
@@ -67,11 +70,15 @@ export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
 
 export const CALENDAR_RANGE_MODES = [
-  ...RANGE_MODES,
   { key: "lastHour", label: "Last hour" },
+  ...RANGE_MODES,
 ] as const;
 
 export type CalendarRangeMode = (typeof CALENDAR_RANGE_MODES)[number]["key"];
+export type CalendarRangeStore = {
+  read: () => CalendarRangeMode;
+  write: (mode: CalendarRangeMode) => void;
+};
 
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
@@ -80,6 +87,29 @@ const CALENDAR_MODE_KEYS = new Set<string>(
 );
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
+
+export const CALENDAR_PRESENTATIONS = [
+  { key: "calendar", label: "Calendar" },
+  { key: "timeline", label: "Timeline" },
+] as const;
+export type CalendarPresentation =
+  (typeof CALENDAR_PRESENTATIONS)[number]["key"];
+
+const CALENDAR_PRESENTATION_KEY = "nest:calendar-presentation";
+
+export const readCalendarPresentation = (
+  storage: Pick<Storage, "getItem"> = localStorage,
+): CalendarPresentation =>
+  storage.getItem(CALENDAR_PRESENTATION_KEY) === "timeline"
+    ? "timeline"
+    : "calendar";
+
+export const writeCalendarPresentation = (
+  presentation: CalendarPresentation,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(CALENDAR_PRESENTATION_KEY, presentation);
+};
 
 export const readCalendarRangeMode = (
   storage: RangeStorage = localStorage,
@@ -98,64 +128,50 @@ export const writeCalendarRangeMode = (
   storage.setItem(RANGE_MODE_KEY, key);
 };
 
-/** Last hour sits on today's Day grid, so its Day / Week paging reads as Day. */
-export const readRangeMode = (
-  storage: RangeStorage = localStorage,
-): RangeModeKey => {
-  const mode = readCalendarRangeMode(storage);
-  return mode === "lastHour" ? "day" : mode;
-};
+/** Whether Insights sits beside the Calendar grid. The grid itself is always
+ * shown, so the stored value is a single on/off. */
+const CALENDAR_INSIGHTS_KEY = "nest:calendar-display";
 
-/** Where one Day / Week range hook reads and saves its mode. */
-export type RangeModeStore = {
-  read: () => RangeModeKey;
-  write: (key: RangeModeKey) => void;
-};
-
-export const CALENDAR_RANGE_STORE: RangeModeStore = {
-  read: () => readRangeMode(),
-  write: (key) => writeCalendarRangeMode(key),
-};
-
-/** What Calendar shows beside its range: the grid and Insights together,
- * or either alone. */
-export const CALENDAR_DISPLAYS = [
-  { key: "both", label: "Both" },
-  { key: "calendar", label: "Calendar" },
-  { key: "insights", label: "Insights" },
-] as const;
-
-export type CalendarDisplay = (typeof CALENDAR_DISPLAYS)[number]["key"];
-
-const CALENDAR_DISPLAY_KEY = "nest:calendar-display";
-const CALENDAR_DISPLAY_KEYS = new Set<string>(
-  CALENDAR_DISPLAYS.map((item) => item.key),
-);
-
-export const readCalendarDisplay = (
+/** A missing or retired value (including the old Insights-only "insights")
+ * reads as shown, so nobody lands with the summary unexpectedly hidden. */
+export const readCalendarInsightsShown = (
   storage: Pick<Storage, "getItem"> = localStorage,
-): CalendarDisplay => {
-  const stored = storage.getItem(CALENDAR_DISPLAY_KEY);
-  return CALENDAR_DISPLAY_KEYS.has(stored ?? "")
-    ? (stored as CalendarDisplay)
-    : "both";
-};
+): boolean => storage.getItem(CALENDAR_INSIGHTS_KEY) !== "calendar";
 
-export const writeCalendarDisplay = (
-  display: CalendarDisplay,
+export const writeCalendarInsightsShown = (
+  shown: boolean,
   storage: RangeStorage = localStorage,
 ) => {
-  storage.setItem(CALENDAR_DISPLAY_KEY, display);
+  storage.setItem(CALENDAR_INSIGHTS_KEY, shown ? "both" : "calendar");
 };
 
-/** Open Calendar on Last hour with its Insights in view. A grid-only choice
- * would hide the summary the Overview tile linked to, so it widens to Both;
- * Insights alone already shows it. */
+/** Which figure the Calendar grid draws. Work stretch is the timetable of
+ * recorded work; Logs places the history icons on that same grid. */
+export const CALENDAR_FIGURES = [
+  { key: "stretch", label: "Work stretch" },
+  { key: "logs", label: "Logs" },
+] as const;
+export type CalendarFigure = (typeof CALENDAR_FIGURES)[number]["key"];
+
+const CALENDAR_FIGURE_KEY = "nest:calendar-figure";
+
+export const readCalendarFigure = (
+  storage: RangeStorage = localStorage,
+): CalendarFigure =>
+  storage.getItem(CALENDAR_FIGURE_KEY) === "logs" ? "logs" : "stretch";
+
+export const writeCalendarFigure = (
+  figure: CalendarFigure,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(CALENDAR_FIGURE_KEY, figure);
+};
+
+/** Open Calendar on Last hour with its Insights in view, since that summary is
+ * what the Overview tile linked to. */
 export const openLastHourOnCalendar = (storage: RangeStorage = localStorage) => {
   writeCalendarRangeMode("lastHour", storage);
-  if (readCalendarDisplay(storage) === "calendar") {
-    writeCalendarDisplay("both", storage);
-  }
+  writeCalendarInsightsShown(true, storage);
 };
 
 /** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
@@ -209,7 +225,7 @@ export const insightColumns = (
 };
 
 /** The page `steps` away, as its own columns. The one place paging arithmetic
- * lives, so the Earlier guard and the Earlier button cannot disagree — both
+ * lives, so date navigation and history bounds cannot disagree — both
  * move by calendar days, which a fixed 86400 would get wrong across DST. */
 export const stepColumns = (
   mode: RangeModeKey,
@@ -236,28 +252,6 @@ export const openAtPct = (
     : firstBlockPct;
 };
 
-export type OutcomeStat = { label: string; value: string };
-
-export type WindowInsight = {
-  stats: OutcomeStat[];
-  sessions: PhaseSession[];
-};
-
-export const outcomeStats = (
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  checkIns: MetricCheckInWithRatings[],
-  period: { from: number; to: number },
-): OutcomeStat[] => {
-  const totals = completionTotals(tasks, events, period);
-  return [
-    { label: "Completed", value: String(totals.completed) },
-    { label: "Value", value: String(totals.value) },
-    { label: "Effort", value: String(totals.effort) },
-    { label: "Check-ins", value: String(countCheckIns(checkIns, period)) },
-  ];
-};
-
 /** Untrimmed: quiet edges stay as empty track rather than being squeezed out. */
 export const windowPhaseSessions = (
   phaseCheckIns: PhaseCheckIn[],
@@ -272,40 +266,6 @@ export const windowPhaseSessions = (
     (phaseId) => isQuietPhase(phaseId, phases),
     false,
   );
-
-export const windowInsight = (
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  checkIns: MetricCheckInWithRatings[],
-  phaseCheckIns: PhaseCheckIn[],
-  phases: Phase[],
-  fromSec: number,
-  toSec: number,
-): WindowInsight => ({
-  stats: outcomeStats(tasks, events, checkIns, { from: fromSec, to: toSec }),
-  sessions: windowPhaseSessions(phaseCheckIns, phases, fromSec, toSec),
-});
-
-/** Last hour tile and Insights Last hour use the same rolling window. */
-export const lastHourInsight = (
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  checkIns: MetricCheckInWithRatings[],
-  phaseCheckIns: PhaseCheckIn[],
-  phases: Phase[],
-  nowSec: number,
-): WindowInsight => {
-  const { from, to } = lastHourPeriod(nowSec);
-  return windowInsight(
-    tasks,
-    events,
-    checkIns,
-    phaseCheckIns,
-    phases,
-    from,
-    to,
-  );
-};
 
 export type InsightTaskRow = { task: Task; seconds: number };
 
@@ -544,4 +504,71 @@ export const insightCheckIns = (
     if (b.pulseId === null) return -1;
     return (pulseIndex.get(a.pulseId) ?? 999) - (pulseIndex.get(b.pulseId) ?? 999);
   });
+};
+
+export type InsightData = {
+  tasks: Task[];
+  taskStatusEvents: TaskStatusEvent[];
+  taskWorkStretches: TaskWorkStretch[];
+  metrics: Metric[];
+  pulses: Pulse[];
+  checkIns: MetricCheckInWithRatings[];
+  phaseCheckIns: PhaseCheckIn[];
+  phases: Phase[];
+  brainDumps: BrainDump[];
+};
+
+export type InsightRange = Period & { live: boolean };
+
+/** `nowMs` / `nowSec` are the clock Phase mix and the ledger stop at;
+ * `checkInNowMs` is the wall clock check-ins and brain dumps stop at, so a
+ * just-saved one shows without waiting on that clock. */
+export type InsightClock = {
+  nowMs: number;
+  nowSec: number;
+  checkInNowMs: number;
+};
+
+export type RangeInsight = {
+  sessions: PhaseSession[];
+  brainDumps: InsightBrainDumpSummary;
+  taskGroups: InsightOutcomeGroup[];
+  checkIns: InsightPulseGroup[];
+};
+
+/** Everything Insights shows for one range, shared by Calendar and the
+ * Overview Last hour tile so the two always read the same. */
+export const rangeInsight = (
+  data: InsightData,
+  { from, to, live }: InsightRange,
+  { nowMs, nowSec, checkInNowMs }: InsightClock,
+): RangeInsight => {
+  const checkInTo = insightCheckInClosedTo(to, checkInNowMs, live);
+  const blocks = layoutWorkBlocks(
+    data.taskWorkStretches,
+    data.tasks,
+    from,
+    to,
+    nowMs,
+  );
+  return {
+    sessions: windowPhaseSessions(
+      data.phaseCheckIns,
+      data.phases,
+      from,
+      Math.min(to, nowSec),
+    ),
+    brainDumps: insightBrainDumps(data.brainDumps, { from, to: checkInTo }),
+    taskGroups: insightTaskGroups(
+      { from, to },
+      blocks,
+      data.tasks,
+      data.taskStatusEvents,
+      nowSec,
+    ),
+    checkIns: insightCheckIns(data.checkIns, data.metrics, data.pulses, {
+      from,
+      to: checkInTo,
+    }),
+  };
 };

@@ -39,7 +39,7 @@
 }
 
 .dash-section--tasks,
-.dash-section--logs,
+.dash-section--timeline,
 .dash-section--calendar {
   display: flex;
   min-height: 0;

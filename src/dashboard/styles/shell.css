@@ -128,13 +128,13 @@
   font-weight: 600;
 }
 
-.dashboard--core {
+.dashboard--section-sidebar {
   grid-template-columns: 64px 176px minmax(0, 1fr);
 }
 
 /* A quieter panel than the main Sidebar so the two rails read as levels,
    not as competing navigation. */
-.core-sidebar {
+.section-sidebar {
   position: sticky;
   top: 0;
   z-index: 25;
@@ -147,7 +147,7 @@
   background: color-mix(in srgb, var(--surface-2) 45%, transparent);
 }
 
-.core-sidebar__title {
+.section-sidebar__title {
   margin: 0;
   padding: 0 10px;
   color: var(--ink);
@@ -157,15 +157,16 @@
   letter-spacing: -0.01em;
 }
 
-.core-nav {
+.section-nav {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.core-nav__button {
+.section-nav__button {
   --pane-tone: var(--accent);
 
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -186,25 +187,32 @@
     box-shadow 0.15s;
 }
 
-.core-nav__button--brain-dump {
+.section-nav__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-nav__button--brain-dump {
   --pane-tone: var(--dump);
 }
 
-.core-nav__button--tasks {
+.section-nav__button--tasks {
   --pane-tone: var(--doing);
 }
 
-.core-nav__button--metrics {
+.section-nav__button--metrics {
   --pane-tone: var(--accent);
 }
 
-.core-nav__button--phases {
+.section-nav__button--phases {
   --pane-tone: var(--phase);
 }
 
 /* Each icon sits on a small tile in its pane's tone, so panes are told apart
    by color before the label is read. */
-.core-nav__button > svg {
+.section-nav__button > svg {
   flex: none;
   box-sizing: content-box;
   width: 16px;
@@ -219,17 +227,17 @@
     color 0.15s;
 }
 
-.core-nav__button:not(.core-nav__button--active):hover {
+.section-nav__button:not(.section-nav__button--active):hover {
   background: color-mix(in srgb, var(--surface) 70%, transparent);
   color: var(--ink);
 }
 
-.core-nav__button:not(.core-nav__button--active):hover > svg {
+.section-nav__button:not(.section-nav__button--active):hover > svg {
   background: color-mix(in srgb, var(--pane-tone) 20%, transparent);
 }
 
 /* Raised like the open page of a journal; the solid tile carries the tone. */
-.core-nav__button--active {
+.section-nav__button--active {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
@@ -238,52 +246,52 @@
     var(--shadow);
 }
 
-.core-nav__button--active > svg {
+.section-nav__button--active > svg {
   background: var(--pane-tone);
   color: var(--surface);
 }
 
-.core-nav__button:focus-visible {
+.section-nav__button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.core-nav__button--active:focus-visible {
+.section-nav__button--active:focus-visible {
   box-shadow:
     0 0 0 1px var(--border),
     0 0 0 4px var(--accent-soft);
 }
 
-.core-nav__picker {
+.section-nav__picker {
   position: relative;
 }
 
-.core-nav__picker:has(.icon-picker) {
+.section-nav__picker:has(.icon-picker) {
   z-index: 5;
 }
 
-.core-nav__picker .icon-picker {
+.section-nav__picker .icon-picker {
   top: 0;
   left: calc(100% + 12px);
   right: auto;
 }
 
 @media (max-width: 860px) {
-  .dashboard--core {
+  .dashboard--section-sidebar {
     grid-template-columns: 64px 62px minmax(0, 1fr);
   }
 
-  .core-sidebar {
+  .section-sidebar {
     align-items: center;
     padding: 24px 0;
   }
 
-  .core-sidebar__title,
-  .core-nav__label {
+  .section-sidebar__title,
+  .section-nav__label {
     display: none;
   }
 
-  .core-nav__button {
+  .section-nav__button {
     width: 40px;
     min-height: 40px;
     padding: 5px;

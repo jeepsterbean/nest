@@ -166,7 +166,7 @@ own, so Task detail from the earlier shape carries over.
 
 Context is rendered in TypeScript from data the dashboard already loads.
 Phase sessions reuse `phaseSessionsInWindow` from
-`src/dashboard/lib/timeline.ts`, the same collapse Logs uses.
+`src/dashboard/lib/timeline.ts`, the same collapse Timeline uses.
 
 `send_assistant_message` takes `sent_message` and `system_instructions`, both
 stored on the user message. Each message in the request input is prefixed with

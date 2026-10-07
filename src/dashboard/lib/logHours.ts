@@ -15,7 +15,7 @@ export type LogHour = { from: number; to: number; marks: HourMark[] };
 const HOUR_SECONDS = 60 * 60;
 
 /** Hours of the day `[from, to)` that hold at least one mark, oldest first,
- * marks in time order. Phase events are skipped because the Hours layout draws
+ * marks in time order. Phase events are skipped because the Calendar Logs grid draws
  * Phase as the wash. A Task changed several times in one hour gets one mark,
  * placed at its first change and carrying every change in order. */
 export function logHours(

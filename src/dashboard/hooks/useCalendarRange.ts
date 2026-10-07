@@ -6,15 +6,23 @@ import {
   readCalendarRangeMode,
   writeCalendarRangeMode,
   type CalendarRangeMode,
+  type CalendarRangeStore,
 } from "../lib/insights";
 import { useDateRange } from "./useDateRange";
+
+const calendarRangeStore: CalendarRangeStore = {
+  read: () => readCalendarRangeMode(),
+  write: (mode) => writeCalendarRangeMode(mode),
+};
 
 /** Calendar's Day / Week paging plus the rolling Last hour. `columns` is what
  * the grid draws; `from` / `to` is what Insights summarizes. Last hour draws
  * today's Day and marks its trailing hour as `span`. */
-export function useCalendarRange() {
-  const dates = useDateRange();
-  const [mode, setMode] = useState<CalendarRangeMode>(readCalendarRangeMode);
+export function useCalendarRange(
+  store: CalendarRangeStore = calendarRangeStore,
+) {
+  const [mode, setMode] = useState<CalendarRangeMode>(store.read);
+  const dates = useDateRange(mode === "lastHour" ? "day" : mode);
   const liveColumns = useMemo(
     () => insightColumns("day", dates.nowMs, dates.nowMs),
     [dates.nowMs],
@@ -22,14 +30,8 @@ export function useCalendarRange() {
 
   const selectMode = (key: CalendarRangeMode) => {
     setMode(key);
-    if (key === "lastHour") {
-      dates.selectMode("day");
-      dates.goToday();
-      writeCalendarRangeMode(key);
-    } else {
-      if (mode === "lastHour") dates.goToday();
-      dates.selectMode(key);
-    }
+    store.write(key);
+    if (key === "lastHour" || mode === "lastHour") dates.goToday();
   };
 
   const goToDay = (dayMs: number) => {

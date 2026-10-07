@@ -33,7 +33,7 @@ export function logEventLabel(
   }
 }
 
-/** The icon standing in for an event's name on Logs timelines. */
+/** The icon standing in for an event's name on Timeline rows. */
 export function LogEventIcon({
   event,
   phases,

@@ -3,16 +3,12 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
   type CSSProperties,
 } from "react";
 import { startTimer } from "../../lib/commands";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTileIcons } from "../hooks/useTileIcons";
-import {
-  OVERVIEW_SETTINGS_ID,
-  type OverviewLayoutController,
-} from "../lib/overviewGrid";
+import { OVERVIEW_SETTINGS_ID } from "../lib/overviewGrid";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
@@ -21,23 +17,16 @@ import {
 import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
 import { phaseColor, phaseIcon, phaseName } from "../lib/period";
 import { IconPickerButton, NestIcon } from "./PulseIcon";
-import {
-  chevronDownIcon,
-  clockIcon,
-  saveLayoutIcon,
-  settingsIcon,
-} from "./icons";
+import { chevronDownIcon, clockIcon, settingsIcon } from "./icons";
 import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
 export type DashboardView =
   | "overview"
   | "calendar"
-  | "logs"
   | "core"
   | "assistant"
   | "settings";
 
-// Logs shares the Overview Timeline tile slot. The other Sections have their own.
 const VIEWS: {
   key: DashboardView;
   label: string;
@@ -45,7 +34,6 @@ const VIEWS: {
 }[] = [
   { key: "overview", label: "Overview", icon: "overview" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
-  { key: "logs", label: "Logs", icon: "timeline" },
   { key: "core", label: "Core", icon: "core" },
   { key: "assistant", label: "Assistant", icon: "assistant" },
   { key: "settings", label: "Settings", icon: "settings" },
@@ -106,13 +94,8 @@ export function DashboardSidebar({
 }
 
 export function DashboardHeader({
-  overviewLayout,
   overviewSettings,
 }: {
-  overviewLayout?: Pick<
-    OverviewLayoutController,
-    "snapshots" | "activeSnapshotId" | "restoreSnapshot" | "saveSnapshot"
-  >;
   overviewSettings?: { open: boolean; onToggle: () => void };
 }) {
   const {
@@ -124,15 +107,12 @@ export function DashboardHeader({
   } = useDashboardData();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
-  const [snapshotName, setSnapshotName] = useState("");
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const timerWrapRef = useRef<HTMLDivElement | null>(null);
-  const layoutFieldRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
   const activeReminderTexts = useMemo(
@@ -159,7 +139,6 @@ export function DashboardHeader({
     : null;
   const currentPhaseId = latestPhase?.phaseId ?? null;
   const currentPhaseColor = phaseColor(currentPhaseId, phases);
-  const savedLayoutOptions = overviewLayout?.snapshots ?? [];
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -226,30 +205,6 @@ export function DashboardHeader({
     };
   }, [pickerOpen]);
 
-  useEffect(() => {
-    if (!layoutPickerOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (
-        layoutFieldRef.current &&
-        !layoutFieldRef.current.contains(target)
-      ) {
-        setLayoutPickerOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setLayoutPickerOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [layoutPickerOpen]);
-
   const selectInterval = async (minutes: number) => {
     setPickerOpen(false);
     if (scheduling) return;
@@ -259,13 +214,6 @@ export function DashboardHeader({
   };
 
   const phaseLabel = currentPhaseName ?? "No phase yet";
-  const canSaveSnapshot = snapshotName.trim().length > 0;
-  const handleSaveSnapshot = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!overviewLayout || !canSaveSnapshot) return;
-    overviewLayout.saveSnapshot(snapshotName);
-    setSnapshotName("");
-  };
 
   return (
     <header className="dash-header" aria-label="Greetings board">
@@ -368,81 +316,10 @@ export function DashboardHeader({
               </div>
             )}
           </div>
-          {overviewLayout ? (
-            <form className="dash-header__layouts" onSubmit={handleSaveSnapshot}>
-              <div className="dash-header__layout-field" ref={layoutFieldRef}>
-                <input
-                  id="overview-layout-name"
-                  className="dash-header__layout-name"
-                  type="text"
-                  value={snapshotName}
-                  placeholder="Name this grid layout"
-                  aria-label="New grid layout name"
-                  onChange={(event) => setSnapshotName(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="dash-header__layout-picker"
-                  aria-label="Open saved grid layouts"
-                  aria-haspopup="listbox"
-                  aria-expanded={layoutPickerOpen}
-                  onClick={() => setLayoutPickerOpen((open) => !open)}
-                >
-                  {chevronDownIcon}
-                </button>
-                {layoutPickerOpen ? (
-                  <div
-                    className="dash-header__layout-menu menu-select__menu"
-                    role="listbox"
-                    aria-label="Saved grid layouts"
-                  >
-                    {savedLayoutOptions.length ? (
-                      savedLayoutOptions.map((snapshot) => {
-                        const selected =
-                          snapshot.id === overviewLayout.activeSnapshotId;
-                        return (
-                          <button
-                            key={snapshot.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            className={`menu-select__option${
-                              selected ? " is-selected" : ""
-                            }`}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              overviewLayout.restoreSnapshot(snapshot.id);
-                              setSnapshotName(snapshot.label);
-                              setLayoutPickerOpen(false);
-                            }}
-                          >
-                            <span>{snapshot.label}</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="dash-header__layout-menu-empty">
-                        No saved layouts yet
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="submit"
-                className="dash-header__layout-save"
-                aria-label="Save current grid layout"
-                title="Save current grid layout"
-                disabled={!canSaveSnapshot}
-              >
-                {saveLayoutIcon}
-              </button>
-            </form>
-          ) : null}
           {overviewSettings ? (
             <button
               type="button"
-              className="dash-header__layout-save"
+              className="dash-header__settings"
               aria-label={
                 overviewSettings.open
                   ? "Close Overview settings"

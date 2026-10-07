@@ -1,14 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  adjacentLogDay,
   buildLogExportEvents,
   buildLogsEvents,
-  buildTimelineLogEvents,
-  LOG_EVENT_BATCH_SIZE,
   logDayKeys,
   logDayMarkdown,
-  logEventCountThroughDay,
-  logJumpDay,
   readLogsPreferences,
   soloLogKind,
   toggleLogKind,
@@ -36,16 +31,14 @@ describe("Logs preferences", () => {
   it("defaults to every kind", () => {
     expect(readLogsPreferences(memory())).toEqual({
       kinds: ALL_KINDS,
-      scale: "list",
     });
   });
 
   it("round-trips the selected kinds", () => {
     const storage = memory();
-    writeLogsPreferences({ kinds: ["phases", "tasks"], scale: "hours" }, storage);
+    writeLogsPreferences({ kinds: ["phases", "tasks"] }, storage);
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ["phases", "tasks"],
-      scale: "hours",
     });
   });
 
@@ -57,7 +50,6 @@ describe("Logs preferences", () => {
     );
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ["dumps", "tasks"],
-      scale: "list",
     });
   });
 
@@ -69,8 +61,16 @@ describe("Logs preferences", () => {
     );
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ALL_KINDS,
-      scale: "list",
     });
+  });
+
+  it("ignores a retired List / Hours scale", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({ kinds: ["tasks"], scale: "hours" }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({ kinds: ["tasks"] });
   });
 
   it("selects every kind when nothing valid was stored", () => {
@@ -78,7 +78,6 @@ describe("Logs preferences", () => {
     storage.setItem("nest:logs-preferences", JSON.stringify({ kinds: [] }));
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ALL_KINDS,
-      scale: "list",
     });
   });
 
@@ -87,7 +86,6 @@ describe("Logs preferences", () => {
     storage.setItem("nest:logs-preferences", "{");
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ALL_KINDS,
-      scale: "list",
     });
   });
 });
@@ -148,21 +146,6 @@ describe("Logs feed", () => {
       );
     expect(phaseIds(false)).toEqual([3]);
     expect(phaseIds(true)).toEqual([3, 2, 1]);
-  });
-});
-
-describe("Timeline feed", () => {
-  it("leaves Overview Phase changes to the time gutter color", () => {
-    const events = buildTimelineLogEvents(
-      [],
-      [{ id: 1, createdAt: 110, text: "planning", tags: [] }],
-      [{ id: 1, taskId: 1, startedAt: 100, endedAt: 120 }],
-    );
-    expect(events.map((event) => event.kind)).toEqual([
-      "work-stop",
-      "dump",
-      "work-start",
-    ]);
   });
 });
 
@@ -345,29 +328,5 @@ describe("Logs selected day", () => {
     expect(keys).toEqual([day(30), day(28), day(27), day(25)]);
   });
 
-  it("steps over empty days", () => {
-    expect(adjacentLogDay(keys, day(28), -1)).toBe(day(27));
-    expect(adjacentLogDay(keys, day(27), -1)).toBe(day(25));
-    expect(adjacentLogDay(keys, day(28), 1)).toBe(day(30));
-    expect(adjacentLogDay(keys, day(29), 1)).toBe(day(30));
-    expect(adjacentLogDay(keys, day(25), -1)).toBeNull();
-    expect(adjacentLogDay(keys, day(30), 1)).toBeNull();
-  });
 
-  it("lands an empty day on the nearest older day, else the oldest", () => {
-    expect(logJumpDay(keys, day(28))).toBe(day(28));
-    expect(logJumpDay(keys, day(26))).toBe(day(25));
-    expect(logJumpDay(keys, day(20))).toBe(day(25));
-    expect(logJumpDay([], day(20))).toBeNull();
-  });
-
-  it("renders whole batches through the end of the day", () => {
-    expect(logEventCountThroughDay(events, day(27))).toBe(LOG_EVENT_BATCH_SIZE);
-    const many = Array.from({ length: LOG_EVENT_BATCH_SIZE + 1 }, () => ({
-      at: at(30, 9),
-    }));
-    expect(logEventCountThroughDay([...many, { at: at(25, 7) }], day(25))).toBe(
-      LOG_EVENT_BATCH_SIZE * 2,
-    );
-  });
 });

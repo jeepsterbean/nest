@@ -9,7 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import type { Metric, Phase, Pulse, Task } from "../../lib/types";
 import { brainDumpSummary } from "../../lib/brainDumpRichText";
-import { TimelineFrame, type FrameColumn } from "../components/TimelineFrame";
+import { TimelineFrame, type FrameColumn, type TimeSpan } from "../components/TimelineFrame";
 import { LogEventIcon, logEventLabel, TaskLogIcon } from "../components/logs/LogEventMark";
 import { MetricCheckInDetail } from "../components/logs/MetricCheckInDetail";
 import { SavedBrainDump } from "../components/SavedBrainDump";
@@ -38,11 +38,14 @@ const markLabel = (mark: HourMark, { phases, pulses, tasks }: MarkContext) =>
     ? taskTitle(tasks, mark.taskId)
     : logEventLabel(mark.event, phases, pulses, tasks);
 
-/** Logs Hours layout: one day on Calendar's grid. Each hour holds an icon per
- * Metric check-in, brain dump, and Task changed in that hour; Phase is the
- * wash behind them. */
+/** Calendar's Logs figure: the selected range on one grid. Week is a column
+ * per day under a shared hour gutter. Each hour holds an icon per Metric
+ * check-in, brain dump, and Task changed in that hour; Phase is the wash
+ * behind them. */
 export function LogsHours({
-  column,
+  columns,
+  mode,
+  span,
   phases,
   metrics,
   pulses,
@@ -51,7 +54,9 @@ export function LogsHours({
   nowSec,
   onDeleteCheckIn,
 }: {
-  column: LogsHoursColumn;
+  columns: LogsHoursColumn[];
+  mode: "day" | "week";
+  span: TimeSpan | null;
   phases: Phase[];
   metrics: Metric[];
   pulses: Pulse[];
@@ -63,9 +68,10 @@ export function LogsHours({
   const [card, setCard] = useState<OpenCard | null>(null);
   const context: MarkContext = { phases, pulses, tasks };
   const close = useCallback(() => setCard(null), []);
+  const rangeKey = `${columns[0]?.from ?? 0}:${columns[columns.length - 1]?.to ?? 0}`;
 
-  // A pinned card belongs to the day it was opened on.
-  useEffect(() => setCard(null), [column.from]);
+  // A pinned card belongs to the range it was opened on.
+  useEffect(() => setCard(null), [rangeKey]);
 
   const preview = (mark: HourMark, anchor: HTMLElement) =>
     setCard((current) => (current?.pinned ? current : { mark, anchor, pinned: false }));
@@ -83,9 +89,10 @@ export function LogsHours({
   return (
     <>
       <TimelineFrame
-        columns={[column]}
+        columns={columns}
         phases={phases}
-        mode="day"
+        mode={mode}
+        span={span}
         scrollPct={scrollPct}
         nowSec={nowSec}
         renderLane={(lane) =>

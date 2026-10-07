@@ -1,14 +1,11 @@
 import { memo, useMemo, type CSSProperties } from "react";
 import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
-import { PhaseTotals } from "../components/DayReflection";
-import { isQuietPhase } from "../lib/period";
-import { formatTime, shiftDayMs, startOfDayMs } from "../lib/time";
+import { dayLabel, formatTime, startOfDayMs } from "../lib/time";
 import {
   groupByDay,
   mergePhaseCheckInsIntoEvents,
   phaseCheckInAt,
-  phaseSessionsInWindow,
   type RawLogEvent,
 } from "../lib/timeline";
 import { LogEventDetail } from "../components/logs/LogEventDetail";
@@ -118,8 +115,8 @@ export const LogsTimeline = memo(function LogsTimeline({
   onExportDay,
   onOpenDay,
   nowMs,
+  showCurrentTime = true,
   dayChrome = true,
-  showPhaseTotals = true,
   colorsTimeColumn = true,
 }: {
   events: RawLogEvent[];
@@ -132,28 +129,26 @@ export const LogsTimeline = memo(function LogsTimeline({
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
   onExportDay?: (dayKey: number) => void;
-  /** Logs List turns each day label into a jump to that day in Hours. */
+  /** Timeline turns each day label into a jump to that day on Calendar's Logs figure. */
   onOpenDay?: (dayKey: number) => void;
   nowMs: number;
-  /** Overview's minimised peek hides the day label and Phase totals. */
+  /** Overview's minimised peek hides the day label. */
   dayChrome?: boolean;
-  /** Overview shows the day's Phase totals. Logs does not. */
-  showPhaseTotals?: boolean;
-  /** Logs with Phases filtered out keeps the quiet time column. */
+  showCurrentTime?: boolean;
+  /** Timeline with Phases filtered out keeps the quiet time column. */
   colorsTimeColumn?: boolean;
 }) {
-  const days = useMemo(
-    () =>
-      groupByDay(
-        mergePhaseCheckInsIntoEvents(
-          events,
-          colorsTimeColumn ? phaseCheckIns : [],
-        ),
-        nowMs,
-      ),
-    [colorsTimeColumn, events, nowMs, phaseCheckIns],
-  );
-  const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
+  const days = useMemo(() => {
+    const groups = groupByDay(
+      mergePhaseCheckInsIntoEvents(events, colorsTimeColumn ? phaseCheckIns : []),
+      nowMs,
+    );
+    const today = startOfDayMs(nowMs / 1000);
+    if (showCurrentTime && !groups.some((day) => day.key === today)) {
+      groups.unshift({ key: today, label: dayLabel(today / 1000, nowMs), events: [] });
+    }
+    return groups;
+  }, [colorsTimeColumn, events, nowMs, phaseCheckIns, showCurrentTime]);
   const now = Math.floor(nowMs / 1000);
   const todayKey = startOfDayMs(now);
   const nowPhase = colorsTimeColumn
@@ -162,23 +157,10 @@ export const LogsTimeline = memo(function LogsTimeline({
       )
     : undefined;
 
-  return days.map((day) => {
-    const daySessions =
-      dayChrome && showPhaseTotals
-        ? phaseSessionsInWindow(
-            phaseCheckIns,
-            day.key / 1000,
-            Math.min(shiftDayMs(day.key, 1) / 1000, now),
-            isQuiet,
-            false,
-          )
-        : [];
-
-    return (
+  return days.map((day) => (
       <article
         key={day.key}
         className="day-group logs-chrono-day"
-        data-day-key={day.key}
       >
         {dayChrome ? (
           <header className="day-group__head">
@@ -187,7 +169,7 @@ export const LogsTimeline = memo(function LogsTimeline({
                 <button
                   type="button"
                   className="day-group__open"
-                  title="Open in Hours"
+                  title="Open in Logs"
                   onClick={() => onOpenDay(day.key)}
                 >
                   {day.label}
@@ -196,28 +178,25 @@ export const LogsTimeline = memo(function LogsTimeline({
                 day.label
               )}
             </h3>
-            <div className="day-group__meta">
-              {showPhaseTotals ? (
-                <PhaseTotals sessions={daySessions} phases={phases} />
-              ) : null}
-              {onExportDay ? (
+            {onExportDay ? (
+              <div className="day-group__meta">
                 <DayExportButton
                   label={day.label}
                   dayKey={day.key}
                   onExportDay={onExportDay}
                 />
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </header>
         ) : null}
         <ol className="logs-chrono">
-          {day.key === todayKey ? (
+          {showCurrentTime && day.key === todayKey ? (
             <CurrentTimeRow nowMs={nowMs} phase={nowPhase} />
           ) : null}
           {day.events.map((row, index) => {
             const { event, phaseCheckIn: checkpoint } = row;
             const phase = phases.find((item) => item.id === checkpoint?.phaseId);
-            const followsNow = day.key === todayKey && index === 0;
+            const followsNow = showCurrentTime && day.key === todayKey && index === 0;
 
             return (
               <li
@@ -258,6 +237,5 @@ export const LogsTimeline = memo(function LogsTimeline({
           })}
         </ol>
       </article>
-    );
-  });
+  ));
 });

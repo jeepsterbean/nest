@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
   canShowEarlierMonth,
   canShowLaterMonth,
@@ -11,6 +10,8 @@ import {
   WEEKDAY_INITIALS,
   type DayPickerBounds,
 } from "../lib/dayPicker";
+
+import { shiftDayMs, startOfDayMs } from "../lib/time";
 
 export type DayPickerProps = DayPickerBounds & {
   onPick: (dayMs: number) => void;
@@ -25,150 +26,115 @@ const dayName = (dayMs: number) =>
     day: "numeric",
   });
 
-/** The range title as a button that opens a month of pickable days. */
-export function DayPicker({
-  label,
-  earliestSec,
-  nowMs,
-  selected,
-  onPick,
-  markedDays,
-  children,
-}: DayPickerProps & { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [monthMs, setMonthMs] = useState(() =>
-    startOfMonthMs(selected.from * 1000),
-  );
-  const rootRef = useRef<HTMLSpanElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  const close = (restoreFocus: boolean) => {
-    setOpen(false);
-    if (restoreFocus) triggerRef.current?.focus();
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    panelRef.current
-      ?.querySelector<HTMLButtonElement>(
-        ".day-picker__day.is-selected:not(:disabled), .day-picker__day.is-today",
-      )
-      ?.focus();
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) close(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
-
-  const toggle = () => {
-    if (!open) setMonthMs(startOfMonthMs(selected.from * 1000));
-    setOpen(!open);
-  };
-
+export function DayCalendar({ earliestSec, nowMs, selected, onPick, markedDays }: DayPickerProps) {
+  const selectedMonthMs = startOfMonthMs(selected.from * 1000);
+  const [browsedMonth, setBrowsedMonth] = useState({ selectedFrom: selected.from, monthMs: selectedMonthMs });
+  const monthMs = browsedMonth.selectedFrom === selected.from ? browsedMonth.monthMs : selectedMonthMs;
+  const setMonthMs = (next: number) => setBrowsedMonth({ selectedFrom: selected.from, monthMs: next });
   const weeks = dayPickerWeeks(monthMs, { earliestSec, nowMs, selected });
-
+  const [focusedDay, setFocusedDay] = useState<number | null>(null);
+  const pendingFocus = useRef<number | null>(null);
+  const dateButtons = useRef(new Map<number, HTMLButtonElement>());
+  const pickableCells = weeks.flat().filter((cell) => cell.isPickable);
+  const tabDay = pickableCells.find((cell) => cell.dayMs === focusedDay)?.dayMs
+    ?? pickableCells.find((cell) => cell.isSelected)?.dayMs
+    ?? pickableCells.find((cell) => cell.isToday)?.dayMs
+    ?? pickableCells[0]?.dayMs;
+  useEffect(() => {
+    if (pendingFocus.current === null) return;
+    dateButtons.current.get(pendingFocus.current)?.focus();
+    pendingFocus.current = null;
+  });
+  const moveFocus = (dayMs: number, key: string) => {
+    const weekday = (new Date(dayMs).getDay() + 6) % 7;
+    const offset = key === "ArrowLeft" ? -1 : key === "ArrowRight" ? 1
+      : key === "ArrowUp" ? -7 : key === "ArrowDown" ? 7
+      : key === "Home" ? -weekday : key === "End" ? 6 - weekday : null;
+    if (offset === null) return false;
+    const next = Math.max(startOfDayMs(earliestSec),
+      Math.min(startOfDayMs(nowMs / 1000), shiftDayMs(dayMs, offset)));
+    setFocusedDay(next);
+    setMonthMs(startOfMonthMs(next));
+    pendingFocus.current = next;
+    return true;
+  };
   return (
-    <span
-      ref={rootRef}
-      className="day-picker"
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          event.stopPropagation();
-          close(true);
-        }
-      }}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        className="range-nav__title"
-        aria-label={`${label}, choose a day`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={toggle}
-      >
-        {children}
-      </button>
-      {open ? (
-        <div
-          ref={panelRef}
-          className="day-picker__panel"
-          role="dialog"
-          aria-label="Choose a day"
+    <div className="day-calendar">
+      <header className="day-picker__head">
+        <button
+          type="button"
+          aria-label="Earlier month"
+          disabled={!canShowEarlierMonth(monthMs, earliestSec)}
+          onClick={() => setMonthMs(shiftMonthMs(monthMs, -1))}
         >
-          <header className="day-picker__head">
-            <button
-              type="button"
-              aria-label="Earlier month"
-              disabled={!canShowEarlierMonth(monthMs, earliestSec)}
-              onClick={() => setMonthMs(shiftMonthMs(monthMs, -1))}
+          <ChevronLeft />
+        </button>
+        <span aria-live="polite">{monthTitle(monthMs)}</span>
+        <button
+          type="button"
+          aria-label="Later month"
+          disabled={!canShowLaterMonth(monthMs, nowMs)}
+          onClick={() => setMonthMs(shiftMonthMs(monthMs, 1))}
+        >
+          <ChevronRight />
+        </button>
+      </header>
+      <div className="day-picker__grid" role="grid" aria-label={monthTitle(monthMs)}>
+        <div className="day-picker__week" role="row">
+          {WEEKDAY_INITIALS.map((initial, index) => (
+            <span
+              key={index}
+              className="day-picker__weekday"
+              role="columnheader"
+              aria-hidden="true"
             >
-              <ChevronLeft />
-            </button>
-            <span aria-live="polite">{monthTitle(monthMs)}</span>
-            <button
-              type="button"
-              aria-label="Later month"
-              disabled={!canShowLaterMonth(monthMs, nowMs)}
-              onClick={() => setMonthMs(shiftMonthMs(monthMs, 1))}
-            >
-              <ChevronRight />
-            </button>
-          </header>
-          <div className="day-picker__grid" role="grid">
-            <div className="day-picker__week" role="row">
-              {WEEKDAY_INITIALS.map((initial, index) => (
-                <span
-                  key={index}
-                  className="day-picker__weekday"
-                  role="columnheader"
-                  aria-hidden="true"
-                >
-                  {initial}
-                </span>
-              ))}
-            </div>
-            {weeks.map((week) => (
-              <div key={week[0].dayMs} className="day-picker__week" role="row">
-                {week.map((cell) => (
-                  <button
-                    key={cell.dayMs}
-                    type="button"
-                    role="gridcell"
-                    className={[
-                      "day-picker__day",
-                      cell.inMonth ? "" : "is-outside",
-                      cell.isToday ? "is-today" : "",
-                      cell.isSelected ? "is-selected" : "",
-                      markedDays?.has(cell.dayMs) ? "has-entries" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-label={
-                      markedDays?.has(cell.dayMs)
-                        ? `${dayName(cell.dayMs)}, has entries`
-                        : dayName(cell.dayMs)
-                    }
-                    aria-selected={cell.isSelected}
-                    disabled={!cell.isPickable}
-                    onClick={() => {
-                      onPick(cell.dayMs);
-                      close(true);
-                    }}
-                  >
-                    {cell.dayOfMonth}
-                  </button>
-                ))}
-              </div>
+              {initial}
+            </span>
+          ))}
+        </div>
+        {weeks.map((week) => (
+          <div key={week[0].dayMs} className="day-picker__week" role="row">
+            {week.map((cell) => (
+              <button
+                key={cell.dayMs}
+                type="button"
+                role="gridcell"
+                tabIndex={cell.dayMs === tabDay ? 0 : -1}
+                ref={(button) => {
+                  if (button) dateButtons.current.set(cell.dayMs, button);
+                  else dateButtons.current.delete(cell.dayMs);
+                }}
+                onFocus={() => setFocusedDay(cell.dayMs)}
+                onKeyDown={(event) => {
+                  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                  if (moveFocus(cell.dayMs, event.key)) event.preventDefault();
+                }}
+                className={[
+                  "day-picker__day",
+                  cell.inMonth ? "" : "is-outside",
+                  cell.isToday ? "is-today" : "",
+                  cell.isSelected ? "is-selected" : "",
+                  markedDays?.has(cell.dayMs) ? "has-entries" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-label={
+                  markedDays?.has(cell.dayMs)
+                    ? `${dayName(cell.dayMs)}, has entries`
+                    : dayName(cell.dayMs)
+                }
+                aria-selected={cell.isSelected}
+                disabled={!cell.isPickable}
+                onClick={() => {
+                  onPick(cell.dayMs);
+                }}
+              >
+                {cell.dayOfMonth}
+              </button>
             ))}
           </div>
-          <p className="day-picker__note">
-            History reaches back {HISTORY_WINDOW_DAYS} days.
-          </p>
-        </div>
-      ) : null}
-    </span>
+        ))}
+      </div>
+    </div>
   );
 }

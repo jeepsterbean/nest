@@ -1,7 +1,6 @@
 /* ---------- Logs toolbar ---------- */
 
-/* Two stable rows: the selected day and layout above, the kind filter below.
-   Controls stay in their slots across List and Hours. */
+/* Two stable rows: the selected day's export above, the kind filter below. */
 .logs-toolbar {
   flex-direction: column;
   align-items: stretch;
@@ -9,19 +8,13 @@
 
 .logs-toolbar__row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px 10px;
+  min-width: 0;
 }
 
-.logs-toolbar__end {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-/* List day labels open that day in Hours; quiet until hovered. */
+/* Day labels open that day on Calendar's Logs figure; quiet until hovered. */
 .day-group__open {
   padding: 0;
   border: 0;
@@ -47,11 +40,18 @@
 
 /* Separate chips rather than a segmented bar: several kinds are usually on at
    once, so each chip carries its own on/off state. Kind colors match the
-   timeline marks; Phases uses --phase since each Phase row has its own color. */
+   timeline marks; Phases uses --phase since each Phase row has its own color.
+   A tight toolbar or Overview tile scrolls the chips sideways instead of wrapping. */
 .logs-kind-filter {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.logs-toolbar__row .logs-kind-filter {
+  flex: 1 1 auto;
 }
 
 .logs-kind-filter__chip--dumps {
@@ -72,6 +72,7 @@
 
 .logs-kind-filter__chip {
   display: inline-flex;
+  flex-shrink: 0;
   min-height: 30px;
   align-items: center;
   gap: 6px;
@@ -124,6 +125,7 @@
 
 .logs-raw-toggle {
   display: inline-flex;
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
   align-items: center;
@@ -217,33 +219,10 @@
   font-size: 13px;
 }
 
-.task-log__action,
-.task-log__statuses,
 .task-log__status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.task-log__action {
-  color: var(--muted);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.task-log__action-icon {
-  display: inline-flex;
-  color: var(--doing);
-}
-
-.task-log__action-icon svg {
-  width: 14px;
-  height: 14px;
-  stroke-width: 1.8;
-}
-
-.task-log__statuses {
-  flex-wrap: wrap;
 }
 
 .task-log__status {
@@ -566,7 +545,7 @@
   }
 }
 
-/* ---------- Hours layout ---------- */
+/* ---------- Calendar Logs grid ---------- */
 
 /* Busy hours scroll horizontally so every mark stays reachable within its hour. */
 .logs-hour {

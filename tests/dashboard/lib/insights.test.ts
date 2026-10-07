@@ -7,17 +7,19 @@ import {
   insightTaskGroups,
   openAtPct,
   stepColumns,
-  outcomeStats,
-  readRangeMode,
-  readCalendarDisplay,
+  rangeInsight,
+  readCalendarFigure,
+  readCalendarInsightsShown,
+  readCalendarPresentation,
   readCalendarRangeMode,
-  lastHourInsight,
   lastHourPeriod,
   lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
   openLastHourOnCalendar,
-  windowInsight,
-  writeCalendarDisplay,
+  writeCalendarFigure,
+  writeCalendarPresentation,
+  type InsightData,
+  writeCalendarInsightsShown,
   writeCalendarRangeMode,
 } from "../../../src/dashboard/lib/insights";
 
@@ -74,38 +76,6 @@ const phaseCheckIn = (
   phaseLabel: null,
 });
 
-describe("outcomeStats", () => {
-  it("uses zeros when nothing was scored", () => {
-    expect(outcomeStats([], [], [], { from: 0, to: 100 })).toEqual([
-      { label: "Completed", value: "0" },
-      { label: "Value", value: "0" },
-      { label: "Effort", value: "0" },
-      { label: "Check-ins", value: "0" },
-    ]);
-  });
-});
-
-describe("windowInsight", () => {
-  it("keeps quiet time, so the strip reads as a linear clock", () => {
-    const insight = windowInsight(
-      [],
-      [],
-      [],
-      [
-        phaseCheckIn(1, 0, 1),
-        phaseCheckIn(2, 80, 2),
-      ],
-      phases,
-      0,
-      200,
-    );
-    expect(insight.sessions).toEqual([
-      { phaseId: 1, from: 0, to: 80 },
-      { phaseId: 2, from: 80, to: 200 },
-    ]);
-  });
-});
-
 describe("last hour window", () => {
   it("is the rolling hour ending at now", () => {
     expect(lastHourPeriod(10_000)).toEqual({
@@ -113,32 +83,98 @@ describe("last hour window", () => {
       to: 10_000,
     });
   });
+});
+describe("rangeInsight", () => {
+  const empty: InsightData = {
+    tasks: [],
+    taskStatusEvents: [],
+    taskWorkStretches: [],
+    metrics: [],
+    pulses: [],
+    checkIns: [],
+    phaseCheckIns: [],
+    phases,
+    brainDumps: [],
+  };
+  const clockAt = (nowSec: number, checkInNowSec = nowSec) => ({
+    nowMs: nowSec * 1000,
+    nowSec,
+    checkInNowMs: checkInNowSec * 1000,
+  });
 
-  it("is the same windowInsight slice the Last hour tile uses", () => {
-    const nowSec = 10_000;
-    expect(
-      lastHourInsight(
-        [],
-        [],
-        [],
-        [phaseCheckIn(1, nowSec - 100, 1)],
-        phases,
-        nowSec,
-      ),
-    ).toEqual(
-      windowInsight(
-        [],
-        [],
-        [],
-        [phaseCheckIn(1, nowSec - 100, 1)],
-        phases,
-        nowSec - LAST_HOUR_WINDOW_SECONDS,
-        nowSec,
-      ),
+  it("keeps quiet time in the Phase mix, so it reads as a linear clock", () => {
+    const insight = rangeInsight(
+      { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1), phaseCheckIn(2, 80, 2)] },
+      { from: 0, to: 200, live: false },
+      clockAt(500),
     );
+    expect(insight.sessions).toEqual([
+      { phaseId: 1, from: 0, to: 80 },
+      { phaseId: 2, from: 80, to: 200 },
+    ]);
+  });
+
+  it("stops the Phase mix at now inside a range still running", () => {
+    const insight = rangeInsight(
+      { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1)] },
+      { from: 0, to: 200, live: false },
+      clockAt(120),
+    );
+    expect(insight.sessions).toEqual([{ phaseId: 1, from: 0, to: 120 }]);
+  });
+
+  it("returns every section for a quiet range", () => {
+    const insight = rangeInsight(
+      empty,
+      { ...lastHourPeriod(10_000), live: true },
+      clockAt(10_000),
+    );
+    expect(insight.brainDumps).toEqual({ count: 0, tags: [], untaggedCount: 0 });
+    expect(insight.taskGroups.map((group) => group.rows.length)).toEqual([0, 0, 0]);
+    expect(insight.checkIns).toEqual([]);
+  });
+
+  it("lets a live range show a check-in and dump saved after its clock end", () => {
+    const savedAt = 10_030;
+    const data: InsightData = {
+      ...empty,
+      checkIns: [
+        { id: 1, createdAt: savedAt, pulseId: null, pulseName: "Daily", ratings: [] },
+      ],
+      brainDumps: [{ id: 1, createdAt: savedAt, text: "Thought", tags: [] }],
+    };
+    const range = lastHourPeriod(10_000);
+    const live = rangeInsight(data, { ...range, live: true }, clockAt(10_000, savedAt));
+    expect(live.checkIns.map((group) => group.checkInCount)).toEqual([1]);
+    expect(live.brainDumps.count).toBe(1);
+
+    const closed = rangeInsight(data, { ...range, live: false }, clockAt(10_000, savedAt));
+    expect(closed.checkIns).toEqual([]);
+    expect(closed.brainDumps.count).toBe(0);
+  });
+
+  it("ledgers Worked time from the range's Work stretches", () => {
+    const insight = rangeInsight(
+      {
+        ...empty,
+        tasks: [task(1, "Write")],
+        taskWorkStretches: [stretch(1, 1, 100, 400)],
+      },
+      { from: 0, to: 1_000, live: false },
+      clockAt(2_000),
+    );
+    expect(
+      insight.taskGroups.map((group) => [
+        group.outcome,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([
+      ["completed", []],
+      ["cancelled", []],
+      ["incomplete", [["Write", 300]]],
+    ]);
   });
 });
-
 describe("insightColumns", () => {
   // 18 Aug 2026 is a Tuesday, so week columns must start on the 17th.
   const anchor = new Date(2026, 7, 18, 15, 30).getTime();
@@ -176,7 +212,6 @@ describe("insightColumns", () => {
     expect(column.to - column.from).toBeLessThanOrEqual(25 * 3600);
   });
 });
-
 describe("openAtPct", () => {
   const tuesday = new Date(2026, 7, 18, 16, 57).getTime();
   const nowSec = Math.floor(tuesday / 1000);
@@ -214,7 +249,6 @@ describe("openAtPct", () => {
     expect(openAtPct(columns, nowSec, null)).toBe(null);
   });
 });
-
 describe("stepColumns", () => {
   const tuesday = new Date(2026, 7, 18, 16, 57).getTime();
 
@@ -264,50 +298,74 @@ describe("insight range memory", () => {
     expect(readCalendarRangeMode(storage)).toBe("day");
     writeCalendarRangeMode("week", storage);
     expect(readCalendarRangeMode(storage)).toBe("week");
-    expect(readRangeMode(storage)).toBe("week");
   });
 
-  it("pages Last hour as Day, since it sits on today's Day grid", () => {
+  it("restores Last hour as the persisted range mode", () => {
     const storage = memory();
     writeCalendarRangeMode("lastHour", storage);
     expect(readCalendarRangeMode(storage)).toBe("lastHour");
-    expect(readRangeMode(storage)).toBe("day");
   });
 
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
-    expect(readRangeMode(storage)).toBe("day");
+    expect(readCalendarRangeMode(storage)).toBe("day");
   });
 
   it("reads the legacy storage key until the new key is set", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "week");
-    expect(readRangeMode(storage)).toBe("week");
+    expect(readCalendarRangeMode(storage)).toBe("week");
     writeCalendarRangeMode("day", storage);
     expect(storage.getItem("nest:date-range")).toBe("day");
-    expect(readRangeMode(storage)).toBe("day");
+    expect(readCalendarRangeMode(storage)).toBe("day");
   });
 
-  it("shows the grid and Insights together until another display is saved", () => {
+  it("draws Work stretch until Logs is chosen", () => {
     const storage = memory();
-    expect(readCalendarDisplay(storage)).toBe("both");
-    writeCalendarDisplay("insights", storage);
-    expect(readCalendarDisplay(storage)).toBe("insights");
-    storage.setItem("nest:calendar-display", "split");
-    expect(readCalendarDisplay(storage)).toBe("both");
+    expect(readCalendarFigure(storage)).toBe("stretch");
+    writeCalendarFigure("logs", storage);
+    expect(readCalendarFigure(storage)).toBe("logs");
+    writeCalendarFigure("stretch", storage);
+    expect(readCalendarFigure(storage)).toBe("stretch");
+  });
+
+  it("defaults to Calendar and restores the last presentation", () => {
+    const storage = memory();
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+    writeCalendarPresentation("timeline", storage);
+    expect(readCalendarPresentation(storage)).toBe("timeline");
+    writeCalendarPresentation("calendar", storage);
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+  });
+
+  it("falls back to Calendar for an unknown presentation", () => {
+    const storage = memory();
+    storage.setItem("nest:calendar-presentation", "agenda");
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+  });
+
+  it("shows Insights beside the grid until it is hidden", () => {
+    const storage = memory();
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+    writeCalendarInsightsShown(false, storage);
+    expect(readCalendarInsightsShown(storage)).toBe(false);
+    writeCalendarInsightsShown(true, storage);
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+  });
+
+  it("reads the retired Insights-only display as Insights shown", () => {
+    const storage = memory();
+    storage.setItem("nest:calendar-display", "insights");
+    expect(readCalendarInsightsShown(storage)).toBe(true);
   });
 
   it("opens Last hour with its Insights in view", () => {
     const storage = memory();
-    writeCalendarDisplay("calendar", storage);
+    writeCalendarInsightsShown(false, storage);
     openLastHourOnCalendar(storage);
     expect(readCalendarRangeMode(storage)).toBe("lastHour");
-    expect(readCalendarDisplay(storage)).toBe("both");
-
-    writeCalendarDisplay("insights", storage);
-    openLastHourOnCalendar(storage);
-    expect(readCalendarDisplay(storage)).toBe("insights");
+    expect(readCalendarInsightsShown(storage)).toBe(true);
   });
 
   it("labels Last hour with the clock span it covers", () => {

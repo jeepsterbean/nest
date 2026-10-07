@@ -21,24 +21,30 @@ import {
   useRecentBrainDumpHistory,
 } from "../../lib/brainDumpDraft";
 import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
-import {
-  DayStats,
-  PhaseTotals,
-} from "../components/DayReflection";
 import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
 import { ControlPanelTile } from "../components/ControlPanelTile";
 import { OverviewTasksPanel } from "../components/OverviewTasksPanel";
 import { gridArea, OverviewTile } from "../components/OverviewTile";
 import { MetricCheckIn } from "../components/MetricCheckIn";
-import { ViewToggle } from "../components/ViewToggle";
 import { useComposerTagProps } from "../components/BrainDumpTags";
-import { useDashboardData } from "../context/DashboardDataContext";
+import { LogKindToggle, LogsRawToggle } from "../components/logs/LogKindToggle";
+import {
+  HISTORY_WINDOW_DAYS,
+  useDashboardData,
+} from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
-import { lastHourInsight } from "../lib/insights";
-import { buildTimelineLogEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
-import { type TimelineLogEvent } from "../lib/timeline";
+import { lastHourPeriod } from "../lib/insights";
+import {
+  ALL_LOG_KINDS,
+  buildLogsEvents,
+  LOG_EMPTY_COPY,
+  LOG_EVENT_BATCH_SIZE,
+  MIXED_LOG_EMPTY_COPY,
+  type LogKindKey,
+} from "../lib/logs";
+import { historyStartSec } from "../lib/time";
 import {
   canHideTile,
   hiddenTileIds,
@@ -48,50 +54,15 @@ import {
   TILE_RULES,
   type TileLayout,
 } from "../lib/overviewGrid";
+import { InsightsPanel } from "./InsightsPanel";
 import { LogsTimeline } from "./LogsTimeline";
 import { OverviewSettings } from "./OverviewSettings";
-
-const OVERVIEW_TIMELINE_FILTERS = [
-  { key: "timeline", label: "Timeline" },
-  { key: "dumps", label: "Brain dumps" },
-  { key: "metrics", label: "Metrics" },
-] as const;
-
-type OverviewTimelineFilter =
-  (typeof OVERVIEW_TIMELINE_FILTERS)[number]["key"];
 
 type TileChrome = {
   icon: ReactNode;
   action: ReactNode;
   onHeaderPointerDown: PointerEventHandler<HTMLElement>;
   dragTitle: string;
-};
-
-const EMPTY_COPY: Record<
-  OverviewTimelineFilter,
-  { title: string; body: string }
-> = {
-  timeline: {
-    title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, and Working now starts and stops will land here.",
-  },
-  dumps: {
-    title: "No brain dumps yet",
-    body: "Capture a thought from this panel or the popup.",
-  },
-  metrics: {
-    title: "No Metric check-ins yet",
-    body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
-  },
-};
-
-const matchesTimelineFilter = (
-  event: TimelineLogEvent,
-  filter: OverviewTimelineFilter,
-) => {
-  if (filter === "timeline") return true;
-  if (filter === "dumps") return event.kind === "dump";
-  return event.kind === "metrics";
 };
 
 export function OverviewView({
@@ -173,14 +144,18 @@ export function OverviewView({
   }, []);
 
   const nowMs = useCurrentTime();
-  const [timelineFilter, setTimelineFilter] =
-    useState<OverviewTimelineFilter>("timeline");
+  const [timelineKinds, setTimelineKinds] =
+    useState<LogKindKey[]>(ALL_LOG_KINDS);
+  const [everyPhaseCheckpoint, setEveryPhaseCheckpoint] = useState(false);
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
+  const phasesOnly = timelineKinds.length === 1 && timelineKinds[0] === "phases";
+  const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
+  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
 
   const handleTagsChange = useCallback(
     (tagIds: number[]) =>
@@ -188,42 +163,61 @@ export function OverviewView({
     [setBrainDumpDraft],
   );
 
-  const dayReflection = useMemo(
-    () =>
-      lastHourInsight(
-        tasks,
-        taskStatusEvents,
-        checkIns,
-        phaseCheckIns,
-        phases,
-        Math.floor(Date.now() / 1000),
-      ),
-    [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns],
-  );
+  // The tile follows dashboard reloads, not the minute clock, so its window
+  // is read from the wall clock whenever the data it summarizes changes.
+  const lastHourWindow = useMemo(() => {
+    const nowMs = Date.now();
+    const nowSec = Math.floor(nowMs / 1000);
+    return { ...lastHourPeriod(nowSec), nowMs, nowSec };
+  }, [
+    tasks,
+    taskStatusEvents,
+    taskWorkStretches,
+    checkIns,
+    phaseCheckIns,
+    phases,
+    metrics,
+    pulses,
+    brainDumps,
+  ]);
 
   const historyEvents = useMemo(
-    () => buildTimelineLogEvents(checkIns, brainDumps, taskWorkStretches),
-    [brainDumps, checkIns, taskWorkStretches],
-  );
-
-  const timelineEvents = useMemo(
     () =>
-      historyEvents.filter((event) =>
-        matchesTimelineFilter(event, timelineFilter),
+      buildLogsEvents(
+        timelineKinds,
+        showsEveryPhaseCheckpoint,
+        checkIns,
+        phaseCheckIns,
+        brainDumps,
+        taskWorkStretches,
+        historyFromSec,
+        taskStatusEvents,
       ),
-    [historyEvents, timelineFilter],
+    [
+      brainDumps,
+      checkIns,
+      historyFromSec,
+      phaseCheckIns,
+      showsEveryPhaseCheckpoint,
+      taskStatusEvents,
+      taskWorkStretches,
+      timelineKinds,
+    ],
   );
 
   const visibleTimelineEvents = useMemo(
-    () => timelineEvents.slice(0, visibleEventCount),
-    [timelineEvents, visibleEventCount],
+    () => historyEvents.slice(0, visibleEventCount),
+    [historyEvents, visibleEventCount],
   );
   const remainingEventCount = Math.max(
     0,
-    timelineEvents.length - visibleEventCount,
+    historyEvents.length - visibleEventCount,
   );
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
-  const empty = EMPTY_COPY[timelineFilter];
+  const empty =
+    timelineKinds.length === 1
+      ? LOG_EMPTY_COPY[timelineKinds[0]]
+      : MIXED_LOG_EMPTY_COPY;
 
   // Stable identities so the memoized timeline can skip re-rendering while
   // the brain dump composer above it updates on every keystroke.
@@ -239,6 +233,17 @@ export function OverviewView({
       else next.add(id);
       return next;
     });
+  }, []);
+
+  const updateTimelineKinds = useCallback((next: LogKindKey[]) => {
+    setTimelineKinds(next);
+    setEveryPhaseCheckpoint(false);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+  }, []);
+
+  const toggleOverviewEveryPhaseCheckpoint = useCallback(() => {
+    setEveryPhaseCheckpoint((on) => !on);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
   }, []);
 
   const submitOverviewDump = async () => {
@@ -345,10 +350,14 @@ export function OverviewView({
 
     if (tile.id === "lastHour") {
       return (
-        <div className="overview-day">
-          <DayStats stats={dayReflection.stats} />
-          <PhaseTotals sessions={dayReflection.sessions} phases={phases} />
-        </div>
+        <InsightsPanel
+          from={lastHourWindow.from}
+          to={lastHourWindow.to}
+          live
+          nowMs={lastHourWindow.nowMs}
+          nowSec={lastHourWindow.nowSec}
+          variant="tile"
+        />
       );
     }
 
@@ -369,7 +378,6 @@ export function OverviewView({
       const events = tile.minimised
         ? historyEvents.slice(0, 3)
         : visibleTimelineEvents;
-      const timelineEmpty = tile.minimised ? EMPTY_COPY.timeline : empty;
       return (
         <>
           {tile.minimised ? (
@@ -385,7 +393,7 @@ export function OverviewView({
             ) : null
           ) : (
             <header
-              className={`overview-panel__head${
+              className={`overview-panel__head overview-panel__head--kinds${
                 chrome?.onHeaderPointerDown
                   ? " overview-panel__head--draggable"
                   : ""
@@ -396,15 +404,17 @@ export function OverviewView({
               {chrome?.icon ? (
                 <div className="overview-panel__head-start">{chrome.icon}</div>
               ) : null}
-              <ViewToggle
-                value={timelineFilter}
-                options={OVERVIEW_TIMELINE_FILTERS}
+              <LogKindToggle
+                kinds={timelineKinds}
                 label="Timeline filter"
-                onChange={(next) => {
-                  setTimelineFilter(next);
-                  setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
-                }}
+                onChange={updateTimelineKinds}
               />
+              {phasesOnly ? (
+                <LogsRawToggle
+                  active={everyPhaseCheckpoint}
+                  onClick={toggleOverviewEveryPhaseCheckpoint}
+                />
+              ) : null}
               {chrome?.action ? (
                 <div className="overview-panel__head-end">{chrome.action}</div>
               ) : null}
@@ -413,8 +423,8 @@ export function OverviewView({
           <div className="overview-panel__scroll">
             {!loaded ? null : events.length === 0 ? (
               <div className="dash-empty">
-                <strong>{timelineEmpty.title}</strong>
-                <span>{timelineEmpty.body}</span>
+                <strong>{empty.title}</strong>
+                <span>{empty.body}</span>
               </div>
             ) : (
               <>
@@ -430,6 +440,7 @@ export function OverviewView({
                   onToggleDump={toggleDumpExpanded}
                   nowMs={nowMs}
                   dayChrome={!tile.minimised}
+                  colorsTimeColumn={timelineKinds.includes("phases")}
                 />
                 {!tile.minimised && remainingEventCount > 0 ? (
                   <div className="logs-load-older">
@@ -446,8 +457,8 @@ export function OverviewView({
                     </button>
                     <span>
                       Showing{" "}
-                      {Math.min(visibleEventCount, timelineEvents.length)} of{" "}
-                      {timelineEvents.length}
+                      {Math.min(visibleEventCount, historyEvents.length)} of{" "}
+                      {historyEvents.length}
                     </span>
                   </div>
                 ) : null}

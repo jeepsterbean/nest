@@ -13,13 +13,12 @@ import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
 import { formatTime, startOfDayMs, toDateInput } from "./time";
-import type { RangeModeStore } from "./insights";
+import { CALENDAR_RANGE_MODES, type CalendarRangeStore } from "./insights";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
   phaseCheckInsInRange,
   type RawLogEvent,
-  type TimelineLogEvent,
 } from "./timeline";
 
 export const LOG_KINDS = [
@@ -30,21 +29,36 @@ export const LOG_KINDS = [
 ] as const;
 export type LogKindKey = (typeof LOG_KINDS)[number]["key"];
 
-const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
+export const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
 
-/** List groups events by day; Hours places one day's events on Calendar's
- * hour grid. */
-export const LOG_SCALES = [
-  { key: "list", label: "List" },
-  { key: "hours", label: "Hours" },
-] as const;
-export type LogScaleKey = (typeof LOG_SCALES)[number]["key"];
+export const MIXED_LOG_EMPTY_COPY = {
+  title: "Nothing here yet",
+  body: "Metric check-ins, brain dumps, Phase changes, and task activity will land here.",
+};
 
-/** List and Hours share one selected day, paged one day at a time, with no
- * Day / Week choice of its own. */
-export const LOGS_RANGE_STORE: RangeModeStore = {
-  read: () => "day",
-  write: () => {},
+export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> =
+  {
+    dumps: {
+      title: "No brain dumps yet",
+      body: "Capture a thought from Overview or the popup.",
+    },
+    phases: {
+      title: "No Phase changes yet",
+      body: "Phase checkpoints appear here as attention shifts.",
+    },
+    metrics: {
+      title: "No Metric check-ins yet",
+      body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
+    },
+    tasks: {
+      title: "No task activity yet",
+      body: "Task creation, status changes, and Working now starts and stops will land here.",
+    },
+  };
+
+export const LOGS_CALENDAR_RANGE_STORE: CalendarRangeStore = {
+  read: () => CALENDAR_RANGE_MODES.find((mode) => mode.key === localStorage.getItem("nest:logs-range"))?.key ?? "day",
+  write: (mode) => localStorage.setItem("nest:logs-range", mode),
 };
 
 /** Distinct local day starts of a newest-first event list, newest first. */
@@ -57,45 +71,10 @@ export const logDayKeys = (events: readonly { at: number }[]): number[] => {
   return keys;
 };
 
-/** The nearest day with entries before (-1) or after (1) `dayMs`. List skips
- * empty days because it has no row to land on for them. */
-export const adjacentLogDay = (
-  dayKeys: readonly number[],
-  dayMs: number,
-  direction: -1 | 1,
-): number | null => {
-  if (direction < 0) return dayKeys.find((key) => key < dayMs) ?? null;
-  const later = dayKeys.filter((key) => key > dayMs);
-  return later[later.length - 1] ?? null;
-};
-
-/** The day group List scrolls to for `dayMs`: that day, else the nearest
- * older day with entries, else the oldest one. */
-export const logJumpDay = (
-  dayKeys: readonly number[],
-  dayMs: number,
-): number | null =>
-  dayKeys.find((key) => key <= dayMs) ?? dayKeys[dayKeys.length - 1] ?? null;
-
-/** How many newest-first events List must render to show all of `dayMs`,
- * rounded up to whole batches so Load older keeps its rhythm. */
-export const logEventCountThroughDay = (
-  events: readonly { at: number }[],
-  dayMs: number,
-) => {
-  const daySec = dayMs / 1000;
-  const needed = events.filter((event) => event.at >= daySec).length;
-  return Math.max(
-    LOG_EVENT_BATCH_SIZE,
-    Math.ceil(needed / LOG_EVENT_BATCH_SIZE) * LOG_EVENT_BATCH_SIZE,
-  );
-};
-
-/** Selected kinds, kept non-empty and in LOG_KINDS order. Stored as `scale`
- * because older storage already used `layout` for something else. */
+/** Selected kinds, kept non-empty and in LOG_KINDS order. Shared by Timeline
+ * and Calendar's Logs figure. */
 export type LogsPreferences = {
   kinds: LogKindKey[];
-  scale: LogScaleKey;
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
@@ -103,7 +82,6 @@ export const LOG_EVENT_BATCH_SIZE = 200;
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
 const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
   kinds: ALL_LOG_KINDS,
-  scale: "list",
 };
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
@@ -111,7 +89,7 @@ type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 const inKindOrder = (kinds: readonly unknown[]): LogKindKey[] =>
   ALL_LOG_KINDS.filter((key) => kinds.includes(key));
 
-/** Single click. The last selected kind stays on so Logs never goes blank. */
+/** Single click. The last selected kind stays on so the history filter always includes a kind. */
 export function toggleLogKind(
   kinds: LogKindKey[],
   key: LogKindKey,
@@ -128,8 +106,8 @@ export function soloLogKind(
   return kinds.length === 1 && kinds[0] === key ? ALL_LOG_KINDS : [key];
 }
 
-/** Storage from before multi-select (`view` + `layout`) falls back to all kinds
- * on List. */
+/** Storage from before multi-select (`view` + `layout`) falls back to all kinds.
+ * A stored `scale` from the retired List / Hours switch is ignored. */
 export function readLogsPreferences(
   storage: LogsStorage = localStorage,
 ): LogsPreferences {
@@ -138,11 +116,8 @@ export function readLogsPreferences(
     const isObject = stored !== null && typeof stored === "object";
     const kinds =
       isObject && Array.isArray(stored.kinds) ? inKindOrder(stored.kinds) : [];
-    const scale: LogScaleKey =
-      isObject && stored.scale === "hours" ? "hours" : "list";
     return {
       kinds: kinds.length > 0 ? kinds : DEFAULT_LOGS_PREFERENCES.kinds,
-      scale,
     };
   } catch {
     return DEFAULT_LOGS_PREFERENCES;
@@ -156,22 +131,7 @@ export function writeLogsPreferences(
   storage.setItem(LOGS_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
-const isTimelineLogEvent = (event: RawLogEvent): event is TimelineLogEvent =>
-  event.kind !== "phase";
-
-/** Overview Timeline tile. Phase changes stay in the time-column color, so they
- * get no row of their own. Logs uses settled Phase rows instead. */
-export function buildTimelineLogEvents(
-  checkIns: MetricCheckInWithRatings[],
-  brainDumps: BrainDump[],
-  taskWorkStretches: TaskWorkStretch[],
-): TimelineLogEvent[] {
-  return buildRawLog(checkIns, [], brainDumps, taskWorkStretches).filter(
-    isTimelineLogEvent,
-  );
-}
-
-/** Logs feed for the selected kinds. Phase rows are settled by the 60-second
+/** History events for the selected kinds. Phase rows are settled by the 60-second
  * collapse unless `everyPhaseCheckpoint` (the Phases-only raw view) is on. */
 export function buildLogsEvents(
   kinds: LogKindKey[],
@@ -322,7 +282,7 @@ export function logDayMarkdown(
         ? a.statusEvent.id - b.statusEvent.id : 0))
     .map((event) => eventMarkdown(event, context))
     .join("\n");
-  return `# Nest Logs — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
+  return `# Nest Timeline — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
 }
 
 export function downloadLogDay(
@@ -337,7 +297,7 @@ export function downloadLogDay(
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `nest-logs-${toDateInput(dayKey / 1000)}.md`;
+  link.download = `nest-timeline-${toDateInput(dayKey / 1000)}.md`;
   link.click();
   URL.revokeObjectURL(url);
 }
