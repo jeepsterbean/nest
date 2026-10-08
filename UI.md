@@ -4,6 +4,18 @@ This file supplements the project-agnostic UI standards in
 `.agents/standards/ui-standards.md`. Follow `.impeccable.md` for Nest's brand,
 tone, and aesthetic direction. Preserve light and dark system themes.
 
+## Find the relevant section
+
+- Shared shell and controls: [Shared controls and Section anchors](#shared-controls-and-section-anchors)
+- Product surfaces: [Tasks](#tasks), [Overview](#overview),
+  [Calendar](#calendar), [Insights](#insights), [Timeline](#timeline),
+  [Assistant](#assistant), [Popup](#popup), [Metrics](#metrics),
+  [Phases](#phases), and [Settings](#settings)
+- Navigation: [Sidebar and Core](#sidebar-and-core)
+- Specialized implementation: [Calendar timetable](#calendar-timetable),
+  [Pointer and drag](#pointer-and-drag), and
+  [Brain dump surface](#brain-dump-surface)
+
 ## Copy and interaction
 
 - Sections have no title; the Sidebar names the current place. The Greetings
@@ -21,6 +33,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Shared controls and Section anchors
 
+### Shared dashboard shell
+
 - Dashboard styles are loaded through `src/dashboard/Dashboard.css`; that file
   preserves cascade order by importing focused files from `src/dashboard/styles/`.
 - Greetings board: `DashboardHeader` (`.dash-header`) on Overview except while
@@ -35,7 +49,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   12.5px, titles 13.5px. Task rows stay 40px high with 7px vertical cell
   padding. Cell text stays on one line and truncates with an ellipsis;
   title truncation preserves the Working now badge.
-- Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
+
+### Tasks
+
+`.task-table` is the Table layout. Layout choice persists in `nest:task-view` (Table
   when unset). Column order, widths, and hidden columns belong to each saved view;
   the old shared `nest:task-table` layout is no longer read.
   The active Core Tasks pane adds `.dashboard--tasks` to scope its portal menus:
@@ -129,7 +146,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   lists re-show status dots, which the Tasks pane hides elsewhere. The
   description is 14px body text whose editor auto-grows with its content, and
   the editor shares that minimum height so opening it keeps the layout still.
-- Overview: `.overview-grid` holds six movable `.overview-tile` surfaces with
+
+### Overview
+
+`.overview-grid` holds six movable `.overview-tile` surfaces with
   ids `lastHour`, `tasks`, `timeline`, `brainDump`, `metrics`, and
   `controlPanel`. The control panel is always present, cannot be hidden, and
   shows hidden tiles as chips. Hiding a tile removes it from
@@ -194,7 +214,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   drop target. The top-right
   `.floating-brain-dumps-toggle` hides or restores
   free stickies without minimising them or hiding the Note Board.
-- Calendar: `.dash-section--calendar` (container `calendar`) holds the
+
+### Calendar
+
+`.dash-section--calendar` (container `calendar`) holds the
   timetable `.tl` and Insights in `.calendar-body`, which gains
   `.calendar-body--both` while the toolbar's `.calendar-insights-toggle`
   (`aria-pressed`, right-panel glyph, inside `.calendar-panel-controls`) shows
@@ -206,7 +229,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `.tl__heads`, `.tl__corner`, and `.tl__gutter` pinned. Last hour marks its
   window on today in Day with `.tl__span` in the lane and
   `.tl__span-mark` on the gutter.
-- Insights (inside Calendar): `.insights-body` with `.insight-mix` (one grid of four
+
+### Insights
+
+Inside Calendar, `.insights-body` contains `.insight-mix` (one grid of four
   `.insight-mix__row` Phase rows of name and duration),
   followed by Brain dumps, Tasks, and Metrics as direct `.insight-list` children
   of `.insights-body`. All four align left with 28px between rows and use
@@ -231,7 +257,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   compact shared `.rating-pill` scores and a right-aligned average). It shares Calendar's range in
   `nest:date-range` (Day, Week, or Last hour; Day when unset; also reads
   legacy `nest:insights-range`), picked in the range sidebar.
-- Timeline presentation: `.dash-section--timeline` with multi-select filter chips
+
+### Timeline
+
+The Timeline presentation uses `.dash-section--timeline` with multi-select filter chips
   (`.logs-kind-filter`: Brain dumps / Phases / Metrics / Tasks; double click
   isolates a kind; the row scrolls sideways when the toolbar is too narrow). Each chip uses its kind's timeline mark color (`--phase`
   for Phases); on chips are tinted with a filled square, off chips are dashed
@@ -259,7 +288,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   in the window. The Timeline icon is the `timeline` slot, picked in Overview
   settings, and it also heads the Overview Timeline tile.
   The shared `logs-` CSS prefix covers both Timeline and Calendar Logs styling.
-- Sidebar: every Section icon is a `NestIcon` from `nest:overview-tile-icons`
+
+### Sidebar and Core
+
+Every Sidebar Section icon is a `NestIcon` from `nest:overview-tile-icons`
   (`overview`, `calendar`, `core`, `assistant`, `settings`). The first click selects that Section. Clicking the
   icon again while it is already selected opens `IconPickerButton`; a pick,
   Escape, or an outside press closes it. Core pane icons live in the separate
@@ -267,7 +299,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (slots `tasks` / `brainDump` / `metrics` / `phases`). Selecting the active
   pane again opens its icon picker. Tasks, Brain dump, and Metrics also mark
   their Overview tiles. Phases has no Overview tile.
-- Section sidebar: Core, Overview, and Calendar add a second rail, `.section-sidebar`
+
+Core, Overview, and Calendar add a second rail, `.section-sidebar`
   (grid class `.dashboard--section-sidebar`), between the main Sidebar and
   `.dashboard__inner`: a quieter bordered panel under a serif Section heading
   with `.section-nav__button` icon-and-label rows. Each icon sits on a tile
@@ -275,7 +308,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   solid tile, and selecting it again opens its icon picker. Below 861px the
   rail drops the heading and labels and keeps the tiles, with accessible names
   and tooltips.
-- Core: one main Sidebar entry. Its Section sidebar rows are Brain dump /
+
+Core has one main Sidebar entry. Its Section sidebar rows are Brain dump /
   Tasks / Metrics / Phases, each toned with that pane's Logs kind color
   (`--dump`, `--doing`, `--accent`, `--phase`).
   Pane headers hold their own controls. The last pane
@@ -284,7 +318,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   switches. `.dashboard__inner` also takes the active pane's layout class
   (`--brainDump`, `--tasks`, `--metrics`, `--phases`) so each pane keeps its
   former Section height rules.
-- Assistant: `.dash-section--assistant` with Chat / Config panes via
+
+### Assistant
+
+`.dash-section--assistant` has Chat / Config panes via
   `ViewToggle`, persisted in `nest:assistant-pane` (Chat when unset). Chat uses
   `.assistant-workspace` for the saved-chat list and
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
@@ -311,7 +348,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   that reveals that record in a right overlay panel; the renderer never receives
   the API key; without a keyring platform-store feature the key never reaches
   the system keychain and Send stays disabled after restart.
-- Popup: 1040×460 (`tauri.conf.json`), not resizable. `.popup-workspace` is a
+
+### Popup
+
+The Popup is 1040×460 (`tauri.conf.json`) and not resizable. `.popup-workspace` is a
   grid with the Timer across the top (`grid-column: 1 / -1`) and a 48px
   `.popup-tabs` strip on the left. The strip holds one toggle per panel, each
   `aria-pressed` for its own panel, so any of the eight combinations can be
@@ -326,7 +366,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:popup-tab`. Timer-due summons use the plain `#/popup` route. Popup
   Assistant mounts the first time Chat is shown,
   including when it is part of the restored combination, then stays mounted.
-- Metrics: `.dash-section--metrics` reads one local day at a time through the
+
+### Metrics
+
+`.dash-section--metrics` reads one local day at a time through the
   shared `DateNavigation` (previous, next, back to today; it opens on today and
   cannot pass it). Days older than the dashboard's history window load on
   demand through `useDayRecords`. Its icon is picked from the Core Sidebar. `.metrics-board`
@@ -349,7 +392,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Metrics or `New metric…`, which creates and adds in one step; `New pulse`
   closes the list. Leaving Edit drops open composers. Pulses hidden from the
   Popup persist in `nest:hidden-pulse-ids`.
-- Phases: `.dash-section--phases` is a read-only `.phase-guide`: an intro on
+
+### Phases
+
+`.dash-section--phases` is a read-only `.phase-guide`: an intro on
   how Phase is derived and one bordered `.phase-list` (`<ol>` as Doing,
   Scoping, Resting, Offline from `src/dashboard/lib/phaseGuide.ts`). Each
   `.phase-row` reads a 24px tinted `.phase-row__icon`, the name, and
@@ -359,7 +405,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Sidebar; Phases has no Overview tile.
   Phase appearance uses `--phase-color` on the Phases list, Greetings board,
   Calendar rail and wash, Insights mix and totals, and Timeline Phase rows.
-- Settings: `.dash-section--settings` with Assistant / Reminders / Background
+
+### Settings
+
+`.dash-section--settings` has Assistant / Reminders / Background
   panes via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
   (Assistant when unset). Panes stay mounted in `.settings-slot` through
   `hidden` so Assistant drafts survive switches. Background style persists in

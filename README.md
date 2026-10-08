@@ -34,4 +34,5 @@ cd src-tauri && cargo test --locked && cargo clippy --locked --all-targets -- -D
 See [CONTEXT.md](./CONTEXT.md) for domain language,
 [BACKLOG-FEATURE-REQUESTS.md](./BACKLOG-FEATURE-REQUESTS.md) for product work, and
 [BACKLOG-BACKEND.md](./BACKLOG-BACKEND.md) for engineering backlog.
-Coding assistants: [AGENTS.md](./AGENTS.md) and [UI.md](./UI.md).
+Coding assistants start with [AGENTS.md](./AGENTS.md), which routes each task
+to the relevant guidance.
