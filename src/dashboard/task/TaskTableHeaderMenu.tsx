@@ -26,7 +26,8 @@ import {
 } from "../lib/taskScoreFilter";
 import { taskSortDirectionLabel, type TaskColumnSort } from "../lib/taskColumnSort";
 import type { TaskTableColumn } from "../lib/taskTable";
-import { matchingTaskStatusPreset, RATING_VALUES, TASK_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_PRESETS, toggleTaskStatusFilter } from "../lib/tasks";
+import type { TaskParentFilter } from "../lib/taskTableViews";
+import { matchingTaskStatusPreset, RATING_VALUES, TASK_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_PRESETS, taskStatusFilterLabel, toggleTaskStatusFilter } from "../lib/tasks";
 import { formatCompactDuration, taskDisplayedWorkedSeconds, toDateInput } from "../lib/time";
 import {
   includeWorkedTimeThreshold,
@@ -38,7 +39,6 @@ import {
   type TaskWorkedTimeFilter,
 } from "../lib/taskWorkedTimeFilter";
 
-type ParentFilter = number | "none" | null;
 type MenuPane = "sort" | "filter";
 
 const MENU_MIN_WIDTH = 208;
@@ -233,8 +233,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   onStatusesChange: (statuses: TaskStatus[]) => void;
   scope: string | null;
   onScopeChange: (scope: string | null) => void;
-  parent: ParentFilter;
-  onParentChange: (parent: ParentFilter) => void;
+  parent: TaskParentFilter;
+  onParentChange: (parent: TaskParentFilter) => void;
   createdFilter: TaskDateFilter;
   onCreatedFilterChange: (filter: TaskDateFilter) => void;
   updatedFilter: TaskDateFilter;
@@ -274,7 +274,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   const nested = filterable || Boolean(onHide);
   const preset = matchingTaskStatusPreset(statuses);
   const dateFilterLabel = column.id === "created" || column.id === "updated" ? taskDateFilterLabel(dateFilter) : null;
-  const filterLabel = column.id === "status" ? preset === "all" ? null : preset ?? `${statuses.length} statuses` : column.id === "scope" ? scope : column.id === "parent" && parent !== null ? parent === "none" ? "No parent" : tasks.find(task => task.id === parent)?.title ?? "Parent" : column.id === "value" || column.id === "effort" ? taskScoreFilterLabel(scoreFilter) : column.id === "workedTime" ? taskWorkedTimeFilterLabel(workedTimeFilter) : dateFilterLabel;
+  const filterLabel = column.id === "status" ? preset === "all" ? null : taskStatusFilterLabel(statuses) : column.id === "scope" ? scope : column.id === "parent" && parent !== null ? parent === "none" ? "No parent" : tasks.find(task => task.id === parent)?.title ?? "Parent" : column.id === "value" || column.id === "effort" ? taskScoreFilterLabel(scoreFilter) : column.id === "workedTime" ? taskWorkedTimeFilterLabel(workedTimeFilter) : dateFilterLabel;
   const wideFilter = column.id === "parent" || column.id === "created" || column.id === "updated" || column.id === "workedTime";
   const submenuWidth = wideFilter && submenu === "filter" ? PARENT_MENU_MIN_WIDTH : MENU_MIN_WIDTH;
   const close = () => { onOpenChange(false); triggerRef.current?.focus(); };
@@ -412,7 +412,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     }
   };
 
-  const parentOptions: { value: ParentFilter; label: string }[] = column.id === "parent" ? [
+  const parentOptions: { value: TaskParentFilter; label: string }[] = column.id === "parent" ? [
     { value: null, label: "All parents" },
     { value: "none", label: "No parent" },
     ...tasks.filter(task => tasks.some(child => child.parentTaskId === task.id))
@@ -478,7 +478,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
 
   const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}`;
   return <>
-    <button ref={triggerRef} type="button" className={`task-column-trigger${(sorted || filterLabel) && edited ? " is-active" : ""}`}
+    <button ref={triggerRef} type="button" className={`task-column-trigger${edited ? " is-active" : ""}`}
       aria-label={`${menuLabel}${filterLabel ? `, ${filterLabel}` : ""}${sorted ? `, sorted ${columnSort?.direction}` : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onPointerDown={event => event.stopPropagation()} onClick={() => onOpenChange(!open)}>

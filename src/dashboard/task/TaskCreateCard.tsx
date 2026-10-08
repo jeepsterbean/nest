@@ -11,6 +11,7 @@ import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
 import { RatingDotScale } from "./RatingDotScale";
+import { taskSelectOptions } from "./taskSelectOptions";
 
 export type TaskDraft = {
   title: string;
@@ -33,15 +34,6 @@ export const EMPTY_TASK_DRAFT: TaskDraft = {
   effort: null,
   blockerIds: [],
 };
-
-const byTitle = (a: Task, b: Task) => a.title.localeCompare(b.title);
-
-const taskOptions = (candidates: Task[]): MenuSelectOption[] =>
-  candidates.map((candidate) => ({
-    value: String(candidate.id),
-    label: candidate.title,
-    marker: <span className={`status-dot status-dot--${candidate.status}`} />,
-  }));
 
 // The draft lives in the caller so a click-away keeps what was typed for the
 // next open; only a successful add clears it.
@@ -74,7 +66,6 @@ export function TaskCreateCard({
   }, [onClose]);
 
   const title = draft.title.trim();
-  const sortedTasks = [...tasks].sort(byTitle);
   const blockers = draft.blockerIds
     .map((id) => tasks.find((task) => task.id === id))
     .filter((task): task is Task => task !== undefined);
@@ -197,7 +188,7 @@ export function TaskCreateCard({
               ariaLabel="Parent"
               options={[
                 { value: "", label: "No parent" },
-                ...taskOptions(sortedTasks),
+                ...taskSelectOptions(tasks),
               ]}
               onChange={(value) =>
                 update({ parentTaskId: value ? Number(value) : null })
@@ -258,8 +249,8 @@ export function TaskCreateCard({
             value=""
             placeholder="Add blocker…"
             ariaLabel="Add blocker"
-            options={taskOptions(
-              sortedTasks.filter((task) => !draft.blockerIds.includes(task.id)),
+            options={taskSelectOptions(
+              tasks.filter((task) => !draft.blockerIds.includes(task.id)),
             )}
             onChange={(value) => {
               if (value) update({ blockerIds: [...draft.blockerIds, Number(value)] });

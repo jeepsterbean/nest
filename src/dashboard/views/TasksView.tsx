@@ -38,7 +38,7 @@ import { TaskTableHeaderMenu } from "../task/TaskTableHeaderMenu";
 import { taskDateFilterLabel, taskMatchesDateFilter, type TaskDateFilter } from "../lib/taskDateFilter";
 import { taskScoreFilterLabel, taskMatchesScoreFilter, type TaskScoreFilter } from "../lib/taskScoreFilter";
 import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
-import { changedTaskTableQueryFields, taskTableColumnQueryEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
+import { changedTaskTableQueryFields, taskTableColumnQueryEdited, taskTableFiltersEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
 import { taskMatchesWorkedTimeFilter, taskWorkedTimeFilterLabel, type TaskWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
 import {
   EMPTY_TASK_DRAFT,
@@ -86,8 +86,12 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const setEffortFilter = (effort: TaskScoreFilter) => setTableQuery(q => ({ ...q, effort }));
   const setWorkedTimeFilter = (workedTime: TaskWorkedTimeFilter) => setTableQuery(q => ({ ...q, workedTime }));
   const setTableSort = (sort: TaskColumnSort[]) => setTableQuery(q => ({ ...q, sort }));
-  // Re-match while Working now so a live total can cross the chosen minute.
-  const tickWorkedTime = workedTimeFilter !== null || tableSort.some(rule => rule.column === "workedTime");
+  // One table clock keeps displayed, filtered, and sorted live totals aligned.
+  const tickWorkedTime = taskView === "table" && (
+    tasks.some(task => task.workingNow)
+    || workedTimeFilter !== null
+    || tableSort.some(rule => rule.column === "workedTime")
+  );
   const dateNowMs = useCurrentTime();
   const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -219,6 +223,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   }, [loaded, selectedParent, taskGraph]);
 
   const changedFields = changedTaskTableQueryFields(taskTableViews.selected.query, tableQuery);
+  const filtersEdited = taskTableFiltersEdited(taskTableViews.selected.query, tableQuery);
   const queryPills = [
     ...optionalPill("statuses", "Status", matchingTaskStatusPreset(tableStatuses) === "all" ? null : taskStatusFilterLabel(tableStatuses), () => setTableStatuses([...TASK_STATUSES])),
     ...optionalPill("scope", "Scope", selectedTaskScope, () => setSelectedTaskScope(null)),
@@ -320,7 +325,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                       </span>}
                     </div>}
                     <span className="task-filter-result" role="status">
-                      {queryPills.some(pill => changedFields.has(pill.field))
+                      {filtersEdited
                         ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
                         : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`}
                     </span>
@@ -362,6 +367,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                   />
                 )}
                 taskGraph={taskGraph}
+                nowMs={nowMs}
                 selectedTaskId={selectedTaskId}
                 emptyCopy={emptyListCopy}
                 onSelect={selectTask}

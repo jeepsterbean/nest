@@ -118,10 +118,15 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   TasksView owns the single open column menu; outside pointer dismissal runs
   in capture phase so nested controls can stop bubbling safely.
   The `.task-table__move` grip supports column dragging.
-  The saved-view menu is a portal-mounted `.menu-select__menu.task-views__menu`
-  with `__list` rows (`__option`, hover/focus `__actions` for Rename and
-  Delete on custom views; Raw has neither), inline `__field` name inputs, a `__confirm` delete row, and a
-  dashed-off `__add` row. Saved views and the selection persist in
+  The saved-view menu is a portal-mounted
+  `.menu-select__menu.task-column-menu.task-views__menu`, sharing the column
+  filter chrome (compact padding, 9px radius, dark-mode lift, 12px / 500
+  options, trailing check only). Like a Sort-only column menu, a muted
+  uppercase `__label` names the list (Views) so the view names stay the
+  content; a second `__section` holds the muted `__row--action` add row (or
+  the inline `__field` name input). `__list` rows (`__option`, hover/focus
+  `__actions` for Rename and Delete on custom views; Raw has neither) include
+  a `__confirm` delete row. Saved views and the selection persist in
   `nest:task-table-views`; the query state lives in `useTaskTableViews`.
   The one-line task composer renders only inside `.task-map__tray` on the Map.
   The table's `.task-new-button` opens `TaskCreateCard`: a `.task-create-overlay`

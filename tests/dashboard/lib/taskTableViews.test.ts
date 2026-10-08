@@ -3,6 +3,7 @@ import {
   changedTaskTableQueryFields,
   createSavedTaskView,
   taskTableColumnQueryEdited,
+  taskTableFiltersEdited,
   DEFAULT_TASK_TABLE_QUERY,
   deleteSavedTaskView,
   MAX_SAVED_TASK_VIEWS,
@@ -84,6 +85,20 @@ describe("saved task views", () => {
       sort: [{ column: "status", direction: "descending" }, { column: "title", direction: "ascending" }],
     }))).toBe(true);
     expect(taskTableColumnQueryEdited("title", saved, query({ ...saved, scope: "Work" }))).toBe(false);
+  });
+
+  it("keeps filter changes visible when a saved filter is cleared", () => {
+    const saved = query({ scope: "Health" });
+    const cleared = query({ ...saved, scope: null });
+    expect(taskTableFiltersEdited(saved, cleared)).toBe(true);
+    expect(taskTableColumnQueryEdited("scope", saved, cleared)).toBe(true);
+  });
+
+  it("does not treat sort or column-only edits as filter changes", () => {
+    const sorted = query({ sort: [{ column: "title", direction: "ascending" }] });
+    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "scope", true);
+    expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, sorted)).toBe(false);
+    expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, query({ columns: hidden }))).toBe(false);
   });
 
   it("refuses blank names, names taken ignoring case, and a query another view already holds", () => {

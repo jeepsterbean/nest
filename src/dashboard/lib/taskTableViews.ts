@@ -108,6 +108,21 @@ const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuer
   workedTime: "workedTime",
 };
 
+/** Whether any row-selection filter differs from the saved view.
+ * Column layout and sorting do not affect filtered-result count copy. */
+export const taskTableFiltersEdited = (
+  saved: TaskTableQuery,
+  query: TaskTableQuery,
+) =>
+  Object.values(COLUMN_FILTER_FIELD).some(
+    (field) =>
+      field !== undefined &&
+      !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(
+        saved[field],
+        query[field],
+      ),
+  );
+
 /** True when this column's filter or sort rule differs from the saved view. */
 export const taskTableColumnQueryEdited = (
   columnId: TaskTableColumnId,

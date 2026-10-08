@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { checkIcon, chevronDownIcon, editIcon, plusIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
+import { checkIcon, chevronDownIcon, editIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
 import type { TaskTableViews } from "../hooks/useTaskTableViews";
 import { placeMenuSelect, type MenuSelectBox } from "../lib/placeMenuSelect";
 import {
@@ -205,23 +205,26 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
     </div>
     {open && box && createPortal(
       <div ref={menuRef} id={menuId} role="dialog" aria-label="Task views"
-        className={`menu-select__menu task-views__menu${box.openUp ? " menu-select__menu--up" : ""}`}
+        className={`menu-select__menu task-column-menu task-views__menu${box.openUp ? " menu-select__menu--up" : ""}`}
         style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}>
-        <div className="task-views__head">Views</div>
-        <ul className="task-views__list">{views.views.map(viewRow)}</ul>
-        {rowEdit?.kind === "create" ? <div className="task-views__create">
-          <NameField text={rowEdit.text} label="New view name"
-            onChange={text => setRowEdit({ ...rowEdit, text, problem: null })}
-            onSubmit={() => keepOpenOnFailure(views.create(rowEdit.text), problem => setRowEdit({ ...rowEdit, problem }))}
-            onCancel={() => setRowEdit(null)}/>
-          <ProblemNote problem={rowEdit.problem} onSwitch={switchTo}/>
-        </div> : <button type="button" className="task-views__add"
-          disabled={!canSaveAs}
-          title={!edited ? "No changes from this view" : atCap ? `${MAX_SAVED_TASK_VIEWS} views saved. Delete one first` : undefined}
-          onClick={() => setRowEdit({ kind: "create", text: "", problem: null })}>
-          {plusIcon}
-          Save current as view
-        </button>}
+        <div className="task-column-menu__section">
+          <div className="task-column-menu__label">Views</div>
+          <ul className="task-views__list">{views.views.map(viewRow)}</ul>
+        </div>
+        <div className="task-column-menu__section">
+          {rowEdit?.kind === "create" ? <div className="task-views__create">
+            <NameField text={rowEdit.text} label="New view name"
+              onChange={text => setRowEdit({ ...rowEdit, text, problem: null })}
+              onSubmit={() => keepOpenOnFailure(views.create(rowEdit.text), problem => setRowEdit({ ...rowEdit, problem }))}
+              onCancel={() => setRowEdit(null)}/>
+            <ProblemNote problem={rowEdit.problem} onSwitch={switchTo}/>
+          </div> : <button type="button" className="menu-select__option task-column-menu__row--action"
+            disabled={!canSaveAs}
+            title={!edited ? "No changes from this view" : atCap ? `${MAX_SAVED_TASK_VIEWS} views saved. Delete one first` : undefined}
+            onClick={() => setRowEdit({ kind: "create", text: "", problem: null })}>
+            <span>Save current as view</span>
+          </button>}
+        </div>
       </div>,
       triggerRef.current?.closest(".dashboard") ?? document.body,
     )}

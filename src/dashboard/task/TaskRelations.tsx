@@ -6,12 +6,11 @@ import {
   setTaskParent,
 } from "../../lib/commands";
 import type { Task } from "../../lib/types";
-import { MenuSelect, type MenuSelectOption } from "../components/MenuSelect";
+import { MenuSelect } from "../components/MenuSelect";
 import { enterIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { childProgress, descendantIds } from "../lib/taskGraph";
-
-const byTitle = (a: Task, b: Task) => a.title.localeCompare(b.title);
+import { taskSelectOptions } from "./taskSelectOptions";
 
 /** Parent, Children, Blocker and Dependent rows of the detail panel. Readiness
  * has no badge: each Blocker row's status dot shows whether it is done. */
@@ -31,18 +30,10 @@ export function TaskRelations({ task }: { task: Task }) {
     [taskGraph, task.id],
   );
   const parentCandidates = tasks
-    .filter((candidate) => candidate.id !== task.id && !descendants.has(candidate.id))
-    .sort(byTitle);
+    .filter((candidate) => candidate.id !== task.id && !descendants.has(candidate.id));
   const blockerIds = new Set(blockers.map((blocker) => blocker.id));
   const blockerCandidates = tasks
-    .filter((candidate) => candidate.id !== task.id && !blockerIds.has(candidate.id))
-    .sort(byTitle);
-  const taskOptions = (candidates: Task[]): MenuSelectOption[] =>
-    candidates.map((candidate) => ({
-      value: String(candidate.id),
-      label: candidate.title,
-      marker: <span className={`status-dot status-dot--${candidate.status}`} />,
-    }));
+    .filter((candidate) => candidate.id !== task.id && !blockerIds.has(candidate.id));
 
   const addChild = (event: FormEvent) => {
     event.preventDefault();
@@ -67,7 +58,7 @@ export function TaskRelations({ task }: { task: Task }) {
           // unset Parent renders as the muted placeholder, not a chosen value.
           options={[
             ...(parent ? [{ value: "", label: "No parent" }] : []),
-            ...taskOptions(parentCandidates),
+            ...taskSelectOptions(parentCandidates),
           ]}
           onChange={(value) => {
             void mutate(() =>
@@ -147,7 +138,7 @@ export function TaskRelations({ task }: { task: Task }) {
             value=""
             placeholder={blockers.length > 0 ? "Add blocker…" : "No blockers"}
             ariaLabel={`Add blocker for ${task.title}`}
-            options={taskOptions(blockerCandidates)}
+            options={taskSelectOptions(blockerCandidates)}
             onChange={(value) => {
               if (!value) return;
               void mutate(() =>

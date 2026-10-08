@@ -27,11 +27,13 @@ function TaskTableCell({
   task,
   taskGraph,
   readOnly,
+  nowMs,
 }: {
   id: TaskTableColumnId;
   task: Task;
   taskGraph: TaskGraphProjection;
   readOnly: boolean;
+  nowMs?: number;
 }) {
   switch (id) {
     case "title":
@@ -98,7 +100,7 @@ function TaskTableCell({
     case "workedTime":
       return (
         <td className="task-table__col task-table__col--workedTime">
-          <WorkedTime task={task} />
+          <WorkedTime task={task} nowMs={nowMs} />
         </td>
       );
     case "created":
@@ -129,6 +131,7 @@ export function TaskTable({
   renderHeader,
   headerSort,
   wrapRef,
+  nowMs,
 }: {
   renderHeader?: (column: TaskTableColumn) => ReactNode;
   headerSort?: { column: TaskTableColumnId; direction: "ascending" | "descending" };
@@ -142,6 +145,8 @@ export function TaskTable({
   /** Overview peek: static cells, no row selection or edits. */
   readOnly?: boolean;
   wrapRef?: Ref<HTMLDivElement>;
+  /** Shared live clock for callers that display several Working now totals. */
+  nowMs?: number;
 }) {
   const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
 
@@ -248,6 +253,7 @@ export function TaskTable({
                     task={task}
                     taskGraph={taskGraph}
                     readOnly={readOnly}
+                    nowMs={nowMs}
                   />
                 ))}
               </tr>
