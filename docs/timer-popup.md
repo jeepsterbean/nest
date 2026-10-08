@@ -41,7 +41,10 @@ share the width evenly, left to right in that order. Tasks and metrics holds
 Metric scoring above the Active / Up next task list; extra tasks scroll.
 Completed and Cancelled Tasks from the last 60 minutes sit above Active; the
 list opens on Active, and scrolling up reveals them so they can be returned
-to Active. Active rows have Up next to the left of Complete. Brain dump
+to Active. Active rows start or stop Working now with their leading control;
+while working, it shows the Task's total Worked time, including the open
+stretch. Starting an Up next Task moves it to Active and starts Working now.
+Active rows have Up next to the left of Complete. Brain dump
 holds the brain dump. Chat holds the same Chat workspace as the dashboard;
 Assistant setup stays in the dashboard. Every summon restores the last
 combination — manual or Timer-triggered alike, and even if the Timer is

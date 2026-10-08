@@ -222,7 +222,7 @@ export function taskChangeLabel(event: TaskChangeEvent): string {
     case "work-start":
       return "Working now started";
     case "work-stop":
-      return "Working now stopped";
+      return "Paused";
   }
 }
 

@@ -17,6 +17,7 @@ reference by default.
 | Schema, migration, command payload, or shared DTO change | `.agents/skills/schema-ipc-change/SKILL.md` |
 | Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `.agents/skills/phase-lifecycle/SKILL.md` |
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
+| Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
 | Overview, Calendar (and its Insights), Timeline, or Phases | `docs/time-surfaces.md` |
 | Metrics section, Pulses, or Metric check-in behavior | `CONTEXT.md`, `UI.md` |
@@ -24,6 +25,7 @@ reference by default.
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
 | Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
+| Reminders, Greetings board, Sidebar, or Settings panes | `CONTEXT.md`, `UI.md` |
 | Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
@@ -63,12 +65,16 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 ## Repository-wide invariants
 
+- `SIMPLIFIED_VIEW` in `src/lib/simplifiedView.ts` is currently `true`, which
+  hides the Overview, Assistant, and Settings Sections and starts the dashboard
+  on Calendar. Changes to those Sections stay invisible until it is `false`.
+  Scope and restore behavior: `docs/time-surfaces.md`.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
   `completed`, `cancelled`) from derived readiness (`Ready` / `Blocked`).
   Ready/Blocked come from unresolved Blockers; they are not stored status
-  values. `paused` is not a live status.
+  values.
 - Do not introduce `any` when an existing or inferred type can express the
   value. Keep TypeScript `strict` clean.
 - At application seams, trim and reject empty names or titles in Tauri

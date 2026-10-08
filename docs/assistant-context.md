@@ -95,11 +95,11 @@ Adding an option starts from its name alone. It stays an unsaved draft until
 what it covers is filled in and saved; editing an existing option works the
 same way, with Revert instead of Discard.
 
-Phase renders as the session timeline over the window, oldest first, using the
-same settled stretches Calendar and Insights build (`phaseSessionsInWindow`). The other three
-render as lists, newest first. A row from an earlier day carries its day
-("Yesterday 9:05 AM"): a count option can reach back days, and a bare clock
-time would pass the record off as today.
+Phase renders as a timeline of Phase sessions over the window, oldest first,
+the same settled set Calendar and Insights build (`phaseSessionsInWindow`). The
+other three render as lists, newest first. A row from an earlier day carries
+its day ("Yesterday 9:05 AM"): a count option can reach back days, and a bare
+clock time would pass the record off as today.
 
 ## Task detail
 

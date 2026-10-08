@@ -127,7 +127,7 @@ export const formatDate = (ts: number | null) =>
         day: "numeric",
       });
 
-export const taskWorkSessionSeconds = (
+export const taskWorkStretchSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),
 ) =>
@@ -142,7 +142,7 @@ export const taskDisplayedWorkedSeconds = (
 ) =>
   task.workedSeconds +
   (task.workingNow && task.workStartedAt !== null
-    ? taskWorkSessionSeconds(task.workStartedAt, nowMs)
+    ? taskWorkStretchSeconds(task.workStartedAt, nowMs)
     : 0);
 
 export const formatWorkedTime = (seconds: number) => {

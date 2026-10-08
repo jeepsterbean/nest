@@ -109,8 +109,8 @@ column and stops at each column's minimum. The last column has no handle.
 When the minima are wider than the pane, the table scrolls horizontally.
 Task rows keep a fixed height as columns change. Text stays on one line and
 truncates with an ellipsis; hovering a truncated title reveals its full text.
-Working now is started from the detail panel, not from the table or the Map.
-Selecting a table row opens that panel as an overlay over the table. The panel
+The Popup's Tasks and metrics panel starts and stops Working now.
+Selecting a table row opens the Task detail panel as an overlay over the table. The panel
 fills the workspace vertically and takes the right half of the table, becoming
 full-width on narrow screens. The table dims and ignores presses; pressing the
 dim, Escape, or the panel's close control dismisses it. The Map still shares

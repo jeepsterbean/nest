@@ -224,7 +224,7 @@ describe("daily Logs export", () => {
     expect(markdown).toContain("Phase — Doing");
     expect(markdown).toContain("Metric check-in — Daily pulse: Energy 4");
     expect(markdown).toContain("Working now started — Write proposal");
-    expect(markdown).toContain("Working now stopped — Write proposal");
+    expect(markdown).toContain("Paused — Write proposal");
     expect(markdown).toContain("Brain dump — Tags: reflection");
     expect(markdown).toContain("> First line\n  > Second line");
   });

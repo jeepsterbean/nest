@@ -29,7 +29,7 @@ export function logEventLabel(
     case "work-start":
       return `Started working on ${taskTitle(tasks, event.stretch.taskId)}`;
     case "work-stop":
-      return `Stopped working on ${taskTitle(tasks, event.stretch.taskId)}`;
+      return `Paused — ${taskTitle(tasks, event.stretch.taskId)}`;
   }
 }
 

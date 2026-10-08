@@ -17,7 +17,7 @@ import {
   snapToQuarterHour,
   startOfDayMs,
   taskDisplayedWorkedSeconds,
-  taskWorkSessionSeconds,
+  taskWorkStretchSeconds,
   toDateInput,
   toTimeInput,
   fromDateAndTime,
@@ -210,10 +210,10 @@ describe("date and time field values", () => {
 
 describe("worked time", () => {
   it("starts each visible session at zero without going backwards", () => {
-    expect(taskWorkSessionSeconds(100, 130_000)).toBe(30);
-    expect(taskWorkSessionSeconds(130, 130_000)).toBe(0);
-    expect(taskWorkSessionSeconds(140, 130_000)).toBe(0);
-    expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(100, 130_000)).toBe(30);
+    expect(taskWorkStretchSeconds(130, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(140, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(null, 130_000)).toBe(0);
   });
 
   it("adds the open stretch to banked Worked time while Working now", () => {

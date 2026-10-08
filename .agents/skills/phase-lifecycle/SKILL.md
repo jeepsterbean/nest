@@ -23,7 +23,7 @@ Phase history consistent.
 5. Preserve these user-visible outcomes:
    - starting any Work stretch can derive Doing;
    - stopping the last open stretch derives the next Phase;
-   - leaving Active closes Working now without inventing a paused status;
+   - leaving Active closes Working now;
    - lock, display sleep, system sleep, and quit bank open Worked time;
    - startup recovery ends an abandoned stretch at its last-known-live time;
    - editing or deleting a stretch recomputes totals and synchronizes Phase

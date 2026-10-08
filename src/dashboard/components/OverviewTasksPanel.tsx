@@ -83,7 +83,7 @@ export function OverviewTasksPanel({
         <button
           type="button"
           className="overview-panel__goto"
-          aria-label="Open Tasks section"
+          aria-label="Open Tasks"
           onClick={onOpenTasks}
         >
           Tasks
@@ -114,7 +114,7 @@ export function OverviewTasksPanel({
         <button
           type="button"
           className="overview-panel__goto"
-          aria-label="Open Tasks section"
+          aria-label="Open Tasks"
           onClick={onOpenTasks}
         >
           Tasks

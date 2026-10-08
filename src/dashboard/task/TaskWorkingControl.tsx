@@ -3,7 +3,7 @@ import type { Task } from "../../lib/types";
 import {
   formatClockedTime,
   formatWorkedTime,
-  taskWorkSessionSeconds,
+  taskWorkStretchSeconds,
 } from "../lib/time";
 
 function PlayIcon() {
@@ -43,7 +43,7 @@ function useWorkSessionSeconds(
   ) {
     return null;
   }
-  return taskWorkSessionSeconds(task.workStartedAt, nowMs ?? localNowMs);
+  return taskWorkStretchSeconds(task.workStartedAt, nowMs ?? localNowMs);
 }
 
 export function WorkingBadge() {

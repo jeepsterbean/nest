@@ -18,8 +18,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ## Copy and interaction
 
-- Sections have no title; the Sidebar names the current place. The Greetings
-  board greeting on Overview is not a Section title.
+- Section main content starts with its controls; the Sidebar names the current
+  place. Core, Overview, and Calendar also have a title in their secondary
+  sidebar. The Greetings board greeting belongs to Overview.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs, Section,
   Sidebar, and Greetings board.
@@ -41,7 +42,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Phase tone is Doing (typewriter greeting, live Phase, Timer). Other Sections
   always omit it; Overview during Doing adds `.dashboard__inner--no-greetings`
   so content fills the area beside the Sidebar. Timer stays on the Popup.
-- Sections show no title. Top controls stay in `.dash-section__head` or a
+- Section main content has no title. Top controls stay in `.dash-section__head` or a
   sibling toolbar; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere,
   for single-select only. No per-Section size overrides.
