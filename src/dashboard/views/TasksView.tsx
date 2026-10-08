@@ -8,37 +8,38 @@ import {
 } from "react";
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
-import { MenuSelect } from "../components/MenuSelect";
+import { eyeOffIcon, plusIcon } from "../components/icons";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import type { CorePaneControls } from "../lib/corePane";
-import { scopeMatches, type ScopeNode } from "../lib/scope";
+import { scopeMatches } from "../lib/scope";
 import {
+  canHideTaskTableColumn,
+  HIDDEN_COLUMN_NAMES_LIMIT,
+  hiddenColumnsLabel,
   readTaskView,
   TASK_VIEWS,
+  TASK_TABLE_COLUMNS,
   writeTaskView,
 } from "../lib/taskTable";
 import {
-  matchingTaskStatusPreset,
-  sortTaskTable,
-  TASK_STATUS_LABEL,
-  TASK_STATUS_PRESETS,
-  TASK_STATUSES,
-  toggleTaskStatusFilter,
   WORKING_STATUSES,
-  type TaskTableSort,
+  TASK_STATUSES,
+  TASK_STATUS_LABEL,
+  matchingTaskStatusPreset,
 } from "../lib/tasks";
-import { chevronDownIcon, chevronRightIcon } from "../components/icons";
+import { TaskTableHeaderMenu } from "../task/TaskTableHeaderMenu";
+import { sortTasksByColumn, taskSortDirectionLabel, type TaskColumnSort } from "../lib/taskColumnSort";
+import {
+  EMPTY_TASK_DRAFT,
+  TaskCreateCard,
+  type TaskDraft,
+} from "../task/TaskCreateCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
-
-const TASK_TABLE_SORT_OPTIONS = [
-  { value: "status", label: "Sort: Status" },
-  { value: "updated", label: "Sort: Recently updated" },
-];
 
 export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
@@ -46,19 +47,19 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const [taskView, setTaskView] = useState(readTaskView);
   const [tableStatuses, setTableStatuses] =
     useState<TaskStatus[]>(WORKING_STATUSES);
-  const [tableSort, setTableSort] = useState<TaskTableSort>("status");
+  const [tableSort, setTableSort] = useState<TaskColumnSort | null>(null);
   const tableColumns = useTaskTableColumns();
+  const [openHeaderMenu, setOpenHeaderMenu] = useState<string | null>(null);
   const [composerTitle, setComposerTitle] = useState("");
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskDraft, setTaskDraft] = useState<TaskDraft>(EMPTY_TASK_DRAFT);
+  const newTaskButtonRef = useRef<HTMLButtonElement | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskScope, setSelectedTaskScope] = useState<string | null>(
     null,
   );
-  const [collapsedScopePaths, setCollapsedScopePaths] = useState<Set<string>>(
-    new Set(),
-  );
-  const [scopePanelCollapsed, setScopePanelCollapsed] = useState(true);
+  const [selectedParent, setSelectedParent] = useState<number | "none" | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
-  const statusFilterRef = useRef<HTMLDetailsElement | null>(null);
   const { statusMenu, scopeMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
@@ -85,11 +86,14 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   // hidden, so the handler must not fire from another pane.
   const tasksPaneVisible = pane === "tasks";
   useEffect(() => {
+    if (!tasksPaneVisible || taskView !== "table") setOpenHeaderMenu(null);
+  }, [tasksPaneVisible, taskView]);
+  useEffect(() => {
     if (selectedTaskId === null || !tasksPaneVisible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (statusMenu || scopeMenu) return;
-      if (statusFilterRef.current?.open) return;
+      if (statusMenu || scopeMenu || creatingTask) return;
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) {
         return;
@@ -98,63 +102,47 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTaskId, tasksPaneVisible, statusMenu, scopeMenu, closeDetail]);
+  }, [selectedTaskId, tasksPaneVisible, statusMenu, scopeMenu, creatingTask, closeDetail]);
 
   useEffect(() => {
-    const closeStatusFilter = (restoreFocus: boolean) => {
-      const filter = statusFilterRef.current;
-      if (!filter?.open) return;
-      filter.open = false;
-      if (restoreFocus) filter.querySelector<HTMLElement>("summary")?.focus();
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      const filter = statusFilterRef.current;
-      if (filter?.open && !filter.contains(event.target as Node)) {
-        closeStatusFilter(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeStatusFilter(true);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    if (!tasksPaneVisible || taskView !== "table") setCreatingTask(false);
+  }, [tasksPaneVisible, taskView]);
+
+  const openTaskCreate = () => {
+    // An untouched draft picks up the Scope the table is filtered to.
+    if (taskDraft === EMPTY_TASK_DRAFT) {
+      setTaskDraft({ ...EMPTY_TASK_DRAFT, scope: selectedTaskScope });
+    }
+    setCreatingTask(true);
+  };
+
+  const closeTaskCreate = useCallback(() => {
+    setCreatingTask(false);
+    newTaskButtonRef.current?.focus();
   }, []);
 
-  // Drop scope selection / collapse state for paths that no longer exist.
   useEffect(() => {
     if (selectedTaskScope !== null && !scopeTree.paths.has(selectedTaskScope)) {
       setSelectedTaskScope(null);
     }
-    setCollapsedScopePaths((prev) => {
-      const next = new Set(
-        [...prev].filter((path) => scopeTree.paths.has(path)),
-      );
-      return next.size === prev.size ? prev : next;
-    });
   }, [scopeTree.paths, selectedTaskScope]);
 
   const scopedTasks = useMemo(
     () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
     [tasks, selectedTaskScope],
   );
-  const showScopePanel = taskView === "table" && scopeTree.roots.length > 0;
   const tableTasks = useMemo(
-    () => scopedTasks.filter((task) => tableStatuses.includes(task.status)),
-    [scopedTasks, tableStatuses],
+    () => scopedTasks.filter((task) => tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent))),
+    [scopedTasks, tableStatuses, selectedParent],
   );
-  const tableStatusPreset = matchingTaskStatusPreset(tableStatuses);
   const emptyListCopy =
     tasks.length === 0
-      ? "Nothing on the board yet — name the first task above."
+      ? "Nothing on the board yet — add the first task."
       : scopedTasks.length === 0
         ? "No tasks in this scope yet."
         : tableStatuses.length === 0
           ? "Choose at least one status."
-          : "No tasks match these statuses.";
+          : "No tasks match these filters.";
 
   const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -170,14 +158,17 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     }
   };
 
-  const toggleScopeCollapsed = (path: string) => {
-    setCollapsedScopePaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  };
+  useEffect(() => {
+    if (typeof selectedParent === "number" && !taskGraph.byId.has(selectedParent)) setSelectedParent(null);
+  }, [selectedParent, taskGraph]);
+
+  const statusPreset = matchingTaskStatusPreset(tableStatuses);
+  const filterPills = [
+    ...(statusPreset === "all" ? [] : [{ label: `Status: ${statusPreset === "open" ? "Open" : statusPreset === "closed" ? "Closed" : tableStatuses.map(status => TASK_STATUS_LABEL[status]).join(", ") || "None"}`, remove: () => setTableStatuses([...TASK_STATUSES]) }]),
+    ...(selectedTaskScope === null ? [] : [{ label: `Scope: ${selectedTaskScope}`, remove: () => setSelectedTaskScope(null) }]),
+    ...(selectedParent === null ? [] : [{ label: `Parent: ${selectedParent === "none" ? "No parent" : taskGraph.byId.get(selectedParent)?.title ?? "Parent"}`, remove: () => setSelectedParent(null) }]),
+    ...(tableSort === null ? [] : [{ label: `Sort: ${TASK_TABLE_COLUMNS.find(column => column.id === tableSort.column)?.label}, ${taskSortDirectionLabel(tableSort)}`, remove: () => setTableSort(null) }]),
+  ];
 
   const composerForm = (
     <form className="task-composer" onSubmit={onComposerSubmit}>
@@ -204,74 +195,6 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
       ? null
       : taskGraph.byId.get(selectedTaskId) ?? null;
 
-  const renderScopeNode = (node: ScopeNode) => {
-    const selected = selectedTaskScope === node.path;
-    const collapsed = collapsedScopePaths.has(node.path);
-    const hasChildren = node.children.length > 0;
-    return (
-      <li className="task-scope-tree__item" key={node.path}>
-        <div className="task-scope-tree__row">
-          <button
-            type="button"
-            className={
-              selected
-                ? "task-scope-tree__btn task-scope-tree__btn--active"
-                : "task-scope-tree__btn"
-            }
-            onClick={() => setSelectedTaskScope(node.path)}
-            title={node.path}
-          >
-            <span
-              className={`task-scope-tree__branch${
-                node.depth === 0 ? " task-scope-tree__branch--root" : ""
-              }`}
-              aria-hidden="true"
-            >
-              {node.depth === 0 ? (
-                <span className="task-scope-tree__root-dot" />
-              ) : (
-                Array.from({ length: Math.min(node.depth, 4) }, (_, index) => (
-                  <span
-                    className={`task-scope-tree__rail${
-                      index === Math.min(node.depth, 4) - 1
-                        ? " task-scope-tree__rail--branch"
-                        : ""
-                    }`}
-                    key={index}
-                  />
-                ))
-              )}
-            </span>
-            <span className="task-scope-tree__label">{node.label}</span>
-          </button>
-          <button
-            type="button"
-            className="task-scope-tree__count"
-            onClick={() => hasChildren && toggleScopeCollapsed(node.path)}
-            aria-expanded={hasChildren ? !collapsed : undefined}
-            aria-label={
-              hasChildren
-                ? `${collapsed ? "Show" : "Hide"} child scopes for ${node.path}`
-                : `${node.count} tasks in ${node.path}`
-            }
-            title={
-              hasChildren
-                ? `${collapsed ? "Show" : "Hide"} child scopes`
-                : `${node.count} tasks`
-            }
-          >
-            {node.count}
-          </button>
-        </div>
-        {hasChildren && !collapsed && (
-          <ol className="task-scope-tree">
-            {node.children.map(renderScopeNode)}
-          </ol>
-        )}
-      </li>
-    );
-  };
-
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head task-header">
@@ -282,131 +205,18 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
           onChange={(key) => {
             writeTaskView(key);
             setTaskView(key);
-            // The map has no scope tree, so it must not stay scope-filtered.
+            // Map always shows every scope.
             if (key === "map") setSelectedTaskScope(null);
           }}
         />
-        {taskView === "table" && (
-          <div className="dash-toolbar task-header__filters">
-            <ViewToggle
-              value={tableStatusPreset}
-              options={TASK_STATUS_PRESETS}
-              label="Task status preset"
-              onChange={(key) => {
-                const preset = TASK_STATUS_PRESETS.find((item) => item.key === key);
-                if (preset) setTableStatuses([...preset.statuses]);
-              }}
-            />
-            <details ref={statusFilterRef} className="task-status-filter">
-              <summary className="task-status-filter__trigger">
-                Status{tableStatusPreset ? "" : ` (${tableStatuses.length})`}
-                {chevronDownIcon}
-              </summary>
-              <div className="task-status-filter__menu">
-                {TASK_STATUSES.map((status) => (
-                  <label className="task-status-filter__option" key={status}>
-                    <input
-                      type="checkbox"
-                      checked={tableStatuses.includes(status)}
-                      onChange={() =>
-                        setTableStatuses((selected) =>
-                          toggleTaskStatusFilter(selected, status),
-                        )
-                      }
-                    />
-                    <span
-                      className={`status-dot status-dot--${status}`}
-                      aria-hidden="true"
-                    />
-                    <span>{TASK_STATUS_LABEL[status]}</span>
-                    <span className="task-status-filter__count">
-                      {
-                        scopedTasks.filter((task) => task.status === status)
-                          .length
-                      }
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </details>
-            <MenuSelect
-              className="task-table-sort"
-              value={tableSort}
-              options={TASK_TABLE_SORT_OPTIONS}
-              placeholder="Sort"
-              ariaLabel="Sort tasks"
-              onChange={(value) => setTableSort(value as TaskTableSort)}
-            />
-          </div>
-        )}
       </header>
 
       {!loaded ? (
         <div className="task-board__loading">Laying out the board…</div>
       ) : (
         <div
-          className={`task-workspace${
-            showScopePanel ? "" : " task-workspace--no-scopes"
-          }${selectedTask ? " task-workspace--detail" : ""}${
-            showScopePanel && scopePanelCollapsed
-              ? " task-workspace--scope-collapsed"
-              : ""
-          }${taskView === "map" ? " task-workspace--map" : ""}`}
+          className={`task-workspace${selectedTask ? " task-workspace--detail" : ""}${taskView === "map" ? " task-workspace--map" : ""}`}
         >
-          {showScopePanel && (
-            <aside
-              className={`task-scope-panel${
-                scopePanelCollapsed ? " task-scope-panel--collapsed" : ""
-              }`}
-              aria-label="Task scopes"
-            >
-              <div className="task-scope-panel__head">
-                {!scopePanelCollapsed && <span>Scopes</span>}
-                <button
-                  type="button"
-                  className="task-scope-panel__toggle"
-                  aria-expanded={!scopePanelCollapsed}
-                  aria-label={
-                    scopePanelCollapsed
-                      ? "Expand task scopes"
-                      : "Collapse task scopes"
-                  }
-                  title={scopePanelCollapsed ? "Show scopes" : "Hide scopes"}
-                  onClick={() =>
-                    setScopePanelCollapsed((collapsed) => !collapsed)
-                  }
-                >
-                  {chevronRightIcon}
-                </button>
-              </div>
-              {!scopePanelCollapsed && (
-                <>
-                  <button
-                    type="button"
-                    className={
-                      selectedTaskScope === null
-                        ? "task-scope-tree__btn task-scope-tree__btn--all task-scope-tree__btn--active"
-                        : "task-scope-tree__btn task-scope-tree__btn--all"
-                    }
-                    onClick={() => setSelectedTaskScope(null)}
-                  >
-                    <span
-                      className="task-scope-tree__branch task-scope-tree__branch--all"
-                      aria-hidden="true"
-                    >
-                      <span className="task-scope-tree__root-dot" />
-                    </span>
-                    <span className="task-scope-tree__label">All tasks</span>
-                    <span className="task-scope-tree__count">{tasks.length}</span>
-                  </button>
-                  <ol className="task-scope-tree">
-                    {scopeTree.roots.map(renderScopeNode)}
-                  </ol>
-                </>
-              )}
-            </aside>
-          )}
-
           <div className="task-workspace__main">
             {taskView === "map" && (
               <TaskMap
@@ -418,10 +228,70 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
             )}
             {taskView === "table" && (
               <>
-                {composerForm}
+                <div className="task-table-toolbar">
+                  <div className="task-table-summary" aria-label="Task count, active filters and sorting">
+                    <span className="task-filter-result" role="status">
+                      {tableTasks.length === tasks.length
+                        ? `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
+                        : `${tableTasks.length} of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`}
+                    </span>
+                    {filterPills.map(pill => <span className="task-filter-pill" key={pill.label}>
+                      <span title={pill.label}>{pill.label}</span>
+                      <button type="button" aria-label={`Remove ${pill.label}`} onClick={pill.remove}>×</button>
+                    </span>)}
+                    {tableColumns.hiddenColumns.length > 0 && <span className="task-filter-pill task-filter-pill--columns">
+                      <span className="task-filter-pill__icon" aria-hidden="true">{eyeOffIcon}</span>
+                      <span aria-label={`Hidden columns: ${tableColumns.hiddenColumns.map(column => column.label).join(", ")}`}>
+                        {hiddenColumnsLabel(tableColumns.hiddenColumns)}
+                      </span>
+                      {tableColumns.hiddenColumns.length > HIDDEN_COLUMN_NAMES_LIMIT && <span className="task-filter-pill__names">
+                        <span className="task-filter-pill__names-title">Hidden columns</span>
+                        <ul>{tableColumns.hiddenColumns.map(column => <li key={column.id}>
+                          <span>{column.label}</span>
+                          <button type="button" aria-label={`Show ${column.label} column`} onClick={() => tableColumns.showColumn(column.id)}>×</button>
+                        </li>)}</ul>
+                      </span>}
+                      <button type="button" aria-label="Show all columns" onClick={tableColumns.showAllColumns}>×</button>
+                    </span>}
+                    {filterPills.length > 1 && <button type="button" className="task-filter-clear" onClick={() => filterPills.forEach(pill => pill.remove())}>
+                      Clear all
+                    </button>}
+                  </div>
+                  <button
+                    ref={newTaskButtonRef}
+                    type="button"
+                    className="task-new-button"
+                    aria-haspopup="dialog"
+                    aria-expanded={creatingTask}
+                    onClick={openTaskCreate}
+                  >
+                    {plusIcon}
+                    New task
+                  </button>
+                </div>
                 <TaskTable
-                columns={tableColumns.columns}
-                tasks={sortTaskTable(tableTasks, tableSort)}
+                wrapRef={tableColumns.wrapRef}
+                columns={tableColumns.visibleColumns}
+                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId)}
+                headerSort={tableSort ?? undefined}
+                renderHeader={(column) => (
+                  <TaskTableHeaderMenu
+                    column={column}
+                    open={openHeaderMenu === column.id}
+                    onOpenChange={(open) => setOpenHeaderMenu(open ? column.id : null)}
+                    tasks={tasks}
+                    scopeTree={scopeTree}
+                    statuses={tableStatuses}
+                    onStatusesChange={setTableStatuses}
+                    scope={selectedTaskScope}
+                    onScopeChange={setSelectedTaskScope}
+                    parent={selectedParent}
+                    onParentChange={setSelectedParent}
+                    sort={tableSort}
+                    onSortChange={setTableSort}
+                    onHide={canHideTaskTableColumn(column.id) ? () => tableColumns.hideColumn(column.id) : undefined}
+                  />
+                )}
                 taskGraph={taskGraph}
                 selectedTaskId={selectedTaskId}
                 emptyCopy={emptyListCopy}
@@ -436,6 +306,18 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
               </>
             )}
           </div>
+          {creatingTask && (
+            <TaskCreateCard
+              draft={taskDraft}
+              onDraftChange={setTaskDraft}
+              onClose={closeTaskCreate}
+              onCreated={(created) => {
+                setTaskDraft(EMPTY_TASK_DRAFT);
+                setCreatingTask(false);
+                selectTask(created.id, newTaskButtonRef.current ?? undefined);
+              }}
+            />
+          )}
           {selectedTask && (
             <TaskDetailPanel
               key={selectedTask.id}

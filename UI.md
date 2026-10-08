@@ -32,8 +32,10 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere,
   for single-select only. No per-Section size overrides.
 - Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
-  when unset). Column order and widths persist in `nest:task-table`. No
-  Working now play control or Readiness column in the table; start work from
+  when unset). Column order, widths, and hidden columns persist in `nest:task-table`.
+  Visible columns fill `.task-table-wrap`; a resize handle trades width with the
+  next column. The table scrolls horizontally only when min widths exceed the wrap.
+  No Working now play control or Readiness column in the table; start work from
   the detail panel.
 - Tasks Map: `.task-map` fills the workspace. `.task-map__viewport` clips a
   6000x4000 `.task-map__canvas` that carries the pan/zoom transform; the
@@ -45,8 +47,29 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   `nest:task-map-v2`, pan/zoom in `nest:task-map-view`. Drags use
   `startPointerDrag` (box drags move, bare-canvas drags pan); every drag has a
   click fallback (sidebar click places, box remove button unplaces).
-  The scope panel renders only in the table view; the task composer renders in
-  both, inside `.task-map__tray` on the Map.
+  Column-header filter/sort menus use `.task-column-trigger` and portal-mounted
+  `.task-column-menu` (`__head` with `__reset`, then `__row`s for Sort and
+  Filter with a muted `__hint` and `__chevron`, and a muted `__row--action`
+  for Hide column). Sort and Filter options open in a sibling
+  `.task-column-menu--submenu` flyout placed by `placeSubmenu` (right of the
+  menu, flipping left near the edge); it holds the `__presets` segmented
+  control and `__search` for long Parent lists. A Sort-only column (Title)
+  keeps a single `__section` with the options inline. The hidden-columns pill
+  is `.task-filter-pill--columns` with `__icon` and a hover `__names` list whose rows carry their own remove
+  buttons. In dark mode the menu
+  lifts to `--surface-2` with a heavier shadow so it separates from the rows.
+  Menu options mark selection with a trailing check only; row fills are for
+  hover and focus. `.task-table-toolbar` holds `.task-table-summary` — the
+  count in `.task-filter-result`, removable `.task-filter-pill` pills, and
+  `.task-filter-clear` — on the left, and `.task-new-button` on the right.
+  TasksView owns the single open column menu; outside pointer dismissal runs
+  in capture phase so nested controls can stop bubbling safely.
+  The `.task-table__move` grip supports column dragging.
+  The one-line task composer renders only inside `.task-map__tray` on the Map.
+  The table's `.task-new-button` opens `TaskCreateCard`: a `.task-create-overlay`
+  scrim (z-index 75, under MenuSelect menus at 80) holding `.task-create-card`.
+  Only a press on the scrim itself dismisses, because MenuSelect menus are
+  React children of the card and their events bubble through it.
 - Overview: `.overview-grid` holds six movable `.overview-tile` surfaces with
   ids `lastHour`, `tasks`, `timeline`, `brainDump`, `metrics`, and
   `controlPanel`. The control panel is always present, cannot be hidden, and

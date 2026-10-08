@@ -11,19 +11,54 @@ Tasks tile. The Core Section icon is picked separately on the main Sidebar.
 Table is the default Tasks layout (Map is the other); last choice is
 remembered (`nest:task-view`). The table filters by any set of persisted
 statuses — Backlog, Up next, Active, Completed, Cancelled — with Open /
-Closed / All presets; first visit is Open. New tasks are created Active.
+Closed / All presets; first visit is Open.
 
-The header places Table / Map on its first row. Table shows a separate row
-below for Open / Closed / All, Status, and right-aligned Sort controls. The
-header ends with a subtle divider above the workspace. Scopes uses quiet
-surface highlights, keeping the task table visually primary.
+The header holds Table / Map. Sorting and filtering live in column-header
+menus. Each menu starts with the column name and a Reset link (shown only when
+that column is filtered or sorted). Below it, a column with more than one
+action lists them as rows — Sort, Filter (Status, Scope, Parent), and Hide
+column (every column but Title) — and hovering or clicking Sort or Filter
+opens its options in a flyout beside the menu. The Sort and Filter rows show
+the active sort or filter as a muted hint. Title has only Sort, so its menu
+shows the sort options directly. Hidden columns show as one toolbar pill with
+a crossed-out eye: up to two hidden columns are named (`Created, Updated`);
+more show a count (`3 hidden`) and list every name on hover, each with its own
+remove button to show just that column. Its remove button
+shows them all again; it sits apart from the filter pills and Clear all. Every column
+sorts ascending or descending with empty values last: Title, Scope, and Parent
+(by the parent's title) sort A to Z or Z to A; Status sorts in lifecycle order; Value,
+Effort, and Worked time sort lowest or highest first; Created and Updated sort
+oldest or newest first. Choosing the active sort again removes it. Sorting
+starts unset; removing it restores the incoming order.
+Status offers Open / Closed / All as a segmented control above the individual
+statuses; Scope offers All scopes and scope paths, including descendants.
+Parent offers All parents, No parent, and Tasks with direct children, with a
+search field once the list passes eight options. Filters combine. Selection is
+shown by a trailing check; filter options show labels without counts.
+The summary line above the table leads with the count — `380 tasks` when
+nothing hides a Task, `42 of 380 tasks` otherwise — followed by pills for the
+active filters and the single selected sort, then Clear all when there is more
+than one pill. Each pill has a remove button; removing Status selects all
+statuses.
+Headers indicate active filters and sort direction. Only one column menu opens at a time. Menus dismiss on outside pointer press
+(including another column trigger), Escape, or scrolling outside the menu.
+Status supports multiple selections while its menu stays open; Scope, Parent,
+and sort selections close their menu.
+There is no scope sidebar. Table
+columns can be reordered, resized, and hidden (`nest:task-table`). Visible
+columns always fill the table: a resize handle trades width with the next
+column and stops at each column's minimum. The last column has no handle.
+When the minima are wider than the pane, the table scrolls horizontally.
+Working now is started from the detail panel, not from the table or the Map.
 
-The **Tasks scope sidebar** belongs to the table; the Map has none. Table
-columns can be reordered and resized (`nest:task-table`). Working now is
-started from the detail panel, not from the table or the Map.
-
-The "Add an active task" composer is in both layouts — above the table, and
-at the top of the Map sidebar.
+Pills, the count, and a "New task" button share one toolbar row above the
+table. The button opens the new-task card as an overlay.
+Only the name is required; Status (default Backlog), Description, Scope
+(seeded from the table's Scope filter), Parent, Value, Effort, and Blockers are
+optional. Pressing outside the card, Escape, or Cancel dismisses it and keeps
+the draft for the next open; adding clears the draft and opens the new Task's
+detail panel. The Map sidebar keeps its one-line "Add an active task"
+composer, which creates Active tasks.
 
 ## Map
 
@@ -53,8 +88,3 @@ SVG overlay; hooks and constants live in `UI.md`.
 The panel floating over the Map canvas: an "Add an active task" row above the
 list of open Tasks not yet placed. It collapses to a button showing that count.
 The Map is not scope-filtered — the sidebar lists every open Task.
-
-## Tasks scope sidebar
-
-The Scopes filter panel beside the Tasks table. It starts collapsed, and the
-Map does not show it.

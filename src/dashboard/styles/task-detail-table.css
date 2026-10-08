@@ -372,6 +372,8 @@
   --task-row-head: 11px;
   --task-row-cell: 12.5px;
   --task-row-title: 13.5px;
+  width: 100%;
+  min-width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
@@ -699,16 +701,7 @@
 }
 
 @media (max-width: 1000px) {
-  .task-workspace--detail,
-  .task-workspace--no-scopes.task-workspace--detail {
-    grid-template-columns: 164px minmax(0, 1fr);
-  }
-
-  .task-workspace--detail.task-workspace--scope-collapsed {
-    grid-template-columns: 38px minmax(0, 1fr);
-  }
-
-  .task-workspace--no-scopes.task-workspace--detail {
+  .task-workspace--detail {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -730,23 +723,5 @@
 }
 
 @media (max-width: 760px) {
-  .task-workspace,
-  .task-workspace--detail,
-  .task-workspace--detail.task-workspace--scope-collapsed,
-  .task-workspace--no-scopes.task-workspace--detail {
-    grid-template-columns: 1fr;
-  }
-
-  .task-scope-panel {
-    position: static;
-    max-height: 220px;
-    padding-right: 0;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .task-scope-panel--collapsed {
-    justify-self: start;
-    padding-bottom: 7px;
-  }
+  .task-workspace, .task-workspace--detail { grid-template-columns: 1fr; }
 }

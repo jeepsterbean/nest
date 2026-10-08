@@ -55,6 +55,32 @@ export const checkIcon = (
   </svg>
 );
 
+export const eyeOffIcon = (
+  <svg {...iconProps}>
+    <path d="M10.7 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.4 3.2" />
+    <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.6 9.6 0 0 0 5.4-1.6" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <line x1="3" x2="21" y1="3" y2="21" />
+  </svg>
+);
+
+export const sortIcon = (
+  <svg {...iconProps}>
+    <path d="m3 8 4-4 4 4" />
+    <path d="M7 4v16" />
+    <path d="m21 16-4 4-4-4" />
+    <path d="M17 20V4" />
+  </svg>
+);
+
+export const filterIcon = (
+  <svg {...iconProps}>
+    <line x1="4" x2="20" y1="7" y2="7" />
+    <line x1="7" x2="17" y1="12" y2="12" />
+    <line x1="10" x2="14" y1="17" y2="17" />
+  </svg>
+);
+
 export const xIcon = (
   <svg {...iconProps}>
     <line x1="18" x2="6" y1="6" y2="18" />

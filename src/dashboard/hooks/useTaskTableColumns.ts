@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
+  fitTaskTableColumns,
   moveTaskTableColumn,
   readTaskTableLayout,
-  resizeTaskTableColumn,
+  setTaskTableColumnHidden,
+  showAllTaskTableColumns,
+  splitTaskTableColumn,
   writeTaskTableLayout,
   type TaskTableColumn,
   type TaskTableColumnId,
@@ -16,16 +19,26 @@ type Session = {
 /** Header drag reorders columns; the edge handle resizes. Clicks do neither. */
 export function useTaskTableColumns() {
   const [columns, setColumns] = useState(readTaskTableLayout);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
   const [draggingId, setDraggingId] = useState<TaskTableColumnId | null>(null);
   const [overId, setOverId] = useState<TaskTableColumnId | null>(null);
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
+  const availableWidthRef = useRef(availableWidth);
+  availableWidthRef.current = availableWidth;
+  const resizingRef = useRef(false);
   const sessionRef = useRef<Session | null>(null);
 
   const persist = (next: TaskTableColumn[]) => {
     setColumns(next);
     writeTaskTableLayout(next);
   };
+
+  const displayColumns = useMemo(
+    () => (availableWidth > 0 ? fitTaskTableColumns(columns, availableWidth) : columns),
+    [availableWidth, columns],
+  );
 
   const clear = useCallback(() => {
     const session = sessionRef.current;
@@ -35,11 +48,26 @@ export function useTaskTableColumns() {
       "task-table-resize-in-progress",
     );
     sessionRef.current = null;
+    resizingRef.current = false;
     setDraggingId(null);
     setOverId(null);
   }, []);
 
   useEffect(() => () => clear(), [clear]);
+
+  useEffect(() => {
+    if (!wrap) return;
+    const measure = () => {
+      if (resizingRef.current) return;
+      const width = wrap.clientWidth;
+      availableWidthRef.current = width;
+      setAvailableWidth((current) => (current === width ? current : width));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [wrap]);
 
   const columnAtPoint = (clientX: number, clientY: number) => {
     const header = document
@@ -49,6 +77,11 @@ export function useTaskTableColumns() {
     return columnsRef.current.some((column) => column.id === id)
       ? (id as TaskTableColumnId)
       : null;
+  };
+
+  const fittedColumns = (source: TaskTableColumn[]) => {
+    const width = availableWidthRef.current;
+    return width > 0 ? fitTaskTableColumns(source, width) : source;
   };
 
   const onPointerDown = (
@@ -61,6 +94,7 @@ export function useTaskTableColumns() {
     event.stopPropagation();
 
     const origin = columnsRef.current;
+    const originDisplay = kind === "resize" ? fittedColumns(origin) : origin;
     const startX = event.clientX;
     const session: Session = { removeListeners: () => undefined };
     sessionRef.current = session;
@@ -72,19 +106,12 @@ export function useTaskTableColumns() {
             ? "task-table-move-in-progress"
             : "task-table-resize-in-progress",
         );
+        if (kind === "resize") resizingRef.current = true;
         setDraggingId(id);
       },
       onMove: (move) => {
         if (kind === "resize") {
-          const column = origin.find((candidate) => candidate.id === id);
-          if (!column) return;
-          setColumns(
-            resizeTaskTableColumn(
-              origin,
-              id,
-              column.width + (move.clientX - startX),
-            ),
-          );
+          setColumns(splitTaskTableColumn(originDisplay, id, move.clientX - startX));
           return;
         }
         const over = columnAtPoint(move.clientX, move.clientY);
@@ -110,11 +137,19 @@ export function useTaskTableColumns() {
     });
   };
 
+  const visibleColumns = displayColumns.filter((column) => !column.hidden);
   return {
     columns,
+    visibleColumns,
+    hiddenColumns: columns.filter((column) => column.hidden),
+    hideColumn: (id: TaskTableColumnId) =>
+      persist(setTaskTableColumnHidden(columnsRef.current, id, true)),
+    showColumn: (id: TaskTableColumnId) =>
+      persist(setTaskTableColumnHidden(columnsRef.current, id, false)),
+    showAllColumns: () => persist(showAllTaskTableColumns(columnsRef.current)),
     draggingId,
     overId,
-    tableWidth: columns.reduce((sum, column) => sum + column.width, 0),
+    wrapRef: setWrap,
     onMovePointerDown: (event: PointerEvent<HTMLElement>, id: TaskTableColumnId) =>
       onPointerDown(event, id, "move"),
     onResizePointerDown: (event: PointerEvent<HTMLElement>, id: TaskTableColumnId) =>

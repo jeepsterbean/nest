@@ -8,14 +8,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.task-header__filters {
-  width: 100%;
-}
-
-.task-header__filters .task-table-sort {
-  margin-left: auto;
-}
-
 .task-board__loading {
   display: grid;
   min-height: 280px;
@@ -30,7 +22,7 @@
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 164px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   gap: 12px;
   overflow-y: auto;
@@ -43,225 +35,157 @@
   flex-direction: column;
 }
 
-.task-workspace--no-scopes {
-  grid-template-columns: minmax(0, 1fr);
-}
+.task-workspace--map { overflow: hidden; }
+.task-workspace--detail { grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); }
 
-.task-workspace--map {
-  /* The canvas owns its own space; nothing here scrolls. */
-  overflow: hidden;
-}
+.task-table__header-controls { display: flex; align-items: center; gap: 4px; }
+.task-table__move { flex: 0 0 10px; cursor: grab; color: var(--muted); }
 
-.task-workspace--detail {
-  grid-template-columns:
-    164px minmax(0, 1fr)
-    minmax(280px, 320px);
-}
-
-.task-workspace--scope-collapsed {
-  grid-template-columns: 38px minmax(0, 1fr);
-}
-
-.task-workspace--detail.task-workspace--scope-collapsed {
-  grid-template-columns: 38px minmax(0, 1fr) minmax(280px, 320px);
-}
-
-.task-workspace--no-scopes.task-workspace--detail {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
-}
-
-.task-scope-panel {
-  position: sticky;
-  top: 12px;
+.task-column-trigger {
   display: flex;
-  height: 100%;
-  min-height: 0;
-  max-height: none;
-  flex-direction: column;
-  gap: 4px;
-  overflow: auto;
-  padding: 5px 8px 8px 0;
-  border-right: 1px solid var(--border);
-  scrollbar-width: thin;
-}
-
-.task-scope-panel--collapsed {
   align-items: center;
-  overflow: visible;
-  padding-right: 7px;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-
-.task-scope-panel__head {
+.task-column-trigger > span:first-child { min-width: 0; overflow: hidden; }
+.task-column-trigger svg { width: 12px; height: 12px; }
+.task-column-trigger.is-active { color: var(--accent); }
+.task-column-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-column-menu { gap: 0; padding: 4px; border-radius: 9px; }
+.task-column-menu__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 28px;
-  padding: 0 2px 4px 7px;
+  min-height: 24px;
+  padding: 2px 4px 2px 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.task-column-menu__reset {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.task-column-menu__reset:hover { background: var(--accent-soft); }
+.task-column-menu__reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.task-column-menu__section { display: grid; gap: 1px; }
+.task-column-menu__section + .task-column-menu__section {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.task-column-menu__label {
+  padding: 4px 8px 2px;
   color: var(--muted);
   font-size: 10.5px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-
-.task-scope-panel--collapsed .task-scope-panel__head {
-  padding: 0;
+/* Selection is carried by the trailing check alone; fills are for hover and
+   focus. Tinting labels too turned an all-selected Status list solid blue. */
+.task-column-menu .menu-select__option { min-height: 26px; font-size: 12px; font-weight: 500; }
+.task-column-menu .menu-select__marker { width: 12px; color: var(--muted); }
+.task-column-menu .menu-select__marker svg { width: 12px; height: 12px; }
+/* Row level of a nested menu: icon, label, the active sort or filter as a
+   muted hint, then a chevron to the flyout. */
+.task-column-menu .menu-select__option.task-column-menu__row {
+  grid-template-columns: auto auto minmax(0, 1fr) 12px;
 }
-
-.task-scope-panel__toggle {
-  display: inline-grid;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  place-items: center;
-  padding: 0;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
+.task-column-menu__row.is-open { background: var(--surface-2); }
+.task-column-menu .task-column-menu__hint {
   color: var(--muted);
+  font-weight: 450;
+  text-align: right;
 }
-
-.task-scope-panel__toggle svg {
-  width: 14px;
-  height: 14px;
-  transition: transform 160ms ease-out;
+.task-column-menu__chevron { display: grid; place-items: center; color: var(--muted); }
+.task-column-menu__chevron svg { width: 12px; height: 12px; }
+.task-column-menu .menu-select__option.task-column-menu__row--action { color: var(--muted); }
+.task-column-menu .menu-select__option.task-column-menu__row--action:hover,
+.task-column-menu .menu-select__option.task-column-menu__row--action:focus-visible { color: var(--ink); }
+.task-column-menu .task-column-menu__option--wrap > span:not(.menu-select__marker):not(.menu-select__check) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-
-.task-scope-panel:not(.task-scope-panel--collapsed)
-  .task-scope-panel__toggle
-  svg {
-  transform: rotate(180deg);
-}
-
-.task-scope-panel__toggle:hover,
-.task-scope-panel__toggle:focus-visible {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.task-scope-tree {
+.task-column-menu__presets {
   display: flex;
-  flex-direction: column;
   gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  margin: 0 4px 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--surface-2);
 }
-
-.task-scope-tree__item {
-  min-width: 0;
-}
-
-.task-scope-tree__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 3px;
-}
-
-.task-scope-tree__btn {
-  display: grid;
-  width: 100%;
-  min-height: 28px;
-  grid-template-columns: 20px minmax(0, 1fr);
-  align-items: center;
-  gap: 5px;
-  padding: 5px 6px;
-  border: none;
-  border-radius: 6px;
+.task-column-menu__presets button {
+  flex: 1;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: 12px;
-  font-weight: 650;
-  text-align: left;
+  font-weight: 500;
+  cursor: pointer;
 }
-
-.task-scope-tree__btn:hover,
-.task-scope-tree__btn--active {
-  background: var(--surface-2);
+.task-column-menu__presets button:hover { color: var(--ink); }
+.task-column-menu__presets button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.task-column-menu__presets button[aria-pressed="true"] {
+  background: var(--surface);
   color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
-
-.task-scope-tree__btn--all {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
-  margin-bottom: 2px;
-}
-
-.task-scope-tree__branch {
-  display: flex;
-  width: 20px;
-  height: 14px;
-  align-items: stretch;
-  overflow: hidden;
-}
-
-.task-scope-tree__branch--root,
-.task-scope-tree__branch--all {
-  align-items: center;
-}
-
-.task-scope-tree__root-dot {
-  width: 5px;
-  height: 5px;
-  margin-left: 1px;
-  border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
-  border-radius: 50%;
-}
-
-.task-scope-tree__branch--all .task-scope-tree__root-dot {
-  background: color-mix(in srgb, var(--accent) 58%, transparent);
-}
-
-.task-scope-tree__rail {
-  width: 5px;
-  height: 100%;
-  flex: 0 0 5px;
-  border-left: 1px solid
-    color-mix(in srgb, var(--accent) 42%, var(--border));
-}
-
-.task-scope-tree__rail--branch {
-  height: 50%;
-  align-self: flex-start;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--accent) 42%, var(--border));
-}
-
-.task-scope-tree__label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-scope-tree__count {
-  display: inline-flex;
-  min-width: 19px;
-  height: 18px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
+.task-column-menu__search {
+  margin: 0 2px 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
-
-.task-scope-tree__btn--active .task-scope-tree__count,
-.task-scope-tree__btn:hover .task-scope-tree__count,
-.task-scope-tree__row:has(.task-scope-tree__btn--active) .task-scope-tree__count,
-.task-scope-tree__row:hover .task-scope-tree__count {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.task-scope-tree__count:hover {
-  background: color-mix(in srgb, var(--accent-soft) 75%, var(--surface));
-  color: var(--accent);
+.task-column-menu__search:focus-visible { border-color: var(--accent); outline: none; }
+.task-column-menu__empty { padding: 6px 8px; color: var(--muted); font-size: 12px; }
+/* Dark rows share --surface with the menu, so lift the menu a step and give it
+   a shadow dark enough to read on near-black. */
+@media (prefers-color-scheme: dark) {
+  .task-column-menu {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--border) 70%, var(--muted));
+    box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+  /* The lifted surface is the default hover fill, so hover steps lighter and
+     the preset track steps darker. */
+  .task-column-menu .menu-select__option:hover,
+  .task-column-menu .menu-select__option:focus-visible,
+  .task-column-menu__row.is-open {
+    background: color-mix(in srgb, var(--surface-2) 90%, var(--ink));
+  }
+  .task-column-menu__presets { background: var(--surface); }
+  .task-column-menu__presets button[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--surface-2) 88%, var(--ink));
+  }
 }
 
 .task-composer {
@@ -292,4 +216,240 @@
   padding: 8px 14px;
   border-radius: 9px;
   font-size: 13px;
+}
+
+.task-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.task-new-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 12px 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.task-new-button svg { width: 14px; height: 14px; color: var(--accent); }
+.task-new-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.task-new-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@keyframes task-create-fade {
+  from { opacity: 0; }
+}
+@keyframes task-create-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+/* Below MenuSelect menus (z-index 80) so pickers open above the card. */
+.task-create-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: grid;
+  place-items: start center;
+  padding: 12vh 16px 24px;
+  overflow-y: auto;
+  background: rgba(40, 32, 20, 0.22);
+  backdrop-filter: blur(2px);
+  animation: task-create-fade 0.16s ease both;
+}
+
+.task-create-card {
+  display: flex;
+  width: min(480px, 100%);
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow:
+    0 24px 60px -24px rgba(60, 48, 30, 0.55),
+    0 2px 10px rgba(60, 48, 30, 0.08);
+  animation: task-create-rise 0.2s ease both;
+}
+
+.task-create-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.task-create-card__status { width: 150px; }
+
+.task-create-card__title,
+.task-create-card__description {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+.task-create-card__title {
+  padding: 4px 6px;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.task-create-card__description {
+  padding: 8px 9px;
+  border-color: var(--border);
+  font-size: 13px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.task-create-card__title:focus,
+.task-create-card__description:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-create-card__fields {
+  display: grid;
+  gap: 8px;
+}
+
+.task-create-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.task-create-card__cancel,
+.task-create-card__submit {
+  padding: 8px 14px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+}
+.task-create-card__cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.task-create-card__cancel:hover { color: var(--ink); background: var(--surface-2); }
+.task-create-card__cancel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.task-table-summary {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+.task-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 5px;
+  padding: 2px 4px 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 11px;
+}
+.task-filter-pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-filter-pill button {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+}
+.task-filter-pill button:hover { background: var(--accent-soft); color: var(--accent); }
+.task-filter-pill button:focus-visible { outline: 2px solid var(--accent); }
+.task-filter-pill--columns { position: relative; }
+.task-filter-pill__icon { display: grid; flex: 0 0 auto; color: var(--muted); }
+.task-filter-pill__icon svg { width: 12px; height: 12px; }
+.task-filter-pill > .task-filter-pill__names {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: none;
+  min-width: 140px;
+  max-width: 260px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px -18px rgba(60, 48, 30, 0.45), 0 1px 4px rgba(60, 48, 30, 0.07);
+  overflow: visible;
+  white-space: normal;
+}
+.task-filter-pill--columns:hover > .task-filter-pill__names,
+.task-filter-pill--columns:focus-within > .task-filter-pill__names { display: grid; gap: 1px; }
+.task-filter-pill__names-title {
+  padding: 0 8px 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* Bridges the gap under the pill so the pointer can reach the list's buttons
+   without the hover ending on the way. */
+.task-filter-pill__names::before {
+  content: "";
+  position: absolute;
+  inset: -7px 0 100% 0;
+}
+.task-filter-pill__names li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 2px 1px 8px;
+  list-style: none;
+}
+.task-filter-pill__names li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-filter-pill__names li button { flex-basis: 20px; width: 20px; height: 20px; font-size: 14px; }
+.task-filter-pill__names ul { display: grid; gap: 1px; margin: 0; padding: 0; }
+.task-filter-clear {
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.task-filter-clear:hover { color: var(--accent); background: var(--accent-soft); }
+.task-filter-clear:focus-visible { outline: 2px solid var(--accent); }
+
+.task-filter-result {
+  flex: none;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }

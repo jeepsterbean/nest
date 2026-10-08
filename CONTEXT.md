@@ -189,12 +189,6 @@ messages stay in Nest's local database. The popup and dashboard share that
 saved history; each window keeps its own open chat.
 Context assembly: [`docs/assistant-context.md`](./docs/assistant-context.md).
 
-**Tasks scope sidebar**:
-The Scopes filter panel beside the Tasks table. It starts collapsed, and the
-Map does not show it.
-Behavior: [`docs/tasks.md`](./docs/tasks.md).
-_Avoid_: Sidebar (alone — that word means the Section switcher)
-
 **Settings**:
 Dashboard configuration for Assistant, Reminders, and Background. The Phases
 pane of Core explains each Phase. Pulses and the full Metric list live
@@ -264,6 +258,6 @@ _Avoid_: using Logs as the name of the Timeline presentation
 - "journal" was the history screen — resolved: that presentation is **Timeline**. A brain dump is not a journal entry. **Logs** is the event figure on Calendar, beside Work stretch.
 - "view" for Overview / Calendar / Core / Assistant / Settings — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
-- "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
+- "sidebar" — **Sidebar** is the Section switcher; the panel over the Map canvas is the **Map sidebar**. Tasks table scope filtering lives in the Scope column header.
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a destination inside Core, Settings, Assistant, Brain dump, or Metrics.
