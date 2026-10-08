@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMetricDay, metricDayTicks } from "../../../src/dashboard/lib/metricDay";
+import {
+  buildMetricDay,
+  metricDayTicks,
+  metricIdsForPulseDay,
+} from "../../../src/dashboard/lib/metricDay";
 import type { MetricCheckInWithRatings } from "../../../src/lib/types";
 
 const DAY = 24 * 60 * 60;
@@ -60,5 +64,28 @@ describe("metricDayTicks", () => {
       0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875,
     ]);
     expect(ticks.filter(({ labelAt }) => labelAt !== null)).toHaveLength(3);
+  });
+});
+
+describe("metricIdsForPulseDay", () => {
+  it("keeps historical ratings under their recorded Pulse after a Metric moves", () => {
+    const checkIns = [
+      metricCheckIn(2, DAY / 2, [
+        { metricId: 3, value: 4 },
+        { metricId: 1, value: 5 },
+      ]),
+      metricCheckIn(1, DAY / 4, [{ metricId: 2, value: 3 }]),
+    ];
+
+    expect(metricIdsForPulseDay([1], checkIns)).toEqual([1, 2, 3]);
+  });
+
+  it("does not add duplicate rows for current Metrics with historical ratings", () => {
+    expect(
+      metricIdsForPulseDay(
+        [1, 2],
+        [metricCheckIn(1, DAY / 4, [{ metricId: 2, value: 3 }])],
+      ),
+    ).toEqual([1, 2]);
   });
 });

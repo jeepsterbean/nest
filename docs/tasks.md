@@ -17,12 +17,12 @@ Closed / All presets; first visit is the Raw saved view.
 
 A **saved view** names one table query: the status set, Scope, Parent,
 Created, Updated, Value, Effort, Worked time, the ordered sort rules, and the columns:
-their order, widths, and which are hidden. Views saved before they carried columns
-take the layout every view shared then. The view picker leads the
+their order, widths, and which are hidden. The view picker leads the
 toolbar, alongside its filter pills and task count. Up to five
 views are kept, in the order they were made; names are unique ignoring case.
-The built-in Raw view (every status, no filters, no sort) cannot be renamed,
-overwritten, or deleted, so there is always an empty view to fall back to.
+The built-in Raw view (every status, no filters, no sort, default columns) cannot
+be renamed, overwritten, or deleted, so there is always an empty view to fall back
+to. Edits made while on Raw are never kept; it always loads as built.
 The picker trigger is a fixed 10-character field so switching views does not
 shift the pills; names are at most 10 characters, and longer ones ellipsize.
 

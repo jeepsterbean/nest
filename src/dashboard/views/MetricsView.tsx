@@ -31,6 +31,7 @@ import {
   buildMetricDay,
   dayOffset,
   metricDayTicks,
+  metricIdsForPulseDay,
   type MetricDayPoint,
   type MetricDayTick,
 } from "../lib/metricDay";
@@ -300,6 +301,13 @@ function PulseGroup({
     () => buildMetricDay(checkIns, day.dayStartSec, day.dayEndSec),
     [checkIns, day.dayStartSec, day.dayEndSec],
   );
+  const dayMetrics = useMemo(() => {
+    const metricsById = new Map(allMetrics.map((metric) => [metric.id, metric]));
+    return metricIdsForPulseDay(pulse.metricIds, checkIns).flatMap((id) => {
+      const metric = metricsById.get(id);
+      return metric ? [metric] : [];
+    });
+  }, [allMetrics, pulse.metricIds, checkIns]);
   const metricSort = useListSort(`metric-${pulse.id}`, pulse.metricIds, (ids) => {
     void mutate(() => reorderPulseMetrics(pulse.id, ids));
   });
@@ -434,8 +442,8 @@ function PulseGroup({
               </li>
             )}
           </>
-        ) : pulseMetrics.length ? (
-          pulseMetrics.map((metric) => (
+        ) : dayMetrics.length ? (
+          dayMetrics.map((metric) => (
             <MetricReadRow
               key={metric.id}
               metric={metric}
@@ -487,7 +495,12 @@ export function MetricsView() {
   const dayStartMs = resolveSelectedDayMs(anchorMs, nowMs);
   const dayEndMs = shiftDayMs(dayStartMs, 1);
   const todayMs = startOfDayMs(nowMs / 1000);
-  const { records: dayCheckIns } = useDayRecords(dayStartMs, nowMs, checkIns, listMetricCheckIns);
+  const { records: dayCheckIns, loaded: dayLoaded } = useDayRecords(
+    dayStartMs,
+    nowMs,
+    checkIns,
+    listMetricCheckIns,
+  );
   const day: DayContext = useMemo(
     () => ({
       ticks: metricDayTicks(dayStartMs, dayEndMs),
@@ -585,8 +598,16 @@ export function MetricsView() {
         )}
       </header>
 
-      <div className="metrics-board" data-editing={editing || undefined}>
-        {isEmpty && !editing ? (
+      <div
+        className="metrics-board"
+        data-editing={editing || undefined}
+        aria-busy={!dayLoaded}
+      >
+        {!dayLoaded && !editing ? (
+          <div className="dash-empty metrics-board__empty" role="status">
+            <span>Loading Metric check-ins…</span>
+          </div>
+        ) : isEmpty && !editing ? (
           <div className="dash-empty metrics-board__empty">
             <strong>Create your first pulse</strong>
             <span>A pulse gathers the metrics you want to check together.</span>

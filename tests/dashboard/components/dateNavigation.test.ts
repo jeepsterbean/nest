@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DateNavigation } from "../../../src/dashboard/components/DateNavigation";
 import { DayCalendar } from "../../../src/dashboard/components/DayPicker";
-import { LogsTimeline } from "../../../src/dashboard/views/LogsTimeline";
+import { TimelineList } from "../../../src/dashboard/views/TimelineList";
 
 const nowMs = new Date(2026, 9, 7, 12).getTime();
 
@@ -21,7 +21,7 @@ describe("date navigation and empty Timeline", () => {
   });
 
   it.each([true, false])("shows an empty current-time row only when enabled (%s)", (showCurrentTime) => {
-    const markup = renderToStaticMarkup(createElement(LogsTimeline, {
+    const markup = renderToStaticMarkup(createElement(TimelineList, {
       events: [], phaseCheckIns: [], phases: [], metrics: [], pulses: [], tasks: [],
       expandedDumpIds: new Set<number>(), onDeleteCheckIn: () => {},
       onToggleDump: () => {}, nowMs, showCurrentTime,

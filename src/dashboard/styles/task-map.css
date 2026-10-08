@@ -573,10 +573,6 @@
   width: 100%;
 }
 
-.task-relation-group--dependents {
-  padding-top: 2px;
-}
-
 .task-card__scope {
   display: inline-flex;
   flex: none;

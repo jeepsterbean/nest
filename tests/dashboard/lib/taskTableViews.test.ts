@@ -168,14 +168,20 @@ describe("saved task views", () => {
     expect(views[1]!.query.columns).toBe(hidden);
   });
 
-  it("gives views stored without columns the old shared layout", () => {
+  it("loads Raw and views stored without columns with the default layout", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
     storage.setItem("nest:task-table", JSON.stringify({ hidden: ["updated"] }));
-    storage.setItem("nest:task-table-views", JSON.stringify({ selectedId: "a", views: [{ id: "a", name: "Focus", query: { statuses: ["active"] } }] }));
+    storage.setItem("nest:task-table-views", JSON.stringify({
+      selectedId: "a",
+      views: [
+        { id: RAW_TASK_VIEW_ID, name: "Raw", query: { statuses: ["active"], columns: { hidden: ["scope"] } } },
+        { id: "a", name: "Focus", query: { statuses: ["active"] } },
+      ],
+    }));
     const state = readSavedTaskViews(storage);
-    expect(state.views.find(view => view.id === "a")!.query.columns.filter(column => column.hidden).map(column => column.id)).toEqual(["updated"]);
-    expect(state.views.find(view => view.id === RAW_TASK_VIEW_ID)!.query.columns.filter(column => column.hidden)).toEqual([]);
+    expect(state.views.find(view => view.id === "a")!.query.columns).toEqual(DEFAULT_TASK_TABLE_QUERY.columns);
+    expect(state.views.find(view => view.id === RAW_TASK_VIEW_ID)!.query).toEqual(DEFAULT_TASK_TABLE_QUERY);
   });
 
   it("round-trips through storage", () => {

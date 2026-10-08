@@ -49,7 +49,7 @@ import {
   type TileLayout,
 } from "../lib/overviewGrid";
 import { InsightsPanel } from "./InsightsPanel";
-import { LogsTimeline } from "./LogsTimeline";
+import { TimelineList } from "./TimelineList";
 import { OverviewSettings } from "./OverviewSettings";
 
 type TileChrome = {
@@ -355,7 +355,7 @@ export function OverviewView({
               </div>
             ) : (
               <>
-                <LogsTimeline
+                <TimelineList
                   events={events}
                   phaseCheckIns={phaseCheckIns}
                   phases={phases}

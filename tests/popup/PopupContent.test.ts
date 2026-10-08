@@ -204,7 +204,6 @@ describe("MetricCheckIn manual scoring", () => {
 
     expect(html).toContain("Focus");
     expect(html).toContain('aria-label="5 out of 5"');
-    expect(html).not.toContain("metric-step__silence");
   });
 
   it("shows an empty state when no Metric is assigned", () => {
@@ -219,7 +218,6 @@ describe("MetricCheckIn manual scoring", () => {
     );
 
     expect(html).toContain("This pulse has no metrics yet.");
-    expect(html).not.toContain("silenced");
   });
 });
 

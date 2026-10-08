@@ -18,7 +18,7 @@ pub const DEMO_IDENTIFIER: &str = "com.huwenjie.nest.demo";
 const DEMO_WEBVIEW_STORE: [u8; 16] = *b"nest-demo-store!";
 
 /// Days before today that get a full seeded schedule, so Week ranges and
-/// sparklines have history to show.
+/// Timeline have history to show.
 const HISTORY_DAYS: i64 = 9;
 
 /// Today's seeded activity stops this long before launch, leaving the live

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listBrainDumps } from "./commands";
 import { trimBrainDumpHtml } from "./brainDumpRichText";
+import { readMigratedStorageValue } from "./storageKeyMigration";
 import { subscribeTauriEvent } from "./tauriListen";
 import type { BrainDump } from "./types";
 
-const TEXT_STORAGE_KEY = "nest.brain-dump-draft";
-const TAG_IDS_STORAGE_KEY = "nest.brain-dump-draft-tags";
-const CHANNEL_NAME = "nest.brain-dump-draft";
+const TEXT_STORAGE_KEY = "nest:brain-dump-draft";
+const TAG_IDS_STORAGE_KEY = "nest:brain-dump-draft-tags";
+const LEGACY_TEXT_STORAGE_KEY = "nest.brain-dump-draft";
+const LEGACY_TAG_IDS_STORAGE_KEY = "nest.brain-dump-draft-tags";
+const CHANNEL_NAME = "nest:brain-dump-draft";
 const HISTORY_LIMIT = 5;
 export type BrainDumpDraft = { text: string; tagIds: number[] };
 const EMPTY_DRAFT: BrainDumpDraft = { text: "", tagIds: [] };
@@ -18,10 +21,18 @@ function readDraft(): BrainDumpDraft {
   if (typeof window === "undefined") return EMPTY_DRAFT;
   try {
     const storedIds = JSON.parse(
-      window.localStorage.getItem(TAG_IDS_STORAGE_KEY) ?? "[]",
+      readMigratedStorageValue(
+        window.localStorage,
+        TAG_IDS_STORAGE_KEY,
+        LEGACY_TAG_IDS_STORAGE_KEY,
+      ) ?? "[]",
     );
     return {
-      text: window.localStorage.getItem(TEXT_STORAGE_KEY) ?? "",
+      text: readMigratedStorageValue(
+        window.localStorage,
+        TEXT_STORAGE_KEY,
+        LEGACY_TEXT_STORAGE_KEY,
+      ) ?? "",
       tagIds: Array.isArray(storedIds)
         ? storedIds.filter((id): id is number => Number.isInteger(id))
         : [],
@@ -43,6 +54,8 @@ function storeDraft(draft: BrainDumpDraft) {
     } else {
       window.localStorage.removeItem(TAG_IDS_STORAGE_KEY);
     }
+    window.localStorage.removeItem(LEGACY_TEXT_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_TAG_IDS_STORAGE_KEY);
   } catch {
     // Keep the in-memory draft working when browser storage is unavailable.
   }

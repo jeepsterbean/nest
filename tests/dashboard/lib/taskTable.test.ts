@@ -5,7 +5,6 @@ import {
   moveTaskTableColumn,
   normalizeTaskTableLayout,
   overviewTaskColumns,
-  readLegacyTaskTableLayout,
   sameHiddenTaskTableColumns,
   sameTaskTableLayout,
   serializeTaskTableLayout,
@@ -131,12 +130,6 @@ describe("task table layout", () => {
     expect(hiddenColumnsLabel(columns.slice(7, 8))).toBe("Created");
     expect(hiddenColumnsLabel(columns.slice(7))).toBe("Created, Updated");
     expect(hiddenColumnsLabel(columns.slice(6))).toBe("3 hidden");
-  });
-
-  it("recovers from broken legacy JSON", () => {
-    const storage = memory();
-    storage.setItem("nest:task-table", "{");
-    expect(readLegacyTaskTableLayout(storage).map((column) => column.id)).toEqual(defaultIds);
   });
 
   it("compares layouts by order, width, and hidden, and hidden columns as a set", () => {

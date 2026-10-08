@@ -14,6 +14,7 @@ import { TaskSortRules } from "../task/TaskSortRules";
 import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
+import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
 import type { CorePaneControls } from "../lib/corePane";
@@ -87,13 +88,15 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const setTableSort = (sort: TaskColumnSort[]) => setTableQuery(q => ({ ...q, sort }));
   // Re-match while Working now so a live total can cross the chosen minute.
   const tickWorkedTime = workedTimeFilter !== null || tableSort.some(rule => rule.column === "workedTime");
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const dateNowMs = useCurrentTime();
+  const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
   useEffect(() => {
     if (!tickWorkedTime) return;
-    setNowMs(Date.now());
-    const id = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    setWorkedNowMs(Date.now());
+    const id = window.setInterval(() => setWorkedNowMs(Date.now()), 1_000);
     return () => window.clearInterval(id);
   }, [tickWorkedTime]);
+  const nowMs = tickWorkedTime ? workedNowMs : dateNowMs;
   const setTableColumns = useCallback(
     (columns: TaskTableColumn[]) => setTableQuery(q => ({ ...q, columns })),
     [setTableQuery],
@@ -180,8 +183,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     [tasks, selectedTaskScope],
   );
   const tableTasksWithoutWorkedTime = useMemo(
-    () => scopedTasks.filter((task) => tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent)) && taskMatchesDateFilter(task.createdAt, createdFilter) && taskMatchesDateFilter(task.updatedAt, updatedFilter) && taskMatchesScoreFilter(task.value, valueFilter) && taskMatchesScoreFilter(task.effort, effortFilter)),
-    [scopedTasks, tableStatuses, selectedParent, createdFilter, updatedFilter, valueFilter, effortFilter],
+    () => scopedTasks.filter((task) => tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent)) && taskMatchesDateFilter(task.createdAt, createdFilter, dateNowMs) && taskMatchesDateFilter(task.updatedAt, updatedFilter, dateNowMs) && taskMatchesScoreFilter(task.value, valueFilter) && taskMatchesScoreFilter(task.effort, effortFilter)),
+    [scopedTasks, tableStatuses, selectedParent, createdFilter, updatedFilter, valueFilter, effortFilter, dateNowMs],
   );
   const tableTasks = useMemo(
     () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs)),
@@ -220,8 +223,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     ...optionalPill("statuses", "Status", matchingTaskStatusPreset(tableStatuses) === "all" ? null : taskStatusFilterLabel(tableStatuses), () => setTableStatuses([...TASK_STATUSES])),
     ...optionalPill("scope", "Scope", selectedTaskScope, () => setSelectedTaskScope(null)),
     ...optionalPill("parent", "Parent", selectedParent === null ? null : selectedParent === "none" ? "No parent" : taskGraph.byId.get(selectedParent)?.title ?? "Parent", () => setSelectedParent(null)),
-    ...optionalPill("created", "Created", taskDateFilterLabel(createdFilter), () => setCreatedFilter(null)),
-    ...optionalPill("updated", "Updated", taskDateFilterLabel(updatedFilter), () => setUpdatedFilter(null)),
+    ...optionalPill("created", "Created", taskDateFilterLabel(createdFilter, dateNowMs), () => setCreatedFilter(null)),
+    ...optionalPill("updated", "Updated", taskDateFilterLabel(updatedFilter, dateNowMs), () => setUpdatedFilter(null)),
     ...optionalPill("value", "Value", taskScoreFilterLabel(valueFilter), () => setValueFilter(null)),
     ...optionalPill("effort", "Effort", taskScoreFilterLabel(effortFilter), () => setEffortFilter(null)),
     ...optionalPill("workedTime", "Worked time", taskWorkedTimeFilterLabel(workedTimeFilter), () => setWorkedTimeFilter(null)),

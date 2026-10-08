@@ -8,14 +8,13 @@ APIs, schema, or code structure.
 
 ## Brain dump
 - P3: Keep a minimised floating Brain dump's expand button visible at every width; reserve its space and clip overflowing summary text to the remaining width.
+- for logged dumps, when i try to add tags, the visuals look bad
 
 ## Metrics
 - P2 need to think how to make it useable. its currently weak
 > as a user i rarely consider it/think of it
 
-## Log view
-- let users switch between different days. and click it to open up calendar and skip even quicker. im like tempted to go into how the dumps are stored and fetch.
-
+## Timeline
 - decouple it from the timer
 
 ## Task section
@@ -25,11 +24,8 @@ APIs, schema, or code structure.
 - P1: add a reset timer feature 
 - P1: allow users to make sub-tasks from the metrics view
 
-## Dashboard sections
-
 ## Inactivity pause and resume
-- P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes resumes what was paused, No leaves them paused.
-6:18 PM
+- P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes turns Working now back on for them, No leaves Working now off.
 
 - P2: its important to remember that the start session SOP is not only for the start of the day but everytime i sit back down. nest should open it everytime im back from being offline or from rest.
 
@@ -45,9 +41,6 @@ New data model. which basically, is textual summary of what the user is doing fr
 
 ## Note board
 figure out how the notes are arranged in the noteboard
-
-## Brain dumps
-- for logged dumps, when i try to add tags, the visuals look bad
 
 
 # Chat assistant

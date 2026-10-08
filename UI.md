@@ -37,7 +37,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   title truncation preserves the Working now badge.
 - Tasks: `.task-table`. Layout choice persists in `nest:task-view` (Table
   when unset). Column order, widths, and hidden columns belong to each saved view;
-  the old shared `nest:task-table` layout is only read to seed views saved before that.
+  the old shared `nest:task-table` layout is no longer read.
   The active Core Tasks pane adds `.dashboard--tasks` to scope its portal menus:
   status dots are hidden; Value dots, column headers and filters, Save / Revert,
   and Scope pill text, backgrounds, and borders use neutral tones.
@@ -176,7 +176,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   stack by stored y/x order below 861px, where drag and resize are disabled.
   `MetricCheckIn` is shared with the Popup for manual scoring. The read-only
   Tasks peek uses `TaskTable` (`readOnly`) and columns from `overviewTaskColumns()`. The
-  Overview Timeline tile uses `LogsTimeline` for the same 30-day history as
+  Overview Timeline tile uses `TimelineList` for the same 30-day history as
   Calendar's Timeline presentation, with `dayChrome` on when expanded, the same
   `.logs-kind-filter` chips and Phases-only `.logs-raw-toggle` (kinds start as
   all four and are not stored), and no Phase totals. The chip row
@@ -184,9 +184,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   There is no dashboard dump modal or Sidebar dump button.
   Floating stickies are `.floating-brain-dump` (`data-color` paper / blush /
   sage / sky / lilac) with `.floating-sticky-colors` swatches in the header;
-  color persists in `nest.floating-brain-dumps`. The Note Board is
+  color persists in `nest:floating-brain-dumps`. The Note Board is
   `.floating-note-board` (minimised: `--minimised`), always on the overlay
-  with a warm ruled ink fill; its geometry persists in `nest.floating-note-board`.
+  with a warm ruled ink fill; its geometry persists in `nest:floating-note-board`.
   Docked drafts are `.floating-brain-dump--docked` rows inside it; a drag in
   progress adds `--lifting`. Hovering a free sticky over the expanded board
   hides that sticky (`--over-board`) and shows a
@@ -247,7 +247,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   Calendar's Logs figure. The
   toolbar (`.logs-toolbar`) has two `.logs-toolbar__row`s: the selected day's
   `DateNavigation` (Previous day, Next day, Go to today), then the filter chips and the Phases-only eye. The list is `.logs-chrono`
-  (`LogsTimeline`), without Phase totals. Day labels are `.day-group__open` buttons that open that day on Calendar's Logs figure,
+  (`TimelineList`), without Phase totals. Day labels are `.day-group__open` buttons that open that day on Calendar's Logs figure,
   and groups follow the selected date range. Task lifecycle
   rows and Working now boundaries use the configured Tasks icon as their timeline
   mark. The `.task-log` body shows an emphasized Task title, an em dash,
@@ -258,6 +258,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (`.logs-raw-toggle`, not stored) swaps the settled rows for every checkpoint
   in the window. The Timeline icon is the `timeline` slot, picked in Overview
   settings, and it also heads the Overview Timeline tile.
+  The shared `logs-` CSS prefix covers both Timeline and Calendar Logs styling.
 - Sidebar: every Section icon is a `NestIcon` from `nest:overview-tile-icons`
   (`overview`, `calendar`, `core`, `assistant`, `settings`). The first click selects that Section. Clicking the
   icon again while it is already selected opens `IconPickerButton`; a pick,
@@ -284,7 +285,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   (`--brainDump`, `--tasks`, `--metrics`, `--phases`) so each pane keeps its
   former Section height rules.
 - Assistant: `.dash-section--assistant` with Chat / Config panes via
-  `ViewToggle`. Chat uses `.assistant-workspace` for the saved-chat list and
+  `ViewToggle`, persisted in `nest:assistant-pane` (Chat when unset). Chat uses
+  `.assistant-workspace` for the saved-chat list and
   thread; Config uses `.assistant-prompt-workspace` for the saved-prompt list
   and editor. Chat titles use `useInlineRename`. Composer and prompt drafts
   persist in `nest:assistant-chat-drafts` and `nest:assistant-prompt-drafts`.
@@ -345,7 +347,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   picker, click-to-rename name and remove (×), all always visible. Pulses drag
   by their heading, Metrics within their Pulse. `Add metric` offers existing
   Metrics or `New metric…`, which creates and adds in one step; `New pulse`
-  closes the list. Leaving Edit drops open composers.
+  closes the list. Leaving Edit drops open composers. Pulses hidden from the
+  Popup persist in `nest:hidden-pulse-ids`.
 - Phases: `.dash-section--phases` is a read-only `.phase-guide`: an intro on
   how Phase is derived and one bordered `.phase-list` (`<ol>` as Doing,
   Scoping, Resting, Offline from `src/dashboard/lib/phaseGuide.ts`). Each
@@ -359,7 +362,9 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 - Settings: `.dash-section--settings` with Assistant / Reminders / Background
   panes via shared `ViewToggle`. Last pane is stored in `nest:settings-pane`
   (Assistant when unset). Panes stay mounted in `.settings-slot` through
-  `hidden` so Assistant drafts survive switches.
+  `hidden` so Assistant drafts survive switches. Background style persists in
+  `nest:background-style`, and its speed and intensity persist in
+  `nest:background-tuning`.
 
 ## Calendar timetable
 
@@ -393,6 +398,8 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 and Tags on the shared sticky surface. `SavedBrainDumpPopover` is a fixed,
 read-only sticky positioned 12px to the right of the opening cursor and centered
 on its y-coordinate. It closes on an outside click or Escape.
+The shared composer draft persists in `nest:brain-dump-draft`, with selected
+Tag ids in `nest:brain-dump-draft-tags`.
 The Brain dump pane of Core (`BrainDumpView`, `.dash-section--brain-dump`) has a
 single History surface in `.brain-dump-section__pane`. The Core navigation rail
 holds its Overview tile icon picker. `BrainDumpHistory` defaults to Today;
@@ -441,8 +448,8 @@ surfaces or editor dependencies, use the
   Last hour / Day / Week `ViewToggle` and the inline `DayCalendar`
   with a muted month header (faded in Last hour until hovered; Timeline dots
   `.has-entries` days). Calendar remembers its range in `nest:date-range`.
-  Timeline stays on Day and shows only `DayCalendar`; saved `nest:logs-range`
-  modes are ignored. Each presentation keeps its selected date for the session.
+  Timeline stays on Day and shows only `DayCalendar`. Each presentation keeps
+  its selected date for the session.
   The highlighted days are the range;
   there is no range title text. At 600px or
   less the range controls move above the content beside the main Sidebar.

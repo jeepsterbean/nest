@@ -47,7 +47,6 @@ export const overviewTaskColumns = (): TaskTableColumn[] =>
   });
 
 const TASK_VIEW_KEY = "nest:task-view";
-const TASK_TABLE_KEY = "nest:task-table";
 const COLUMN_IDS = new Set<string>(TASK_TABLE_COLUMNS.map((column) => column.id));
 
 type TaskStorage = Pick<Storage, "getItem" | "setItem">;
@@ -105,18 +104,6 @@ export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => 
     const hidden = storedHidden.has(id) && canHideTaskTableColumn(id);
     return { ...column, width: clampWidth(column.minWidth, width), ...(hidden ? { hidden } : {}) };
   });
-};
-
-/** Before saved views carried their own columns, one layout was shared by every view.
- *  It is read only to seed views stored without columns, so upgrading keeps the table as it was. */
-export const readLegacyTaskTableLayout = (
-  storage: TaskStorage = localStorage,
-): TaskTableColumn[] => {
-  try {
-    return normalizeTaskTableLayout(JSON.parse(storage.getItem(TASK_TABLE_KEY) ?? "null"));
-  } catch {
-    return normalizeTaskTableLayout(null);
-  }
 };
 
 /** The stored shape `normalizeTaskTableLayout` reads back; labels and minimums come from code. */

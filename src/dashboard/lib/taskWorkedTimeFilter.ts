@@ -50,6 +50,15 @@ export const nearestWorkedTimeStopIndex = (stops: number[], seconds: number) => 
   return best;
 };
 
+/** Keep a persisted threshold representable even when the current Tasks produce different stops. */
+export const includeWorkedTimeThreshold = (
+  stops: number[],
+  filter: TaskWorkedTimeFilter,
+): number[] => {
+  if (filter === null || stops.includes(filter.seconds)) return stops;
+  return [...stops, filter.seconds].sort((left, right) => left - right);
+};
+
 export const taskMatchesWorkedTimeFilter = (
   task: { workedSeconds: number; workStartedAt: number | null; workingNow: boolean },
   filter: TaskWorkedTimeFilter,

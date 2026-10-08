@@ -59,6 +59,26 @@ export const buildMetricDay = (
   return byMetric;
 };
 
+/** Current members lead; Metrics rated here earlier remain under their recorded Pulse. */
+export const metricIdsForPulseDay = (
+  currentMetricIds: number[],
+  checkIns: MetricCheckInWithRatings[],
+): number[] => {
+  const ids = [...currentMetricIds];
+  const seen = new Set(ids);
+  const chronological = [...checkIns].sort(
+    (left, right) => left.createdAt - right.createdAt || left.id - right.id,
+  );
+  for (const checkIn of chronological) {
+    for (const rating of checkIn.ratings) {
+      if (seen.has(rating.metricId)) continue;
+      seen.add(rating.metricId);
+      ids.push(rating.metricId);
+    }
+  }
+  return ids;
+};
+
 /** Hour ticks from local clock hours, so a DST day keeps its real 23 or 25 hours. */
 export const metricDayTicks = (dayStartMs: number, dayEndMs: number): MetricDayTick[] =>
   TICK_HOURS.map((hour) => {

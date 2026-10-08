@@ -57,6 +57,36 @@ describe("trimBrainDumpDraft", () => {
 });
 
 describe("setBrainDumpDraft", () => {
+  it("moves legacy draft values to the colon-prefixed storage keys", async () => {
+    const storage = new Map([
+      ["nest.brain-dump-draft", "Remember this"],
+      ["nest.brain-dump-draft-tags", "[2,3]"],
+    ]);
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+      },
+    });
+    try {
+      vi.resetModules();
+      const draft = await import("../../src/lib/brainDumpDraft");
+
+      expect(draft.getBrainDumpDraft()).toEqual({
+        text: "Remember this",
+        tagIds: [2, 3],
+      });
+      expect(storage.get("nest:brain-dump-draft")).toBe("Remember this");
+      expect(storage.get("nest:brain-dump-draft-tags")).toBe("[2,3]");
+      expect(storage.has("nest.brain-dump-draft")).toBe(false);
+      expect(storage.has("nest.brain-dump-draft-tags")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
   it("reads the latest stored draft when cross-window notifications arrive late", async () => {
     const storage = new Map<string, string>();
     const localStorage = {
@@ -96,7 +126,7 @@ describe("setBrainDumpDraft", () => {
 
       channels[1].onmessage?.(delayedMessage);
       expect(popup.getBrainDumpDraft()).toEqual(latest);
-      storageListeners[0]({ key: "nest.brain-dump-draft" });
+      storageListeners[0]({ key: "nest:brain-dump-draft" });
       expect(dashboard.getBrainDumpDraft()).toBe(latest);
       expect(localStorage.setItem).not.toHaveBeenCalled();
       expect(localStorage.removeItem).not.toHaveBeenCalled();

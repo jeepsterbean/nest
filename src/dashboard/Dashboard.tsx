@@ -20,7 +20,7 @@ import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { OverviewView } from "./views/OverviewView";
 import { CalendarView } from "./views/CalendarView";
-import { LogsView } from "./views/LogsView";
+import { TimelineView } from "./views/TimelineView";
 import { CoreView } from "./views/CoreView";
 import { SettingsView } from "./views/SettingsView";
 import { AssistantView } from "./views/AssistantView";
@@ -174,12 +174,12 @@ function DashboardInner() {
             />
           )}
           {view === "calendar" && calendarPresentation === "timeline" && (
-            <LogsView
+            <TimelineView
               range={timelineRange}
               sidebarTarget={rangeSidebarTarget}
               presentation={calendarPresentation}
               onPresentation={selectCalendarPresentation}
-              onOpenLogsDay={(dayMs) => {
+              onOpenDayInCalendarLogs={(dayMs) => {
                 calendarRange.selectMode("day");
                 writeCalendarFigure("logs");
                 calendarRange.goToDay(dayMs);

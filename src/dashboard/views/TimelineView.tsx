@@ -29,20 +29,20 @@ import { dayLabel, historyStartSec } from "../lib/time";
 import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { LogKindToggle, LogsRawToggle } from "../components/logs/LogKindToggle";
-import { LogsTimeline } from "./LogsTimeline";
+import { TimelineList } from "./TimelineList";
 
-export function LogsView({
+export function TimelineView({
   range,
   sidebarTarget,
   presentation,
   onPresentation,
-  onOpenLogsDay,
+  onOpenDayInCalendarLogs,
 }: {
   range: ReturnType<typeof useCalendarRange>;
   sidebarTarget: HTMLElement | null;
   presentation: CalendarPresentation;
   onPresentation: (presentation: CalendarPresentation) => void;
-  onOpenLogsDay: (dayMs: number) => void;
+  onOpenDayInCalendarLogs: (dayMs: number) => void;
 }) {
   const {
     metrics,
@@ -228,7 +228,7 @@ export function LogsView({
           </div>
         ) : null}
         {loaded && (eventCount > 0 || range.isNow) ? (
-          <LogsTimeline
+          <TimelineList
             showCurrentTime={range.isNow}
             events={visibleEvents}
             phaseCheckIns={phaseCheckIns}
@@ -240,7 +240,7 @@ export function LogsView({
             onDeleteCheckIn={onDeleteCheckIn}
             onToggleDump={toggleDumpExpanded}
             onExportDay={exportDay}
-            onOpenDay={onOpenLogsDay}
+            onOpenDay={onOpenDayInCalendarLogs}
             nowMs={nowMs}
             colorsTimeColumn={kinds.includes("phases")}
           />

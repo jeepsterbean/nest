@@ -4,7 +4,6 @@ import { TASK_DATE_PRESETS, type TaskDateFilter } from "./taskDateFilter";
 import { normalizeScoreFilter, sameScoreFilter, type TaskScoreFilter } from "./taskScoreFilter";
 import {
   normalizeTaskTableLayout,
-  readLegacyTaskTableLayout,
   sameTaskTableLayout,
   serializeTaskTableLayout,
   TASK_TABLE_COLUMNS,
@@ -211,8 +210,8 @@ const normalizeSort = (value: unknown): TaskColumnSort | null => {
   return { column: value.column as TaskColumnSort["column"], direction: value.direction };
 };
 
-const normalizeQuery = (value: unknown, legacyColumns: TaskTableColumn[]): TaskTableQuery => {
-  if (!isRecord(value)) return { ...DEFAULT_TASK_TABLE_QUERY, columns: legacyColumns };
+const normalizeQuery = (value: unknown): TaskTableQuery => {
+  if (!isRecord(value)) return { ...DEFAULT_TASK_TABLE_QUERY };
   const statuses = Array.isArray(value.statuses)
     ? TASK_STATUSES.filter((status) => (value.statuses as unknown[]).includes(status))
     : DEFAULT_TASK_TABLE_QUERY.statuses;
@@ -230,16 +229,12 @@ const normalizeQuery = (value: unknown, legacyColumns: TaskTableColumn[]): TaskT
       .map(normalizeSort)
       .filter((rule): rule is TaskColumnSort => rule !== null)
       .filter((rule, index, rules) => rules.findIndex(other => other.column === rule.column) === index),
-    columns: "columns" in value ? normalizeTaskTableLayout(value.columns) : legacyColumns,
+    columns: normalizeTaskTableLayout(value.columns),
   };
 };
 
-/** Drop malformed rows and repeated names or ids, keep at most the cap, and always lead with Raw.
- *  Views stored before they carried columns take `legacyColumns`, the layout every view shared then. */
-export const normalizeSavedTaskViews = (
-  stored: unknown,
-  legacyColumns: TaskTableColumn[] = DEFAULT_TASK_TABLE_QUERY.columns,
-): SavedTaskViewState => {
+/** Drop malformed rows and repeated names or ids, keep at most the cap, and always lead with Raw. */
+export const normalizeSavedTaskViews = (stored: unknown): SavedTaskViewState => {
   const record = isRecord(stored) ? stored : {};
   const rows = Array.isArray(record.views) ? record.views : [];
   const views: SavedTaskView[] = [];
@@ -253,7 +248,7 @@ export const normalizeSavedTaskViews = (
       || isNameTaken(views, name)
       || normalizeName(name) === normalizeName(RAW_TASK_VIEW.name)
     ) continue;
-    views.push({ id: row.id, name, query: normalizeQuery(row.query, legacyColumns) });
+    views.push({ id: row.id, name, query: normalizeQuery(row.query) });
   }
   // Always inject the locked empty home rather than replaying a stored Raw row.
   views.unshift({ ...RAW_TASK_VIEW, query: { ...RAW_TASK_VIEW.query } });
@@ -266,11 +261,10 @@ export const normalizeSavedTaskViews = (
 };
 
 export const readSavedTaskViews = (storage: TaskStorage = localStorage): SavedTaskViewState => {
-  const legacyColumns = readLegacyTaskTableLayout(storage);
   try {
-    return normalizeSavedTaskViews(JSON.parse(storage.getItem(TASK_TABLE_VIEWS_KEY) ?? "null"), legacyColumns);
+    return normalizeSavedTaskViews(JSON.parse(storage.getItem(TASK_TABLE_VIEWS_KEY) ?? "null"));
   } catch {
-    return normalizeSavedTaskViews(null, legacyColumns);
+    return normalizeSavedTaskViews(null);
   }
 };
 

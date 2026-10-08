@@ -29,6 +29,7 @@ import type { TaskTableColumn } from "../lib/taskTable";
 import { matchingTaskStatusPreset, RATING_VALUES, TASK_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_PRESETS, toggleTaskStatusFilter } from "../lib/tasks";
 import { formatCompactDuration, taskDisplayedWorkedSeconds, toDateInput } from "../lib/time";
 import {
+  includeWorkedTimeThreshold,
   nearestWorkedTimeStopIndex,
   TASK_WORKED_TIME_COMPARATORS,
   taskWorkedTimeFilterLabel,
@@ -190,7 +191,10 @@ function TaskWorkedTimeFilterFields({ filter, onChange, candidates }: {
 }) {
   // Snapshot at flyout open so a live Working now total cannot rebuild the line.
   const [stops] = useState(() =>
-    workedTimeStops(candidates.map(task => taskDisplayedWorkedSeconds(task, Date.now()))));
+    includeWorkedTimeThreshold(
+      workedTimeStops(candidates.map(task => taskDisplayedWorkedSeconds(task, Date.now()))),
+      filter,
+    ));
   const comparator = filter?.comparator ?? "more";
   const index = nearestWorkedTimeStopIndex(stops, filter?.seconds ?? stops[0] ?? 0);
   const seconds = stops[index] ?? 0;
@@ -484,7 +488,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     {open && box && createPortal(<>
       <div ref={menuRef} id={menuId} role="dialog" aria-label={menuLabel}
         className={`menu-select__menu task-column-menu${box.openUp ? " menu-select__menu--up" : ""}`}
-        style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}>
+        style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}
+        onPointerDown={event => event.stopPropagation()}>
         <div className="task-column-menu__head">
           <span>{column.label}</span>
           {(sorted || filterLabel) && <button type="button" className="task-column-menu__reset" onClick={reset}>Reset</button>}
@@ -509,6 +514,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
         style={submenuBox
           ? { top: submenuBox.top, left: submenuBox.left, width: submenuBox.width, maxHeight: submenuBox.maxHeight }
           : { top: 0, left: 0, width: submenuWidth, visibility: "hidden" }}
+        onPointerDown={event => event.stopPropagation()}
         onPointerEnter={() => window.clearTimeout(hoverTimer.current)}
         onKeyDown={onSubmenuKeyDown}>
         {submenu === "sort" ? sortOptions : filterOptions}

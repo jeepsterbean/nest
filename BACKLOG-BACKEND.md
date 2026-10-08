@@ -21,3 +21,13 @@ actionable items. When empty, there is no known backend work queued.
   expanded sidebar leaves roughly 596px for the board; at 860px the rail collapses
   and tiles stack. Adjust responsive behavior if controls clip or become difficult
   to use.
+
+## Tasks table review
+
+- [ ] Stop a saved view's missing Scope or Parent from reading as an unsaved
+  change. Once Tasks load, `TasksView` clears that filter from the live query
+  only, so the view shows Save and Revert on every load until it is saved;
+  Revert restores the filter and it is cleared again. Leave the saved view
+  untouched and treat a filter on a missing Scope or Parent as matching, so
+  the filter applies again if that Scope or Parent returns. Update the
+  saved-views paragraph in `docs/tasks.md`, which says Revert clears the mark.

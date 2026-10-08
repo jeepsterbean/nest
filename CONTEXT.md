@@ -47,7 +47,7 @@ _Avoid_: Parent, project
 An independently toggled marker on an Active Task that shows it is currently
 being worked on. Multiple Tasks may be Working now. Leaving Active clears it;
 clearing it does not change status.
-_Avoid_: Status, Ready, in progress, paused
+_Avoid_: Status, Ready, in progress
 
 **Work stretch**:
 One recorded span of Working now on a Task, with a start and an end. The
@@ -244,7 +244,6 @@ _Avoid_: using Logs as the name of the Timeline presentation
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; they are not stored status values.
-- "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.

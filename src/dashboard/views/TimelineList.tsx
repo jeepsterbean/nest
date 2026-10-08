@@ -102,7 +102,7 @@ export function DayExportButton({
 /** Memoized: the Overview brain dump composer re-renders on every keystroke,
  * and rebuilding up to LOG_EVENT_BATCH_SIZE rows underneath it is what made
  * typing lag. Callers must pass stable handler identities for this to hold. */
-export const LogsTimeline = memo(function LogsTimeline({
+export const TimelineList = memo(function TimelineList({
   events,
   phaseCheckIns,
   phases,

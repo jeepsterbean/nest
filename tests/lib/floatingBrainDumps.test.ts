@@ -29,6 +29,8 @@ import {
   parseFloatingNoteBoard,
   parseFloatingStickyColor,
   pointInRect,
+  readFloatingBrainDumps,
+  readFloatingNoteBoard,
   reclampFloatingDumps,
   reclampNoteBoard,
 } from "../../src/lib/floatingBrainDumps";
@@ -40,6 +42,44 @@ const enter = {
   ctrlKey: false,
   isComposing: false,
 };
+
+describe("floating draft storage migration", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("moves floating drafts and Note Board geometry to colon-prefixed keys", () => {
+    const dump = {
+      id: "a",
+      text: "note",
+      tagIds: [],
+      color: "paper",
+      minimised: false,
+      docked: false,
+      x: 16,
+      y: 16,
+      zIndex: 1,
+    };
+    const storage = new Map([
+      ["nest.floating-brain-dumps", JSON.stringify([dump])],
+      ["nest.floating-note-board", JSON.stringify(DEFAULT_FLOATING_NOTE_BOARD)],
+    ]);
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+      },
+    });
+
+    expect(readFloatingBrainDumps()).toEqual([dump]);
+    expect(readFloatingNoteBoard()).toEqual(DEFAULT_FLOATING_NOTE_BOARD);
+    expect(storage.has("nest:floating-brain-dumps")).toBe(true);
+    expect(storage.has("nest:floating-note-board")).toBe(true);
+    expect(storage.has("nest.floating-brain-dumps")).toBe(false);
+    expect(storage.has("nest.floating-note-board")).toBe(false);
+  });
+});
 
 describe("isBrainDumpPeelShortcut", () => {
   it("peels only on unmodified Shift+Enter", () => {

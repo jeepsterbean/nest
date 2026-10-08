@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  includeWorkedTimeThreshold,
   nearestWorkedTimeStopIndex,
   normalizeWorkedTimeFilter,
   roundWorkedSecondsToMinute,
@@ -43,6 +44,16 @@ describe("taskWorkedTimeFilter", () => {
   it("snaps a saved threshold onto the nearest stop", () => {
     expect(nearestWorkedTimeStopIndex([0, 60, 3600], 70)).toBe(1);
     expect(nearestWorkedTimeStopIndex([0, 60, 3600], 4000)).toBe(2);
+  });
+
+  it("keeps a saved threshold available when current task stops change", () => {
+    expect(
+      includeWorkedTimeThreshold(
+        [20 * 60, 40 * 60, 60 * 60],
+        { comparator: "more", seconds: 32 * 60 },
+      ),
+    ).toEqual([20 * 60, 32 * 60, 40 * 60, 60 * 60]);
+    expect(includeWorkedTimeThreshold([60, 120], null)).toEqual([60, 120]);
   });
 
   it("rejects incomplete stored filters", () => {
