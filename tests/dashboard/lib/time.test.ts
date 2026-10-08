@@ -16,6 +16,7 @@ import {
   shiftDayMs,
   snapToQuarterHour,
   startOfDayMs,
+  taskDisplayedWorkedSeconds,
   taskWorkSessionSeconds,
   toDateInput,
   toTimeInput,
@@ -215,11 +216,16 @@ describe("worked time", () => {
     expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
   });
 
+  it("adds the open stretch to banked Worked time while Working now", () => {
+    expect(taskDisplayedWorkedSeconds({ workedSeconds: 40, workStartedAt: 100, workingNow: true }, 130_000)).toBe(70);
+    expect(taskDisplayedWorkedSeconds({ workedSeconds: 40, workStartedAt: 100, workingNow: false }, 130_000)).toBe(40);
+  });
+
   it("formats worked time", () => {
-    expect(formatWorkedTime(0)).toBe("0");
-    expect(formatWorkedTime(45)).toBe("45");
-    expect(formatWorkedTime(60)).toBe("1:00");
-    expect(formatWorkedTime(330)).toBe("5:30");
-    expect(formatWorkedTime(3_661)).toBe("1:01:01");
+    expect(formatWorkedTime(0)).toBe("0s");
+    expect(formatWorkedTime(45)).toBe("45s");
+    expect(formatWorkedTime(60)).toBe("1m 0s");
+    expect(formatWorkedTime(330)).toBe("5m 30s");
+    expect(formatWorkedTime(3_661)).toBe("1h 1m 1s");
   });
 });

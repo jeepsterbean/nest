@@ -479,12 +479,11 @@
 
 .task-relations {
   display: grid;
-  gap: 10px;
+  gap: 2px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
 
-.task-relations__heading,
 .task-relation-group__head {
   display: flex;
   align-items: center;
@@ -492,7 +491,6 @@
   gap: 10px;
 }
 
-.task-relations__heading > span:first-child,
 .task-relation-group__head > span:first-child,
 .task-relation-field__label {
   color: var(--muted);
@@ -502,48 +500,11 @@
   text-transform: uppercase;
 }
 
-.task-readiness {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--rating-5);
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.task-readiness__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.task-readiness--blocked {
-  color: var(--dump);
-}
-
 .task-relation-field {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-}
-
-.task-child-create input {
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-2);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-  outline: none;
-}
-
-.task-child-create input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .task-relation-group {
@@ -606,29 +567,6 @@
 .task-relation-list__remove:hover {
   background: var(--dump-soft);
   color: var(--dump);
-}
-
-.task-child-create {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px;
-}
-
-.task-child-create button {
-  padding: 6px 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--accent);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 750;
-}
-
-.task-child-create button:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .task-relation-add {

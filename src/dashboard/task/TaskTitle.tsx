@@ -19,7 +19,7 @@ export function TaskTitle({ task }: { task: Task }) {
       onChange={(e) => rename.setDraft(e.target.value)}
       onBlur={rename.commit}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
           e.preventDefault();
           rename.commit();
         }

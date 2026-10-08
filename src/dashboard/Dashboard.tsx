@@ -116,7 +116,7 @@ function DashboardInner() {
 
   return (
     <main
-      className={`dashboard${hasSectionSidebar ? " dashboard--section-sidebar" : ""}${hasRangeSidebar ? " dashboard--range-sidebar" : ""}`}
+      className={`dashboard${hasSectionSidebar ? " dashboard--section-sidebar" : ""}${hasRangeSidebar ? " dashboard--range-sidebar" : ""}${view === "core" && corePane === "tasks" ? " dashboard--tasks" : ""}`}
     >
       {/* Provider (and sticky board) must live under .dashboard so theme
           tokens like --surface / --dump resolve on the notes. */}

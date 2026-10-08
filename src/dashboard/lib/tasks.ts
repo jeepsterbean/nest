@@ -80,6 +80,20 @@ export const matchingTaskStatusPreset = (selected: TaskStatus[]) =>
       statuses.every((status) => selected.includes(status)),
   )?.key ?? null;
 
+/** Pill text for the table's status set: a preset name, the one status left out
+ *  (`≠ Cancelled`), or the statuses in lifecycle order. */
+export const taskStatusFilterLabel = (selected: TaskStatus[]): string => {
+  const preset = TASK_STATUS_PRESETS.find(({ key }) => key === matchingTaskStatusPreset(selected));
+  if (preset) return preset.label;
+  if (selected.length === 0) return "None";
+  if (selected.length === TASK_STATUSES.length - 1) {
+    return `≠ ${TASK_STATUS_LABEL[TASK_STATUSES.find((status) => !selected.includes(status))!]}`;
+  }
+  return TASK_STATUSES.filter((status) => selected.includes(status))
+    .map((status) => TASK_STATUS_LABEL[status])
+    .join(", ");
+};
+
 export const toggleTaskStatusFilter = (
   selected: TaskStatus[],
   status: TaskStatus,

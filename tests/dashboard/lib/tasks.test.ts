@@ -8,6 +8,7 @@ import {
   recentlyClosedTasks,
   RECENT_CLOSED_WINDOW_SECONDS,
   sortTaskTable,
+  taskStatusFilterLabel,
   toggleTaskStatusFilter,
   TASK_STATUSES,
   WORKING_STATUSES,
@@ -56,6 +57,15 @@ describe("table status filters", () => {
     expect(toggleTaskStatusFilter(["backlog", "active"], "active")).toEqual([
       "backlog",
     ]);
+  });
+});
+
+describe("taskStatusFilterLabel", () => {
+  it("names presets, the one status left out, or the set in lifecycle order", () => {
+    expect(taskStatusFilterLabel(["active", "backlog", "up_next"])).toBe("Open");
+    expect(taskStatusFilterLabel([])).toBe("None");
+    expect(taskStatusFilterLabel(["completed", "backlog", "up_next", "active"])).toBe("≠ Cancelled");
+    expect(taskStatusFilterLabel(["completed", "active"])).toBe("Active, Completed");
   });
 });
 

@@ -12,6 +12,7 @@
 }
 
 .task-detail {
+  --task-detail-label-width: 76px;
   position: sticky;
   top: 16px;
   display: flex;
@@ -19,7 +20,7 @@
   max-height: calc(100vh - 120px);
   box-sizing: border-box;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   overflow-y: auto;
   padding: 16px;
   border: 1px solid var(--border-strong);
@@ -31,6 +32,17 @@
   outline: none;
   pointer-events: auto;
   animation: task-detail-rise 0.18s ease both;
+}
+
+.task-detail-overlay .task-detail {
+  position: relative;
+  top: auto;
+  width: clamp(500px, 46vw, 600px);
+  height: 100%;
+  max-height: none;
+  flex: none;
+  align-self: stretch;
+  border-radius: 14px 0 0 14px;
 }
 
 .task-detail__head {
@@ -80,48 +92,353 @@
 .task-detail .rename-input {
   flex: none;
   font-family: var(--serif);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   line-height: 1.3;
 }
 
-.task-detail__scope {
+/* The description absorbs the panel's spare height so the writing area, rather
+   than an unstructured gap, remains the visual center of a tall drawer. */
+.task-detail .task-card__description,
+.task-detail .task-card__description-input {
+  flex: 1 1 160px;
+  width: 100%;
+  min-height: 160px;
+  margin: 2px 0 0;
+  padding: 12px 13px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.task-detail .task-card__description {
   display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-2) 62%, var(--surface));
+}
+
+.task-detail .task-card__description:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.task-detail .task-card__description--empty {
+  font-style: normal;
+}
+
+.task-detail .task-card__description-input {
+  overflow-y: auto;
+  resize: none;
+}
+
+.task-detail__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+}
+
+.task-detail__fields .task-detail__field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 
-.task-detail__scores {
+.task-detail__fields .task-detail__field--score {
+  grid-template-columns: auto 64px;
+}
+
+.task-detail__fields .task-card__scope {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One label column shared by every property and relation row. */
+.task-detail__field,
+.task-detail .task-dots {
+  display: grid;
+  grid-template-columns: var(--task-detail-label-width) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.task-detail .task-dots {
+  align-items: center;
+}
+
+.task-detail__label,
+.task-detail .task-dots__label {
+  display: grid;
+  align-content: start;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 28px;
+}
+
+.task-detail__label-count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.task-detail .task-score {
+  display: grid;
+  gap: 2px;
+}
+
+.task-detail .task-dots__track {
+  justify-self: start;
+}
+
+.task-detail__stack {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.task-detail .menu-select__trigger,
+.task-detail .task-child-create,
+.task-detail .task-card__scope {
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.task-detail .menu-select__trigger {
+  padding: 0 6px;
+}
+
+.task-detail .menu-select__trigger:hover:not(:disabled),
+.task-detail .menu-select__trigger[aria-expanded="true"],
+.task-detail .task-child-create:hover,
+.task-detail .task-card__scope:hover {
+  border-color: transparent;
+  background: var(--surface-2);
+}
+
+.task-detail .menu-select__trigger:focus-visible,
+.task-detail .task-child-create:focus-within {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-detail .menu-select__placeholder {
+  font-weight: 500;
+}
+
+/* The Tasks pane gives filled scopes a border at higher specificity, so the
+   border is removed by width and the padding makes up the missing pixel. */
+.task-detail .task-card__scope {
   display: flex;
+  align-items: center;
+  justify-self: start;
+  padding: 0 7px;
+  border-width: 0;
+  line-height: 1.2;
+}
+
+.task-detail .task-card__scope:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-detail .task-detail__fields .menu-select__trigger,
+.task-detail .task-detail__fields .task-card__scope {
+  min-height: 28px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.task-detail .task-detail__fields .task-card__scope {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 6px;
+  justify-self: stretch;
+  text-align: left;
+}
+
+.task-detail .task-detail__fields .menu-select__trigger:hover:not(:disabled),
+.task-detail .task-detail__fields .menu-select__trigger[aria-expanded="true"],
+.task-detail .task-detail__fields .task-card__scope:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.task-detail .task-detail__fields .menu-select__trigger:focus-visible,
+.task-detail .task-detail__fields .task-card__scope:focus-visible {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.task-detail__fields .task-card__scope-segment,
+.task-card__scope-chevron {
+  min-width: 0;
+}
+
+.task-detail__fields .task-card__scope-segment {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-card__scope-chevron {
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.task-card__scope-chevron svg {
+  width: 12px;
+  height: 12px;
+}
+
+.task-detail .task-card__scope--placeholder {
+  color: var(--muted);
+}
+
+.task-detail .task-card__scope-segment:not(:last-child) {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.task-detail .task-card__scope-segment:not(:last-child)::after {
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+.task-child-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px 0 6px;
+}
+
+.task-child-create input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.task-child-create input::placeholder {
+  color: var(--muted);
+}
+
+.task-child-create button {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.task-child-create button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.task-child-create button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.task-child-create button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.task-detail .task-relation-list li {
+  min-height: 28px;
+  padding: 0 6px 0 7px;
+  background: transparent;
+  font-size: 12.5px;
+}
+
+/* The Tasks pane hides status dots; here a Blocker's dot is the only sign of
+   whether it still holds the Task back. */
+.dashboard--tasks .task-detail .task-relation-list .status-dot {
+  display: block;
+}
+
+.dashboard--tasks .task-detail .task-relation-list li {
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+}
+
+.task-detail .task-relations {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.task-detail .task-relations + .task-detail__footer {
+  margin-top: 0;
 }
 
 .task-detail__footer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 10px;
-  margin-top: auto;
+  margin-top: 0;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 
 .task-detail__dates {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   color: var(--muted);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
 
+.task-detail__date-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--border-strong);
+}
+
 .task-detail__delete {
-  justify-self: start;
-  padding: 7px 12px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
   border-radius: 8px;
   background: transparent;
   color: var(--danger);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 700;
   cursor: pointer;
+}
+
+.task-detail__delete svg {
+  width: 14px;
+  height: 14px;
 }
 
 .task-detail__delete:hover {
@@ -136,6 +453,7 @@
 
 .task-detail__confirm {
   display: grid;
+  grid-column: 1 / -1;
   gap: 8px;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border));
@@ -448,6 +766,12 @@
   font-size: var(--task-row-cell);
   font-weight: 500;
   line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-table__row {
+  height: 40px;
 }
 
 .task-table__col--value,
@@ -516,7 +840,9 @@
 }
 
 .task-table .task-card__scope {
+  display: inline-block;
   max-width: 100%;
+  overflow: hidden;
   padding: 2px 0;
   border: 0;
   border-radius: 0;
@@ -525,6 +851,9 @@
   font-size: inherit;
   font-weight: 550;
   line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .task-table .task-card__scope:hover {
@@ -560,20 +889,27 @@
   color: var(--ink);
 }
 
-.task-table__title {
+.task-table td.task-table__title {
   color: var(--ink);
   font-size: var(--task-row-title);
   font-weight: 600;
   line-height: 1.35;
 }
 
-.task-table__title > span:first-child {
-  vertical-align: middle;
+.task-table__title-content {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.task-table__title-content > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .task-table__title .working-badge {
-  margin-left: 7px;
-  vertical-align: middle;
+  flex: none;
 }
 
 .task-table__col--parent {
@@ -704,24 +1040,15 @@
   .task-workspace--detail {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .task-detail {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 70;
-    width: min(330px, calc(100vw - 40px));
-    max-height: calc(100vh - 40px);
-  }
-}
-
-@media (min-width: 1001px) {
-  .task-detail {
-    height: 100%;
-    max-height: none;
-  }
 }
 
 @media (max-width: 760px) {
   .task-workspace, .task-workspace--detail { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .task-detail-overlay .task-detail {
+    width: 100%;
+    border-radius: 0;
+  }
 }

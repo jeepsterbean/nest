@@ -37,8 +37,10 @@ function TaskTableCell({
     case "title":
       return (
         <td className="task-table__col task-table__col--title task-table__title">
-          <span>{task.title}</span>
-          {task.workingNow && <WorkingBadge />}
+          <div className="task-table__title-content">
+            <span title={task.title}>{task.title}</span>
+            {task.workingNow && <WorkingBadge />}
+          </div>
         </td>
       );
     case "scope":

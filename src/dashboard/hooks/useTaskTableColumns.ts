@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import {
   fitTaskTableColumns,
   moveTaskTableColumn,
-  readTaskTableLayout,
   setTaskTableColumnHidden,
   showAllTaskTableColumns,
   splitTaskTableColumn,
-  writeTaskTableLayout,
   type TaskTableColumn,
   type TaskTableColumnId,
 } from "../lib/taskTable";
@@ -16,9 +14,12 @@ type Session = {
   removeListeners: () => void;
 };
 
-/** Header drag reorders columns; the edge handle resizes. Clicks do neither. */
-export function useTaskTableColumns() {
-  const [columns, setColumns] = useState(readTaskTableLayout);
+/** Header drag reorders columns; the edge handle resizes. Clicks do neither.
+ *  The layout belongs to the selected saved view, so changes stay unsaved until the view is saved. */
+export function useTaskTableColumns(
+  columns: TaskTableColumn[],
+  setColumns: (columns: TaskTableColumn[]) => void,
+) {
   const [availableWidth, setAvailableWidth] = useState(0);
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
   const [draggingId, setDraggingId] = useState<TaskTableColumnId | null>(null);
@@ -29,11 +30,6 @@ export function useTaskTableColumns() {
   availableWidthRef.current = availableWidth;
   const resizingRef = useRef(false);
   const sessionRef = useRef<Session | null>(null);
-
-  const persist = (next: TaskTableColumn[]) => {
-    setColumns(next);
-    writeTaskTableLayout(next);
-  };
 
   const displayColumns = useMemo(
     () => (availableWidth > 0 ? fitTaskTableColumns(columns, availableWidth) : columns),
@@ -119,12 +115,13 @@ export function useTaskTableColumns() {
       },
       onEnd: (up, dragged) => {
         if (dragged) {
-          if (kind === "resize") {
-            writeTaskTableLayout(columnsRef.current);
-          } else {
+          // A handle nudged back to where it started would otherwise store fitted widths
+          // and mark the view edited with no visible change.
+          if (kind === "resize" && up.clientX === startX) setColumns(origin);
+          if (kind === "move") {
             const targetId = columnAtPoint(up.clientX, up.clientY);
             if (targetId !== null) {
-              persist(moveTaskTableColumn(origin, id, targetId));
+              setColumns(moveTaskTableColumn(origin, id, targetId));
             }
           }
         }
@@ -143,10 +140,10 @@ export function useTaskTableColumns() {
     visibleColumns,
     hiddenColumns: columns.filter((column) => column.hidden),
     hideColumn: (id: TaskTableColumnId) =>
-      persist(setTaskTableColumnHidden(columnsRef.current, id, true)),
+      setColumns(setTaskTableColumnHidden(columnsRef.current, id, true)),
     showColumn: (id: TaskTableColumnId) =>
-      persist(setTaskTableColumnHidden(columnsRef.current, id, false)),
-    showAllColumns: () => persist(showAllTaskTableColumns(columnsRef.current)),
+      setColumns(setTaskTableColumnHidden(columnsRef.current, id, false)),
+    showAllColumns: () => setColumns(showAllTaskTableColumns(columnsRef.current)),
     draggingId,
     overId,
     wrapRef: setWrap,

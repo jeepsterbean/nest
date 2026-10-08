@@ -23,6 +23,7 @@ APIs, schema, or code structure.
 - P2: user never ever states the value and effort. need to think about how to encourage user to use it more
 - P1: refine the visuals
 - P1: add a reset timer feature 
+- P1: allow users to make sub-tasks from the metrics view
 
 ## Dashboard sections
 

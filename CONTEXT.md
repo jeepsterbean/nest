@@ -60,10 +60,10 @@ _Avoid_: Session, sitting, block
 The total time a Task has been Working now, kept even after work stops. It is
 the sum of the Task's finished Work stretches, so correcting a stretch moves
 the total. It keeps counting if Working now is left on. The Working now control
-shows that total while the Task is Working now, across every day, not only the
-open stretch. The total also has its own column in the Tasks table and sits in
-the detail panel, on every Task whatever its status — unlike the control, which
-is only on Active Tasks.
+becomes a breathing dot while the Task is Working now. The detail panel shows
+one Worked time total across every day, not only the open stretch. The total
+also has its own column in the Tasks table and remains visible on every Task
+whatever its status — unlike the control, which is only on Active Tasks.
 Table and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Session, stopwatch, in progress
 
@@ -259,5 +259,6 @@ _Avoid_: using Logs as the name of the Timeline presentation
 - "view" for Overview / Calendar / Core / Assistant / Settings — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" — **Sidebar** is the Section switcher; the panel over the Map canvas is the **Map sidebar**. Tasks table scope filtering lives in the Scope column header.
+- "view" — Table and Map are Tasks **layouts**; a **saved view** is a named Tasks table query (filters and sort). See [`docs/tasks.md`](./docs/tasks.md#saved-views).
 - "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a destination inside Core, Settings, Assistant, Brain dump, or Metrics.

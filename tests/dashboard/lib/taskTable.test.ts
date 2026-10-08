@@ -5,13 +5,15 @@ import {
   moveTaskTableColumn,
   normalizeTaskTableLayout,
   overviewTaskColumns,
-  readTaskTableLayout,
+  readLegacyTaskTableLayout,
+  sameHiddenTaskTableColumns,
+  sameTaskTableLayout,
+  serializeTaskTableLayout,
   readTaskView,
   setTaskTableColumnHidden,
   showAllTaskTableColumns,
   splitTaskTableColumn,
   TASK_TABLE_COLUMNS,
-  writeTaskTableLayout,
   writeTaskView,
   type TaskTableColumn,
 } from "../../../src/dashboard/lib/taskTable";
@@ -101,25 +103,21 @@ describe("task table layout", () => {
     ]);
   });
 
-  it("round-trips order and widths through storage", () => {
-    const storage = memory();
+  it("round-trips order and widths through the stored shape", () => {
     const moved = moveTaskTableColumn(
       splitTaskTableColumn(normalizeTaskTableLayout(null), "title", 20),
       "updated",
       "title",
     );
-    writeTaskTableLayout(moved, storage);
-    expect(readTaskTableLayout(storage)).toEqual(moved);
+    expect(normalizeTaskTableLayout(serializeTaskTableLayout(moved))).toEqual(moved);
   });
 
   it("hides columns, keeps Title visible, and round-trips hidden ids", () => {
-    const storage = memory();
     let columns = normalizeTaskTableLayout(null);
     columns = setTaskTableColumnHidden(columns, "created", true);
     columns = setTaskTableColumnHidden(columns, "title", true);
     expect(columns.filter((column) => column.hidden).map((column) => column.id)).toEqual(["created"]);
-    writeTaskTableLayout(columns, storage);
-    expect(readTaskTableLayout(storage)).toEqual(columns);
+    expect(normalizeTaskTableLayout(serializeTaskTableLayout(columns))).toEqual(columns);
     expect(showAllTaskTableColumns(columns).some((column) => column.hidden)).toBe(false);
   });
 
@@ -135,10 +133,21 @@ describe("task table layout", () => {
     expect(hiddenColumnsLabel(columns.slice(6))).toBe("3 hidden");
   });
 
-  it("recovers from broken stored JSON", () => {
+  it("recovers from broken legacy JSON", () => {
     const storage = memory();
     storage.setItem("nest:task-table", "{");
-    expect(readTaskTableLayout(storage).map((column) => column.id)).toEqual(defaultIds);
+    expect(readLegacyTaskTableLayout(storage).map((column) => column.id)).toEqual(defaultIds);
+  });
+
+  it("compares layouts by order, width, and hidden, and hidden columns as a set", () => {
+    const columns = normalizeTaskTableLayout(null);
+    expect(sameTaskTableLayout(columns, normalizeTaskTableLayout(null))).toBe(true);
+    expect(sameTaskTableLayout(columns, moveTaskTableColumn(columns, "updated", "title"))).toBe(false);
+    expect(sameTaskTableLayout(columns, splitTaskTableColumn(columns, "title", 20))).toBe(false);
+    const hidden = setTaskTableColumnHidden(columns, "created", true);
+    expect(sameTaskTableLayout(columns, hidden)).toBe(false);
+    expect(sameHiddenTaskTableColumns(hidden, moveTaskTableColumn(hidden, "created", "title"))).toBe(true);
+    expect(sameHiddenTaskTableColumns(columns, hidden)).toBe(false);
   });
 
   it("builds Overview columns in status · title · value · effort order", () => {

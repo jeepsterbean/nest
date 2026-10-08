@@ -135,17 +135,27 @@ export const taskWorkSessionSeconds = (
     ? 0
     : Math.max(0, Math.floor(nowMs / 1000) - startedAt);
 
+/** Banked Worked time plus the open stretch, matching the table cell. */
+export const taskDisplayedWorkedSeconds = (
+  task: { workedSeconds: number; workStartedAt: number | null; workingNow: boolean },
+  nowMs: number = Date.now(),
+) =>
+  task.workedSeconds +
+  (task.workingNow && task.workStartedAt !== null
+    ? taskWorkSessionSeconds(task.workStartedAt, nowMs)
+    : 0);
+
 export const formatWorkedTime = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    return `${hours}h ${minutes}m ${remainder}s`;
   }
   if (minutes > 0) {
-    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+    return `${minutes}m ${remainder}s`;
   }
-  return String(remainder);
+  return `${remainder}s`;
 };
 
 /** Clock face / header elapsed time: always `m:ss`, then `h:mm:ss` after an hour. */

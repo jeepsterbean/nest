@@ -1,8 +1,16 @@
-import { setTaskScore, setTaskScoreField } from "../../lib/commands";
-import type { RatingValue, Task } from "../../lib/types";
+import { setTaskScoreField } from "../../lib/commands";
+import type { Task } from "../../lib/types";
+import { MenuSelect } from "../components/MenuSelect";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { parseRatingValue } from "../lib/tasks";
-import { RatingDotScale } from "./RatingDotScale";
+
+const SCORE_OPTIONS = [
+  { value: "", label: "None" },
+  ...([1, 2, 3, 4, 5] as const).map((value) => ({
+    value: String(value),
+    label: String(value),
+  })),
+];
 
 export function TaskScoreControls({
   task,
@@ -12,11 +20,6 @@ export function TaskScoreControls({
   score?: "value" | "effort";
 }) {
   const { mutate } = useDashboardData();
-
-  const setScore = (value: RatingValue | null, effort: RatingValue | null) => {
-    if (task.value === value && task.effort === effort) return;
-    void mutate(() => setTaskScore(task.id, value, effort));
-  };
 
   if (score !== undefined) {
     const current = task[score];
@@ -60,25 +63,29 @@ export function TaskScoreControls({
   }
 
   return (
-    <div
-      className="task-score"
-      role="group"
-      aria-label={`Priority scores for ${task.title}`}
-    >
-      <RatingDotScale
-        kind="value"
-        label="Value"
-        ariaLabel={`Value for ${task.title}`}
-        current={task.value}
-        onChange={(next) => setScore(next, task.effort)}
-      />
-      <RatingDotScale
-        kind="effort"
-        label="Effort"
-        ariaLabel={`Effort for ${task.title}`}
-        current={task.effort}
-        onChange={(next) => setScore(task.value, next)}
-      />
-    </div>
+    <>
+      {(["value", "effort"] as const).map((field) => {
+        const label = field === "value" ? "Value" : "Effort";
+        return (
+          <div
+            key={field}
+            className="task-detail__field task-detail__field--score"
+          >
+            <span className="task-detail__label">{label}</span>
+            <MenuSelect
+              value={task[field]?.toString() ?? ""}
+              options={SCORE_OPTIONS}
+              placeholder="None"
+              ariaLabel={`${label} for ${task.title}`}
+              onChange={(value) => {
+                const next = parseRatingValue(value);
+                if (next === undefined || next === task[field]) return;
+                void mutate(() => setTaskScoreField(task.id, field, next));
+              }}
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }

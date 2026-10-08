@@ -242,19 +242,26 @@ button {
   }
 }
 
+@keyframes working-beacon-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 0.45;
+    transform: scale(0.72);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
 .working-beacon {
   width: 7px;
   height: 7px;
   flex: none;
   border-radius: 50%;
   background: var(--accent);
-}
-
-.working-control {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
 }
 
 .worked-time {
@@ -316,6 +323,25 @@ button {
   min-height: 26px;
   justify-content: center;
   padding: 0;
+}
+
+.working-toggle--working-dot,
+.working-toggle--working-dot:hover:not(:disabled),
+.working-toggle--working-dot[aria-pressed="true"] {
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  justify-content: center;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.working-toggle--working-dot .working-beacon,
+.working-badge .working-beacon {
+  animation: working-beacon-breathe 1.55s ease-in-out infinite;
 }
 
 .working-toggle--play-pause {
@@ -402,5 +428,10 @@ button {
     animation: none;
     background: color-mix(in srgb, var(--accent) 55%, transparent);
     filter: none;
+  }
+
+  .working-toggle--working-dot .working-beacon,
+  .working-badge .working-beacon {
+    animation: none;
   }
 }

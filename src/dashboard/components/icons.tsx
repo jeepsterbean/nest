@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { CornerDownLeft, RotateCcw, Save } from "lucide-react";
 
 // Shared inline SVG icons for the dashboard. `iconProps` is the common stroke
 // styling spread onto each <svg>.
@@ -204,3 +205,9 @@ export const gripIcon = (
     <circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none" />
   </svg>
 );
+
+export const saveIcon = <Save {...iconProps} />;
+
+export const refreshIcon = <RotateCcw {...iconProps} />;
+
+export const enterIcon = <CornerDownLeft {...iconProps} />;

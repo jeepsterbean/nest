@@ -107,7 +107,9 @@ export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => 
   });
 };
 
-export const readTaskTableLayout = (
+/** Before saved views carried their own columns, one layout was shared by every view.
+ *  It is read only to seed views stored without columns, so upgrading keeps the table as it was. */
+export const readLegacyTaskTableLayout = (
   storage: TaskStorage = localStorage,
 ): TaskTableColumn[] => {
   try {
@@ -117,19 +119,26 @@ export const readTaskTableLayout = (
   }
 };
 
-export const writeTaskTableLayout = (
-  columns: TaskTableColumn[],
-  storage: TaskStorage = localStorage,
-) => {
-  storage.setItem(
-    TASK_TABLE_KEY,
-    JSON.stringify({
-      order: columns.map((column) => column.id),
-      widths: Object.fromEntries(columns.map((column) => [column.id, column.width])),
-      hidden: columns.filter((column) => column.hidden).map((column) => column.id),
-    }),
-  );
+/** The stored shape `normalizeTaskTableLayout` reads back; labels and minimums come from code. */
+export const serializeTaskTableLayout = (columns: TaskTableColumn[]) => ({
+  order: columns.map((column) => column.id),
+  widths: Object.fromEntries(columns.map((column) => [column.id, column.width])),
+  hidden: columns.filter((column) => column.hidden).map((column) => column.id),
+});
+
+export const sameHiddenTaskTableColumns = (a: TaskTableColumn[], b: TaskTableColumn[]) => {
+  const hiddenIn = (columns: TaskTableColumn[]) => columns.filter((column) => column.hidden).map((column) => column.id);
+  const hiddenA = hiddenIn(a);
+  const hiddenB = hiddenIn(b);
+  return hiddenA.length === hiddenB.length && hiddenA.every((id) => hiddenB.includes(id));
 };
+
+export const sameTaskTableLayout = (a: TaskTableColumn[], b: TaskTableColumn[]) =>
+  a.length === b.length &&
+  a.every((column, index) => {
+    const other = b[index]!;
+    return column.id === other.id && column.width === other.width && Boolean(column.hidden) === Boolean(other.hidden);
+  });
 
 type FlexColumn = { index: number; weight: number; minWidth: number };
 
