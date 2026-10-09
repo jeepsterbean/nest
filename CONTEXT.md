@@ -37,7 +37,6 @@ _Avoid_: Active, unblocked status
 
 **Blocked**:
 A non-terminal Task with at least one Blocker that is not completed.
-_Avoid_: Paused
 
 **Scope**:
 A user-defined path that categorizes Tasks independently of their hierarchy.
@@ -47,7 +46,7 @@ _Avoid_: Parent, project
 An independently toggled marker on an Active Task that shows it is currently
 being worked on. Multiple Tasks may be Working now. Leaving Active clears it;
 clearing it does not change status.
-_Avoid_: Status, Ready, in progress, paused
+_Avoid_: Status, Ready, in progress
 
 **Work stretch**:
 One recorded span of Working now on a Task, with a start and an end. The
@@ -58,13 +57,15 @@ _Avoid_: Session, sitting, block
 
 **Worked time**:
 The total time a Task has been Working now, kept even after work stops. It is
-the sum of the Task's finished Work stretches, so correcting a stretch moves
-the total. It keeps counting if Working now is left on. The Working now control
-shows that total while the Task is Working now, across every day, not only the
-open stretch. The total also has its own column in the Tasks table and sits in
-the detail panel, on every Task whatever its status — unlike the control, which
-is only on Active Tasks.
-Table and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
+the sum of the Task's finished Work stretches plus the elapsed time in its open
+stretch, so correcting a stretch moves the total. It keeps counting if Working
+now is left on. The Popup's Tasks and metrics panel starts and stops Working
+now; its working control shows the total while work runs. The detail panel shows
+one Worked time total across every day, not only the open stretch. The total
+also has its own column in the Tasks table and remains visible on every Task
+whatever its status. A breathing dot marks Working now in Task details and
+Table rows. Starting an Up next Task in the Popup first moves it to Active.
+Day, Table, and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Session, stopwatch, in progress
 
 **Map**:
@@ -94,7 +95,10 @@ stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
-Overview, Calendar, Insights, and Logs: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Overview and Calendar (Calendar and Timeline presentations, with Insights beside Calendar):
+[`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Each Phase has a fixed icon and color. The Phases pane of Core explains each
+Phase; `src/dashboard/lib/phaseGuide.ts` mirrors the derivation above.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
@@ -104,23 +108,13 @@ A Pulse can be hidden from the popup without deleting it.
 _Avoid_: set, category, collection
 
 **Metric**:
-A 1–5 rating scored as part of a Metric check-in. Silence on the scoring
-panel skips that Metric for the Metric check-in interval without saving a
-rating. Remaining Metrics in the Pulse can still be scored, and the Metric
-check-in stays due while any of them are left; the due dots quiet only once
-every shown Metric is silenced. Silence expires on its own; it does not hide
-a Pulse.
+A 1–5 rating scored as part of a manual Metric check-in.
 _Avoid_: mute, snooze
 
 **Metric check-in**:
 A recorded set of Metric ratings for one Pulse, saved when the last Metric
-in that Pulse is finished. Every saved Metric check-in advances the one global
-Metric check-in schedule; deleting history does not rewind it. Settings →
-Metrics controls its 15–120 minute interval in 15-minute steps and shows the
-next time. Changing that interval leaves the next time intact until the next
-Metric check-in is saved. When overdue, Settings shows `Due now`; the Popup
-shows the Metric scoring glow and the due dot on Tasks and metrics. It
-does not open the Popup itself.
+in that Pulse is finished. Metric check-ins are manual and have no schedule
+or due state. Deleting history removes the saved record and its ratings.
 _Avoid_: Pulse check-in
 
 **Timer**:
@@ -151,20 +145,32 @@ A reusable label for brain dumps.
 Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The seven
-are Overview, Calendar, Insights, Logs, Tasks, Assistant, and Settings. Overview shows the
+One primary destination in the dashboard, chosen from the **Sidebar**. The five
+are Overview, Calendar, Core, Assistant, and Settings; `SIMPLIFIED_VIEW` in
+`src/lib/simplifiedView.ts` currently leaves only Calendar and Core reachable
+([`docs/time-surfaces.md`](./docs/time-surfaces.md)). Timeline and Insights are
+part of Calendar, not Sections of their own. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
-title —
-the Sidebar already names where you are. Top-of-Section controls (range,
+title above its main content —
+the Sidebar already names where you are. Core, Overview, and Calendar also
+name the Section at the top of their secondary sidebar. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these seven)
+_Avoid_: View, screen (for these five)
 
 **Sidebar**:
-The left strip that switches **Sections** (Overview, Calendar, Insights, Logs,
-Tasks, Assistant, Settings).
+The left strip that switches **Sections** (Overview, Calendar, Core, Assistant,
+Settings).
 _Avoid_: Nav, rail (for this strip)
+
+**Core**:
+The dashboard Section for Brain dump, Tasks, Metrics, and Phases. One Sidebar
+entry; an icon-and-label sidebar switches those panes. The last pane is remembered
+(Brain dump when unset). Each pane keeps its own controls; pane icons are picked from the Core sidebar.
+Brain dump, Tasks, and Metrics supply their Overview tile icons;
+Phases has no Overview tile.
+_Avoid_: Hub, home (Overview is the tile board; simplified startup opens Calendar)
 
 **Greetings board**:
 The Overview strip with the typewriter greeting, live Phase, and Timer
@@ -187,24 +193,28 @@ messages stay in Nest's local database. The popup and dashboard share that
 saved history; each window keeps its own open chat.
 Context assembly: [`docs/assistant-context.md`](./docs/assistant-context.md).
 
-**Tasks scope sidebar**:
-The Scopes filter panel beside the Tasks table. It starts collapsed, and the
-Map does not show it.
-Behavior: [`docs/tasks.md`](./docs/tasks.md).
-_Avoid_: Sidebar (alone — that word means the Section switcher)
-
 **Settings**:
-Dashboard configuration for Metrics (Pulses and the full Metric list), Phase
-icons and colors, Tags, Reminders, Last hour, Tasks, Timeline, Brain dump, and
-Background. One Sidebar entry; a segmented control switches panes. The last
-pane is remembered (Metrics when unset).
+Dashboard configuration for Assistant, Reminders, and Background. The Phases
+pane of Core explains each Phase. Pulses and the full Metric list live
+in the Metrics pane of Core. The Brain dump tile icon, Tags, and saved brain dump
+history live in the Brain dump pane of Core. The Tasks, Metrics, and Phases
+icons are picked in those panes. One Sidebar entry;
+a segmented control switches Settings panes. The last pane is remembered
+(Assistant when unset).
 _Avoid_: Preferences, admin
 
-**Logs**:
-The history Section. Not a stored record: Metric check-ins, brain dumps, and
-Phase checkpoints each stand on their own.
+**Timeline**:
+A Calendar presentation: a day-grouped history of Metric check-ins, brain
+dumps, Phase checkpoints, and Task activity. Not a stored record: each stands
+on its own.
 Behavior: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
-_Avoid_: Journal
+_Avoid_: Journal, Logs (Logs is a Calendar figure)
+
+**Logs**:
+Those same events on Calendar, chosen beside **Work stretch**.
+Choosing Logs shows the kind filters.
+Behavior: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
+_Avoid_: using Logs as the name of the Timeline presentation
 
 ## Relationships
 
@@ -219,7 +229,8 @@ _Avoid_: Journal
 - A **Metric check-in** records ratings for the Metrics in one Pulse
 - A **Task** may have optional 1–5 value and effort scores
 - A **Brain dump** is independent of Tasks and Pulses
-- **Logs** shows Metric check-ins, brain dumps, and Phase checkpoints; it does not contain them
+- **Timeline** lists Metric check-ins, brain dumps, Phase checkpoints, and Task activity; it does not contain them
+- **Logs** places those events on Calendar; it does not contain them
 - **Phase** is derived from Working now, whether Nest or Notion desktop currently has attention, how long the Mac has gone without input, and whether it is locked or asleep
 
 ## Example dialogue
@@ -231,13 +242,12 @@ _Avoid_: Journal
 > **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
 > **Dev:** "Is the Timer part of every Section header?"
-> **Domain expert:** "No. The Timer sits on the **Greetings board**, which appears on Overview except while Phase is Doing. Other Sections have no title — the **Sidebar** already says where you are. During Doing, use the **Popup** for the countdown and interval."
+> **Domain expert:** "No. The Timer sits on the **Greetings board**, which appears on Overview except while Phase is Doing. Section main content starts with its own controls; Core, Overview, and Calendar name the Section in their secondary sidebar. During Doing, use the **Popup** for the countdown and interval."
 
 ## Flagged ambiguities
 
 - "dependency" can mean either side of a relationship — resolved: use **Blocker** for the prerequisite and **Dependent** for the constrained Task.
 - "blocked" can sound like a persisted status — resolved: **Blocked** and **Ready** are derived from Blockers; they are not stored status values.
-- "paused" was used as a stored Task status — resolved: stopping work means clearing **Working now** while remaining Active. `paused` is not a selectable status.
 - "stopwatch" sounds like a timer that resets each play — resolved: the number is **Worked time**, a running total.
 - "session" was the obvious word for one span of work — resolved: it reads as a sitting rather than a recorded span, and **Worked time** already avoids it. One span is a **Work stretch**, the word the Working now control already used.
 - "scoping" can sound like **Scope** — resolved: Scope is a task path; Scoping is the Phase when Nest or Notion has attention and nothing is Working now.
@@ -248,9 +258,11 @@ _Avoid_: Journal
   Timer/Popup aria, class names, and chrome never say check-in. The Popup clock
   shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
-- "journal" was the history screen — resolved: that Section is **Logs**. A brain dump is not a journal entry.
-- "view" for Overview / Calendar / Insights / Logs / Tasks / Assistant / Settings — resolved: each is a **Section**. Code may still say `view`; product language does not.
+- "journal" was the history screen — resolved: that presentation is **Timeline**. A brain dump is not a journal entry. **Logs** is the event figure on Calendar, beside Work stretch.
+- "view" for Overview / Calendar / Core / Assistant / Settings — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Insights is a summary beside the Calendar presentation. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
-- "sidebar" for three panels — resolved: **Sidebar** is the Section switcher; the Scopes filter beside the Tasks table is the **Tasks scope sidebar**; the panel over the Map canvas is the **Map sidebar**.
-- "section heading" / title above Section content — resolved: no Section shows a title; the Sidebar names the place; each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview's three, Task detail, popup Metric scoring). **Pane** is a segmented destination inside Settings or Assistant.
+- "sidebar" — **Sidebar** is the Section switcher; the panel over the Map canvas is the **Map sidebar**. Tasks table scope filtering lives in the Scope column header.
+- "view" — Day, Table, and Map are Tasks **layouts**; a **saved view** is a named Tasks table query (filters and sort). See [`docs/tasks.md`](./docs/tasks.md#saved-views).
+- "section heading" / title above Section content — resolved: main content starts with its controls; the Sidebar names the place. Core, Overview, and Calendar also have a title in their secondary sidebar. Each Section keeps its own top controls without a shared product name for that row.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview tiles, Task detail, popup Metric scoring). **Pane** is a destination inside Core, Settings, Assistant, or Metrics. Brain dump has one History surface.
+- "section" lowercase — resolved: capitalized **Section** specifically names one of the five Sidebar destinations. Lowercase "section" is a general-purpose word and may also describe panes, presentations, panels, or layout regions when their precise subtype does not matter, including in user-facing copy, accessible names, CSS (`.dash-section__head`), `<section>` elements, and agent-facing docs.

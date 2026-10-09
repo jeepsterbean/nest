@@ -5,7 +5,6 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { BellOff } from "lucide-react";
 import type {
   Metric,
   MetricRatingInput,
@@ -13,37 +12,22 @@ import type {
   RatingValue,
 } from "../../lib/types";
 import { resolveMetricColorFromList } from "../../lib/metricColors";
-import {
-  readSilencedMetricIds,
-  silenceMetric,
-  silenceUntil,
-} from "../../lib/metricSilence";
 import { RATING_VALUES } from "../lib/tasks";
 import { NestIcon } from "./PulseIcon";
 import "./MetricCheckIn.css";
-
-const NO_SILENCE: ReadonlySet<number> = new Set();
 
 export function nextMetricIndex(index: number, metricCount: number) {
   return index + 1 < metricCount ? index + 1 : null;
 }
 
-export function firstScorablePulse(
-  pulses: Pulse[],
-  silencedMetricIds: ReadonlySet<number> = NO_SILENCE,
-): Pulse | null {
-  return (
-    pulses.find((pulse) =>
-      pulse.metricIds.some((id) => !silencedMetricIds.has(id)),
-    ) ?? null
-  );
+export function firstScorablePulse(pulses: Pulse[]): Pulse | null {
+  return pulses.find((pulse) => pulse.metricIds.length > 0) ?? null;
 }
 
 export function MetricCheckIn({
   metrics,
   pulses,
   submitting,
-  due = false,
   layout = "default",
   emptyCopy,
   onComplete,
@@ -55,14 +39,10 @@ export function MetricCheckIn({
   headerEnd,
   onHeaderPointerDown,
   dragTitle,
-  nowMs = Date.now(),
-  silenceMinutes,
-  onSilence,
 }: {
   metrics: Metric[];
   pulses: Pulse[];
   submitting: boolean;
-  due?: boolean;
   layout?: "default" | "overview";
   emptyCopy: string;
   onComplete: (pulse: Pulse, ratings: MetricRatingInput[]) => Promise<void>;
@@ -74,24 +54,16 @@ export function MetricCheckIn({
   headerEnd?: ReactNode;
   onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
   dragTitle?: string;
-  nowMs?: number;
-  silenceMinutes?: number;
-  onSilence?: () => void;
 }) {
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(
-    () => firstScorablePulse(pulses, readSilencedMetricIds(nowMs))?.id ?? null,
+    () => firstScorablePulse(pulses)?.id ?? null,
   );
   const [metricIndex, setMetricIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, RatingValue>>({});
-  // Silence lives in localStorage, so a write is the one state change React
-  // cannot see on its own; this re-reads it.
-  const [, rereadSilence] = useState(0);
-  const silencedMetricIds = readSilencedMetricIds(nowMs);
   const selectedPulse =
     pulses.find((pulse) => pulse.id === selectedPulseId) ?? null;
   const pulseMetrics = selectedPulse
     ? selectedPulse.metricIds.flatMap((id) => {
-        if (silencedMetricIds.has(id)) return [];
         const metric = metrics.find((candidate) => candidate.id === id);
         return metric ? [metric] : [];
       })
@@ -99,25 +71,17 @@ export function MetricCheckIn({
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
   const usesOverviewChrome = layout === "overview";
-  const canSilence =
-    typeof silenceMinutes === "number" &&
-    silenceMinutes > 0 &&
-    activeMetric !== null;
-  const silencedOut =
-    pulses.some((pulse) => pulse.metricIds.length > 0) &&
-    !firstScorablePulse(pulses, silencedMetricIds);
 
   useEffect(() => {
     if (pulseMetrics.length) return;
-    const fallbackId =
-      firstScorablePulse(pulses, readSilencedMetricIds(nowMs))?.id ?? null;
+    const fallbackId = firstScorablePulse(pulses)?.id ?? null;
     if (fallbackId === selectedPulseId) return;
     // Reset only when the fallback Pulse actually changes, so empty states do
     // not loop on fresh array identities from callers.
     setSelectedPulseId(fallbackId);
     setMetricIndex(0);
     setRatings({});
-  }, [pulses, pulseMetrics.length, selectedPulseId, nowMs]);
+  }, [pulses, pulseMetrics.length, selectedPulseId]);
 
   const ratingsInputFor = (
     pulse: Pulse,
@@ -158,25 +122,10 @@ export function MetricCheckIn({
     await finishPulse(selectedPulse, nextRatings);
   };
 
-  const silenceActiveMetric = () => {
-    if (!activeMetric || !selectedPulse || submitting) return;
-    if (typeof silenceMinutes !== "number" || silenceMinutes <= 0) return;
-    silenceMetric(
-      activeMetric.id,
-      silenceUntil(silenceMinutes, nowMs),
-      nowMs,
-    );
-    rereadSilence((reads) => reads + 1);
-    onSilence?.();
-    // Dropping the current Metric slides the next into this index; finishing
-    // the last remaining one saves any ratings already given.
-    if (nextMetricIndex(metricIndex, pulseMetrics.length) !== null) return;
-    void finishPulse(selectedPulse, ratings);
-  };
 
   return (
     <section
-      className={`pulse-panel${due && activeMetric ? " pulse-panel--due" : ""}${
+      className={`pulse-panel${
         usesOverviewChrome ? " pulse-panel--overview" : ""
       }`}
       aria-label="Metrics"
@@ -219,20 +168,6 @@ export function MetricCheckIn({
                 color={resolveMetricColorFromList(metrics, activeMetric.id)}
               />
               <h2>{activeMetric.name}</h2>
-              {canSilence && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className="metric-step__silence"
-                  aria-label={`Silence ${activeMetric.name} for ${silenceMinutes} min`}
-                  title={`Silence for ${silenceMinutes} min`}
-                  disabled={submitting}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={silenceActiveMetric}
-                >
-                  <BellOff aria-hidden="true" />
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -277,10 +212,7 @@ export function MetricCheckIn({
                     aria-label={pulse.name}
                     title={pulse.name}
                     aria-pressed={pulse.id === selectedPulseId}
-                    disabled={
-                      submitting ||
-                      !pulse.metricIds.some((id) => !silencedMetricIds.has(id))
-                    }
+                    disabled={submitting || pulse.metricIds.length === 0}
                     onFocus={() => {
                       if (pulse.id === selectedPulseId) return;
                       setSelectedPulseId(pulse.id);
@@ -340,11 +272,7 @@ export function MetricCheckIn({
           </div>
         ) : (
           <div className="combined-empty">
-            {silencedOut
-              ? "Every metric is silenced for now."
-              : pulses.length
-                ? "This pulse has no metrics yet."
-                : emptyCopy}
+            {pulses.length ? "This pulse has no metrics yet." : emptyCopy}
           </div>
         )}
       </div>

@@ -21,7 +21,7 @@ describe("tile icons", () => {
     expect(readTileIcons(storage)).toEqual(DEFAULT_TILE_ICONS);
   });
 
-  it("falls back per tile when a stored icon key is unknown", () => {
+  it("preserves the fixed Insights icon and falls back for unknown choices", () => {
     const storage = memory();
     storage.setItem(
       "nest:overview-tile-icons",
@@ -34,12 +34,9 @@ describe("tile icons", () => {
       }),
     );
     expect(readTileIcons(storage)).toEqual({
-      lastHour: "timer",
-      tasks: DEFAULT_TILE_ICONS.tasks,
+      ...DEFAULT_TILE_ICONS,
       timeline: "calendar",
-      brainDump: DEFAULT_TILE_ICONS.brainDump,
       metrics: "gauge",
-      controlPanel: DEFAULT_TILE_ICONS.controlPanel,
     });
   });
 
@@ -49,6 +46,24 @@ describe("tile icons", () => {
     expect(readTileIcons(storage)).toEqual({
       ...DEFAULT_TILE_ICONS,
       tasks: "heart",
+    });
+  });
+
+  it("writes the Phases pane icon", () => {
+    const storage = memory();
+    writeTileIcon("phases", "moon", storage);
+    expect(readTileIcons(storage)).toEqual({
+      ...DEFAULT_TILE_ICONS,
+      phases: "moon",
+    });
+  });
+
+  it("writes a Sidebar icon and keeps the tile icons", () => {
+    const storage = memory();
+    writeTileIcon("calendar", "sun", storage);
+    expect(readTileIcons(storage)).toEqual({
+      ...DEFAULT_TILE_ICONS,
+      calendar: "sun",
     });
   });
 });

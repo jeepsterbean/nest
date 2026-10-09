@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placeMenuSelect } from "../../../src/dashboard/lib/placeMenuSelect";
+import { placeMenuSelect, placeSubmenu } from "../../../src/dashboard/lib/placeMenuSelect";
 
 const trigger = {
   top: 80,
@@ -37,5 +37,27 @@ describe("placeMenuSelect", () => {
     );
     expect(box.left + box.width).toBeLessThanOrEqual(792);
     expect(box.left).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("placeSubmenu", () => {
+  const viewport = { width: 800, height: 600 };
+
+  it("opens to the right of the menu, aligned with the row", () => {
+    const box = placeSubmenu({ top: 120 }, { left: 40, right: 248 }, viewport, { width: 208, contentHeight: 80 });
+    expect(box.left).toBe(252);
+    expect(box.top).toBe(115);
+    expect(box.width).toBe(208);
+  });
+
+  it("flips left when the right side has no room", () => {
+    const box = placeSubmenu({ top: 120 }, { left: 500, right: 708 }, viewport, { width: 208, contentHeight: 80 });
+    expect(box.left).toBe(500 - 4 - 208);
+  });
+
+  it("lifts a tall flyout so its content stays on screen", () => {
+    const box = placeSubmenu({ top: 500 }, { left: 40, right: 248 }, viewport, { width: 208, contentHeight: 300 });
+    expect(box.top).toBe(600 - 8 - 300);
+    expect(box.top + box.maxHeight).toBe(592);
   });
 });

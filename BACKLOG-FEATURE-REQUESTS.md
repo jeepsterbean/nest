@@ -8,14 +8,13 @@ APIs, schema, or code structure.
 
 ## Brain dump
 - P3: Keep a minimised floating Brain dump's expand button visible at every width; reserve its space and clip overflowing summary text to the remaining width.
+- for logged dumps, when i try to add tags, the visuals look bad
 
 ## Metrics
 - P2 need to think how to make it useable. its currently weak
 > as a user i rarely consider it/think of it
 
-## Log view
-- let users switch between different days. and click it to open up calendar and skip even quicker. im like tempted to go into how the dumps are stored and fetch.
-
+## Timeline
 - decouple it from the timer
 
 ## Task section
@@ -23,40 +22,25 @@ APIs, schema, or code structure.
 - P2: user never ever states the value and effort. need to think about how to encourage user to use it more
 - P1: refine the visuals
 - P1: add a reset timer feature 
-
-## Dashboard sections
+- P1: allow users to make sub-tasks from the metrics view
 
 ## Inactivity pause and resume
-- P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes resumes what was paused, No leaves them paused.
+- P2: When the user returns from inactivity, open a short prompt asking whether they are still working on the same Task(s); Yes turns Working now back on for them, No leaves Working now off.
+
+- P2: its important to remember that the start session SOP is not only for the start of the day but everytime i sit back down. nest should open it everytime im back from being offline or from rest.
+
 
 ## Status
 New data model. which basically, is textual summary of what the user is doing from time A to B
 
 
 ## insights page 
-- currently useless, should probably be implemented when the LLM feature lands
-
-## Text entry
-- Turn off autocorrect, autocapitalisation and spellcheck in every text field
-  the app has, so typed text stays exactly as typed. The Brain dump editor
-  already behaves this way and is the only one that does. The fields that still
-  rewrite what you type:
-  - Tasks: task title rename, task description, the dashboard task composer, the
-    popup's active-task box, new child task, new scope, and the task name in the
-    timeline stretch editor.
-  - Names and renames: tags, reminders, pulses, metrics, and saved grid layouts.
-  - Brain dump: the "Find a tag" search box.
-  - Assistant: the chat composer, chat title rename, option names, the option
-    amount field, system instructions, prompt titles, prompt text, and the
-    message template.
-  - Settings: the OpenAI key field.
-
+- helpful to see overview of completed tasks
+- but the overview of time spent isnt very useful
+- i want to track user usage rate. how many tasks i create, how many tasks i start using. how many tasks are allocated V/E, how many braind umps are created
 
 ## Note board
 figure out how the notes are arranged in the noteboard
-
-## Brain dumps
-- for logged dumps, when i try to add tags, the visuals look bad
 
 
 # Chat assistant

@@ -1,29 +1,63 @@
 import type {
+  BrainDump,
   Metric,
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
   Pulse,
-  RecordedTaskStatus,
   Task,
-  TaskStatus,
   TaskStatusEvent,
+  TaskWorkStretch,
 } from "../../lib/types";
+
 import { resolveMetricColorFromList } from "../../lib/metricColors";
 import {
   cancelledInPeriod,
   completedInPeriod,
-  completionTotals,
-  countCheckIns,
   isQuietPhase,
+  taskStatusAt,
   type Period,
 } from "./period";
 import {
   phaseSessionsInWindow,
   type PhaseSession,
 } from "./timeline";
-import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
-import { workTotalsInSpan, type WorkBlock } from "./workTimeline";
+import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
+import {
+  layoutWorkBlocks,
+  workTotalsInSpan,
+  type WorkBlock,
+} from "./workTimeline";
+
+export type InsightBrainDumpSummary = {
+  count: number;
+  tags: { id: number; name: string; count: number }[];
+  untaggedCount: number;
+};
+
+export function insightBrainDumps(
+  brainDumps: BrainDump[],
+  period: Period,
+): InsightBrainDumpSummary {
+  const dumps = brainDumps.filter(
+    (dump) => dump.createdAt >= period.from && dump.createdAt < period.to,
+  );
+  const tags = new Map<number, InsightBrainDumpSummary["tags"][number]>();
+  for (const dump of dumps) {
+    for (const tag of dump.tags) {
+      const existing = tags.get(tag.id);
+      if (existing) existing.count += 1;
+      else tags.set(tag.id, { ...tag, count: 1 });
+    }
+  }
+  return {
+    count: dumps.length,
+    tags: [...tags.values()].sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+    ),
+    untaggedCount: dumps.filter((dump) => dump.tags.length === 0).length,
+  };
+}
 
 export const RANGE_MODES = [
   { key: "day", label: "Day" },
@@ -32,30 +66,128 @@ export const RANGE_MODES = [
 
 export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
+export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
+
+export const CALENDAR_RANGE_MODES = [
+  { key: "lastHour", label: "Last hour" },
+  ...RANGE_MODES,
+] as const;
+
+export type CalendarRangeMode = (typeof CALENDAR_RANGE_MODES)[number]["key"];
+export type CalendarRangeStore = {
+  read: () => CalendarRangeMode;
+  write: (mode: CalendarRangeMode) => void;
+};
+
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
-const MODE_KEYS = new Set<string>(RANGE_MODES.map((item) => item.key));
+const CALENDAR_MODE_KEYS = new Set<string>(
+  CALENDAR_RANGE_MODES.map((item) => item.key),
+);
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const readRangeMode = (
+export const CALENDAR_PRESENTATIONS = [
+  { key: "calendar", label: "Calendar" },
+  { key: "timeline", label: "Timeline" },
+] as const;
+export type CalendarPresentation =
+  (typeof CALENDAR_PRESENTATIONS)[number]["key"];
+
+const CALENDAR_PRESENTATION_KEY = "nest:calendar-presentation";
+
+export const readCalendarPresentation = (
+  storage: Pick<Storage, "getItem"> = localStorage,
+): CalendarPresentation =>
+  storage.getItem(CALENDAR_PRESENTATION_KEY) === "timeline"
+    ? "timeline"
+    : "calendar";
+
+export const writeCalendarPresentation = (
+  presentation: CalendarPresentation,
   storage: RangeStorage = localStorage,
-): RangeModeKey => {
-  const stored =
-    storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
-  return MODE_KEYS.has(stored ?? "") ? (stored as RangeModeKey) : "day";
+) => {
+  storage.setItem(CALENDAR_PRESENTATION_KEY, presentation);
 };
 
-export const writeRangeMode = (
-  key: RangeModeKey,
+export const readCalendarRangeMode = (
+  storage: RangeStorage = localStorage,
+): CalendarRangeMode => {
+  const stored =
+    storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
+  return CALENDAR_MODE_KEYS.has(stored ?? "")
+    ? (stored as CalendarRangeMode)
+    : "day";
+};
+
+export const writeCalendarRangeMode = (
+  key: CalendarRangeMode,
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(RANGE_MODE_KEY, key);
 };
 
+/** Whether Insights sits beside the Calendar grid. The grid itself is always
+ * shown, so the stored value is a single on/off. */
+const CALENDAR_INSIGHTS_KEY = "nest:calendar-display";
+
+/** A missing or retired value (including the old Insights-only "insights")
+ * reads as shown, so nobody lands with the summary unexpectedly hidden. */
+export const readCalendarInsightsShown = (
+  storage: Pick<Storage, "getItem"> = localStorage,
+): boolean => storage.getItem(CALENDAR_INSIGHTS_KEY) !== "calendar";
+
+export const writeCalendarInsightsShown = (
+  shown: boolean,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(CALENDAR_INSIGHTS_KEY, shown ? "both" : "calendar");
+};
+
+/** Which figure the Calendar grid draws. Work stretch is the timetable of
+ * recorded work; Logs places the history icons on that same grid. */
+export const CALENDAR_FIGURES = [
+  { key: "stretch", label: "Work stretch" },
+  { key: "logs", label: "Logs" },
+] as const;
+export type CalendarFigure = (typeof CALENDAR_FIGURES)[number]["key"];
+
+const CALENDAR_FIGURE_KEY = "nest:calendar-figure";
+
+export const readCalendarFigure = (
+  storage: RangeStorage = localStorage,
+): CalendarFigure =>
+  storage.getItem(CALENDAR_FIGURE_KEY) === "logs" ? "logs" : "stretch";
+
+export const writeCalendarFigure = (
+  figure: CalendarFigure,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(CALENDAR_FIGURE_KEY, figure);
+};
+
+/** Open Calendar on Last hour with its Insights in view, since that summary is
+ * what the Overview tile linked to. */
+export const openLastHourOnCalendar = (storage: RangeStorage = localStorage) => {
+  writeCalendarRangeMode("lastHour", storage);
+  writeCalendarInsightsShown(true, storage);
+};
+
+/** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
+export const lastHourPeriod = (nowSec: number): Period => ({
+  from: nowSec - LAST_HOUR_WINDOW_SECONDS,
+  to: nowSec,
+});
+
 /** One calendar day of the grid: real local midnight to real local midnight,
  * so a DST day is 23 or 25 hours long and blocks still land correctly. */
 export type InsightColumn = { from: number; to: number; label: string };
+
+/** The clock span Last hour covers, e.g. "2:04 PM – 3:04 PM". */
+export const lastHourSpanLabel = (nowSec: number) => {
+  const { from, to } = lastHourPeriod(nowSec);
+  return `${formatTime(from)} – ${formatTime(to)}`;
+};
 
 /** Monday-first start of the week holding `dayMs`. */
 const startOfWeekMs = (dayMs: number) =>
@@ -92,7 +224,7 @@ export const insightColumns = (
 };
 
 /** The page `steps` away, as its own columns. The one place paging arithmetic
- * lives, so the Earlier guard and the Earlier button cannot disagree — both
+ * lives, so date navigation and history bounds cannot disagree — both
  * move by calendar days, which a fixed 86400 would get wrong across DST. */
 export const stepColumns = (
   mode: RangeModeKey,
@@ -119,204 +251,127 @@ export const openAtPct = (
     : firstBlockPct;
 };
 
-export type OutcomeStat = { label: string; value: string };
-
-export type WindowInsight = {
-  stats: OutcomeStat[];
-  sessions: PhaseSession[];
-};
-
-export const outcomeStats = (
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  checkIns: MetricCheckInWithRatings[],
-  period: { from: number; to: number },
-): OutcomeStat[] => {
-  const totals = completionTotals(tasks, events, period);
-  return [
-    { label: "Completed", value: String(totals.completed) },
-    { label: "Value", value: String(totals.value) },
-    { label: "Effort", value: String(totals.effort) },
-    { label: "Check-ins", value: String(countCheckIns(checkIns, period)) },
-  ];
-};
-
-export const windowInsight = (
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  checkIns: MetricCheckInWithRatings[],
+/** Untrimmed: quiet edges stay as empty track rather than being squeezed out. */
+export const windowPhaseSessions = (
   phaseCheckIns: PhaseCheckIn[],
   phases: Phase[],
   fromSec: number,
   toSec: number,
-): WindowInsight => {
-  const isQuiet = (phaseId: number | null) => isQuietPhase(phaseId, phases);
-  return {
-    stats: outcomeStats(tasks, events, checkIns, {
-      from: fromSec,
-      to: toSec,
-    }),
-    // Untrimmed: quiet edges stay as empty track rather than being squeezed out.
-    sessions: phaseSessionsInWindow(
-      phaseCheckIns,
-      fromSec,
-      toSec,
-      isQuiet,
-      false,
-    ),
-  };
-};
+): PhaseSession[] =>
+  phaseSessionsInWindow(
+    phaseCheckIns,
+    fromSec,
+    toSec,
+    (phaseId) => isQuietPhase(phaseId, phases),
+    false,
+  );
 
 export type InsightTaskRow = { task: Task; seconds: number };
 
-export type InsightStatusGroup = {
-  status: TaskStatus;
+/** What happened to a Task over a range. Exclusive and exhaustive by
+ * construction: a Task has one status at the range's end, and anything not
+ * closed there is Incomplete. */
+export type InsightOutcome = "completed" | "cancelled" | "incomplete";
+
+export const INSIGHT_OUTCOME_LABEL: Record<InsightOutcome, string> = {
+  completed: "Completed",
+  cancelled: "Cancelled",
+  incomplete: "Incomplete",
+};
+
+export type InsightOutcomeGroup = {
+  outcome: InsightOutcome;
   rows: InsightTaskRow[];
+  /** Worked time of every row, so a collapsed group still reads as one total. */
+  seconds: number;
 };
 
-export type InsightDay = {
-  label: string;
-  from: number;
-  to: number;
-  isFuture: boolean;
-  isToday: boolean;
-  groups: InsightStatusGroup[];
-};
-
-/** Live work first, then closed. Omit empty statuses. */
-const INSIGHT_STATUS_ORDER: TaskStatus[] = [
-  "active",
-  "up_next",
-  "backlog",
+const INSIGHT_OUTCOME_ORDER: InsightOutcome[] = [
   "completed",
   "cancelled",
+  "incomplete",
 ];
 
-const asLiveStatus = (
-  status: RecordedTaskStatus | null,
-  fallback: TaskStatus,
-): TaskStatus => {
-  if (status === "paused") return "active";
-  return status ?? fallback;
-};
-
-/** Status at `at`. A later completion must not rewrite an earlier day's group. */
-const statusAt = (
+const outcomeAt = (
   task: Task,
   events: TaskStatusEvent[],
   at: number,
-): TaskStatus => {
-  const mine = [...events]
-    .filter((event) => event.taskId === task.id)
-    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
-  for (const event of mine) {
-    if (event.createdAt >= at) {
-      return asLiveStatus(event.fromStatus, task.status);
-    }
-  }
-  const last = mine[mine.length - 1];
-  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
+): InsightOutcome => {
+  const status = taskStatusAt(task, events, at);
+  return status === "completed" || status === "cancelled"
+    ? status
+    : "incomplete";
 };
 
-const closedStatusInPeriod = (
-  taskId: number,
-  events: TaskStatusEvent[],
-  period: Period,
-): "completed" | "cancelled" | null => {
-  let last: "completed" | "cancelled" | null = null;
-  const ordered = [...events].sort(
-    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
-  );
-  for (const event of ordered) {
-    if (event.taskId !== taskId) continue;
-    if (event.createdAt < period.from || event.createdAt >= period.to) continue;
-    if (event.toStatus === "completed" || event.toStatus === "cancelled") {
-      last = event.toStatus;
-    }
-  }
-  return last;
-};
-
-const groupInsightTasks = (
-  rows: InsightTaskRow[],
-  events: TaskStatusEvent[],
-  period: Period,
-): InsightStatusGroup[] => {
-  const buckets = new Map<TaskStatus, InsightTaskRow[]>();
-  for (const row of rows) {
-    const closed = closedStatusInPeriod(row.task.id, events, period);
-    const status =
-      row.seconds > 0
-        ? statusAt(row.task, events, period.to)
-        : (closed ?? statusAt(row.task, events, period.to));
-    const list = buckets.get(status);
-    if (list) list.push(row);
-    else buckets.set(status, [row]);
-  }
-  return INSIGHT_STATUS_ORDER.flatMap((status) => {
-    const grouped = buckets.get(status);
-    if (!grouped?.length) return [];
-    return [
-      {
-        status,
-        rows: [...grouped].sort(
-          (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
-        ),
-      },
-    ];
-  });
-};
-
-const mergeClosedTasks = (
+/** Tasks with Worked time in the range, plus Tasks closed in it and still
+ * closed at its end. A closure later reopened says nothing on its own, so
+ * without Worked time it is left out. */
+const ledgerRows = (
   worked: InsightTaskRow[],
   tasks: Task[],
   events: TaskStatusEvent[],
   period: Period,
 ): InsightTaskRow[] => {
   const byId = new Map(worked.map((row) => [row.task.id, row]));
-  for (const task of [
-    ...completedInPeriod(tasks, events, period),
-    ...cancelledInPeriod(tasks, events, period),
-  ]) {
+  for (const task of completedInPeriod(tasks, events, period)) {
+    if (outcomeAt(task, events, period.to) !== "completed") continue;
+    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
+  }
+  for (const task of cancelledInPeriod(tasks, events, period)) {
+    if (outcomeAt(task, events, period.to) !== "cancelled") continue;
     if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
   }
   return [...byId.values()];
 };
 
-/** One ledger per calendar column: Tasks with Worked time that day, plus
- * Completions and Cancellations with no Working now, grouped by status as of
- * that day's end. Future days stay empty rather than quiet. */
-export const insightDays = (
-  columns: InsightColumn[],
+const groupByOutcome = (
+  rows: InsightTaskRow[],
+  events: TaskStatusEvent[],
+  period: Period,
+): InsightOutcomeGroup[] => {
+  const buckets = new Map<InsightOutcome, InsightTaskRow[]>();
+  for (const row of rows) {
+    const outcome = outcomeAt(row.task, events, period.to);
+    const list = buckets.get(outcome);
+    if (list) list.push(row);
+    else buckets.set(outcome, [row]);
+  }
+  return INSIGHT_OUTCOME_ORDER.map((outcome) => {
+    const rows = [...(buckets.get(outcome) ?? [])].sort(
+      (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
+    );
+    return {
+      outcome,
+      rows,
+      seconds: rows.reduce((sum, row) => sum + row.seconds, 0),
+    };
+  });
+};
+
+/** The range's ledger, grouped by what happened to each Task: Completed or
+ * Cancelled when it ends the range closed, otherwise Incomplete. All three
+ * groups always return, in that order, so an empty one still shows.
+ * Completions and Cancellations with no Working now still list, with 0 Worked
+ * time. Week sums each Task across its days. */
+export const insightTaskGroups = (
+  range: Period,
   blocks: WorkBlock[],
   tasks: Task[],
   events: TaskStatusEvent[],
   nowSec: number,
-): InsightDay[] =>
-  columns.map((column) => {
-    const isFuture = nowSec < column.from;
-    const closedTo = Math.min(column.to, nowSec);
-    const period = { from: column.from, to: closedTo };
-    return {
-      label: column.label,
-      from: column.from,
-      to: column.to,
-      isFuture,
-      isToday: nowSec >= column.from && nowSec < column.to,
-      groups: isFuture
-        ? []
-        : groupInsightTasks(
-            mergeClosedTasks(
-              workTotalsInSpan(blocks, column.from, closedTo),
-              tasks,
-              events,
-              period,
-            ),
-            events,
-            period,
-          ),
-    };
-  });
+): InsightOutcomeGroup[] => {
+  const period = { from: range.from, to: Math.min(range.to, nowSec) };
+  const rows =
+    nowSec < range.from
+      ? []
+      : ledgerRows(
+          workTotalsInSpan(blocks, period.from, period.to),
+          tasks,
+          events,
+          period,
+        );
+  return groupByOutcome(rows, events, period);
+};
 
 export type InsightMetricRow = {
   metricId: number;
@@ -332,13 +387,30 @@ export type InsightPulseGroup = {
   name: string;
   icon: string;
   checkInCount: number;
+  /** Mean of every rating in the group, so a collapsed Pulse still reads as one
+   * number. Null when its check-ins carry no ratings. */
+  average: number | null;
   metrics: InsightMetricRow[];
 };
 
 const average = (values: number[]) =>
   values.reduce((sum, value) => sum + value, 0) / values.length;
 
-/** Metric check-ins in the range, grouped by Pulse, ratings in time order. */
+/** Exclusive end for Insights check-ins. Live now + 1 matches dashboard reload
+ * (`to = now + 1`) against `createdAt < to`, so a just-saved rating is not held
+ * by the minute clock. Last hour's range end *is* that clock, so `live` must
+ * not clamp to it. A past range stays closed at its own end. */
+export const insightCheckInClosedTo = (
+  rangeTo: number,
+  nowMs: number,
+  live = false,
+) => {
+  const liveTo = Math.floor(nowMs / 1000) + 1;
+  return live ? liveTo : Math.min(rangeTo, liveTo);
+};
+
+/** Metric check-ins in the range, grouped by Pulse, ratings in time order.
+ * Every current Pulse is listed, including one with no check-ins in the range. */
 export const insightCheckIns = (
   checkIns: MetricCheckInWithRatings[],
   metrics: Metric[],
@@ -348,12 +420,13 @@ export const insightCheckIns = (
   const inRange = checkIns
     .filter((checkIn) => checkIn.createdAt >= period.from && checkIn.createdAt < period.to)
     .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
-  if (inRange.length === 0) return [];
 
   const metricById = new Map(metrics.map((metric) => [metric.id, metric]));
   const pulseById = new Map(pulses.map((pulse) => [pulse.id, pulse]));
   const pulseIndex = new Map(pulses.map((pulse, index) => [pulse.id, index]));
-  const groups = new Map<number | null, MetricCheckInWithRatings[]>();
+  const groups = new Map<number | null, MetricCheckInWithRatings[]>(
+    pulses.map((pulse) => [pulse.id, []]),
+  );
   for (const checkIn of inRange) {
     const key = checkIn.pulseId;
     const list = groups.get(key);
@@ -378,9 +451,12 @@ export const insightCheckIns = (
     ];
     return {
       pulseId,
-      name: pulse?.name ?? items[0].pulseName ?? "Metric check-in",
+      name: pulse?.name ?? items[0]?.pulseName ?? "Metric check-in",
       icon: pulse?.icon ?? "activity",
       checkInCount: items.length,
+      average: valuesByMetric.size > 0
+        ? average([...valuesByMetric.values()].flat())
+        : null,
       metrics: metricIds.map((metricId) => {
         const metric = metricById.get(metricId);
         const values = valuesByMetric.get(metricId) ?? [];
@@ -401,4 +477,71 @@ export const insightCheckIns = (
     if (b.pulseId === null) return -1;
     return (pulseIndex.get(a.pulseId) ?? 999) - (pulseIndex.get(b.pulseId) ?? 999);
   });
+};
+
+export type InsightData = {
+  tasks: Task[];
+  taskStatusEvents: TaskStatusEvent[];
+  taskWorkStretches: TaskWorkStretch[];
+  metrics: Metric[];
+  pulses: Pulse[];
+  checkIns: MetricCheckInWithRatings[];
+  phaseCheckIns: PhaseCheckIn[];
+  phases: Phase[];
+  brainDumps: BrainDump[];
+};
+
+export type InsightRange = Period & { live: boolean };
+
+/** `nowMs` / `nowSec` are the clock Phase mix and the ledger stop at;
+ * `checkInNowMs` is the wall clock check-ins and brain dumps stop at, so a
+ * just-saved one shows without waiting on that clock. */
+export type InsightClock = {
+  nowMs: number;
+  nowSec: number;
+  checkInNowMs: number;
+};
+
+export type RangeInsight = {
+  sessions: PhaseSession[];
+  brainDumps: InsightBrainDumpSummary;
+  taskGroups: InsightOutcomeGroup[];
+  checkIns: InsightPulseGroup[];
+};
+
+/** Everything Insights shows for one range, shared by Calendar and the
+ * Overview Last hour tile so the two always read the same. */
+export const rangeInsight = (
+  data: InsightData,
+  { from, to, live }: InsightRange,
+  { nowMs, nowSec, checkInNowMs }: InsightClock,
+): RangeInsight => {
+  const checkInTo = insightCheckInClosedTo(to, checkInNowMs, live);
+  const blocks = layoutWorkBlocks(
+    data.taskWorkStretches,
+    data.tasks,
+    from,
+    to,
+    nowMs,
+  );
+  return {
+    sessions: windowPhaseSessions(
+      data.phaseCheckIns,
+      data.phases,
+      from,
+      Math.min(to, nowSec),
+    ),
+    brainDumps: insightBrainDumps(data.brainDumps, { from, to: checkInTo }),
+    taskGroups: insightTaskGroups(
+      { from, to },
+      blocks,
+      data.tasks,
+      data.taskStatusEvents,
+      nowSec,
+    ),
+    checkIns: insightCheckIns(data.checkIns, data.metrics, data.pulses, {
+      from,
+      to: checkInTo,
+    }),
+  };
 };

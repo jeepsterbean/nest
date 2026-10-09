@@ -495,23 +495,6 @@
   cursor: pointer;
 }
 
-.assistant-message__context {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.assistant-message__context summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.assistant-message__context pre {
-  margin: 6px 0 0;
-  white-space: pre-wrap;
-  font: inherit;
-}
-
 .assistant-send:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -1100,8 +1083,7 @@
   font-size: 13px;
 }
 
-.assistant-key span,
-.assistant-privacy {
+.assistant-key span {
   color: var(--muted);
   font-size: 11.5px;
 }
@@ -1146,10 +1128,6 @@
 .assistant-delete:focus-visible {
   background: var(--danger-soft);
   outline: none;
-}
-
-.assistant-privacy {
-  margin: 0;
 }
 
 .assistant-prompt-list {

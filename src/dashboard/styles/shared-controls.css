@@ -220,7 +220,7 @@
 
 /* ---------- Shared chrome ---------- */
 
-/* One segmented control for every section: Tasks, Logs, Insights, Metrics. */
+/* Shared segmented control styling for layout, range, and pane choices. */
 .dash-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -259,8 +259,13 @@
   transition: background 0.15s, color 0.15s;
 }
 
-.view-toggle__btn:hover {
+.view-toggle__btn:hover:not(:disabled) {
   color: var(--ink);
+}
+
+.view-toggle__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .view-toggle__btn:focus-visible {
@@ -272,107 +277,6 @@
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
-}
-
-.task-status-filter {
-  position: relative;
-}
-
-.task-status-filter__trigger {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 650;
-  cursor: pointer;
-  list-style: none;
-}
-
-.task-status-filter__trigger::-webkit-details-marker {
-  display: none;
-}
-
-.task-status-filter__trigger svg {
-  width: 12px;
-  height: 12px;
-  transition: transform 0.15s;
-}
-
-.task-status-filter[open] .task-status-filter__trigger {
-  color: var(--ink);
-}
-
-.task-status-filter[open] .task-status-filter__trigger svg {
-  transform: rotate(180deg);
-}
-
-.task-status-filter__trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.task-table-sort {
-  width: 166px;
-}
-
-.task-table-sort .menu-select__trigger {
-  min-height: 30px;
-  background: var(--surface-2);
-  font-size: 11.5px;
-}
-
-.task-status-filter__menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 20;
-  width: 188px;
-  padding: 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.task-status-filter__option {
-  display: grid;
-  min-height: 34px;
-  grid-template-columns: 15px 7px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 7px;
-  border-radius: 6px;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.task-status-filter__option:hover {
-  background: var(--surface-2);
-}
-
-.task-status-filter__option input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.task-status-filter__option:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.task-status-filter__count {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Filled accent CTA — the "submit new item" button. Size/spacing stay
@@ -400,4 +304,69 @@
 .btn-accent:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Date navigation keeps arrows stationary while labels change. */
+.date-navigation {
+  display: flex;
+  flex: none;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.date-navigation__label {
+  width: 220px;
+  flex: none;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-navigation--month {
+  width: 100%;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.date-navigation--month .date-navigation__label {
+  width: 0;
+  flex: 1;
+}
+
+.date-navigation button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  line-height: 1;
+}
+
+.date-navigation button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.date-navigation button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.date-navigation button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.date-navigation button svg {
+  width: 14px;
+  height: 14px;
 }

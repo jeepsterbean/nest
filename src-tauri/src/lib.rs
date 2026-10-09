@@ -3,12 +3,15 @@ mod assistant;
 mod timer;
 mod commands;
 mod db;
+mod demo;
 mod error;
 mod migrations;
 mod models;
 mod phase;
 mod popup_placement;
+mod task;
 mod task_graph;
+mod task_lifecycle;
 mod time;
 
 use std::{
@@ -34,6 +37,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 use crate::activity::{ActivityIdleTracker, ActivityIdleTransition};
 use crate::time::now_unix_secs;
+use crate::timer::Timer;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -145,59 +149,6 @@ fn close_popup(app: tauri::AppHandle, dismissed: bool) -> error::Result<()> {
     resolve_and_hide_popup(&app, if dismissed { "dismissed" } else { "completed" })
 }
 
-// Cadence of the recurring popup. At zero it pauses until an interval pick.
-pub struct Timer {
-    pub interval_minutes: i64,
-    pub next_due_at: i64,
-    pub waiting_for_response: bool,
-}
-
-impl Timer {
-    fn pause_if_due(&mut self, now: i64) -> bool {
-        if self.waiting_for_response || now < self.next_due_at {
-            return false;
-        }
-        self.waiting_for_response = true;
-        true
-    }
-}
-
-fn load_timer(conn: &rusqlite::Connection) -> Timer {
-    let now = now_unix_secs();
-            let persisted = conn
-        .query_row(
-            "SELECT interval_minutes, next_due_at, waiting_for_response FROM timer_schedule WHERE id = 1",
-            [],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
-        )
-        .ok();
-
-    let (interval_minutes, next_due_at, waiting_for_response) = match persisted {
-        Some((minutes, due_at, waiting)) if timer::is_valid_interval(minutes) => {
-            (minutes, due_at, waiting != 0)
-        }
-        // Missing row or a bad interval (corrupt/hand-edited db): fall back to
-        // the default cadence starting now.
-        _ => (
-            timer::DEFAULT_MINUTES,
-            now + timer::DEFAULT_MINUTES * 60,
-            false,
-        ),
-    };
-
-    append_diagnostic_log(format!(
-        "timer_loaded interval_minutes={interval_minutes} next_due_at={next_due_at} now={now} overdue={} waiting_for_response={}",
-        next_due_at <= now,
-        waiting_for_response
-    ));
-
-    Timer {
-        interval_minutes,
-        next_due_at,
-        waiting_for_response,
-    }
-}
-
 /// How often the running app stamps its heartbeat while work is open. Also the
 /// most a crash can shave off the stretch it was in the middle of.
 const HEARTBEAT_SECONDS: u64 = 60;
@@ -223,7 +174,7 @@ fn phase_emoji(name: &str) -> &'static str {
 /// ponytail: 1 frame/sec off the existing loop; shorten the sleep to spin faster.
 const TIMER_DUE_FRAMES: [&str; 8] = ["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗"];
 
-/// `🎯 Doing 12:34` counting down, animated clock while the check-in is due.
+/// `🎯 Doing 12:34` counting down, animated clock while the Timer is due.
 /// Countdown format matches `formatTimerCountdown` in the frontend.
 fn tray_title(phase: &str, timer: &Timer, now: i64, tick: u64) -> String {
     if timer.waiting_for_response {
@@ -243,10 +194,9 @@ fn tray_title(phase: &str, timer: &Timer, now: i64, tick: u64) -> String {
 fn popup_is_visible(app: &tauri::AppHandle) -> bool {
     #[cfg(target_os = "macos")]
     {
-        return app
-            .get_webview_panel("popup")
+        app.get_webview_panel("popup")
             .map(|panel| panel.is_visible())
-            .unwrap_or(false);
+            .unwrap_or(false)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -306,7 +256,7 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
             if ticks.is_multiple_of(HEARTBEAT_SECONDS) {
                 let db = app.state::<Mutex<rusqlite::Connection>>();
                 let conn = db.lock().unwrap();
-                if let Err(e) = commands::beat_heartbeat(&conn, now) {
+                if let Err(e) = task_lifecycle::beat_heartbeat(&conn, now) {
                     append_diagnostic_log(format!("heartbeat_failed error={e}"));
                 }
             }
@@ -321,7 +271,7 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                         "timer_due now={now} next_due_at={} waiting_for_response=true",
                         timer.next_due_at
                     ));
-                    if let Err(e) = commands::persist_timer_waiting(&conn, true) {
+                    if let Err(e) = timer::persist_timer_waiting(&conn, true) {
                         append_diagnostic_log(format!("timer_waiting_persist_failed error={e}"));
                     }
                     true
@@ -456,7 +406,7 @@ fn dashboard_window_number(app: &tauri::AppHandle) -> Option<isize> {
     if ptr.is_null() {
         return None;
     }
-    Some(unsafe { (*ptr).windowNumber() as isize })
+    Some(unsafe { (*ptr).windowNumber() })
 }
 
 #[cfg(target_os = "macos")]
@@ -544,7 +494,7 @@ fn install_system_offline_observers(app: tauri::AppHandle) {
         let app = app.clone();
         let block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
             bump_leave_epoch(&app);
-            commands::enter_system_offline(&app);
+            phase::enter_system_offline(&app);
         });
         let observer = unsafe {
             workspace.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
@@ -563,7 +513,7 @@ fn install_system_offline_observers(app: tauri::AppHandle) {
             if screen_is_locked() {
                 return;
             }
-            commands::leave_system_offline(&app);
+            phase::leave_system_offline(&app);
         });
         let observer = unsafe {
             workspace.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
@@ -575,11 +525,11 @@ fn install_system_offline_observers(app: tauri::AppHandle) {
     let lock_app = app.clone();
     let lock_block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
         bump_leave_epoch(&lock_app);
-        commands::enter_system_offline(&lock_app);
+        phase::enter_system_offline(&lock_app);
     });
     let unlock_name = NSString::from_str("com.apple.screenIsUnlocked");
     let unlock_block = block2::RcBlock::new(move |_notification: ptr::NonNull<NSNotification>| {
-        commands::leave_system_offline(&app);
+        phase::leave_system_offline(&app);
     });
     let distributed = NSDistributedNotificationCenter::defaultCenter();
     for (name, block) in [(&lock_name, &lock_block), (&unlock_name, &unlock_block)] {
@@ -1115,7 +1065,7 @@ fn install_popup_event_monitors(app: tauri::AppHandle) {
             }
             if mouse_down
                 && dashboard_window_number(&app_for_local)
-                    .is_some_and(|number| event_ref.windowNumber() as isize == number)
+                    .is_some_and(|number| event_ref.windowNumber() == number)
             {
                 enter_dashboard_attention(&app_for_local);
             }
@@ -1192,18 +1142,26 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             popup_placement::install(app_data.clone());
             let db_path = app_data.join("nest.db");
-            let conn = db::open(&db_path)?;
+            let is_demo = demo::is_demo_identifier(&app.config().identifier);
+            if is_demo {
+                demo::create_windows(app)?;
+                demo::remove_database(&db_path)?;
+            }
+            let mut conn = db::open(&db_path)?;
+            if is_demo {
+                demo::seed(&mut conn, now_unix_secs())?;
+            }
             // Before anything reads stretches — the first Phase sync below
             // derives Doing from them, and a leftover open stretch would make
             // a just-launched Nest look like it never stopped working.
-            match commands::recover_open_stretches(&conn, now_unix_secs()) {
+            match task_lifecycle::recover_open_stretches(&conn, now_unix_secs()) {
                 Ok(0) => {}
                 Ok(closed) => {
                     append_diagnostic_log(format!("recovered_open_stretches closed={closed}"))
                 }
                 Err(e) => append_diagnostic_log(format!("recover_open_stretches_failed error={e}")),
             }
-            let timer = load_timer(&conn);
+            let timer = timer::load_timer(&conn);
             app.manage(Mutex::new(phase::PhaseSignals {
                 notion_frontmost: phase::notion_is_frontmost(),
                 ..phase::PhaseSignals::default()
@@ -1357,78 +1315,74 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            assistant::assistant_api_key_configured,
-            assistant::set_assistant_api_key,
-            assistant::delete_assistant_api_key,
-            assistant::list_assistant_prompts,
-            assistant::create_assistant_prompt,
-            assistant::update_assistant_prompt,
-            assistant::delete_assistant_prompt,
-            assistant::list_assistant_system_instruction_versions,
-            assistant::save_assistant_system_instructions,
-            assistant::list_assistant_conversations,
-            assistant::list_assistant_messages,
-            assistant::rename_assistant_conversation,
-            assistant::delete_assistant_conversation,
-            assistant::send_assistant_message,
-            commands::list_reminders,
-            commands::create_reminder,
-            commands::update_reminder_text,
-            commands::set_reminder_active,
-            commands::delete_reminder,
-            commands::list_metrics,
-            commands::list_tasks,
-            commands::list_task_dependencies,
-            commands::list_task_status_events,
-            commands::create_task,
-            commands::rename_task,
-            commands::set_task_description,
-            commands::set_task_scope,
-            commands::set_task_parent,
-            commands::add_task_dependency,
-            commands::remove_task_dependency,
-            commands::delete_task,
-            commands::set_task_status,
-            commands::set_task_working,
-            commands::stop_all_working_now,
-            commands::list_task_work_stretches,
-            commands::update_task_work_stretch,
-            commands::delete_task_work_stretch,
-            commands::set_task_score,
-            commands::set_task_score_field,
-            commands::reorder_tasks,
-            commands::create_metric,
-            commands::rename_metric,
-            commands::set_metric_icon,
-            commands::set_metric_color,
-            commands::set_metric_check_in_interval,
-            commands::list_pulses,
-            commands::create_pulse,
-            commands::rename_pulse,
-            commands::set_pulse_icon,
-            commands::delete_pulse,
-            commands::add_metric_to_pulse,
-            commands::remove_metric_from_pulse,
-            commands::reorder_pulses,
-            commands::reorder_pulse_metrics,
-            commands::list_phases,
-            commands::set_phase_icon,
-            commands::set_phase_color,
-            commands::submit_metric_check_in,
-            commands::list_metric_check_ins,
-            commands::delete_metric_check_in,
-            commands::get_metric_check_in_schedule,
-            commands::latest_phase_check_in,
-            commands::list_phase_check_ins,
-            commands::get_timer_state,
-            commands::start_timer,
-            commands::list_tags,
-            commands::create_tag,
-            commands::rename_tag,
-            commands::delete_tag,
-            commands::submit_brain_dump,
-            commands::update_brain_dump_tags,
-            commands::list_brain_dumps,
+            commands::assistant::assistant_api_key_configured,
+            commands::assistant::set_assistant_api_key,
+            commands::assistant::delete_assistant_api_key,
+            commands::assistant::list_assistant_prompts,
+            commands::assistant::create_assistant_prompt,
+            commands::assistant::update_assistant_prompt,
+            commands::assistant::delete_assistant_prompt,
+            commands::assistant::list_assistant_system_instruction_versions,
+            commands::assistant::save_assistant_system_instructions,
+            commands::assistant::list_assistant_conversations,
+            commands::assistant::list_assistant_messages,
+            commands::assistant::rename_assistant_conversation,
+            commands::assistant::delete_assistant_conversation,
+            commands::assistant::send_assistant_message,
+            commands::reminder::list_reminders,
+            commands::reminder::create_reminder,
+            commands::reminder::update_reminder_text,
+            commands::reminder::set_reminder_active,
+            commands::reminder::delete_reminder,
+            commands::metric::list_metrics,
+            commands::task::list_tasks,
+            commands::task::list_task_dependencies,
+            commands::task::list_task_status_events,
+            commands::task::create_task,
+            commands::task::rename_task,
+            commands::task::set_task_description,
+            commands::task::set_task_scope,
+            commands::task::set_task_parent,
+            commands::task::add_task_dependency,
+            commands::task::remove_task_dependency,
+            commands::task::delete_task,
+            commands::task::set_task_status,
+            commands::task::set_task_working,
+            commands::task::stop_all_working_now,
+            commands::task::list_task_work_stretches,
+            commands::task::update_task_work_stretch,
+            commands::task::delete_task_work_stretch,
+            commands::task::set_task_score,
+            commands::task::set_task_score_field,
+            commands::task::reorder_tasks,
+            commands::metric::create_metric,
+            commands::metric::rename_metric,
+            commands::metric::set_metric_icon,
+            commands::metric::set_metric_color,
+            commands::metric::list_pulses,
+            commands::metric::create_pulse,
+            commands::metric::rename_pulse,
+            commands::metric::set_pulse_icon,
+            commands::metric::delete_pulse,
+            commands::metric::add_metric_to_pulse,
+            commands::metric::remove_metric_from_pulse,
+            commands::metric::reorder_pulses,
+            commands::metric::reorder_pulse_metrics,
+            commands::phase::list_phases,
+            commands::metric::submit_metric_check_in,
+            commands::metric::list_metric_check_ins,
+            commands::metric::delete_metric_check_in,
+            commands::phase::latest_phase_check_in,
+            commands::phase::list_phase_check_ins,
+            commands::timer::get_timer_state,
+            commands::timer::start_timer,
+            commands::brain_dump::list_tags,
+            commands::brain_dump::create_tag,
+            commands::brain_dump::rename_tag,
+            commands::brain_dump::delete_tag,
+            commands::brain_dump::submit_brain_dump,
+            commands::brain_dump::update_brain_dump_tags,
+            commands::brain_dump::list_brain_dumps,
             show_popup,
             close_popup,
             show_dashboard,
@@ -1456,7 +1410,7 @@ fn finalize_on_exit(app: &tauri::AppHandle) {
     {
         let db = app.state::<Mutex<rusqlite::Connection>>();
         let conn = db.lock().unwrap();
-        if let Err(e) = commands::bank_all_working_now(&conn, now_unix_secs()) {
+        if let Err(e) = task_lifecycle::bank_all_working_now(&conn, now_unix_secs()) {
             append_diagnostic_log(format!("bank_on_exit_failed error={e}"));
         }
     }
@@ -1466,7 +1420,7 @@ fn finalize_on_exit(app: &tauri::AppHandle) {
 }
 
 #[cfg(test)]
-mod timer_tests {
+mod tray_title_tests {
     use super::{tray_title, Timer};
 
     #[test]
@@ -1486,23 +1440,6 @@ mod timer_tests {
         assert_eq!(tray_title("Doing", &timer, 800, 0), "🕐 Doing");
         assert_eq!(tray_title("Doing", &timer, 800, 1), "🕑 Doing");
         assert_eq!(tray_title("Doing", &timer, 800, 8), "🕐 Doing");
-    }
-
-    #[test]
-    fn due_timer_pauses_until_rescheduled() {
-        let mut timer = Timer {
-            interval_minutes: 15,
-            next_due_at: 100,
-            waiting_for_response: false,
-        };
-
-        assert!(!timer.pause_if_due(99));
-        assert!(timer.pause_if_due(100));
-        assert!(!timer.pause_if_due(101));
-
-        timer.next_due_at = 401;
-        timer.waiting_for_response = false;
-        assert!(!timer.pause_if_due(400));
     }
 }
 

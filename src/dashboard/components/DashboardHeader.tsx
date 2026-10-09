@@ -3,12 +3,13 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
   type CSSProperties,
 } from "react";
 import { startTimer } from "../../lib/commands";
+import { SIMPLIFIED_VIEW } from "../../lib/simplifiedView";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { type OverviewLayoutController } from "../lib/overviewGrid";
+import { useTileIcons } from "../hooks/useTileIcons";
+import { OVERVIEW_SETTINGS_ID } from "../lib/overviewGrid";
 import {
   advanceTypewriter,
   INITIAL_TYPEWRITER_FRAME,
@@ -16,38 +17,28 @@ import {
 } from "../lib/typewriter";
 import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
 import { phaseColor, phaseIcon, phaseName } from "../lib/period";
-import { NestIcon } from "./PulseIcon";
-import {
-  assistantIcon,
-  calendarIcon,
-  chevronDownIcon,
-  clockIcon,
-  insightsIcon,
-  logsIcon,
-  overviewIcon,
-  saveLayoutIcon,
-  settingsIcon,
-  tasksIcon,
-} from "./icons";
+import { IconPickerButton, NestIcon } from "./PulseIcon";
+import { chevronDownIcon, clockIcon, settingsIcon } from "./icons";
+import { writeTileIcon, type ConfigurableOverviewIcon } from "../lib/tileIcons";
 
 export type DashboardView =
   | "overview"
   | "calendar"
-  | "insights"
-  | "logs"
-  | "tasks"
+  | "core"
   | "assistant"
   | "settings";
 
-const VIEWS = [
-  { key: "overview", label: "Overview", icon: overviewIcon },
-  { key: "calendar", label: "Calendar", icon: calendarIcon },
-  { key: "insights", label: "Insights", icon: insightsIcon },
-  { key: "logs", label: "Logs", icon: logsIcon },
-  { key: "tasks", label: "Tasks", icon: tasksIcon },
-  { key: "assistant", label: "Assistant", icon: assistantIcon },
-  { key: "settings", label: "Settings", icon: settingsIcon },
-] as const;
+const VIEWS: {
+  key: DashboardView;
+  label: string;
+  icon: ConfigurableOverviewIcon;
+}[] = [
+  { key: "overview", label: "Overview", icon: "overview" },
+  { key: "calendar", label: "Calendar", icon: "calendar" },
+  { key: "core", label: "Core", icon: "core" },
+  { key: "assistant", label: "Assistant", icon: "assistant" },
+  { key: "settings", label: "Settings", icon: "settings" },
+];
 
 export function DashboardSidebar({
   view,
@@ -56,38 +47,59 @@ export function DashboardSidebar({
   view: DashboardView;
   onSelectView: (view: DashboardView) => void;
 }) {
+  const tileIcons = useTileIcons();
+
   return (
     <aside className="dash-sidebar">
       <nav className="dash-nav" aria-label="Dashboard sections">
-        {VIEWS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={
-              view === item.key
-                ? "dash-nav__btn dash-nav__btn--active"
-                : "dash-nav__btn"
-            }
-            aria-label={item.label}
-            aria-current={view === item.key ? "page" : undefined}
-            onClick={() => onSelectView(item.key)}
-          >
-            <span className="dash-nav__icon">{item.icon}</span>
+        {VIEWS.filter((item) =>
+          !SIMPLIFIED_VIEW || item.key === "calendar" || item.key === "core",
+        ).map((item) => {
+          const label = (
             <span className="dash-nav__label">{item.label}</span>
-          </button>
-        ))}
+          );
+          // First click selects the Section. The selected icon opens the picker.
+          if (view === item.key) {
+            return (
+              <IconPickerButton
+                key={item.key}
+                controlClassName="dash-nav__picker"
+                triggerClassName="dash-nav__btn dash-nav__btn--active"
+                icon={tileIcons[item.icon]}
+                label={item.label}
+                title=""
+                ariaLabel={`${item.label}, choose icon`}
+                ariaCurrent="page"
+                onChange={(nextIcon) => writeTileIcon(item.icon, nextIcon)}
+              >
+                {label}
+              </IconPickerButton>
+            );
+          }
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="dash-nav__btn"
+              aria-label={item.label}
+              onClick={() => onSelectView(item.key)}
+            >
+              <span className="dash-nav__icon">
+                <NestIcon name={tileIcons[item.icon]} />
+              </span>
+              {label}
+            </button>
+          );
+        })}
       </nav>
     </aside>
   );
 }
 
 export function DashboardHeader({
-  overviewLayout,
+  overviewSettings,
 }: {
-  overviewLayout?: Pick<
-    OverviewLayoutController,
-    "snapshots" | "activeSnapshotId" | "restoreSnapshot" | "saveSnapshot"
-  >;
+  overviewSettings?: { open: boolean; onToggle: () => void };
 }) {
   const {
     timerState,
@@ -98,15 +110,12 @@ export function DashboardHeader({
   } = useDashboardData();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [typewriter, setTypewriter] = useState(INITIAL_TYPEWRITER_FRAME);
-  const [snapshotName, setSnapshotName] = useState("");
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const timerWrapRef = useRef<HTMLDivElement | null>(null);
-  const layoutFieldRef = useRef<HTMLDivElement | null>(null);
   const now = new Date(nowMs);
   const greeting = greetingForHour(now.getHours());
   const activeReminderTexts = useMemo(
@@ -133,7 +142,6 @@ export function DashboardHeader({
     : null;
   const currentPhaseId = latestPhase?.phaseId ?? null;
   const currentPhaseColor = phaseColor(currentPhaseId, phases);
-  const savedLayoutOptions = overviewLayout?.snapshots ?? [];
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(interval);
@@ -200,30 +208,6 @@ export function DashboardHeader({
     };
   }, [pickerOpen]);
 
-  useEffect(() => {
-    if (!layoutPickerOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (
-        layoutFieldRef.current &&
-        !layoutFieldRef.current.contains(target)
-      ) {
-        setLayoutPickerOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setLayoutPickerOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [layoutPickerOpen]);
-
   const selectInterval = async (minutes: number) => {
     setPickerOpen(false);
     if (scheduling) return;
@@ -233,13 +217,6 @@ export function DashboardHeader({
   };
 
   const phaseLabel = currentPhaseName ?? "No phase yet";
-  const canSaveSnapshot = snapshotName.trim().length > 0;
-  const handleSaveSnapshot = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!overviewLayout || !canSaveSnapshot) return;
-    overviewLayout.saveSnapshot(snapshotName);
-    setSnapshotName("");
-  };
 
   return (
     <header className="dash-header" aria-label="Greetings board">
@@ -342,76 +319,22 @@ export function DashboardHeader({
               </div>
             )}
           </div>
-          {overviewLayout ? (
-            <form className="dash-header__layouts" onSubmit={handleSaveSnapshot}>
-              <div className="dash-header__layout-field" ref={layoutFieldRef}>
-                <input
-                  id="overview-layout-name"
-                  className="dash-header__layout-name"
-                  type="text"
-                  value={snapshotName}
-                  placeholder="Name this grid layout"
-                  aria-label="New grid layout name"
-                  onChange={(event) => setSnapshotName(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="dash-header__layout-picker"
-                  aria-label="Open saved grid layouts"
-                  aria-haspopup="listbox"
-                  aria-expanded={layoutPickerOpen}
-                  onClick={() => setLayoutPickerOpen((open) => !open)}
-                >
-                  {chevronDownIcon}
-                </button>
-                {layoutPickerOpen ? (
-                  <div
-                    className="dash-header__layout-menu menu-select__menu"
-                    role="listbox"
-                    aria-label="Saved grid layouts"
-                  >
-                    {savedLayoutOptions.length ? (
-                      savedLayoutOptions.map((snapshot) => {
-                        const selected =
-                          snapshot.id === overviewLayout.activeSnapshotId;
-                        return (
-                          <button
-                            key={snapshot.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            className={`menu-select__option${
-                              selected ? " is-selected" : ""
-                            }`}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              overviewLayout.restoreSnapshot(snapshot.id);
-                              setSnapshotName(snapshot.label);
-                              setLayoutPickerOpen(false);
-                            }}
-                          >
-                            <span>{snapshot.label}</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="dash-header__layout-menu-empty">
-                        No saved layouts yet
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="submit"
-                className="dash-header__layout-save"
-                aria-label="Save current grid layout"
-                title="Save current grid layout"
-                disabled={!canSaveSnapshot}
-              >
-                {saveLayoutIcon}
-              </button>
-            </form>
+          {overviewSettings ? (
+            <button
+              type="button"
+              className="dash-header__settings"
+              aria-label={
+                overviewSettings.open
+                  ? "Close Overview settings"
+                  : "Open Overview settings"
+              }
+              title="Configure Overview"
+              aria-expanded={overviewSettings.open}
+              aria-controls={OVERVIEW_SETTINGS_ID}
+              onClick={overviewSettings.onToggle}
+            >
+              {settingsIcon}
+            </button>
           ) : null}
         </div>
       </div>

@@ -102,10 +102,11 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  cursor: text;
 }
 
 .brain-dump-surface__input {
-  flex: none;
+  flex: 1 0 auto;
   max-width: 100%;
   width: 100%;
   min-height: 100%;
@@ -113,16 +114,23 @@
   border: 0;
   background: transparent;
   color: var(--ink);
+  caret-color: var(--ink);
   font: inherit;
   font-size: 12.6px;
   line-height: 1.55;
   outline: none;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  cursor: text;
 }
 
 .brain-dump-surface__input > * {
   margin: 0;
+}
+
+/* Empty first line needs a line box or WKWebView has nothing to paint the caret in. */
+.brain-dump-surface__input > p {
+  min-height: 1.55em;
 }
 
 .brain-dump-surface__input > * + * {

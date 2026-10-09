@@ -1,20 +1,16 @@
 import type { ReactNode } from "react";
-import type { Metric, Phase, Pulse, Task } from "../../../lib/types";
+import type { Metric, Phase, Task } from "../../../lib/types";
 import type { RawLogEvent } from "../../lib/timeline";
 import { BrainDumpEntry } from "./BrainDumpEntry";
 import { MetricCheckInDetail } from "./MetricCheckInDetail";
 import { PhaseEventDetail } from "./PhaseEventDetail";
+import { TaskLogDetail } from "./TaskLogDetail";
 
-function taskTitle(tasks: Task[], taskId: number) {
-  return tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
-}
-
-/** Shared event body for Timeline (and any surface that already owns time/type chrome). */
+/** Event body beside the timeline mark, which already carries the event's icon. */
 export function LogEventDetail({
   event,
   phases,
   metrics,
-  pulses,
   tasks,
   expandedDumpIds,
   onDeleteCheckIn,
@@ -23,7 +19,6 @@ export function LogEventDetail({
   event: RawLogEvent;
   phases: Phase[];
   metrics: Metric[];
-  pulses: Pulse[];
   tasks: Task[];
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
@@ -36,7 +31,6 @@ export function LogEventDetail({
           <MetricCheckInDetail
             checkIn={event.checkIn}
             metrics={metrics}
-            pulses={pulses}
             onDelete={onDeleteCheckIn}
           />
         </div>
@@ -61,12 +55,9 @@ export function LogEventDetail({
           />
         </div>
       );
+    case "task-status":
     case "work-start":
     case "work-stop":
-      return (
-        <div className="log-detail log-detail--work">
-          {taskTitle(tasks, event.stretch.taskId)}
-        </div>
-      );
+      return <TaskLogDetail event={event} tasks={tasks} />;
   }
 }

@@ -1,3 +1,6 @@
+import type { SVGProps } from "react";
+import { CornerDownLeft, RotateCcw, Save } from "lucide-react";
+
 // Shared inline SVG icons for the dashboard. `iconProps` is the common stroke
 // styling spread onto each <svg>.
 const iconProps = {
@@ -46,9 +49,36 @@ export const chevronRightIcon = (
   </svg>
 );
 
+
 export const checkIcon = (
   <svg {...iconProps}>
     <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+export const eyeOffIcon = (
+  <svg {...iconProps}>
+    <path d="M10.7 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.4 3.2" />
+    <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.6 9.6 0 0 0 5.4-1.6" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <line x1="3" x2="21" y1="3" y2="21" />
+  </svg>
+);
+
+export const sortIcon = (
+  <svg {...iconProps}>
+    <path d="m3 8 4-4 4 4" />
+    <path d="M7 4v16" />
+    <path d="m21 16-4 4-4-4" />
+    <path d="M17 20V4" />
+  </svg>
+);
+
+export const filterIcon = (
+  <svg {...iconProps}>
+    <line x1="4" x2="20" y1="7" y2="7" />
+    <line x1="7" x2="17" y1="12" y2="12" />
+    <line x1="10" x2="14" y1="17" y2="17" />
   </svg>
 );
 
@@ -59,53 +89,46 @@ export const xIcon = (
   </svg>
 );
 
-export const overviewIcon = (
-  <svg {...iconProps}>
-    <rect x="4" y="4" width="6" height="6" rx="1" />
-    <rect x="14" y="4" width="6" height="6" rx="1" />
-    <rect x="4" y="14" width="6" height="6" rx="1" />
-    <rect x="14" y="14" width="6" height="6" rx="1" />
-  </svg>
-);
+export function CoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps} {...props}>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 16 9 5 9-5" />
+    </svg>
+  );
+}
 
-export const saveLayoutIcon = (
-  <svg {...iconProps}>
-    <rect x="4" y="4" width="16" height="16" rx="3" />
-    <path d="M8 12h8" />
-    <path d="M12 8v8" />
-  </svg>
-);
+export function InsightsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps} {...props}>
+      <path d="M4 16l5-5 3.5 3.5L20 7" />
+      <path d="M15 7h5v5" />
+    </svg>
+  );
+}
 
-export const insightsIcon = (
-  <svg {...iconProps}>
-    <path d="M4 16l5-5 3.5 3.5L20 7" />
-    <path d="M15 7h5v5" />
-  </svg>
-);
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps} {...props}>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+      <path d="M4 10h16" />
+    </svg>
+  );
+}
 
-export const calendarIcon = (
-  <svg {...iconProps}>
-    <rect x="4" y="5" width="16" height="15" rx="2" />
-    <path d="M8 3v4" />
-    <path d="M16 3v4" />
-    <path d="M4 10h16" />
-  </svg>
-);
+export function AssistantIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps} {...props}>
+      <path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.5a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
+      <path d="M8 11.5h8" />
+    </svg>
+  );
+}
 
-export const logsIcon = (
-  <svg {...iconProps}>
-    <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
-    <path d="M8 4v16" />
-    <path d="M11 8h5" />
-  </svg>
-);
-
-export const assistantIcon = (
-  <svg {...iconProps}>
-    <path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.5a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
-    <path d="M8 11.5h8" />
-  </svg>
-);
+export const assistantIcon = <AssistantIcon />;
 
 export const editIcon = (
   <svg {...iconProps}>
@@ -121,23 +144,20 @@ export const sendIcon = (
   </svg>
 );
 
-export const tasksIcon = (
-  <svg {...iconProps}>
-    <rect x="3" y="3" width="18" height="18" rx="3" />
-    <path d="m8 12 2.5 2.5L16 9" />
-  </svg>
-);
+export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps} {...props}>
+      <line x1="4" x2="20" y1="7" y2="7" />
+      <line x1="4" x2="20" y1="12" y2="12" />
+      <line x1="4" x2="20" y1="17" y2="17" />
+      <circle cx="8" cy="7" r="2" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
-export const settingsIcon = (
-  <svg {...iconProps}>
-    <line x1="4" x2="20" y1="7" y2="7" />
-    <line x1="4" x2="20" y1="12" y2="12" />
-    <line x1="4" x2="20" y1="17" y2="17" />
-    <circle cx="8" cy="7" r="2" fill="currentColor" stroke="none" />
-    <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
-    <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
-  </svg>
-);
+export const settingsIcon = <SettingsIcon />;
 
 export const tagsIcon = (
   <svg {...iconProps}>
@@ -185,3 +205,9 @@ export const gripIcon = (
     <circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none" />
   </svg>
 );
+
+export const saveIcon = <Save {...iconProps} />;
+
+export const refreshIcon = <RotateCcw {...iconProps} />;
+
+export const enterIcon = <CornerDownLeft {...iconProps} />;

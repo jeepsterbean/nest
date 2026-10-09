@@ -1,6 +1,7 @@
 import { moveItem } from "../../lib/reorder";
 
 export const TASK_VIEWS = [
+  { key: "day", label: "Day" },
   { key: "table", label: "Table" },
   { key: "map", label: "Map" },
 ] as const;
@@ -26,7 +27,11 @@ export type TaskTableColumn = {
   label: string;
   width: number;
   minWidth: number;
+  hidden?: boolean;
 };
+
+/** Title names the row, so it stays visible. */
+export const canHideTaskTableColumn = (id: TaskTableColumnId) => id !== "title";
 
 /** Overview Tasks peek: Status, Title, Value, Effort — read-only, Open/Closed. */
 export const OVERVIEW_TASK_COLUMN_IDS: readonly TaskTableColumnId[] = [
@@ -43,9 +48,7 @@ export const overviewTaskColumns = (): TaskTableColumn[] =>
   });
 
 const TASK_VIEW_KEY = "nest:task-view";
-const TASK_TABLE_KEY = "nest:task-table";
 const COLUMN_IDS = new Set<string>(TASK_TABLE_COLUMNS.map((column) => column.id));
-const MAX_COLUMN_WIDTH = 640;
 
 type TaskStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -53,12 +56,12 @@ const isColumnId = (value: unknown): value is TaskTableColumnId =>
   typeof value === "string" && COLUMN_IDS.has(value);
 
 const clampWidth = (minWidth: number, width: number) =>
-  Math.min(MAX_COLUMN_WIDTH, Math.max(minWidth, Math.round(width)));
+  Math.max(minWidth, Math.round(width));
 
-/** Table is the default Tasks layout. An unknown stored value falls back. */
+/** Day is the default Tasks layout. An unknown stored value falls back. */
 export const readTaskView = (storage: TaskStorage = localStorage): TaskViewKey => {
   const stored = storage.getItem(TASK_VIEW_KEY);
-  return stored === "map" || stored === "table" ? stored : "table";
+  return stored === "day" || stored === "table" || stored === "map" ? stored : "day";
 };
 
 export const writeTaskView = (
@@ -68,15 +71,16 @@ export const writeTaskView = (
   storage.setItem(TASK_VIEW_KEY, key);
 };
 
-/** Drop unknown ids, append any new columns, and clamp widths to each min/max. */
+/** Drop unknown ids, append any new columns, and clamp widths to each min. */
 export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => {
   const record =
-    stored && typeof stored === "object" ? (stored as { order?: unknown; widths?: unknown }) : {};
+    stored && typeof stored === "object" ? (stored as { order?: unknown; widths?: unknown; hidden?: unknown }) : {};
   const storedOrder = Array.isArray(record.order) ? record.order : [];
   const storedWidths =
     record.widths && typeof record.widths === "object" && !Array.isArray(record.widths)
       ? (record.widths as Record<string, unknown>)
       : {};
+  const storedHidden = new Set<unknown>(Array.isArray(record.hidden) ? record.hidden : []);
 
   const seen = new Set<TaskTableColumnId>();
   const order: TaskTableColumnId[] = [];
@@ -98,41 +102,158 @@ export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => 
     const column = byId.get(id)!;
     const raw = storedWidths[id];
     const width = typeof raw === "number" && Number.isFinite(raw) ? raw : column.width;
-    return { ...column, width: clampWidth(column.minWidth, width) };
+    const hidden = storedHidden.has(id) && canHideTaskTableColumn(id);
+    return { ...column, width: clampWidth(column.minWidth, width), ...(hidden ? { hidden } : {}) };
   });
 };
 
-export const readTaskTableLayout = (
-  storage: TaskStorage = localStorage,
-): TaskTableColumn[] => {
-  try {
-    return normalizeTaskTableLayout(JSON.parse(storage.getItem(TASK_TABLE_KEY) ?? "null"));
-  } catch {
-    return normalizeTaskTableLayout(null);
-  }
+/** The stored shape `normalizeTaskTableLayout` reads back; labels and minimums come from code. */
+export const serializeTaskTableLayout = (columns: TaskTableColumn[]) => ({
+  order: columns.map((column) => column.id),
+  widths: Object.fromEntries(columns.map((column) => [column.id, column.width])),
+  hidden: columns.filter((column) => column.hidden).map((column) => column.id),
+});
+
+export const sameHiddenTaskTableColumns = (a: TaskTableColumn[], b: TaskTableColumn[]) => {
+  const hiddenIn = (columns: TaskTableColumn[]) => columns.filter((column) => column.hidden).map((column) => column.id);
+  const hiddenA = hiddenIn(a);
+  const hiddenB = hiddenIn(b);
+  return hiddenA.length === hiddenB.length && hiddenA.every((id) => hiddenB.includes(id));
 };
 
-export const writeTaskTableLayout = (
+export const sameTaskTableLayout = (a: TaskTableColumn[], b: TaskTableColumn[]) =>
+  a.length === b.length &&
+  a.every((column, index) => {
+    const other = b[index]!;
+    return column.id === other.id && column.width === other.width && Boolean(column.hidden) === Boolean(other.hidden);
+  });
+
+type FlexColumn = { index: number; weight: number; minWidth: number };
+
+/** Scale visible columns to fill `availableWidth`. Hidden widths stay as weights. */
+export const fitTaskTableColumns = (
   columns: TaskTableColumn[],
-  storage: TaskStorage = localStorage,
-) => {
-  storage.setItem(
-    TASK_TABLE_KEY,
-    JSON.stringify({
-      order: columns.map((column) => column.id),
-      widths: Object.fromEntries(columns.map((column) => [column.id, column.width])),
-    }),
-  );
+  availableWidth: number,
+): TaskTableColumn[] => {
+  if (!Number.isFinite(availableWidth) || availableWidth <= 0) return columns;
+
+  const items: FlexColumn[] = [];
+  columns.forEach((column, index) => {
+    if (column.hidden) return;
+    items.push({
+      index,
+      weight: Math.max(column.width, column.minWidth),
+      minWidth: column.minWidth,
+    });
+  });
+  if (items.length === 0) return columns;
+
+  const minSum = items.reduce((sum, item) => sum + item.minWidth, 0);
+  const target = Math.max(Math.round(availableWidth), minSum);
+  const currentSum = items.reduce((sum, item) => sum + columns[item.index]!.width, 0);
+  if (currentSum === target && items.every((item) => columns[item.index]!.width >= item.minWidth)) {
+    return columns;
+  }
+
+  const widths = allocateColumnWidths(items, target);
+  return columns.map((column, index) => {
+    const next = widths.get(index);
+    return next === undefined || next === column.width ? column : { ...column, width: next };
+  });
 };
 
-export const resizeTaskTableColumn = (
+const allocateColumnWidths = (items: FlexColumn[], target: number): Map<number, number> => {
+  const locked = new Set<number>();
+  let remaining = target;
+
+  let progressed = true;
+  while (progressed && locked.size < items.length) {
+    progressed = false;
+    const flex = items.filter((item) => !locked.has(item.index));
+    const weightSum = flex.reduce((sum, item) => sum + item.weight, 0);
+    for (const item of flex) {
+      const scaled = weightSum <= 0 ? remaining / flex.length : (item.weight / weightSum) * remaining;
+      if (scaled < item.minWidth) {
+        locked.add(item.index);
+        remaining -= item.minWidth;
+        progressed = true;
+      }
+    }
+  }
+
+  const assigned = new Map<number, number>();
+  for (const item of items) {
+    if (locked.has(item.index)) assigned.set(item.index, item.minWidth);
+  }
+
+  const flex = items.filter((item) => !locked.has(item.index));
+  if (flex.length === 0) return assigned;
+
+  const weightSum = flex.reduce((sum, item) => sum + item.weight, 0);
+  const exacts = flex.map((item) =>
+    weightSum <= 0 ? remaining / flex.length : (item.weight / weightSum) * remaining,
+  );
+  const bases = exacts.map((exact, index) => Math.max(flex[index]!.minWidth, Math.floor(exact)));
+  let leftover = remaining - bases.reduce((sum, width) => sum + width, 0);
+  const byRemainder = exacts
+    .map((exact, index) => ({ index, frac: exact - Math.floor(exact) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const { index } of byRemainder) {
+    if (leftover <= 0) break;
+    bases[index] += 1;
+    leftover -= 1;
+  }
+  flex.forEach((item, index) => assigned.set(item.index, bases[index]!));
+  return assigned;
+};
+
+/** Grow `id` and shrink the next visible column by the same amount, stopping at each min. */
+export const splitTaskTableColumn = (
   columns: TaskTableColumn[],
   id: TaskTableColumnId,
-  width: number,
-): TaskTableColumn[] =>
-  columns.map((column) =>
-    column.id === id ? { ...column, width: clampWidth(column.minWidth, width) } : column,
+  delta: number,
+): TaskTableColumn[] => {
+  if (!Number.isFinite(delta)) return columns;
+  const visible = columns.filter((column) => !column.hidden);
+  const index = visible.findIndex((column) => column.id === id);
+  const left = visible[index];
+  const right = visible[index + 1];
+  if (!left || !right) return columns;
+
+  const applied = Math.max(
+    left.minWidth - left.width,
+    Math.min(Math.round(delta), right.width - right.minWidth),
   );
+  if (applied === 0) return columns;
+  return columns.map((column) => {
+    if (column.id === left.id) return { ...column, width: left.width + applied };
+    if (column.id === right.id) return { ...column, width: right.width - applied };
+    return column;
+  });
+};
+
+export const setTaskTableColumnHidden = (
+  columns: TaskTableColumn[],
+  id: TaskTableColumnId,
+  hidden: boolean,
+): TaskTableColumn[] =>
+  columns.map((column) => {
+    if (column.id !== id || (hidden && !canHideTaskTableColumn(id))) return column;
+    const { hidden: _wasHidden, ...shown } = column;
+    return hidden ? { ...shown, hidden: true } : shown;
+  });
+
+export const showAllTaskTableColumns = (columns: TaskTableColumn[]): TaskTableColumn[] =>
+  columns.map(({ hidden: _wasHidden, ...column }) => column);
+
+/** Toolbar pill copy: one hidden column is named, several are counted. */
+// Two names still fit a pill; past that a count scans faster and hover lists them.
+export const HIDDEN_COLUMN_NAMES_LIMIT = 2;
+
+export const hiddenColumnsLabel = (hidden: TaskTableColumn[]) =>
+  hidden.length <= HIDDEN_COLUMN_NAMES_LIMIT
+    ? hidden.map((column) => column.label).join(", ")
+    : `${hidden.length} hidden`;
 
 export const moveTaskTableColumn = (
   columns: TaskTableColumn[],

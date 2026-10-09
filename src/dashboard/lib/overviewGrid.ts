@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 export const COLS = 12;
 export const ROWS = 12;
 export const OVERVIEW_LAYOUT_STORAGE_KEY = "nest:overview-layout";
-export const OVERVIEW_LAYOUT_SNAPSHOTS_STORAGE_KEY =
-  "nest:overview-layout-snapshots";
-export const MAX_OVERVIEW_LAYOUT_SNAPSHOTS = 5;
+// The key predates the Overview sidebar, when saved layouts were "snapshots".
+export const SAVED_LAYOUTS_STORAGE_KEY = "nest:overview-layout-snapshots";
+export const SAVED_LAYOUT_SELECTION_STORAGE_KEY =
+  "nest:overview-layout-selection";
+export const MAX_SAVED_LAYOUTS = 5;
+export const DEFAULT_SAVED_LAYOUT_ICON = "layout-grid";
 
 export const TILE_IDS = [
   "lastHour",
@@ -27,6 +30,9 @@ export const TILE_LABELS: Record<TileId, string> = {
   controlPanel: "Control panel",
 };
 
+/** DOM id shared by the Overview settings overlay and its Greetings board toggle. */
+export const OVERVIEW_SETTINGS_ID = "overview-settings";
+
 export type TileLayout = {
   id: TileId;
   x: number;
@@ -39,12 +45,30 @@ export type TileLayout = {
 
 export type TileRect = Pick<TileLayout, "x" | "y" | "w" | "h">;
 
-export type OverviewLayoutSnapshot = {
+export type SavedLayout = {
   id: string;
   label: string;
+  icon: string;
+  /** When the layout was first saved. A later save does not change it, so the sidebar row stays put. */
+  createdAt: number;
   savedAt: number;
   layout: TileLayout[];
 };
+
+/** Which saved layout the board was last loaded from or saved to, and whether
+ *  the board has changed since. With no id the board belongs to no saved
+ *  layout, so it always counts as edited. */
+export type SavedLayoutSelection = { id: string | null; edited: boolean };
+
+export type SavedLayoutProblem =
+  | { kind: "blank" }
+  | { kind: "full" }
+  | { kind: "nameTaken" }
+  | { kind: "duplicate"; match: SavedLayout };
+
+export type SavedLayoutResult =
+  | { ok: true; layouts: SavedLayout[] }
+  | { ok: false; problem: SavedLayoutProblem };
 
 export type TileRules = {
   minW?: number;
@@ -682,7 +706,25 @@ function layoutsEqual(a: TileLayout[], b: TileLayout[]) {
   });
 }
 
-function parseStoredSnapshot(value: unknown): OverviewLayoutSnapshot | null {
+function readStorage(storage?: Pick<Storage, "getItem">) {
+  return storage ?? (typeof window === "undefined" ? null : window.localStorage);
+}
+
+function writeStorage(
+  key: string,
+  value: unknown,
+  storage?: Pick<Storage, "setItem">,
+) {
+  try {
+    const target =
+      storage ?? (typeof window === "undefined" ? null : window.localStorage);
+    target?.setItem(key, JSON.stringify(value));
+  } catch {
+    // Keep the board usable when storage is unavailable.
+  }
+}
+
+function parseStoredSavedLayout(value: unknown): SavedLayout | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   if (
@@ -694,91 +736,183 @@ function parseStoredSnapshot(value: unknown): OverviewLayoutSnapshot | null {
   ) {
     return null;
   }
-  const layout = parseTileLayout(record.layout);
   return {
     id: record.id,
     label: record.label.trim(),
+    // Layouts saved before the Overview sidebar have no icon.
+    icon:
+      typeof record.icon === "string" && record.icon
+        ? record.icon
+        : DEFAULT_SAVED_LAYOUT_ICON,
+    // Layouts saved before creation time was stored use savedAt, which was that time.
+    createdAt: isInteger(record.createdAt) ? record.createdAt : record.savedAt,
     savedAt: record.savedAt,
-    layout,
+    layout: parseTileLayout(record.layout),
   };
 }
 
-export function parseOverviewLayoutSnapshots(
-  value: unknown,
-): OverviewLayoutSnapshot[] {
+/** Oldest first, so a re-save does not move a row. */
+export function parseSavedLayouts(value: unknown): SavedLayout[] {
   if (!Array.isArray(value)) return [];
-  const snapshots: OverviewLayoutSnapshot[] = [];
+  const layouts: SavedLayout[] = [];
   for (const entry of value) {
-    const snapshot = parseStoredSnapshot(entry);
-    if (!snapshot || snapshots.some((candidate) => candidate.id === snapshot.id)) {
+    const saved = parseStoredSavedLayout(entry);
+    if (!saved || layouts.some((candidate) => candidate.id === saved.id)) {
       continue;
     }
-    snapshots.push(snapshot);
+    layouts.push(saved);
   }
-  return snapshots
-    .sort((a, b) => b.savedAt - a.savedAt)
-    .slice(0, MAX_OVERVIEW_LAYOUT_SNAPSHOTS)
-    .map((snapshot) => ({ ...snapshot, layout: cloneLayout(snapshot.layout) }));
+  return layouts
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(0, MAX_SAVED_LAYOUTS);
 }
 
-export function readOverviewLayoutSnapshots(
+export function readSavedLayouts(
   storage?: Pick<Storage, "getItem">,
-): OverviewLayoutSnapshot[] {
+): SavedLayout[] {
   try {
-    const target =
-      storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    if (!target) return [];
-    const stored = target.getItem(OVERVIEW_LAYOUT_SNAPSHOTS_STORAGE_KEY);
-    return stored === null ? [] : parseOverviewLayoutSnapshots(JSON.parse(stored));
+    const stored = readStorage(storage)?.getItem(SAVED_LAYOUTS_STORAGE_KEY);
+    return stored == null ? [] : parseSavedLayouts(JSON.parse(stored));
   } catch {
     return [];
   }
 }
 
-export function writeOverviewLayoutSnapshots(
-  snapshots: OverviewLayoutSnapshot[],
+export function writeSavedLayouts(
+  layouts: SavedLayout[],
   storage?: Pick<Storage, "setItem">,
 ) {
+  writeStorage(SAVED_LAYOUTS_STORAGE_KEY, layouts, storage);
+}
+
+/** A stored selection must still name a saved layout. Without one stored
+ *  (first launch after the sidebar shipped), adopt the saved layout the board
+ *  already matches. */
+export function parseSavedLayoutSelection(
+  value: unknown,
+  layouts: SavedLayout[],
+  board: TileLayout[],
+): SavedLayoutSelection {
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.id === "string" &&
+      layouts.some((saved) => saved.id === record.id)
+    ) {
+      return { id: record.id, edited: record.edited === true };
+    }
+    return { id: null, edited: true };
+  }
+  const match = findSavedLayoutMatch(layouts, board);
+  return match ? { id: match.id, edited: false } : { id: null, edited: true };
+}
+
+export function readSavedLayoutSelection(
+  layouts: SavedLayout[],
+  board: TileLayout[],
+  storage?: Pick<Storage, "getItem">,
+): SavedLayoutSelection {
   try {
-    const target =
-      storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    if (!target) return;
-    target.setItem(
-      OVERVIEW_LAYOUT_SNAPSHOTS_STORAGE_KEY,
-      JSON.stringify(snapshots),
+    const stored = readStorage(storage)?.getItem(
+      SAVED_LAYOUT_SELECTION_STORAGE_KEY,
+    );
+    return parseSavedLayoutSelection(
+      stored == null ? null : JSON.parse(stored),
+      layouts,
+      board,
     );
   } catch {
-    // Keep the board usable when storage is unavailable.
+    return parseSavedLayoutSelection(null, layouts, board);
   }
 }
 
-export function buildOverviewLayoutSnapshot(
-  layout: TileLayout[],
+export function writeSavedLayoutSelection(
+  selection: SavedLayoutSelection,
+  storage?: Pick<Storage, "setItem">,
+) {
+  writeStorage(SAVED_LAYOUT_SELECTION_STORAGE_KEY, selection, storage);
+}
+
+export function findSavedLayoutMatch(
+  layouts: SavedLayout[],
+  board: TileLayout[],
+  exceptId?: string,
+): SavedLayout | undefined {
+  return layouts.find(
+    (saved) => saved.id !== exceptId && layoutsEqual(saved.layout, board),
+  );
+}
+
+const normalizeLabel = (label: string) => label.trim().toLocaleLowerCase();
+
+const isLabelTaken = (layouts: SavedLayout[], label: string, exceptId?: string) =>
+  layouts.some(
+    (saved) =>
+      saved.id !== exceptId && normalizeLabel(saved.label) === normalizeLabel(label),
+  );
+
+export function createSavedLayout(
+  layouts: SavedLayout[],
+  board: TileLayout[],
   label: string,
+  icon: string,
   now = Date.now(),
-): OverviewLayoutSnapshot | null {
-  const trimmedLabel = label.trim();
-  if (!trimmedLabel) return null;
-  return {
-    id: `snapshot-${now}`,
-    label: trimmedLabel,
+): SavedLayoutResult {
+  const trimmed = label.trim();
+  if (!trimmed) return { ok: false, problem: { kind: "blank" } };
+  if (layouts.length >= MAX_SAVED_LAYOUTS) {
+    return { ok: false, problem: { kind: "full" } };
+  }
+  if (isLabelTaken(layouts, trimmed)) {
+    return { ok: false, problem: { kind: "nameTaken" } };
+  }
+  const match = findSavedLayoutMatch(layouts, board);
+  if (match) return { ok: false, problem: { kind: "duplicate", match } };
+  const created: SavedLayout = {
+    id: `layout-${now}`,
+    label: trimmed,
+    icon,
+    createdAt: now,
     savedAt: now,
-    layout: cloneLayout(layout),
+    layout: cloneLayout(board),
+  };
+  return { ok: true, layouts: [...layouts, created] };
+}
+
+export function overwriteSavedLayout(
+  layouts: SavedLayout[],
+  id: string,
+  board: TileLayout[],
+  now = Date.now(),
+): SavedLayoutResult {
+  const match = findSavedLayoutMatch(layouts, board, id);
+  if (match) return { ok: false, problem: { kind: "duplicate", match } };
+  return {
+    ok: true,
+    layouts: layouts.map((saved) =>
+      saved.id === id
+        ? { ...saved, savedAt: now, layout: cloneLayout(board) }
+        : saved,
+    ),
   };
 }
 
-export function saveOverviewLayoutSnapshot(
-  snapshots: OverviewLayoutSnapshot[],
-  layout: TileLayout[],
+export function renameSavedLayout(
+  layouts: SavedLayout[],
+  id: string,
   label: string,
-  now = Date.now(),
-): OverviewLayoutSnapshot[] {
-  const nextSnapshot = buildOverviewLayoutSnapshot(layout, label, now);
-  if (!nextSnapshot) return snapshots;
-  const deduped = snapshots.filter(
-    (snapshot) => !layoutsEqual(snapshot.layout, nextSnapshot.layout),
-  );
-  return [nextSnapshot, ...deduped].slice(0, MAX_OVERVIEW_LAYOUT_SNAPSHOTS);
+): SavedLayoutResult {
+  const trimmed = label.trim();
+  if (!trimmed) return { ok: false, problem: { kind: "blank" } };
+  if (isLabelTaken(layouts, trimmed, id)) {
+    return { ok: false, problem: { kind: "nameTaken" } };
+  }
+  return {
+    ok: true,
+    layouts: layouts.map((saved) =>
+      saved.id === id ? { ...saved, label: trimmed } : saved,
+    ),
+  };
 }
 
 export function pointerDeltaToCells(
@@ -809,62 +943,139 @@ export function pointerToCell(
   };
 }
 
+type OverviewBoard = { layout: TileLayout[]; selection: SavedLayoutSelection };
+
+function readOverviewBoard(): OverviewBoard {
+  const layout = readOverviewLayout();
+  return { layout, selection: readSavedLayoutSelection(readSavedLayouts(), layout) };
+}
+
 export function useOverviewLayout() {
-  const [layout, setLayout] = useState(readOverviewLayout);
-  const [snapshots, setSnapshots] = useState(readOverviewLayoutSnapshots);
+  const [savedLayouts, setSavedLayouts] = useState(readSavedLayouts);
+  const [board, setBoard] = useState(readOverviewBoard);
+  const { layout, selection } = board;
 
   useEffect(() => writeOverviewLayout(layout), [layout]);
-  useEffect(() => writeOverviewLayoutSnapshots(snapshots), [snapshots]);
+  useEffect(() => writeSavedLayouts(savedLayouts), [savedLayouts]);
+  useEffect(() => writeSavedLayoutSelection(selection), [selection]);
+
+  // Any change the user makes to the board marks it edited. Saved layouts are
+  // compared only when saving; a refused move leaves the board untouched.
+  const editBoard = useCallback(
+    (change: (current: TileLayout[]) => TileLayout[]) =>
+      setBoard((current) => {
+        const next = change(current.layout);
+        if (layoutsEqual(next, current.layout)) return current;
+        return { layout: next, selection: { ...current.selection, edited: true } };
+      }),
+    [],
+  );
 
   const move = useCallback(
     (id: TileId, dx: number, dy: number) =>
-      setLayout((current) => moveTile(current, id, dx, dy)),
-    [],
+      editBoard((current) => moveTile(current, id, dx, dy)),
+    [editBoard],
   );
   const resize = useCallback(
     (id: TileId, dw: number, dh: number) =>
-      setLayout((current) => resizeTile(current, id, dw, dh)),
-    [],
+      editBoard((current) => resizeTile(current, id, dw, dh)),
+    [editBoard],
   );
   const minimise = useCallback(
-    (id: TileId) => setLayout((current) => minimiseTile(current, id)),
-    [],
+    (id: TileId) => editBoard((current) => minimiseTile(current, id)),
+    [editBoard],
   );
   const expand = useCallback(
-    (id: TileId) => setLayout((current) => expandTile(current, id)),
-    [],
+    (id: TileId) => editBoard((current) => expandTile(current, id)),
+    [editBoard],
   );
   const hide = useCallback(
-    (id: TileId) => setLayout((current) => hideTile(current, id)),
-    [],
+    (id: TileId) => editBoard((current) => hideTile(current, id)),
+    [editBoard],
   );
   const show = useCallback(
     (id: TileId, at?: Pick<TileRect, "x" | "y">) =>
-      setLayout((current) => showTile(current, id, at)),
+      editBoard((current) => showTile(current, id, at)),
+    [editBoard],
+  );
+  const applyLayout = useCallback(
+    (next: TileLayout[]) => editBoard(() => cloneLayout(next)),
+    [editBoard],
+  );
+
+  const loadSavedLayout = useCallback(
+    (id: string) => {
+      const saved = savedLayouts.find((candidate) => candidate.id === id);
+      if (!saved) return;
+      setBoard({
+        layout: cloneLayout(saved.layout),
+        selection: { id, edited: false },
+      });
+    },
+    [savedLayouts],
+  );
+
+  const saveSelectedLayout = useCallback((): SavedLayoutResult | null => {
+    if (!selection.id) return null;
+    const result = overwriteSavedLayout(savedLayouts, selection.id, layout);
+    if (result.ok) {
+      setSavedLayouts(result.layouts);
+      setBoard((current) => ({
+        ...current,
+        selection: { ...current.selection, edited: false },
+      }));
+    }
+    return result;
+  }, [layout, savedLayouts, selection.id]);
+
+  const createLayout = useCallback(
+    (label: string, icon: string): SavedLayoutResult => {
+      const result = createSavedLayout(savedLayouts, layout, label, icon);
+      if (result.ok) {
+        // New layouts are appended, so the last one is the layout just made.
+        const created = result.layouts[result.layouts.length - 1]!;
+        setSavedLayouts(result.layouts);
+        setBoard((current) => ({
+          ...current,
+          selection: { id: created.id, edited: false },
+        }));
+      }
+      return result;
+    },
+    [layout, savedLayouts],
+  );
+
+  const renameLayout = useCallback(
+    (id: string, label: string): SavedLayoutResult => {
+      const result = renameSavedLayout(savedLayouts, id, label);
+      if (result.ok) setSavedLayouts(result.layouts);
+      return result;
+    },
+    [savedLayouts],
+  );
+
+  const setLayoutIcon = useCallback(
+    (id: string, icon: string) =>
+      setSavedLayouts((current) =>
+        current.map((saved) => (saved.id === id ? { ...saved, icon } : saved)),
+      ),
     [],
   );
-  const restoreSnapshot = useCallback((snapshotId: string) => {
-    const snapshot = snapshots.find((candidate) => candidate.id === snapshotId);
-    if (!snapshot) return;
-    setLayout(cloneLayout(snapshot.layout));
-  }, [snapshots]);
-  const saveSnapshot = useCallback(
-    (label: string) =>
-      setSnapshots((current) =>
-        saveOverviewLayoutSnapshot(current, layout, label),
-      ),
-    [layout],
-  );
-  const applyLayout = useCallback((next: TileLayout[]) => {
-    setLayout(cloneLayout(next));
+
+  // The board stays as it is; it just no longer belongs to a saved layout.
+  const deleteLayout = useCallback((id: string) => {
+    setSavedLayouts((current) => current.filter((saved) => saved.id !== id));
+    setBoard((current) =>
+      current.selection.id === id
+        ? { ...current, selection: { id: null, edited: true } }
+        : current,
+    );
   }, []);
-  const activeSnapshotId =
-    snapshots.find((snapshot) => layoutsEqual(snapshot.layout, layout))?.id ?? "";
 
   return {
     layout,
-    snapshots,
-    activeSnapshotId,
+    savedLayouts,
+    selection,
     move,
     resize,
     minimise,
@@ -872,8 +1083,12 @@ export function useOverviewLayout() {
     hide,
     show,
     applyLayout,
-    restoreSnapshot,
-    saveSnapshot,
+    loadSavedLayout,
+    saveSelectedLayout,
+    createLayout,
+    renameLayout,
+    setLayoutIcon,
+    deleteLayout,
   };
 }
 

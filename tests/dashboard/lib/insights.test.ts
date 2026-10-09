@@ -1,16 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
+  insightBrainDumps,
+  insightCheckInClosedTo,
   insightCheckIns,
   insightColumns,
-  insightDays,
+  insightTaskGroups,
   openAtPct,
   stepColumns,
-  outcomeStats,
-  readRangeMode,
-  windowInsight,
-  writeRangeMode,
+  rangeInsight,
+  readCalendarFigure,
+  readCalendarInsightsShown,
+  readCalendarPresentation,
+  readCalendarRangeMode,
+  lastHourPeriod,
+  lastHourSpanLabel,
+  LAST_HOUR_WINDOW_SECONDS,
+  openLastHourOnCalendar,
+  writeCalendarFigure,
+  writeCalendarPresentation,
+  type InsightData,
+  writeCalendarInsightsShown,
+  writeCalendarRangeMode,
 } from "../../../src/dashboard/lib/insights";
+
+describe("insightBrainDumps", () => {
+  it("counts dumps within the range and groups overlapping Tags by frequency", () => {
+    const work = { id: 1, name: "Work" };
+    const ideas = { id: 2, name: "Ideas" };
+    expect(insightBrainDumps([
+      { id: 1, createdAt: 9, text: "Before", tags: [work] },
+      { id: 2, createdAt: 10, text: "Start", tags: [work, ideas] },
+      { id: 3, createdAt: 15, text: "Middle", tags: [work] },
+      { id: 4, createdAt: 19, text: "Untagged", tags: [] },
+      { id: 5, createdAt: 20, text: "End", tags: [ideas] },
+    ], { from: 10, to: 20 })).toEqual({
+      count: 3,
+      tags: [{ ...work, count: 2 }, { ...ideas, count: 1 }],
+      untaggedCount: 1,
+    });
+  });
+
+  it("returns an empty summary for a quiet range", () => {
+    expect(insightBrainDumps([], { from: 10, to: 20 })).toEqual({
+      count: 0, tags: [], untaggedCount: 0,
+    });
+  });
+});
 import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
+import { formatTime } from "../../../src/dashboard/lib/time";
 import type {
   Metric,
   MetricCheckInWithRatings,
@@ -39,38 +76,105 @@ const phaseCheckIn = (
   phaseLabel: null,
 });
 
-describe("outcomeStats", () => {
-  it("uses zeros when nothing was scored", () => {
-    expect(outcomeStats([], [], [], { from: 0, to: 100 })).toEqual([
-      { label: "Completed", value: "0" },
-      { label: "Value", value: "0" },
-      { label: "Effort", value: "0" },
-      { label: "Check-ins", value: "0" },
-    ]);
+describe("last hour window", () => {
+  it("is the rolling hour ending at now", () => {
+    expect(lastHourPeriod(10_000)).toEqual({
+      from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
+      to: 10_000,
+    });
   });
 });
+describe("rangeInsight", () => {
+  const empty: InsightData = {
+    tasks: [],
+    taskStatusEvents: [],
+    taskWorkStretches: [],
+    metrics: [],
+    pulses: [],
+    checkIns: [],
+    phaseCheckIns: [],
+    phases,
+    brainDumps: [],
+  };
+  const clockAt = (nowSec: number, checkInNowSec = nowSec) => ({
+    nowMs: nowSec * 1000,
+    nowSec,
+    checkInNowMs: checkInNowSec * 1000,
+  });
 
-describe("windowInsight", () => {
-  it("keeps quiet time, so the strip reads as a linear clock", () => {
-    const insight = windowInsight(
-      [],
-      [],
-      [],
-      [
-        phaseCheckIn(1, 0, 1),
-        phaseCheckIn(2, 80, 2),
-      ],
-      phases,
-      0,
-      200,
+  it("keeps quiet time in the Phase mix, so it reads as a linear clock", () => {
+    const insight = rangeInsight(
+      { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1), phaseCheckIn(2, 80, 2)] },
+      { from: 0, to: 200, live: false },
+      clockAt(500),
     );
     expect(insight.sessions).toEqual([
       { phaseId: 1, from: 0, to: 80 },
       { phaseId: 2, from: 80, to: 200 },
     ]);
   });
-});
 
+  it("stops the Phase mix at now inside a range still running", () => {
+    const insight = rangeInsight(
+      { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1)] },
+      { from: 0, to: 200, live: false },
+      clockAt(120),
+    );
+    expect(insight.sessions).toEqual([{ phaseId: 1, from: 0, to: 120 }]);
+  });
+
+  it("returns every section for a quiet range", () => {
+    const insight = rangeInsight(
+      empty,
+      { ...lastHourPeriod(10_000), live: true },
+      clockAt(10_000),
+    );
+    expect(insight.brainDumps).toEqual({ count: 0, tags: [], untaggedCount: 0 });
+    expect(insight.taskGroups.map((group) => group.rows.length)).toEqual([0, 0, 0]);
+    expect(insight.checkIns).toEqual([]);
+  });
+
+  it("lets a live range show a check-in and dump saved after its clock end", () => {
+    const savedAt = 10_030;
+    const data: InsightData = {
+      ...empty,
+      checkIns: [
+        { id: 1, createdAt: savedAt, pulseId: null, pulseName: "Daily", ratings: [] },
+      ],
+      brainDumps: [{ id: 1, createdAt: savedAt, text: "Thought", tags: [] }],
+    };
+    const range = lastHourPeriod(10_000);
+    const live = rangeInsight(data, { ...range, live: true }, clockAt(10_000, savedAt));
+    expect(live.checkIns.map((group) => group.checkInCount)).toEqual([1]);
+    expect(live.brainDumps.count).toBe(1);
+
+    const closed = rangeInsight(data, { ...range, live: false }, clockAt(10_000, savedAt));
+    expect(closed.checkIns).toEqual([]);
+    expect(closed.brainDumps.count).toBe(0);
+  });
+
+  it("ledgers Worked time from the range's Work stretches", () => {
+    const insight = rangeInsight(
+      {
+        ...empty,
+        tasks: [task(1, "Write")],
+        taskWorkStretches: [stretch(1, 1, 100, 400)],
+      },
+      { from: 0, to: 1_000, live: false },
+      clockAt(2_000),
+    );
+    expect(
+      insight.taskGroups.map((group) => [
+        group.outcome,
+        group.rows.map((row) => [row.task.title, row.seconds]),
+      ]),
+    ).toEqual([
+      ["completed", []],
+      ["cancelled", []],
+      ["incomplete", [["Write", 300]]],
+    ]);
+  });
+});
 describe("insightColumns", () => {
   // 18 Aug 2026 is a Tuesday, so week columns must start on the 17th.
   const anchor = new Date(2026, 7, 18, 15, 30).getTime();
@@ -108,7 +212,6 @@ describe("insightColumns", () => {
     expect(column.to - column.from).toBeLessThanOrEqual(25 * 3600);
   });
 });
-
 describe("openAtPct", () => {
   const tuesday = new Date(2026, 7, 18, 16, 57).getTime();
   const nowSec = Math.floor(tuesday / 1000);
@@ -146,7 +249,6 @@ describe("openAtPct", () => {
     expect(openAtPct(columns, nowSec, null)).toBe(null);
   });
 });
-
 describe("stepColumns", () => {
   const tuesday = new Date(2026, 7, 18, 16, 57).getTime();
 
@@ -193,24 +295,84 @@ describe("insight range memory", () => {
 
   it("defaults to Day and restores the last saved mode", () => {
     const storage = memory();
-    expect(readRangeMode(storage)).toBe("day");
-    writeRangeMode("week", storage);
-    expect(readRangeMode(storage)).toBe("week");
+    expect(readCalendarRangeMode(storage)).toBe("day");
+    writeCalendarRangeMode("week", storage);
+    expect(readCalendarRangeMode(storage)).toBe("week");
+  });
+
+  it("restores Last hour as the persisted range mode", () => {
+    const storage = memory();
+    writeCalendarRangeMode("lastHour", storage);
+    expect(readCalendarRangeMode(storage)).toBe("lastHour");
   });
 
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
-    expect(readRangeMode(storage)).toBe("day");
+    expect(readCalendarRangeMode(storage)).toBe("day");
   });
 
   it("reads the legacy storage key until the new key is set", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "week");
-    expect(readRangeMode(storage)).toBe("week");
-    writeRangeMode("day", storage);
+    expect(readCalendarRangeMode(storage)).toBe("week");
+    writeCalendarRangeMode("day", storage);
     expect(storage.getItem("nest:date-range")).toBe("day");
-    expect(readRangeMode(storage)).toBe("day");
+    expect(readCalendarRangeMode(storage)).toBe("day");
+  });
+
+  it("draws Work stretch until Logs is chosen", () => {
+    const storage = memory();
+    expect(readCalendarFigure(storage)).toBe("stretch");
+    writeCalendarFigure("logs", storage);
+    expect(readCalendarFigure(storage)).toBe("logs");
+    writeCalendarFigure("stretch", storage);
+    expect(readCalendarFigure(storage)).toBe("stretch");
+  });
+
+  it("defaults to Calendar and restores the last presentation", () => {
+    const storage = memory();
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+    writeCalendarPresentation("timeline", storage);
+    expect(readCalendarPresentation(storage)).toBe("timeline");
+    writeCalendarPresentation("calendar", storage);
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+  });
+
+  it("falls back to Calendar for an unknown presentation", () => {
+    const storage = memory();
+    storage.setItem("nest:calendar-presentation", "agenda");
+    expect(readCalendarPresentation(storage)).toBe("calendar");
+  });
+
+  it("shows Insights beside the grid until it is hidden", () => {
+    const storage = memory();
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+    writeCalendarInsightsShown(false, storage);
+    expect(readCalendarInsightsShown(storage)).toBe(false);
+    writeCalendarInsightsShown(true, storage);
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+  });
+
+  it("reads the retired Insights-only display as Insights shown", () => {
+    const storage = memory();
+    storage.setItem("nest:calendar-display", "insights");
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+  });
+
+  it("opens Last hour with its Insights in view", () => {
+    const storage = memory();
+    writeCalendarInsightsShown(false, storage);
+    openLastHourOnCalendar(storage);
+    expect(readCalendarRangeMode(storage)).toBe("lastHour");
+    expect(readCalendarInsightsShown(storage)).toBe(true);
+  });
+
+  it("labels Last hour with the clock span it covers", () => {
+    const now = new Date(2026, 8, 29, 15, 4).getTime() / 1000;
+    expect(lastHourSpanLabel(now)).toBe(
+      `${formatTime(now - 3600)} – ${formatTime(now)}`,
+    );
   });
 });
 
@@ -241,16 +403,27 @@ const stretch = (
   endedAt: number | null,
 ): TaskWorkStretch => ({ id, taskId, startedAt, endedAt });
 
-describe("insightDays", () => {
+describe("insightTaskGroups", () => {
   const monday = new Date(2026, 7, 17).getTime() / 1000;
   const tuesday = new Date(2026, 7, 18).getTime() / 1000;
   const wednesday = new Date(2026, 7, 19).getTime() / 1000;
-  const columns = [
-    { from: monday, to: tuesday, label: "Mon 17" },
-    { from: tuesday, to: wednesday, label: "Tue 18" },
-  ];
+  const mondayOnly = { from: monday, to: tuesday };
+  const twoDays = { from: monday, to: wednesday };
+  const summarize = (groups: ReturnType<typeof insightTaskGroups>) =>
+    nonEmpty(groups).map((group) => [
+      group.outcome,
+      group.rows.map((row) => [row.task.title, row.seconds]),
+    ]);
+  const nonEmpty = (groups: ReturnType<typeof insightTaskGroups>) =>
+    groups.filter((group) => group.rows.length > 0);
+  const statusEvent = (
+    id: number,
+    fromStatus: TaskStatus,
+    toStatus: TaskStatus,
+    createdAt: number,
+  ): TaskStatusEvent => ({ id, taskId: 1, fromStatus, toStatus, createdAt });
 
-  it("groups Worked time by status, live work first", () => {
+  it("groups Worked time by outcome: Completed, Cancelled, then Incomplete", () => {
     const tasks = [
       task(1, "Write", "active"),
       task(2, "Review", "completed"),
@@ -267,25 +440,59 @@ describe("insightDays", () => {
       wednesday,
       wednesday * 1000,
     );
-    const days = insightDays(columns, blocks, tasks, [], wednesday);
     expect(
-      days[0].groups.map((group) => [
-        group.status,
-        group.rows.map((row) => [row.task.title, row.seconds]),
-      ]),
+      summarize(insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday)),
     ).toEqual([
-      ["active", [["Write", 3600]]],
       ["cancelled", [["Drop", 600]]],
+      ["incomplete", [["Write", 3600]]],
     ]);
-    expect(
-      days[1].groups.map((group) => [
-        group.status,
-        group.rows.map((row) => [row.task.title, row.seconds]),
-      ]),
-    ).toEqual([["completed", [["Review", 1800]]]]);
   });
 
-  it("keeps Monday under Active when the Task is completed later in the week", () => {
+  it("totals each group's Worked time, 0 for an empty group", () => {
+    const tasks = [
+      task(1, "Write", "active"),
+      task(2, "Edit", "active"),
+    ];
+    const blocks = layoutWorkBlocks(
+      [
+        stretch(1, 1, monday + 3600, monday + 7200),
+        stretch(2, 2, monday + 8000, monday + 8600),
+      ],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
+    );
+    expect(
+      insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday).map(
+        (group) => [group.outcome, group.seconds],
+      ),
+    ).toEqual([
+      ["completed", 0],
+      ["cancelled", 0],
+      ["incomplete", 4200],
+    ]);
+  });
+
+  it("sums a Task's Worked time across every day of a longer range", () => {
+    const tasks = [task(1, "Write", "active")];
+    const blocks = layoutWorkBlocks(
+      [
+        stretch(1, 1, monday + 3600, monday + 7200),
+        stretch(2, 1, tuesday + 1800, tuesday + 3600),
+      ],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
+    );
+    expect(
+      summarize(insightTaskGroups(twoDays, blocks, tasks, [], wednesday)),
+    ).toEqual([["incomplete", [["Write", 5400]]]]);
+  });
+
+  it("files a Task under its status at the range's end, once", () => {
+    const tasks = [task(1, "Write", "completed")];
     const events: TaskStatusEvent[] = [
       {
         id: 1,
@@ -295,55 +502,24 @@ describe("insightDays", () => {
         createdAt: tuesday + 100,
       },
     ];
-    const days = insightDays(
-      columns,
-      layoutWorkBlocks(
-        [stretch(1, 1, monday + 3600, monday + 7200)],
-        [task(1, "Write", "completed")],
-        monday,
-        wednesday,
-        wednesday * 1000,
-      ),
-      [task(1, "Write", "completed")],
-      events,
+    const blocks = layoutWorkBlocks(
+      [stretch(1, 1, monday + 3600, monday + 7200)],
+      tasks,
+      monday,
       wednesday,
+      wednesday * 1000,
     );
-    expect(days[0].groups.map((group) => group.status)).toEqual(["active"]);
     expect(
-      days[1].groups.map((group) => [
-        group.status,
-        group.rows.map((row) => [row.task.title, row.seconds]),
-      ]),
-    ).toEqual([["completed", [["Write", 0]]]]);
+      summarize(insightTaskGroups(twoDays, blocks, tasks, events, wednesday)),
+    ).toEqual([["completed", [["Write", 3600]]]]);
+    expect(
+      nonEmpty(
+        insightTaskGroups(mondayOnly, blocks, tasks, events, wednesday),
+      ).map((group) => group.outcome),
+    ).toEqual(["incomplete"]);
   });
 
-  it("puts a same-day completion under Completed", () => {
-    const events: TaskStatusEvent[] = [
-      {
-        id: 1,
-        taskId: 1,
-        fromStatus: "active",
-        toStatus: "completed",
-        createdAt: monday + 8000,
-      },
-    ];
-    const days = insightDays(
-      columns,
-      layoutWorkBlocks(
-        [stretch(1, 1, monday + 3600, monday + 7200)],
-        [task(1, "Write", "completed")],
-        monday,
-        wednesday,
-        wednesday * 1000,
-      ),
-      [task(1, "Write", "completed")],
-      events,
-      wednesday,
-    );
-    expect(days[0].groups.map((group) => group.status)).toEqual(["completed"]);
-  });
-
-  it("uses the last same-day closed status when events arrive out of order", () => {
+  it("uses the last closed status when events arrive out of order", () => {
     const tasks = [task(1, "Write", "cancelled")];
     const events: TaskStatusEvent[] = [
       {
@@ -361,18 +537,19 @@ describe("insightDays", () => {
         createdAt: monday + 1000,
       },
     ];
-    const days = insightDays(
-      columns,
+    const groups = insightTaskGroups(
+      mondayOnly,
       layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
       tasks,
       events,
       wednesday,
     );
-
-    expect(days[0].groups.map((group) => group.status)).toEqual(["cancelled"]);
+    expect(nonEmpty(groups).map((group) => group.outcome)).toEqual([
+      "cancelled",
+    ]);
   });
 
-  it("lists Completions and Cancellations with no Worked time that day", () => {
+  it("lists Completions and Cancellations with no Worked time in the range", () => {
     const tasks = [
       task(1, "Ship", "completed"),
       task(2, "Drop", "cancelled"),
@@ -390,45 +567,130 @@ describe("insightDays", () => {
         taskId: 2,
         fromStatus: "active",
         toStatus: "cancelled",
-        createdAt: monday + 2000,
+        createdAt: tuesday + 2000,
       },
     ];
-    const days = insightDays(
-      columns,
+    const groups = insightTaskGroups(
+      twoDays,
       layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
       tasks,
       events,
       wednesday,
     );
-    expect(
-      days[0].groups.map((group) => [
-        group.status,
-        group.rows.map((row) => [row.task.title, row.seconds]),
-      ]),
-    ).toEqual([
+    expect(summarize(groups)).toEqual([
       ["completed", [["Ship", 0]]],
       ["cancelled", [["Drop", 0]]],
     ]);
   });
 
-  it("leaves future days empty instead of calling them quiet", () => {
-    const noonMonday = monday + 12 * 3600;
-    const days = insightDays(
-      columns,
-      layoutWorkBlocks(
-        [stretch(1, 1, monday + 3600, monday + 7200)],
-        [task(1)],
-        monday,
-        wednesday,
-        noonMonday * 1000,
-      ),
-      [task(1)],
-      [],
-      noonMonday,
+  it("calls worked Tasks moved back to Up next or Backlog Incomplete", () => {
+    const tasks = [task(1, "Write", "up_next"), task(2, "Plan", "backlog")];
+    const blocks = layoutWorkBlocks(
+      [
+        stretch(1, 1, monday + 3600, monday + 7200),
+        stretch(2, 2, monday + 8000, monday + 8600),
+      ],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
     );
-    expect(days[0].isToday).toBe(true);
-    expect(days[1].isFuture).toBe(true);
-    expect(days[1].groups).toEqual([]);
+    expect(
+      summarize(insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday)),
+    ).toEqual([["incomplete", [["Write", 3600], ["Plan", 600]]]]);
+  });
+
+  it("calls a worked completion reopened in the range Incomplete", () => {
+    const tasks = [task(1, "Write", "active")];
+    const events = [
+      statusEvent(1, "active", "completed", monday + 7300),
+      statusEvent(2, "completed", "active", monday + 8000),
+    ];
+    const blocks = layoutWorkBlocks(
+      [stretch(1, 1, monday + 3600, monday + 7200)],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
+    );
+    expect(
+      summarize(insightTaskGroups(mondayOnly, blocks, tasks, events, wednesday)),
+    ).toEqual([["incomplete", [["Write", 3600]]]]);
+  });
+
+  it("leaves out a completion reopened in the range with no Worked time", () => {
+    const tasks = [task(1, "Write", "active")];
+    const events = [
+      statusEvent(1, "active", "completed", monday + 1000),
+      statusEvent(2, "completed", "active", monday + 2000),
+    ];
+    expect(
+      summarize(
+        insightTaskGroups(
+          mondayOnly,
+          layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
+          tasks,
+          events,
+          wednesday,
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("files a completion later cancelled in the range under Cancelled", () => {
+    const tasks = [task(1, "Write", "cancelled")];
+    const events = [
+      statusEvent(1, "active", "completed", monday + 1000),
+      statusEvent(2, "completed", "cancelled", monday + 2000),
+    ];
+    expect(
+      summarize(
+        insightTaskGroups(
+          mondayOnly,
+          layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
+          tasks,
+          events,
+          wednesday,
+        ),
+      ),
+    ).toEqual([["cancelled", [["Write", 0]]]]);
+  });
+
+  it("returns every outcome in order, even when the range is quiet", () => {
+    const tasks = [task(1, "Write", "active")];
+    const blocks = layoutWorkBlocks(
+      [stretch(1, 1, monday + 3600, monday + 7200)],
+      tasks,
+      monday,
+      wednesday,
+      wednesday * 1000,
+    );
+    expect(
+      insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday).map(
+        (group) => [group.outcome, group.rows.length],
+      ),
+    ).toEqual([
+      ["completed", 0],
+      ["cancelled", 0],
+      ["incomplete", 1],
+    ]);
+  });
+
+  it("returns three empty groups for a range that has not started", () => {
+    const noonMonday = monday + 12 * 3600;
+    expect(
+      insightTaskGroups(
+        { from: tuesday, to: wednesday },
+        layoutWorkBlocks([], [task(1)], monday, wednesday, noonMonday * 1000),
+        [task(1)],
+        [],
+        noonMonday,
+      ),
+    ).toEqual([
+      { outcome: "completed", rows: [], seconds: 0 },
+      { outcome: "cancelled", rows: [], seconds: 0 },
+      { outcome: "incomplete", rows: [], seconds: 0 },
+    ]);
   });
 });
 
@@ -476,13 +738,28 @@ describe("insightCheckIns", () => {
     );
     expect(groups.map((group) => group.name)).toEqual(["Body", "Mind"]);
     expect(groups[0].checkInCount).toBe(2);
+    expect(groups[0].average).toBeCloseTo(11 / 3);
     expect(groups[0].metrics.map((row) => [row.name, row.values, row.average])).toEqual([
       ["Energy", [4, 2], 3],
       ["Focus", [5], 5],
     ]);
   });
 
-  it("omits check-ins outside the range", () => {
+  it("lists a Pulse with no check-ins in the range", () => {
+    const groups = insightCheckIns(
+      [checkIn(1, 20, 2, [{ metricId: 3, value: 2 }])],
+      [metric(1, "Energy"), metric(3, "Mood")],
+      [pulse(1, "Body", [1]), pulse(2, "Mind", [3])],
+      { from: 0, to: 100 },
+    );
+    expect(groups.map((group) => [group.name, group.checkInCount, group.average])).toEqual([
+      ["Body", 0, null],
+      ["Mind", 1, 2],
+    ]);
+    expect(groups[0].metrics).toEqual([]);
+  });
+
+  it("omits check-ins outside the range and still lists the Pulse", () => {
     expect(
       insightCheckIns(
         [checkIn(1, 5, 1, [{ metricId: 1, value: 4 }])],
@@ -490,6 +767,51 @@ describe("insightCheckIns", () => {
         [pulse(1, "Body", [1])],
         { from: 10, to: 20 },
       ),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        pulseId: 1,
+        name: "Body",
+        icon: "activity",
+        checkInCount: 0,
+        average: null,
+        metrics: [],
+      },
+    ]);
+  });
+
+  it("keeps a just-saved check-in the minute clock would still treat as future", () => {
+    const staleNowSec = 100;
+    const createdAt = 130;
+    const rangeTo = 10_000;
+    const liveTo = insightCheckInClosedTo(rangeTo, createdAt * 1000);
+    expect(createdAt < staleNowSec).toBe(false);
+    expect(
+      insightCheckIns(
+        [checkIn(1, createdAt, 1, [{ metricId: 1, value: 4 }])],
+        [metric(1, "Energy")],
+        [pulse(1, "Body", [1])],
+        { from: 0, to: liveTo },
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does not open a past range past its end", () => {
+    expect(insightCheckInClosedTo(20, 50_000)).toBe(20);
+  });
+
+  it("does not clamp Last hour to the stale minute-clock end", () => {
+    const staleNowSec = 100;
+    const createdAt = 130;
+    const liveTo = insightCheckInClosedTo(staleNowSec, createdAt * 1000, true);
+    expect(liveTo).toBe(createdAt + 1);
+    expect(insightCheckInClosedTo(staleNowSec, createdAt * 1000)).toBe(staleNowSec);
+    expect(
+      insightCheckIns(
+        [checkIn(1, createdAt, 1, [{ metricId: 1, value: 4 }])],
+        [metric(1, "Energy")],
+        [pulse(1, "Body", [1])],
+        { from: staleNowSec - 3600, to: liveTo },
+      ),
+    ).toHaveLength(1);
   });
 });

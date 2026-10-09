@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteTask } from "../../lib/commands";
 import type { Task } from "../../lib/types";
-import { xIcon } from "../components/icons";
+import { trashIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
@@ -10,14 +10,16 @@ import { TaskRelations } from "./TaskRelations";
 import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
-import { TaskWorkingControl, WorkedTime } from "./TaskWorkingControl";
+import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
 
 export function TaskDetailPanel({
   task,
   onClose,
+  modal = false,
 }: {
   task: Task;
   onClose: () => void;
+  modal?: boolean;
 }) {
   const { taskGraph, mutate } = useDashboardData();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -42,6 +44,8 @@ export function TaskDetailPanel({
       ref={panelRef}
       className="task-detail"
       aria-label={`Details for ${task.title}`}
+      aria-modal={modal || undefined}
+      role={modal ? "dialog" : undefined}
       tabIndex={-1}
       onKeyDown={(e) => {
         if (e.key === "Escape" && confirmingDelete) {
@@ -53,7 +57,7 @@ export function TaskDetailPanel({
       <header className="task-detail__head">
         <div className="task-detail__state">
           <StatusTrigger task={task} />
-          {task.status === "active" && <TaskWorkingControl task={task} />}
+          {task.workingNow && <WorkingBadge />}
           <WorkedTime task={task} />
         </div>
         <button
@@ -67,17 +71,24 @@ export function TaskDetailPanel({
         </button>
       </header>
       <TaskTitle task={task} />
-      <div className="task-detail__scope">
-        <TaskScopeButton task={task} display="path" />
-      </div>
-      <TaskDescription task={task} />
-      <div className="task-detail__scores">
+      <div className="task-detail__fields">
+        <div className="task-detail__field">
+          <span className="task-detail__label">Scope</span>
+          <TaskScopeButton
+            task={task}
+            display="leaf"
+            emptyLabel="Set scope…"
+            showChevron
+          />
+        </div>
         <TaskScoreControls task={task} />
       </div>
+      <TaskDescription task={task} />
       <TaskRelations task={task} />
       <footer className="task-detail__footer">
         <div className="task-detail__dates">
           <span>Created {formatDate(task.createdAt)}</span>
+          <span className="task-detail__date-divider" aria-hidden="true" />
           <span>Updated {formatDate(task.updatedAt)}</span>
         </div>
         {confirmingDelete ? (
@@ -113,9 +124,11 @@ export function TaskDetailPanel({
           <button
             type="button"
             className="task-detail__delete"
+            aria-label="Delete task"
+            title="Delete task"
             onClick={() => setConfirmingDelete(true)}
           >
-            Delete task
+            {trashIcon}
           </button>
         )}
       </footer>

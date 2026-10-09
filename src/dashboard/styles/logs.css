@@ -1,3 +1,164 @@
+/* ---------- Logs toolbar ---------- */
+
+/* Two stable rows: day navigation above, the kind filter below. */
+.logs-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.logs-toolbar__row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+/* Day labels open that day on Calendar's Logs figure; quiet until hovered. */
+.day-group__open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.day-group__open:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.day-group__open:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Logs kind filter ---------- */
+
+/* Separate chips rather than a segmented bar: several kinds are usually on at
+   once, so each chip carries its own on/off state. Kind colors match the
+   timeline marks; Phases uses --phase since each Phase row has its own color.
+   A tight toolbar or Overview tile scrolls the chips sideways instead of wrapping. */
+.logs-kind-filter {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.logs-toolbar__row .logs-kind-filter {
+  flex: 1 1 auto;
+}
+
+.logs-kind-filter__chip--dumps {
+  --kind-color: var(--dump);
+}
+
+.logs-kind-filter__chip--phases {
+  --kind-color: var(--phase);
+}
+
+.logs-kind-filter__chip--metrics {
+  --kind-color: var(--accent);
+}
+
+.logs-kind-filter__chip--tasks {
+  --kind-color: var(--doing);
+}
+
+.logs-kind-filter__chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.logs-kind-filter__chip:hover {
+  border-style: solid;
+  color: var(--ink);
+}
+
+.logs-kind-filter__chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.logs-kind-filter__chip[aria-pressed="true"] {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--kind-color) 45%, var(--surface));
+  background: color-mix(in srgb, var(--kind-color) 13%, var(--surface));
+  color: var(--ink);
+}
+
+/* Filled vs hollow keeps the state readable without relying on hue. */
+.logs-kind-filter__dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.logs-kind-filter__chip[aria-pressed="true"] .logs-kind-filter__dot {
+  border-color: var(--kind-color);
+  background: var(--kind-color);
+}
+
+/* ---------- Logs Phase checkpoint toggle ---------- */
+
+.logs-raw-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.logs-raw-toggle svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+.logs-raw-toggle:hover {
+  color: var(--ink);
+}
+
+.logs-raw-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.logs-raw-toggle--active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(60, 48, 30, 0.12);
+}
+
 /* ---------- Logs load older ---------- */
 
 .logs-load-older {
@@ -16,7 +177,7 @@
   font-size: 12px;
 }
 
-/* Shared event body chrome (Timeline and Logs list rows). */
+/* Event body beside the timeline mark (Logs and the Overview Timeline tile). */
 .log-detail {
   display: flex;
   align-items: center;
@@ -51,14 +212,42 @@
   font-size: 13px;
 }
 
-.log-detail--work {
-  overflow: hidden;
+.task-log {
+  flex-wrap: wrap;
+  gap: 4px 8px;
   color: var(--ink);
-  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.task-log__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-log__status {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted) 8%, var(--surface));
+  font-size: 11px;
   white-space: nowrap;
 }
 
+.task-log__separator {
+  color: var(--muted);
+}
+
+.task-log__title {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Logs timeline ---------- */
+
+/* Marks stay bare icons (a ring on every row reads as a column of circles).
+   The hairline behind them is the timeline. Today's clock row has no mark;
+   the stretch down to the next icon is a squiggle instead of that hairline. */
 
 .logs-chrono-day {
   text-align: left;
@@ -78,14 +267,136 @@
   --phase-gutter: var(--surface-2);
   --logs-time-column: 6rem;
   --logs-mark-column: 22px;
+  --logs-event-pad-left: 4px;
+  --logs-row: var(--surface);
+  --logs-spine-x: calc(
+    var(--logs-time-column) + var(--logs-event-pad-left) + var(--logs-mark-column) / 2
+  );
+  /* White stroke so the tile reads in both alpha and luminance masks. */
+  --logs-squiggle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M4 0C6.5 0 6.5 4 4 4C1.5 4 1.5 8 4 8' fill='none' stroke='%23fff' stroke-width='1.15'/%3E%3C/svg%3E");
+  position: relative;
   display: grid;
   grid-template-columns: var(--logs-time-column) minmax(0, 1fr);
   min-height: 42px;
-  background: var(--surface);
+  background: var(--logs-row);
+}
+
+/* One spine per day. It is drawn on the row, not the icon, so it crosses the
+   row padding and meets the next mark. It starts and ends on an icon center,
+   which leaves a single-event day as a mark alone. */
+.logs-chrono__row::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: var(--logs-spine-x);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.logs-chrono__row:first-child::after {
+  top: 50%;
+}
+
+.logs-chrono__row:last-child::after {
+  bottom: 50%;
+}
+
+/* The squiggle is split across the clock row and the next one so each piece
+   can be as tall as that row. Tiles meet at the shared edge, in phase. */
+.logs-chrono__row--now:first-child::after,
+.logs-chrono__row--after-now::before {
+  width: 8px;
+  background: var(--border);
+  -webkit-mask-image: var(--logs-squiggle);
+  mask-image: var(--logs-squiggle);
+  -webkit-mask-repeat: repeat-y;
+  mask-repeat: repeat-y;
+  -webkit-mask-size: 8px 8px;
+  mask-size: 8px 8px;
+}
+
+.logs-chrono__row--now:first-child::after {
+  top: 50%;
+  bottom: 0;
+  -webkit-mask-position: center bottom;
+  mask-position: center bottom;
+}
+
+.logs-chrono__row--after-now::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: var(--logs-spine-x);
+  top: 0;
+  height: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  -webkit-mask-position: center top;
+  mask-position: center top;
+}
+
+.logs-chrono__row--after-now::after {
+  top: 50%;
 }
 
 .logs-chrono__row + .logs-chrono__row {
   border-top: 1px solid var(--border);
+}
+
+.logs-chrono__row--now + .logs-chrono__row {
+  border-top: none;
+}
+
+.logs-chrono__row--now + .logs-chrono__row > .logs-chrono__when {
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+/* The live point on the spine. The halo breathes; the dot stays put so the
+   time remains the thing you read. */
+.logs-chrono__now {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 10px;
+  height: 10px;
+}
+
+.logs-chrono__now::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+  opacity: 0.4;
+  transform: scale(0.4);
+  animation: logs-now-breathe 2.4s ease-in-out infinite;
+}
+
+.logs-chrono__now::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--logs-row);
+}
+
+@keyframes logs-now-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.4);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .logs-chrono__row--colored {
@@ -115,24 +426,14 @@
 
 .logs-chrono__event {
   display: grid;
-  position: relative;
   grid-template-columns: var(--logs-mark-column) minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  padding: 10px 12px 10px 4px;
-}
-
-.logs-chrono__event::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(4px + var(--logs-mark-column) / 2 - 1px);
-  width: 2px;
-  background: var(--border);
+  padding: 10px 12px 10px var(--logs-event-pad-left);
 }
 
 .logs-chrono__mark {
+  position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
@@ -141,20 +442,14 @@
   height: 18px;
   justify-self: center;
   color: var(--event-color, var(--accent));
-  background: var(--surface);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1.5px var(--event-color, var(--accent));
 }
 
 .logs-chrono__mark svg {
-  width: 10px;
-  height: 10px;
-  stroke-width: 2;
-}
-
-.logs-chrono__row--work-start .logs-chrono__mark svg {
-  /* Play triangle reads left-heavy; nudge so it sits optically centered. */
-  transform: translateX(0.5px);
+  width: 14px;
+  height: 14px;
+  background: var(--logs-row);
+  box-shadow: 0 0 0 3px var(--logs-row);
+  stroke-width: 1.8;
 }
 
 .logs-chrono__row--metrics {
@@ -166,49 +461,35 @@
 }
 
 .logs-chrono__row--work-start,
-.logs-chrono__row--work-stop {
+.logs-chrono__row--work-stop,
+.logs-chrono__row--task-status {
   --event-color: var(--doing);
 }
 
-.logs-chrono__row--phase {
-  --event-color: var(--phase-color, var(--phase));
+.logs-chrono__row--phase.logs-chrono__row--colored {
+  --event-color: var(--phase-color);
 }
 
 .logs-chrono__row:hover {
-  background: color-mix(in srgb, var(--muted) 5%, var(--surface));
+  --logs-row: color-mix(in srgb, var(--muted) 5%, var(--surface));
 }
 
 .logs-chrono__row:hover .logs-chrono__when {
   background: color-mix(in srgb, var(--muted) 8%, var(--phase-gutter));
 }
 
-/* Rows spanning an open work stretch share a colored rail, so the
-   start/stop pair reads as one block instead of two loose marks. */
-.logs-chrono__row--in-stretch .logs-chrono__event::before {
-  width: 3px;
-  background: var(--doing);
-  opacity: 0.4;
-}
-
-.logs-chrono__event .log-detail--metrics .event__icon {
-  display: none;
-}
-
-.logs-chrono__event .log-detail--phase .event__icon {
-  display: none;
-}
-
-/* Keep Metric check-in chips on one row at the same height as dump / work rows. */
+/* Keep Metric check-in ratings on one row at the same height as dump / work rows. */
 .logs-chrono__event .log-detail--metrics .event__ratings {
   flex-wrap: nowrap;
-  gap: 4px;
+  gap: 14px;
   overflow: hidden;
 }
 
 .logs-chrono__event .log-detail--metrics .event__rating {
-  gap: 3px;
-  padding: 0 2px 0 4px;
-  border-radius: 999px;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
 }
 
 .logs-chrono__event .log-detail--metrics .event__rating-icon svg {
@@ -217,11 +498,11 @@
 }
 
 .logs-chrono__event .log-detail--metrics .event__rating .rating-pill {
-  min-width: 18px;
+  min-width: 0;
   height: 18px;
-  padding: 0 4px;
-  font-size: 11px;
-  border-radius: 999px;
+  padding: 0;
+  background: none;
+  font-size: 12px;
 }
 
 .logs-chrono__event .log-detail--dump .event-dump__chevron {
@@ -240,19 +521,13 @@
   min-height: 22px;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags,
-.event--dump .event-dump__inline-tags {
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags {
   max-width: min(50%, 18rem);
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags span,
-.event--dump .event-dump__inline-tags span {
+.logs-chrono__event .log-detail--dump .event-dump__inline-tags span {
   max-width: 96px;
   font-size: 10px;
-}
-
-.logs-chrono__event .log-detail--metrics .event__delete {
-  opacity: 0;
 }
 
 .logs-chrono__row:hover .log-detail--metrics .event__delete,
@@ -268,4 +543,146 @@
   .logs-chrono__when {
     padding: 10px 8px;
   }
+}
+
+/* ---------- Calendar Logs grid ---------- */
+
+/* Busy hours scroll horizontally so every mark stays reachable within its hour. */
+.logs-hour {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 3px 4px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.logs-hour__mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--event-color) 28%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--event-color) 10%, var(--surface));
+  color: var(--event-color);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.logs-hour__mark svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.8;
+}
+
+.logs-hour__mark:hover,
+.logs-hour__mark--open {
+  background: color-mix(in srgb, var(--event-color) 22%, var(--surface));
+}
+
+.logs-hour__mark:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.logs-hour__mark--open {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.logs-hour__mark--metrics {
+  --event-color: var(--accent);
+}
+
+.logs-hour__mark--dump {
+  --event-color: var(--dump);
+}
+
+/* Same hue as the Task's Calendar card, so two Tasks in one hour differ at a
+   glance before their names are hovered. */
+.logs-hour__mark--task {
+  --event-color: hsl(var(--task-hue, 210) 60% 45%);
+}
+
+.logs-hour-card {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  gap: 8px;
+  width: 18rem;
+  max-height: min(60vh, 420px);
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.logs-hour-card--preview {
+  pointer-events: none;
+}
+
+.logs-hour-card--dump:not(.logs-hour-card--preview) {
+  padding: 0;
+}
+
+.logs-hour-card__head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.logs-hour-card__head time,
+.logs-hour-card__changes time {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.logs-hour-card__head strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-hour-card__metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logs-hour-card__summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.logs-hour-card__changes {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.logs-hour-card__changes li {
+  display: contents;
 }

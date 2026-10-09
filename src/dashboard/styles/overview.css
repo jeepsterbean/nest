@@ -1,7 +1,80 @@
 /* ---------- Overview ---------- */
 
+.overview-workspace {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Above tiles and their drag ghost (z-index <= 3), below fixed menus (200+). */
+.overview-settings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 220px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: auto;
+}
+
+.overview-settings__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.overview-settings .phase-settings__row {
+  min-height: 44px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px;
+}
+
+.overview-settings .phase-settings__controls {
+  grid-template-columns: 40px;
+}
+
+.overview-settings .phase-settings__icon-control {
+  position: static;
+}
+
+.overview-settings .icon-picker {
+  right: 0;
+  left: auto;
+  width: 180px;
+  box-sizing: border-box;
+}
+
+.overview-settings .icon-picker__grid {
+  grid-template-columns: repeat(4, 36px);
+}
+
+/* The stacked board scrolls with the page, so hug the top instead of
+   stretching the full board height. */
+@media (max-width: 860px) {
+  .overview-settings {
+    bottom: auto;
+    max-height: 70vh;
+  }
+}
+
 .overview-grid {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-rows: repeat(12, minmax(0, 1fr));
   gap: 14px;
@@ -55,6 +128,26 @@
   white-space: nowrap;
 }
 
+.overview-tile__icon--link {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.overview-tile__icon--link:hover,
+.overview-tile__icon--link:focus-visible {
+  outline: none;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.overview-tile__icon--link:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 .overview-tile__action {
   display: grid;
   width: 24px;
@@ -69,7 +162,8 @@
   cursor: pointer;
 }
 
-.overview-tile__head > .overview-tile__action:first-of-type {
+.overview-tile__head > .overview-tile__action:first-of-type,
+.overview-tile__head > .overview-tile__icon--link + .overview-tile__action {
   margin-left: auto;
 }
 
@@ -181,19 +275,28 @@
   height: 100%;
 }
 
-.overview-tile[data-tile="lastHour"] {
+.overview-tile[data-tile="lastHour"],
+.overview-tile[data-tile="controlPanel"] {
   flex-direction: row;
   align-items: center;
 }
 
-.overview-tile[data-tile="lastHour"] .overview-tile__head {
+.overview-tile[data-tile="lastHour"] .overview-tile__head,
+.overview-tile[data-tile="controlPanel"] .overview-tile__head {
   height: 100%;
   min-height: 0;
   padding: 0 4px 0 10px;
 }
 
-.overview-tile[data-tile="lastHour"] .overview-tile__body {
+.overview-tile[data-tile="lastHour"] .overview-tile__body,
+.overview-tile[data-tile="controlPanel"] .overview-tile__body {
   height: 100%;
+}
+
+/* The icon lines up with the section headings rather than floating mid-tile. */
+.overview-tile[data-tile="lastHour"] .overview-tile__head {
+  align-items: flex-start;
+  padding-top: 10px;
 }
 
 .overview-tile[data-tile="controlPanel"] .overview-tile__body {
@@ -253,33 +356,35 @@
   color: var(--muted);
 }
 
-.overview-day {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
+/* Side by side so a short tile reads as one band; the sections wrap when the
+ * tile narrows, and the body scrolls once an opened group outgrows it. The
+ * doubled class outranks Calendar's column widths in insights.css. */
+.insights-body.insights-body--tile {
   flex: 1;
+  flex-direction: row;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding: 0 12px 0 4px;
-  overflow: hidden;
+  gap: 14px 28px;
+  min-height: 0;
+  padding: 10px 14px 10px 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
-.overview-day .day-stats,
-.overview-day .day-group__totals {
-  margin: 0;
+.insights-body.insights-body--tile > .insight-list {
+  width: auto;
+  flex: 1 1 11rem;
 }
 
-.overview-day .day-group__totals {
-  justify-content: flex-end;
+.insights-body--tile .insight-list h3 {
+  margin-bottom: 6px;
+  font-size: 14px;
 }
 
 @media (min-width: 861px) {
   .dashboard__inner--overview,
-  .dashboard__inner--logs,
+  .dashboard__inner--timeline,
   .dashboard__inner--tasks,
-  .dashboard__inner--insights,
   .dashboard__inner--calendar {
     height: 100vh;
     min-height: 0;
@@ -301,6 +406,15 @@
   padding: 12px 14px 0;
 }
 
+.overview-panel__head--kinds {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.overview-panel__head--kinds .logs-kind-filter {
+  flex: 1 1 auto;
+}
+
 .overview-panel__head--draggable {
   cursor: grab;
   touch-action: none;
@@ -314,6 +428,7 @@
 .overview-panel__head-start,
 .overview-panel__head-end {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
 }
@@ -466,7 +581,9 @@
 }
 
 .brain-dump-surface--overview .brain-dump-surface__input {
-  padding: 0;
+  /* Keep 1px so WKWebView can paint an empty-line caret. The editor clips
+     overflow-x, and a caret on that edge disappears while focus stays. */
+  padding: 0 1px;
 }
 
 .brain-dump-surface--overview > .brain-dump-surface__scroll > .brain-dump-tags {
@@ -488,7 +605,7 @@
   pointer-events: auto;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, #ece5d8 20%, #2d251e);
-  border-radius: 14px;
+  border-radius: 6px;
   background:
     repeating-linear-gradient(
       0deg,
@@ -628,7 +745,7 @@
   height: 200px;
   pointer-events: auto;
   border: 1px solid color-mix(in srgb, var(--sticky-tint) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 6px;
   /* Paper wash strong enough to read as a real sticky tint. */
   --sticky-tint: var(--dump);
   background: color-mix(in srgb, var(--sticky-tint) 36%, var(--surface));
@@ -649,7 +766,7 @@
   min-width: 0;
   height: 28px;
   flex: none;
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: none;
 }
 
@@ -1002,27 +1119,6 @@
   height: 13px;
 }
 
-.event-dump__title-editor {
-  min-width: 0;
-  padding-right: 6px;
-}
-
-.event-dump__title-editor input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 5px 7px;
-  border: 1px solid var(--dump);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  outline: none;
-  box-shadow: 0 0 0 3px var(--dump-soft);
-}
-
 .event-dump__chevron {
   color: var(--dump);
   font-size: 12px;
@@ -1119,40 +1215,420 @@
   background: var(--dump-soft);
 }
 
-.event--dump .event-dump {
-  margin: 0;
-  min-width: 0;
-  flex: 1;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-}
 
-.event--dump .event-dump__title {
-  font-size: 13px;
-  font-weight: 500;
-}
 
-.event--dump .event-dump__edit-title {
-  width: 21px;
-  height: 21px;
-}
 
-.event--dump .event-dump__title-editor input {
-  padding: 2px 6px;
-  font-size: 13px;
-  font-weight: 500;
-}
 
 .event-dump__text {
   margin: 8px 0 0;
   padding-left: 20px;
 }
 
-.event--dump .event-dump__text {
-  margin: 4px 0 0;
+
+/* Overview sidebar: saved grid layouts as Section sidebar rows. */
+.overview-layouts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
   padding: 0;
-  font-size: 13px;
+  list-style: none;
+}
+
+.overview-layouts__item {
+  position: relative;
+}
+
+.overview-layouts__item.is-menu-open {
+  z-index: 6;
+}
+
+.overview-layouts__row {
+  position: relative;
+}
+
+/* Room for the row's ⋯ button. */
+.overview-layouts__row .section-nav__button {
+  padding-right: 32px;
+}
+
+/* Sits on the icon tile's corner so it still shows when labels collapse. */
+.overview-layouts__edited {
+  position: absolute;
+  top: 3px;
+  left: 30px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dump);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.overview-layouts__menu-anchor {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+}
+
+.overview-layouts__more {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+.overview-layouts__more svg {
+  width: 15px;
+  height: 15px;
+}
+
+.overview-layouts__item:hover .overview-layouts__more,
+.overview-layouts__more:focus-visible,
+.overview-layouts__more[aria-expanded="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overview-layouts__more:hover,
+.overview-layouts__more[aria-expanded="true"] {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.overview-layouts__more:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.overview-layouts__menu,
+.overview-layouts__confirm {
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
+  box-shadow:
+    0 18px 42px -30px rgba(60, 48, 30, 0.46),
+    0 1px 4px rgba(60, 48, 30, 0.07);
+}
+
+.overview-layouts__menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 148px;
+}
+
+.overview-layouts__menu .menu-select__option {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.overview-layouts__menu .overview-layouts__danger {
+  color: var(--danger);
+}
+
+.overview-layouts__menu .overview-layouts__danger:hover,
+.overview-layouts__menu .overview-layouts__danger:focus-visible {
+  background: var(--danger-soft);
+}
+
+.overview-layouts__menu-text {
+  margin: 0;
+  padding: 5px 8px 6px;
+  color: var(--muted);
+  font-size: 12.5px;
   line-height: 1.4;
+}
+
+.overview-layouts__menu-text strong,
+.overview-layouts__note strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* Aligned with the row label: 5px padding + 30px tile + 10px gap. */
+.overview-layouts__changes {
+  padding: 2px 10px 4px 45px;
+}
+
+.overview-layouts__change-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.overview-layouts__link {
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.overview-layouts__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.overview-layouts__link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.overview-layouts__note {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.overview-layouts__confirm {
+  gap: 6px;
+  margin: 4px 0 6px;
+  padding: 8px;
+}
+
+.overview-layouts__confirm .overview-layouts__menu-text {
+  padding: 0 2px;
+}
+
+.overview-layouts__confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-layouts__confirm-primary,
+.overview-layouts__confirm-secondary {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.overview-layouts__confirm-primary {
+  border: 0;
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.overview-layouts__confirm-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+}
+
+.overview-layouts__confirm-secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+}
+
+.overview-layouts__confirm-secondary:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.overview-layouts__confirm-primary:focus-visible,
+.overview-layouts__confirm-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.overview-layouts + .overview-layouts__add,
+.overview-layouts + .overview-layouts__form {
+  margin-top: 6px;
+}
+
+.overview-layouts__add {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.overview-layouts__add > svg {
+  flex: none;
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+  padding: 7px;
+  stroke-width: 1.8;
+}
+
+.overview-layouts__add:not(:disabled):hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  color: var(--accent);
+}
+
+.overview-layouts__add:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.overview-layouts__add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.overview-layouts__form {
+  display: grid;
+  gap: 2px;
+}
+
+.overview-layouts__form-row {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
+}
+
+.overview-layouts__form-tile {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--accent);
+}
+
+.overview-layouts__form-tile svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+
+.overview-layouts__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  outline: none;
+}
+
+.overview-layouts__input::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.overview-layouts__form .overview-layouts__note {
+  padding: 2px 6px 0 45px;
+}
+
+/* Labels collapse with the rail, so names, notes and prompts open beside it. */
+@media (max-width: 860px) {
+  .overview-layouts__row .section-nav__button {
+    padding-right: 5px;
+  }
+
+  .overview-layouts__edited {
+    left: 27px;
+  }
+
+  .overview-layouts__menu-anchor {
+    top: auto;
+    right: -6px;
+    bottom: -4px;
+  }
+
+  .overview-layouts__more {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 0 0 1px var(--border);
+  }
+
+  .overview-layouts__more svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .overview-layouts__menu {
+    top: 0;
+    right: auto;
+    left: calc(100% + 8px);
+  }
+
+  .overview-layouts__changes,
+  .overview-layouts__confirm {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: calc(100% + 12px);
+    width: 200px;
+    margin: 0;
+  }
+
+  .overview-layouts__changes {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .overview-layouts__form {
+    position: relative;
+    z-index: 10;
+    width: 200px;
+    align-self: flex-start;
+  }
+
+  .overview-layouts__form .overview-layouts__note {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
 }

@@ -56,6 +56,7 @@ export function OverviewTile({
   bodyDraggable = false,
   label,
   icon,
+  onOpenSection,
   renderInlineHeader,
   children,
 }: {
@@ -74,6 +75,8 @@ export function OverviewTile({
   bodyDraggable?: boolean;
   label: string;
   icon: string;
+  /** When set, the tile icon becomes the way into the tile's full Section. */
+  onOpenSection?: { label: string; open: () => void };
   renderInlineHeader?: (props: InlineHeaderProps) => ReactNode;
   children: ReactNode;
 }) {
@@ -247,7 +250,17 @@ export function OverviewTile({
         {minimiseButton}
       </>
     ) : null;
-  const tileIcon = (
+  const tileIcon = onOpenSection ? (
+    <button
+      type="button"
+      className="overview-tile__icon overview-tile__icon--link"
+      aria-label={onOpenSection.label}
+      title={onOpenSection.label}
+      onClick={onOpenSection.open}
+    >
+      <NestIcon name={icon} />
+    </button>
+  ) : (
     <span className="overview-tile__icon" title={label}>
       <NestIcon name={icon} />
     </span>

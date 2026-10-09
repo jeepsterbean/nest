@@ -9,6 +9,7 @@ import {
   brainDumpHtmlToPlainText,
   trimBrainDumpHtml,
 } from "./brainDumpRichText";
+import { readMigratedStorageValue } from "./storageKeyMigration";
 
 /** Calm paper tints for floating stickies (Nest journal palette). */
 export const FLOATING_STICKY_COLORS = [
@@ -59,8 +60,10 @@ export type FloatingNoteBoard = {
   zIndex: number;
 };
 
-export const FLOATING_BRAIN_DUMP_STORAGE_KEY = "nest.floating-brain-dumps";
-export const FLOATING_NOTE_BOARD_STORAGE_KEY = "nest.floating-note-board";
+export const FLOATING_BRAIN_DUMP_STORAGE_KEY = "nest:floating-brain-dumps";
+export const FLOATING_NOTE_BOARD_STORAGE_KEY = "nest:floating-note-board";
+const LEGACY_FLOATING_BRAIN_DUMP_STORAGE_KEY = "nest.floating-brain-dumps";
+const LEGACY_FLOATING_NOTE_BOARD_STORAGE_KEY = "nest.floating-note-board";
 export const FLOATING_BRAIN_DUMP_WIDTH = 280;
 export const FLOATING_BRAIN_DUMP_HEIGHT = 200;
 export const FLOATING_BRAIN_DUMP_PADDING = 16;
@@ -321,7 +324,11 @@ export function readFloatingBrainDumps(): FloatingBrainDump[] {
   if (typeof window === "undefined") return [];
   try {
     const stored = JSON.parse(
-      window.localStorage.getItem(FLOATING_BRAIN_DUMP_STORAGE_KEY) ?? "[]",
+      readMigratedStorageValue(
+        window.localStorage,
+        FLOATING_BRAIN_DUMP_STORAGE_KEY,
+        LEGACY_FLOATING_BRAIN_DUMP_STORAGE_KEY,
+      ) ?? "[]",
     );
     if (!Array.isArray(stored)) return [];
     return stored
@@ -375,6 +382,7 @@ export function writeFloatingBrainDumps(dumps: FloatingBrainDump[]) {
     } else {
       window.localStorage.removeItem(FLOATING_BRAIN_DUMP_STORAGE_KEY);
     }
+    window.localStorage.removeItem(LEGACY_FLOATING_BRAIN_DUMP_STORAGE_KEY);
   } catch {
     // Keep in-memory state working when storage is unavailable.
   }
@@ -405,7 +413,11 @@ export function parseFloatingNoteBoard(value: unknown): FloatingNoteBoard | null
 export function readFloatingNoteBoard(): FloatingNoteBoard {
   if (typeof window === "undefined") return DEFAULT_FLOATING_NOTE_BOARD;
   try {
-    const stored = window.localStorage.getItem(FLOATING_NOTE_BOARD_STORAGE_KEY);
+    const stored = readMigratedStorageValue(
+      window.localStorage,
+      FLOATING_NOTE_BOARD_STORAGE_KEY,
+      LEGACY_FLOATING_NOTE_BOARD_STORAGE_KEY,
+    );
     if (!stored) return DEFAULT_FLOATING_NOTE_BOARD;
     return parseFloatingNoteBoard(JSON.parse(stored)) ?? DEFAULT_FLOATING_NOTE_BOARD;
   } catch {
@@ -420,6 +432,7 @@ export function writeFloatingNoteBoard(board: FloatingNoteBoard) {
       FLOATING_NOTE_BOARD_STORAGE_KEY,
       JSON.stringify(board),
     );
+    window.localStorage.removeItem(LEGACY_FLOATING_NOTE_BOARD_STORAGE_KEY);
   } catch {
     // Keep in-memory state working when storage is unavailable.
   }

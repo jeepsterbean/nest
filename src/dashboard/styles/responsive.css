@@ -10,53 +10,30 @@
 }
 
 @media (max-width: 860px) {
-  .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) 32px;
+  .metric-row:not(.metric-row--edit, .metric-row--add, .metric-row--quiet) {
+    grid-template-columns: minmax(0, 1fr) 34px;
     grid-template-areas:
-      "name graph remove"
-      "stats graph remove";
-    gap: 4px 12px;
-    padding: 9px 0;
+      "name latest"
+      "day day";
+    gap: 2px 12px;
+    padding-top: 8px;
+    padding-bottom: 6px;
   }
 
-  .pulse-metric--ordered {
-    grid-template-columns: 18px minmax(0, 1fr) minmax(110px, 150px) 32px;
-    grid-template-areas:
-      "handle name graph remove"
-      "handle stats graph remove";
-  }
-
-  .pulse-metric--ordered > .reorder-handle {
-    grid-area: handle;
-  }
-
-  .pulse-metric > .metric-identity {
+  .metric-row > .metric-row__identity {
     grid-area: name;
   }
 
-  .pulse-metric__stats {
-    grid-area: stats;
-    justify-content: flex-start;
+  .metric-row > .metric-day {
+    grid-area: day;
   }
 
-  .pulse-metric__graph {
-    grid-area: graph;
+  .metric-row > .metric-row__latest {
+    grid-area: latest;
   }
 
-  .pulse-metric__remove {
-    grid-area: remove;
-  }
-
-  .pulse-metrics--all .pulse-metric {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
-    grid-template-areas:
-      "name graph"
-      "membership graph"
-      "stats graph";
-  }
-
-  .all-metric__membership {
-    grid-area: membership;
+  .metric-axis {
+    display: none;
   }
 
   .overview-grid {
@@ -114,13 +91,16 @@
     margin-left: 0;
   }
 
-  .dash-header__layouts {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .dashboard {
     grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .dashboard--section-sidebar {
+    grid-template-columns: 52px 54px minmax(0, 1fr);
+  }
+
+  .section-sidebar {
+    padding: 18px 0;
   }
 
   .dash-sidebar {
@@ -140,7 +120,10 @@
     padding: 18px;
   }
 
-  .dash-section--settings {
+  .dash-section--settings,
+  .dash-section--brain-dump,
+  .dash-section--metrics,
+  .dash-section--phases {
     padding: 0;
   }
 
@@ -148,81 +131,30 @@
     padding: 18px 18px 16px;
   }
 
+  .dash-section--brain-dump > .dash-section__head,
+  .dash-section--metrics > .dash-section__head,
+  .dash-section--phases > .dash-section__head {
+    padding: 18px 18px 16px;
+  }
+
+  .dash-section--phases > .dash-section__body {
+    padding: 0 18px 18px;
+  }
+
+  .brain-dump-section__pane:not([hidden]) {
+    padding: 0 18px 18px;
+  }
+
   .settings-pane {
     padding: 0 18px 18px;
   }
 
-  .settings-pane--metrics {
-    padding: 0;
+  .metrics-board {
+    padding: 0 18px 18px;
   }
 
-  .settings-pane__toolbar {
-    padding: 0 18px 12px;
-  }
-
-  .tile-settings--embedded {
-    padding: 0 18px 12px;
-  }
-
-  .pulse-workspace {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
-
-  .pulse-sidebar {
-    min-height: auto;
-    overflow: visible;
-    padding: 12px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .pulse-sidebar__head {
-    padding-bottom: 6px;
-  }
-
-  .pulse-list {
-    flex-direction: row;
-    min-height: auto;
-    overflow-y: hidden;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .pulse-list li {
-    flex: 0 0 auto;
-    max-width: 180px;
-  }
-
-  .pulse-list button,
-  .pulse-list__rename {
-    min-width: 116px;
-  }
-
-  .pulse-composer {
-    max-width: 300px;
-  }
-
-  .pulse-detail {
-    overflow: visible;
-  }
-
-  .pulse-detail,
-  .all-metrics {
-    padding: 18px;
-  }
-
-  .pulse-detail__head,
-  .all-metrics__head {
-    flex-direction: column;
-  }
-
-  /* Wraps so the full-width .view-toggle below doesn't crowd out delete. */
-  .pulse-detail__actions {
-    width: 100%;
-    max-width: none;
+  .metric-group__head {
     flex-wrap: wrap;
-    justify-content: space-between;
   }
 
   .overview-panel__scroll {

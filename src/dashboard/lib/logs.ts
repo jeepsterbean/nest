@@ -7,10 +7,13 @@ import type {
   Pulse,
   Task,
   TaskWorkStretch,
+  TaskStatusEvent,
 } from "../../lib/types";
 import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
+import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
-import { formatTime, toDateInput } from "./time";
+import { formatTime, startOfDayMs, toDateInput } from "./time";
+import type { CalendarRangeStore } from "./insights";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -18,53 +21,103 @@ import {
   type RawLogEvent,
 } from "./timeline";
 
-export const LOG_VIEWS = [
-  { key: "timeline", label: "Timeline" },
+export const LOG_KINDS = [
   { key: "dumps", label: "Brain dumps" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
-  { key: "raw", label: "Raw" },
+  { key: "tasks", label: "Tasks" },
 ] as const;
-export type LogsViewKey = (typeof LOG_VIEWS)[number]["key"];
+export type LogKindKey = (typeof LOG_KINDS)[number]["key"];
 
+export const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
+
+export const MIXED_LOG_EMPTY_COPY = {
+  title: "Nothing here yet",
+  body: "Metric check-ins, brain dumps, Phase changes, and task activity will land here.",
+};
+
+export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> =
+  {
+    dumps: {
+      title: "No brain dumps yet",
+      body: "Capture a thought from Overview or the popup.",
+    },
+    phases: {
+      title: "No Phase changes yet",
+      body: "Phase checkpoints appear here as attention shifts.",
+    },
+    metrics: {
+      title: "No Metric check-ins yet",
+      body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
+    },
+    tasks: {
+      title: "No task activity yet",
+      body: "Task creation, status changes, and Working now starts and stops will land here.",
+    },
+  };
+
+export const LOGS_CALENDAR_RANGE_STORE: CalendarRangeStore = {
+  read: () => "day",
+  write: () => {},
+};
+
+/** Distinct local day starts of a newest-first event list, newest first. */
+export const logDayKeys = (events: readonly { at: number }[]): number[] => {
+  const keys: number[] = [];
+  for (const event of events) {
+    const key = startOfDayMs(event.at);
+    if (keys[keys.length - 1] !== key) keys.push(key);
+  }
+  return keys;
+};
+
+/** Selected kinds, kept non-empty and in LOG_KINDS order. Shared by Timeline
+ * and Calendar's Logs figure. */
 export type LogsPreferences = {
-  view: LogsViewKey;
+  kinds: LogKindKey[];
 };
 
 export const LOG_EVENT_BATCH_SIZE = 200;
 
 const LOGS_PREFERENCES_KEY = "nest:logs-preferences";
 const DEFAULT_LOGS_PREFERENCES: LogsPreferences = {
-  view: "raw",
+  kinds: ALL_LOG_KINDS,
 };
-const VIEW_KEYS: ReadonlySet<string> = new Set(
-  LOG_VIEWS.map(({ key }) => key),
-);
 
 type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 
-/** Map legacy layout + rawFilter storage onto the single Logs view key. */
-const migrateLegacyView = (value: Record<string, unknown>): LogsViewKey | null => {
-  if (value.layout === "timeline") return "timeline";
-  if (value.rawFilter === "dumps") return "dumps";
-  if (value.rawFilter === "phases") return "phases";
-  if (value.rawFilter === "metrics") return "metrics";
-  if (value.layout === "raw" || value.rawFilter === "all") return "raw";
-  return null;
-};
+const inKindOrder = (kinds: readonly unknown[]): LogKindKey[] =>
+  ALL_LOG_KINDS.filter((key) => kinds.includes(key));
 
+/** Single click. The last selected kind stays on so the history filter always includes a kind. */
+export function toggleLogKind(
+  kinds: LogKindKey[],
+  key: LogKindKey,
+): LogKindKey[] {
+  if (!kinds.includes(key)) return inKindOrder([...kinds, key]);
+  return kinds.length === 1 ? kinds : kinds.filter((kind) => kind !== key);
+}
+
+/** Double click isolates a kind; isolating the one already alone restores all. */
+export function soloLogKind(
+  kinds: LogKindKey[],
+  key: LogKindKey,
+): LogKindKey[] {
+  return kinds.length === 1 && kinds[0] === key ? ALL_LOG_KINDS : [key];
+}
+
+/** Storage from before multi-select (`view` + `layout`) falls back to all kinds.
+ * A stored `scale` from the retired List / Hours switch is ignored. */
 export function readLogsPreferences(
   storage: LogsStorage = localStorage,
 ): LogsPreferences {
   try {
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
-    const value: Record<string, unknown> =
-      stored && typeof stored === "object" ? stored : {};
-    if (typeof value.view === "string" && VIEW_KEYS.has(value.view)) {
-      return { view: value.view as LogsViewKey };
-    }
+    const isObject = stored !== null && typeof stored === "object";
+    const kinds =
+      isObject && Array.isArray(stored.kinds) ? inKindOrder(stored.kinds) : [];
     return {
-      view: migrateLegacyView(value) ?? DEFAULT_LOGS_PREFERENCES.view,
+      kinds: kinds.length > 0 ? kinds : DEFAULT_LOGS_PREFERENCES.kinds,
     };
   } catch {
     return DEFAULT_LOGS_PREFERENCES;
@@ -78,22 +131,55 @@ export function writeLogsPreferences(
   storage.setItem(LOGS_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
-/** Mixed Timeline / export feed: happenings plus settled Phase changes. */
+/** History events for the selected kinds. Phase rows are settled by the 60-second
+ * collapse unless `everyPhaseCheckpoint` (the Phases-only raw view) is on. */
+export function buildLogsEvents(
+  kinds: LogKindKey[],
+  everyPhaseCheckpoint: boolean,
+  checkIns: MetricCheckInWithRatings[],
+  phaseCheckIns: PhaseCheckIn[],
+  brainDumps: BrainDump[],
+  taskWorkStretches: TaskWorkStretch[],
+  historyFromSec: number,
+  taskStatusEvents: TaskStatusEvent[] = [],
+): RawLogEvent[] {
+  // Collapse runs before the range cut so a settle matching the Phase already
+  // active at the window start is omitted along with that carry-in.
+  const phaseRows = kinds.includes("phases")
+    ? phaseCheckInsInRange(
+        everyPhaseCheckpoint
+          ? phaseCheckIns
+          : collapsePhaseCheckIns(phaseCheckIns),
+        historyFromSec,
+      )
+    : [];
+  return buildRawLog(
+    kinds.includes("metrics") ? checkIns : [],
+    phaseRows,
+    kinds.includes("dumps") ? brainDumps : [],
+    kinds.includes("tasks") ? taskWorkStretches : [],
+    kinds.includes("tasks") ? taskStatusEvents : [],
+  );
+}
+
+/** Day export feed: happenings plus settled Phase changes. */
 export function buildLogExportEvents(
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: BrainDump[],
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
+  taskStatusEvents: TaskStatusEvent[] = [],
 ) {
-  return buildRawLog(
+  return buildLogsEvents(
+    ALL_LOG_KINDS,
+    false,
     checkIns,
-    phaseCheckInsInRange(
-      collapsePhaseCheckIns(phaseCheckIns),
-      historyFromSec,
-    ),
+    phaseCheckIns,
     brainDumps,
     taskWorkStretches,
+    historyFromSec,
+    taskStatusEvents,
   );
 }
 
@@ -104,8 +190,41 @@ type LogExportContext = {
   tasks: Task[];
 };
 
-const taskTitle = (tasks: Task[], taskId: number) =>
+export const taskTitle = (tasks: Task[], taskId: number) =>
   tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
+
+export function taskStatusEventLabel(event: TaskStatusEvent): string {
+  const label = (status: TaskStatusEvent["toStatus"]) =>
+    status === "paused" ? "Paused" : TASK_STATUS_LABEL[status];
+  if (event.fromStatus === null) return `Created task · ${label(event.toStatus)}`;
+  if (event.toStatus === "completed") return `Completed task · ${label(event.fromStatus)} → Completed`;
+  if (event.toStatus === "cancelled") return `Cancelled task · ${label(event.fromStatus)} → Cancelled`;
+  return `${label(event.fromStatus)} → ${label(event.toStatus)}`;
+}
+
+export type TaskChangeEvent = Extract<
+  RawLogEvent,
+  { kind: "work-start" | "work-stop" | "task-status" }
+>;
+
+export const isTaskChangeEvent = (event: RawLogEvent): event is TaskChangeEvent =>
+  event.kind === "work-start" ||
+  event.kind === "work-stop" ||
+  event.kind === "task-status";
+
+export const taskChangeTaskId = (event: TaskChangeEvent) =>
+  event.kind === "task-status" ? event.statusEvent.taskId : event.stretch.taskId;
+
+export function taskChangeLabel(event: TaskChangeEvent): string {
+  switch (event.kind) {
+    case "task-status":
+      return taskStatusEventLabel(event.statusEvent);
+    case "work-start":
+      return "Working now started";
+    case "work-stop":
+      return "Paused";
+  }
+}
 
 function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
   const time = formatTime(event.at);
@@ -139,10 +258,10 @@ function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
         .join("\n");
       return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
     }
+    case "task-status":
     case "work-start":
-      return `- ${time} — Working now started — ${taskTitle(context.tasks, event.stretch.taskId)}`;
     case "work-stop":
-      return `- ${time} — Working now stopped — ${taskTitle(context.tasks, event.stretch.taskId)}`;
+      return `- ${time} — ${taskChangeLabel(event)} — ${taskTitle(context.tasks, taskChangeTaskId(event))}`;
   }
 }
 
@@ -158,10 +277,12 @@ export function logDayMarkdown(
     day: "numeric",
   });
   const timeline = [...events]
-    .sort((a, b) => a.at - b.at)
+    .sort((a, b) => a.at - b.at ||
+      (a.kind === "task-status" && b.kind === "task-status"
+        ? a.statusEvent.id - b.statusEvent.id : 0))
     .map((event) => eventMarkdown(event, context))
     .join("\n");
-  return `# Nest Logs — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
+  return `# Nest Timeline — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
 }
 
 export function downloadLogDay(
@@ -176,7 +297,7 @@ export function downloadLogDay(
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `nest-logs-${toDateInput(dayKey / 1000)}.md`;
+  link.download = `nest-timeline-${toDateInput(dayKey / 1000)}.md`;
   link.click();
   URL.revokeObjectURL(url);
 }

@@ -3,6 +3,7 @@ import type {
   MetricCheckInWithRatings,
   PhaseCheckIn,
   TaskWorkStretch,
+  TaskStatusEvent,
 } from "../../lib/types";
 import { dayLabel, startOfDayMs } from "./time";
 
@@ -11,14 +12,13 @@ export type TimelineEvent =
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
   | { kind: "dump"; at: number; dump: BrainDump };
 
-/** Working-now boundaries derived from Work stretches (Raw + Timeline). */
+/** Working-now boundaries derived from Work stretches (Timeline, Calendar Logs, and Overview Timeline). */
 export type WorkLogEvent =
   | { kind: "work-start"; at: number; stretch: TaskWorkStretch }
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
-export type RawLogEvent = TimelineEvent | WorkLogEvent;
-/** Timeline rail: happenings plus settled Phase changes (raw flicker stays off). */
-export type TimelineLogEvent = RawLogEvent;
+export type RawLogEvent = TimelineEvent | WorkLogEvent
+  | { kind: "task-status"; at: number; statusEvent: TaskStatusEvent };
 
 export type DayGroup<T extends { at: number } = TimelineEvent> = {
   key: number;
@@ -35,24 +35,29 @@ export type PhaseSession = {
 export type PhaseTotal = { phaseId: number | null; seconds: number };
 
 // Window-switching writes a checkpoint per change; bursts inside this window
-// are still settling, not a Logs-worthy beat.
+// are still settling, excluded from settled Phase rows.
 export const PHASE_SETTLE_SECONDS = 60;
 
 // Independent popup submissions can land in the same second; rank them so the
 // feed remains deterministic and easy to scan.
-const KIND_RANK: Record<TimelineEvent["kind"], number> = {
+const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
   dump: 0,
   metrics: 1,
   phase: 2,
+  "work-start": 3,
+  "work-stop": 4,
+  "task-status": 5,
 };
 
-// Merge the three event sources into a single newest-first timeline.
-export const buildTimeline = (
+/** Newest-first event feed with optional Task lifecycle history. */
+export const buildRawLog = (
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: BrainDump[],
-): TimelineEvent[] => {
-  const all: TimelineEvent[] = [
+  stretches: TaskWorkStretch[],
+  taskStatusEvents: TaskStatusEvent[] = [],
+): RawLogEvent[] => {
+  const events: RawLogEvent[] = [
     ...checkIns.map((ci) => ({
       kind: "metrics" as const,
       at: ci.createdAt,
@@ -69,35 +74,19 @@ export const buildTimeline = (
       dump: d,
     })),
   ];
-  return all.sort(
-    (a, b) => b.at - a.at || KIND_RANK[a.kind] - KIND_RANK[b.kind],
-  );
-};
-
-const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
-  dump: 0,
-  metrics: 1,
-  phase: 2,
-  "work-start": 3,
-  "work-stop": 4,
-};
-
-/** Newest-first Raw feed: Metric / dump / Phase plus Work stretch start & stop. */
-export const buildRawLog = (
-  checkIns: MetricCheckInWithRatings[],
-  phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
-  stretches: TaskWorkStretch[],
-): RawLogEvent[] => {
-  const work: WorkLogEvent[] = [];
   for (const stretch of stretches) {
-    work.push({ kind: "work-start", at: stretch.startedAt, stretch });
+    events.push({ kind: "work-start", at: stretch.startedAt, stretch });
     if (stretch.endedAt !== null) {
-      work.push({ kind: "work-stop", at: stretch.endedAt, stretch });
+      events.push({ kind: "work-stop", at: stretch.endedAt, stretch });
     }
   }
-  return [...buildTimeline(checkIns, phaseCheckIns, brainDumps), ...work].sort(
-    (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind],
+  for (const statusEvent of taskStatusEvents) {
+    events.push({ kind: "task-status", at: statusEvent.createdAt, statusEvent });
+  }
+  return events.sort(
+    (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind] ||
+      (a.kind === "task-status" && b.kind === "task-status"
+        ? b.statusEvent.id - a.statusEvent.id : 0),
   );
 };
 
@@ -292,18 +281,22 @@ export const phaseSessionsInWindow = (
   return trimQuiet ? trimQuietPhaseSessions(sessions, isQuiet) : sessions;
 };
 
-// Per-metric rating values in chronological order, for sparklines and stats.
-export const buildMetricSeries = (
-  checkIns: MetricCheckInWithRatings[],
-): Map<number, number[]> => {
-  const map = new Map<number, number[]>();
-  const chronological = [...checkIns].sort((a, b) => a.createdAt - b.createdAt);
-  for (const ci of chronological) {
-    for (const r of ci.ratings) {
-      const values = map.get(r.metricId);
-      if (values) values.push(r.value);
-      else map.set(r.metricId, [r.value]);
-    }
-  }
-  return map;
-};
+/** One grid column's Phase wash: cut per column so it never spans midnight,
+ * and never past now, since the last checkpoint would otherwise paint the
+ * rest of the week in whatever Phase is current. */
+export const columnPhaseSessions = (
+  phaseCheckIns: PhaseCheckIn[],
+  column: { from: number; to: number },
+  nowSec: number,
+  isQuiet: (phaseId: number | null) => boolean,
+): PhaseSession[] =>
+  column.from >= nowSec
+    ? []
+    : phaseSessionsInWindow(
+        phaseCheckIns,
+        column.from,
+        Math.min(column.to, nowSec),
+        isQuiet,
+        false,
+      );
+

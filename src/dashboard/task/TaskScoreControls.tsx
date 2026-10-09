@@ -1,7 +1,16 @@
-import { setTaskScore, setTaskScoreField } from "../../lib/commands";
-import type { RatingValue, Task } from "../../lib/types";
+import { setTaskScoreField } from "../../lib/commands";
+import type { Task } from "../../lib/types";
+import { MenuSelect } from "../components/MenuSelect";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { parseRatingValue, RATING_VALUES } from "../lib/tasks";
+import { parseRatingValue } from "../lib/tasks";
+
+const SCORE_OPTIONS = [
+  { value: "", label: "None" },
+  ...([1, 2, 3, 4, 5] as const).map((value) => ({
+    value: String(value),
+    label: String(value),
+  })),
+];
 
 export function TaskScoreControls({
   task,
@@ -11,11 +20,6 @@ export function TaskScoreControls({
   score?: "value" | "effort";
 }) {
   const { mutate } = useDashboardData();
-
-  const setScore = (value: RatingValue | null, effort: RatingValue | null) => {
-    if (task.value === value && task.effort === effort) return;
-    void mutate(() => setTaskScore(task.id, value, effort));
-  };
 
   if (score !== undefined) {
     const current = task[score];
@@ -58,77 +62,30 @@ export function TaskScoreControls({
     );
   }
 
-  const renderDotScale = (
-    kind: "value" | "effort",
-    label: string,
-    current: RatingValue | null,
-  ) => {
-    const commit = (next: RatingValue | null) =>
-      kind === "value" ? setScore(next, task.effort) : setScore(task.value, next);
-    return (
-      <div className={`task-dots task-dots--${kind}`}>
-        <span className="task-dots__label">{label}</span>
-        <div
-          className="task-dots__track"
-          role="radiogroup"
-          aria-label={`${label} for ${task.title}`}
-          onKeyDown={(e) => {
-            const track = e.currentTarget;
-            let next: RatingValue | null | undefined;
-            if (e.key >= "1" && e.key <= "5") next = Number(e.key) as RatingValue;
-            else if (e.key === "0" || e.key === "Backspace" || e.key === "Delete")
-              next = null;
-            else if (e.key === "ArrowRight" || e.key === "ArrowUp")
-              next = Math.min(5, (current ?? 0) + 1) as RatingValue;
-            else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
-              const v = (current ?? 0) - 1;
-              next = v <= 0 ? null : (v as RatingValue);
-            } else return;
-            e.preventDefault();
-            commit(next);
-            const focusValue = next ?? 1;
-            requestAnimationFrame(() =>
-              track
-                .querySelector<HTMLButtonElement>(`[data-value="${focusValue}"]`)
-                ?.focus(),
-            );
-          }}
-        >
-          {RATING_VALUES.map((n) => {
-            const filled = current !== null && n <= current;
-            return (
-              <button
-                key={n}
-                type="button"
-                role="radio"
-                aria-checked={current === n}
-                data-value={n}
-                tabIndex={current === n || (current === null && n === 1) ? 0 : -1}
-                className={`task-dot${filled ? " task-dot--filled" : ""}`}
-                title={
-                  current === n
-                    ? `${label} ${n} — click to clear`
-                    : `Set ${label.toLowerCase()} to ${n}`
-                }
-                onClick={() => commit(current === n ? null : n)}
-              >
-                <span className="task-dot__pip" aria-hidden="true" />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div
-      className="task-score"
-      role="group"
-      aria-label={`Priority scores for ${task.title}`}
-    >
-      {renderDotScale("value", "Value", task.value)}
-      {renderDotScale("effort", "Effort", task.effort)}
-    </div>
+    <>
+      {(["value", "effort"] as const).map((field) => {
+        const label = field === "value" ? "Value" : "Effort";
+        return (
+          <div
+            key={field}
+            className="task-detail__field task-detail__field--score"
+          >
+            <span className="task-detail__label">{label}</span>
+            <MenuSelect
+              value={task[field]?.toString() ?? ""}
+              options={SCORE_OPTIONS}
+              placeholder="None"
+              ariaLabel={`${label} for ${task.title}`}
+              onChange={(value) => {
+                const next = parseRatingValue(value);
+                if (next === undefined || next === task[field]) return;
+                void mutate(() => setTaskScoreField(task.id, field, next));
+              }}
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }

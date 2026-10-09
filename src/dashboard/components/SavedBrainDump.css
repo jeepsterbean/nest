@@ -5,7 +5,7 @@
   min-width: 0;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--dump) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--dump) 36%, var(--surface));
   color: var(--ink);
   font-size: 12.6px;
@@ -58,7 +58,7 @@
   max-height: min(320px, calc(100dvh - 32px));
   padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: 6px;
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: auto;
@@ -74,39 +74,4 @@
   min-height: 0;
   max-width: 100%;
   background: var(--surface);
-}
-
-.brain-dump-history__filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-}
-
-.brain-dump-history__filters .menu-select {
-  width: 180px;
-}
-
-.brain-dump-history__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  align-items: start;
-  gap: 14px;
-}
-
-.brain-dump-history__grid .saved-brain-dump {
-  height: 154px;
-  background: var(--surface);
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.brain-dump-history__grid .saved-brain-dump:hover {
-  border-color: color-mix(in srgb, var(--dump) 48%, var(--border));
-}
-
-.brain-dump-history__grid .saved-brain-dump:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
 }

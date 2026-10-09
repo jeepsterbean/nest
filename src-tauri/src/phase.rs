@@ -4,6 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::{AppError, Result};
 use crate::models::PhaseCheckIn;
+use crate::task_lifecycle::bank_all_working_now;
 use crate::time::now_unix_secs;
 
 pub const PHASE_DOING: &str = "Doing";
@@ -68,6 +69,41 @@ pub fn update_signals_and_sync(app: &AppHandle, update: impl FnOnce(&mut PhaseSi
         }
     };
     emit_phase_changed(app, changed);
+}
+
+/// Bank Worked time, mark the Mac away, and record Offline even from Resting.
+pub(crate) fn enter_system_offline(app: &AppHandle) {
+    let outcome = (|| -> Result<(bool, Option<String>)> {
+        let signals_state = app.state::<Mutex<PhaseSignals>>();
+        let mut signals = signals_state.lock().unwrap();
+        signals.system_offline = true;
+        let current = *signals;
+        let db = app.state::<Mutex<Connection>>();
+        let mut conn = db.lock().unwrap();
+        let tx = conn.transaction()?;
+        let now = now_unix_secs();
+        let stopped = !bank_all_working_now(&tx, now)?.is_empty();
+        let changed = sync_derived_phase(&tx, current, now, crate::activity::is_idle())?;
+        tx.commit()?;
+        Ok((stopped, changed))
+    })();
+    match outcome {
+        Ok((stopped, changed)) => {
+            if stopped {
+                let _ = app.emit("data-changed", ());
+            }
+            emit_phase_changed(app, changed);
+        }
+        Err(error) => eprintln!("nest: enter system offline failed: {error}"),
+    }
+}
+
+/// Leave Offline. Engagement flags stay as they are, including a still-open popup.
+pub(crate) fn leave_system_offline(app: &AppHandle) {
+    update_signals_and_sync(app, |signals| {
+        signals.system_offline = false;
+        signals.notion_frontmost = notion_is_frontmost();
+    });
 }
 
 pub fn emit_phase_changed(app: &AppHandle, name: Option<String>) {

@@ -9,39 +9,35 @@ import {
 } from "react";
 import {
   deleteMetricCheckIn,
-  submitBrainDump,
   submitMetricCheckIn,
 } from "../../lib/commands";
 import { readHiddenPulseIds } from "../../lib/pulseVisibility";
-import {
-  isBrainDumpPeelShortcut,
-  isBrainDumpSubmitShortcut,
-  trimBrainDumpDraft,
-  useBrainDumpDraft,
-  useRecentBrainDumpHistory,
-} from "../../lib/brainDumpDraft";
+import { useRecentBrainDumpHistory } from "../../lib/brainDumpDraft";
 import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
-import {
-  DayStats,
-  PhaseTotals,
-} from "../components/DayReflection";
 import { BrainDumpHistoryControls } from "../components/BrainDumpHistoryControls";
 import { BrainDumpSurface } from "../components/BrainDumpSurface";
 import { ControlPanelTile } from "../components/ControlPanelTile";
 import { OverviewTasksPanel } from "../components/OverviewTasksPanel";
 import { gridArea, OverviewTile } from "../components/OverviewTile";
 import { MetricCheckIn } from "../components/MetricCheckIn";
-import { ViewToggle } from "../components/ViewToggle";
 import { useComposerTagProps } from "../components/BrainDumpTags";
+import { LogKindToggle, LogsRawToggle } from "../components/logs/LogKindToggle";
 import {
   HISTORY_WINDOW_DAYS,
   useDashboardData,
 } from "../context/DashboardDataContext";
+import { useBrainDumpComposer } from "../hooks/useBrainDumpComposer";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTileIcons } from "../hooks/useTileIcons";
-import { windowInsight } from "../lib/insights";
-import { buildLogExportEvents, LOG_EVENT_BATCH_SIZE } from "../lib/logs";
-import { type TimelineLogEvent } from "../lib/timeline";
+import { lastHourPeriod } from "../lib/insights";
+import {
+  ALL_LOG_KINDS,
+  buildLogsEvents,
+  LOG_EMPTY_COPY,
+  LOG_EVENT_BATCH_SIZE,
+  MIXED_LOG_EMPTY_COPY,
+  type LogKindKey,
+} from "../lib/logs";
 import { historyStartSec } from "../lib/time";
 import {
   canHideTile,
@@ -52,18 +48,9 @@ import {
   TILE_RULES,
   type TileLayout,
 } from "../lib/overviewGrid";
-import { LogsTimeline } from "./LogsTimeline";
-
-const OVERVIEW_WINDOW_SECONDS = 60 * 60;
-
-const OVERVIEW_TIMELINE_FILTERS = [
-  { key: "timeline", label: "Timeline" },
-  { key: "dumps", label: "Brain dumps" },
-  { key: "metrics", label: "Metrics" },
-] as const;
-
-type OverviewTimelineFilter =
-  (typeof OVERVIEW_TIMELINE_FILTERS)[number]["key"];
+import { InsightsPanel } from "./InsightsPanel";
+import { TimelineList } from "./TimelineList";
+import { OverviewSettings } from "./OverviewSettings";
 
 type TileChrome = {
   icon: ReactNode;
@@ -72,42 +59,21 @@ type TileChrome = {
   dragTitle: string;
 };
 
-const EMPTY_COPY: Record<
-  OverviewTimelineFilter,
-  { title: string; body: string }
-> = {
-  timeline: {
-    title: "Nothing on the timeline yet",
-    body: "Metric check-ins, brain dumps, Phase changes, and Working now starts and stops will land here.",
-  },
-  dumps: {
-    title: "No brain dumps yet",
-    body: "Capture a thought from this panel or the popup.",
-  },
-  metrics: {
-    title: "No Metric check-ins yet",
-    body: "Press ⌘⇧E anywhere to log your first Metric check-in.",
-  },
-};
-
-const matchesTimelineFilter = (
-  event: TimelineLogEvent,
-  filter: OverviewTimelineFilter,
-) => {
-  if (filter === "timeline") return true;
-  if (filter === "dumps") return event.kind === "dump";
-  return event.kind === "metrics";
-};
-
 export function OverviewView({
   onOpenTasks,
+  onOpenLastHour,
   overviewLayout,
+  settingsOpen,
+  onCloseSettings,
 }: {
   onOpenTasks: () => void;
+  onOpenLastHour: () => void;
   overviewLayout: Pick<
     OverviewLayoutController,
     "layout" | "resize" | "minimise" | "expand" | "hide" | "show" | "applyLayout"
   >;
+  settingsOpen: boolean;
+  onCloseSettings: () => void;
 }) {
   const {
     tasks,
@@ -123,7 +89,6 @@ export function OverviewView({
     loaded,
     mutate,
     setError,
-    metricCheckInSchedule,
   } = useDashboardData();
   const gridRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -147,9 +112,8 @@ export function OverviewView({
       window.matchMedia("(max-width: 860px)").matches,
   );
   const mainDumpRef = useRef<HTMLElement | null>(null);
-  const [brainDumpDraft, setBrainDumpDraft] = useBrainDumpDraft();
-  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpDraft;
-  const [brainDumpSubmitting, setBrainDumpSubmitting] = useState(false);
+  const brainDumpComposer = useBrainDumpComposer();
+  const { text: brainDumpText, tagIds: brainDumpTagIds } = brainDumpComposer.draft;
   const [metricSubmitting, setMetricSubmitting] = useState(false);
   const brainDumpDraftRevision = `${brainDumpText}\n${brainDumpTagIds.join(",")}`;
   const brainDumpHistory = useRecentBrainDumpHistory(
@@ -172,71 +136,63 @@ export function OverviewView({
   }, []);
 
   const nowMs = useCurrentTime();
-  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
-  const [timelineFilter, setTimelineFilter] =
-    useState<OverviewTimelineFilter>("timeline");
+  const [timelineKinds, setTimelineKinds] =
+    useState<LogKindKey[]>(ALL_LOG_KINDS);
+  const [everyPhaseCheckpoint, setEveryPhaseCheckpoint] = useState(false);
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
   const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
     () => new Set(),
   );
+  const phasesOnly = timelineKinds.length === 1 && timelineKinds[0] === "phases";
+  const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
+  const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
 
-  const handleTagsChange = useCallback(
-    (tagIds: number[]) =>
-      setBrainDumpDraft((draft) => ({ ...draft, tagIds })),
-    [setBrainDumpDraft],
-  );
-
-  const dayReflection = useMemo(() => {
-    const to = Math.floor(Date.now() / 1000);
-    return windowInsight(
-      tasks,
-      taskStatusEvents,
-      checkIns,
-      phaseCheckIns,
-      phases,
-      to - OVERVIEW_WINDOW_SECONDS,
-      to,
-    );
-  }, [phaseCheckIns, phases, tasks, taskStatusEvents, checkIns]);
+  // Same minute clock as Calendar Last hour, so the tile and Insights stay on
+  // one window.
+  const lastHourWindow = useMemo(() => {
+    const nowSec = Math.floor(nowMs / 1000);
+    return { ...lastHourPeriod(nowSec), nowMs, nowSec };
+  }, [nowMs]);
 
   const historyEvents = useMemo(
     () =>
-      buildLogExportEvents(
+      buildLogsEvents(
+        timelineKinds,
+        showsEveryPhaseCheckpoint,
         checkIns,
         phaseCheckIns,
         brainDumps,
         taskWorkStretches,
         historyFromSec,
+        taskStatusEvents,
       ),
     [
       brainDumps,
       checkIns,
       historyFromSec,
       phaseCheckIns,
+      showsEveryPhaseCheckpoint,
+      taskStatusEvents,
       taskWorkStretches,
+      timelineKinds,
     ],
   );
 
-  const timelineEvents = useMemo(
-    () =>
-      historyEvents.filter((event) =>
-        matchesTimelineFilter(event, timelineFilter),
-      ),
-    [historyEvents, timelineFilter],
-  );
-
   const visibleTimelineEvents = useMemo(
-    () => timelineEvents.slice(0, visibleEventCount),
-    [timelineEvents, visibleEventCount],
+    () => historyEvents.slice(0, visibleEventCount),
+    [historyEvents, visibleEventCount],
   );
   const remainingEventCount = Math.max(
     0,
-    timelineEvents.length - visibleEventCount,
+    historyEvents.length - visibleEventCount,
   );
   const nextBatchSize = Math.min(LOG_EVENT_BATCH_SIZE, remainingEventCount);
-  const empty = EMPTY_COPY[timelineFilter];
+  const empty =
+    timelineKinds.length === 1
+      ? LOG_EMPTY_COPY[timelineKinds[0]]
+      : MIXED_LOG_EMPTY_COPY;
 
   // Stable identities so the memoized timeline can skip re-rendering while
   // the brain dump composer above it updates on every keystroke.
@@ -254,30 +210,16 @@ export function OverviewView({
     });
   }, []);
 
-  const submitOverviewDump = async () => {
-    if (!trimBrainDumpDraft(brainDumpDraft) || brainDumpSubmitting) return;
-    setBrainDumpSubmitting(true);
-    const ok = await mutate(() =>
-      submitBrainDump(brainDumpDraft.text, brainDumpTagIds),
-    );
-    if (ok) {
-      setBrainDumpDraft({ text: "", tagIds: [] });
-      await brainDumpHistory.refresh();
-    }
-    setBrainDumpSubmitting(false);
-  };
+  const updateTimelineKinds = useCallback((next: LogKindKey[]) => {
+    setTimelineKinds(next);
+    setEveryPhaseCheckpoint(false);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+  }, []);
 
-  const peelToFloating = useCallback(() => {
-    if (brainDumpHistory.viewingHistory) return;
-    if (forkToFloating(brainDumpDraft)) {
-      setBrainDumpDraft({ text: "", tagIds: [] });
-    }
-  }, [
-    brainDumpDraft,
-    brainDumpHistory.viewingHistory,
-    forkToFloating,
-    setBrainDumpDraft,
-  ]);
+  const toggleOverviewEveryPhaseCheckpoint = useCallback(() => {
+    setEveryPhaseCheckpoint((on) => !on);
+    setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
+  }, []);
 
   const peelViewedDumpToFloating = useCallback(() => {
     const viewedDump = brainDumpHistory.viewingDump;
@@ -299,33 +241,10 @@ export function OverviewView({
       !event.nativeEvent.isComposing
     ) {
       event.preventDefault();
-      if (!event.shiftKey) void submitOverviewDump();
+      if (!event.shiftKey) void brainDumpComposer.submit(brainDumpHistory.refresh);
       return;
     }
-    if (
-      isBrainDumpPeelShortcut({
-        key: event.key,
-        shiftKey: event.shiftKey,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        isComposing: event.nativeEvent.isComposing,
-      })
-    ) {
-      event.preventDefault();
-      peelToFloating();
-      return;
-    }
-    if (
-      isBrainDumpSubmitShortcut({
-        key: event.key,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        isComposing: event.nativeEvent.isComposing,
-      })
-    ) {
-      event.preventDefault();
-      void submitOverviewDump();
-    }
+    brainDumpComposer.handleShortcutKeyDown(event, brainDumpHistory.refresh);
   };
 
   const visiblePulses = useMemo(
@@ -358,10 +277,14 @@ export function OverviewView({
 
     if (tile.id === "lastHour") {
       return (
-        <div className="overview-day">
-          <DayStats stats={dayReflection.stats} />
-          <PhaseTotals sessions={dayReflection.sessions} phases={phases} />
-        </div>
+        <InsightsPanel
+          from={lastHourWindow.from}
+          to={lastHourWindow.to}
+          live
+          nowMs={lastHourWindow.nowMs}
+          nowSec={lastHourWindow.nowSec}
+          variant="tile"
+        />
       );
     }
 
@@ -382,7 +305,6 @@ export function OverviewView({
       const events = tile.minimised
         ? historyEvents.slice(0, 3)
         : visibleTimelineEvents;
-      const timelineEmpty = tile.minimised ? EMPTY_COPY.timeline : empty;
       return (
         <>
           {tile.minimised ? (
@@ -398,7 +320,7 @@ export function OverviewView({
             ) : null
           ) : (
             <header
-              className={`overview-panel__head${
+              className={`overview-panel__head overview-panel__head--kinds${
                 chrome?.onHeaderPointerDown
                   ? " overview-panel__head--draggable"
                   : ""
@@ -409,15 +331,17 @@ export function OverviewView({
               {chrome?.icon ? (
                 <div className="overview-panel__head-start">{chrome.icon}</div>
               ) : null}
-              <ViewToggle
-                value={timelineFilter}
-                options={OVERVIEW_TIMELINE_FILTERS}
+              <LogKindToggle
+                kinds={timelineKinds}
                 label="Timeline filter"
-                onChange={(next) => {
-                  setTimelineFilter(next);
-                  setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
-                }}
+                onChange={updateTimelineKinds}
               />
+              {phasesOnly ? (
+                <LogsRawToggle
+                  active={everyPhaseCheckpoint}
+                  onClick={toggleOverviewEveryPhaseCheckpoint}
+                />
+              ) : null}
               {chrome?.action ? (
                 <div className="overview-panel__head-end">{chrome.action}</div>
               ) : null}
@@ -426,12 +350,12 @@ export function OverviewView({
           <div className="overview-panel__scroll">
             {!loaded ? null : events.length === 0 ? (
               <div className="dash-empty">
-                <strong>{timelineEmpty.title}</strong>
-                <span>{timelineEmpty.body}</span>
+                <strong>{empty.title}</strong>
+                <span>{empty.body}</span>
               </div>
             ) : (
               <>
-                <LogsTimeline
+                <TimelineList
                   events={events}
                   phaseCheckIns={phaseCheckIns}
                   phases={phases}
@@ -443,6 +367,7 @@ export function OverviewView({
                   onToggleDump={toggleDumpExpanded}
                   nowMs={nowMs}
                   dayChrome={!tile.minimised}
+                  colorsTimeColumn={timelineKinds.includes("phases")}
                 />
                 {!tile.minimised && remainingEventCount > 0 ? (
                   <div className="logs-load-older">
@@ -459,8 +384,8 @@ export function OverviewView({
                     </button>
                     <span>
                       Showing{" "}
-                      {Math.min(visibleEventCount, timelineEvents.length)} of{" "}
-                      {timelineEvents.length}
+                      {Math.min(visibleEventCount, historyEvents.length)} of{" "}
+                      {historyEvents.length}
                     </span>
                   </div>
                 ) : null}
@@ -507,10 +432,8 @@ export function OverviewView({
               {chrome?.action}
             </>
           }
-          onTextChange={(text) =>
-            setBrainDumpDraft((draft) => ({ ...draft, text }))
-          }
-          onTagsChange={handleTagsChange}
+          onTextChange={brainDumpComposer.setText}
+          onTagsChange={brainDumpComposer.setTagIds}
           onKeyDown={(event) => onMainDumpKeyDown(event, tile.minimised)}
           onHeaderPointerDown={chrome?.onHeaderPointerDown}
           dismissPopupsOnOutsideInteraction
@@ -525,8 +448,6 @@ export function OverviewView({
         metrics={metrics}
         pulses={visiblePulses}
         submitting={metricSubmitting}
-        nowMs={nowMs}
-        silenceMinutes={metricCheckInSchedule?.intervalMinutes}
         emptyCopy={
           pulses.length
             ? "No Pulses are shown. Turn one on in Settings."
@@ -549,7 +470,8 @@ export function OverviewView({
   };
 
   return (
-    <div className="overview-grid" ref={gridRef} aria-label="Overview">
+    <div className="overview-workspace">
+      <div className="overview-grid" ref={gridRef} aria-label="Overview">
       {dropPreview ? (
         <div
           className={`overview-tile__ghost${dropPreview.valid ? "" : " is-invalid"}`}
@@ -578,15 +500,27 @@ export function OverviewView({
           bodyDraggable={tile.id === "controlPanel"}
           label={TILE_LABELS[tile.id]}
           icon={icons[tile.id]}
-          renderInlineHeader={
+          onOpenSection={
             tile.id === "lastHour"
+              ? {
+                  label: "Open Last hour in Calendar",
+                  open: onOpenLastHour,
+                }
+              : undefined
+          }
+          renderInlineHeader={
+            tile.id === "lastHour" || tile.id === "controlPanel"
               ? undefined
               : (chrome) => renderTileContent(tile, chrome)
           }
         >
-          {tile.id === "lastHour" ? renderTileContent(tile) : null}
+          {tile.id === "lastHour" || tile.id === "controlPanel"
+            ? renderTileContent(tile)
+            : null}
         </OverviewTile>
       ))}
+      </div>
+      <OverviewSettings open={settingsOpen} onClose={onCloseSettings} />
     </div>
   );
 }

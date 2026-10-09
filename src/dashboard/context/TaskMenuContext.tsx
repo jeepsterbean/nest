@@ -48,9 +48,13 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   const [statusMenu, setStatusMenu] = useState<StatusMenuState | null>(null);
   const [scopeMenu, setScopeMenu] = useState<ScopeMenuState | null>(null);
   const [newScopeName, setNewScopeName] = useState("");
+  const statusAnchorRef = useRef<HTMLElement | null>(null);
   const scopeAnchorRef = useRef<HTMLElement | null>(null);
 
-  const closeStatusMenu = useCallback(() => setStatusMenu(null), []);
+  const closeStatusMenu = useCallback(() => {
+    setStatusMenu(null);
+    requestAnimationFrame(() => statusAnchorRef.current?.focus());
+  }, []);
   const closeScopeMenu = useCallback(() => {
     setScopeMenu(null);
     requestAnimationFrame(() => scopeAnchorRef.current?.focus());
@@ -59,10 +63,11 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   const openStatusMenu = useCallback(
     (task: Task, anchor: HTMLElement) => {
       if (statusMenu?.taskId === task.id) {
-        setStatusMenu(null);
+        closeStatusMenu();
         return;
       }
       setScopeMenu(null);
+      statusAnchorRef.current = anchor;
       const rect = anchor.getBoundingClientRect();
       // One option per status at 36px plus padding; flip up when there isn't
       // room below.
@@ -77,7 +82,7 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
         up,
       });
     },
-    [statusMenu],
+    [closeStatusMenu, statusMenu],
   );
 
   const openScopeMenu = useCallback(
@@ -144,19 +149,18 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   // resize, or Escape detaches it — close rather than let it drift.
   useEffect(() => {
     if (!statusMenu) return;
-    const close = () => setStatusMenu(null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") closeStatusMenu();
     };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("scroll", closeStatusMenu, true);
+    window.addEventListener("resize", closeStatusMenu);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", closeStatusMenu, true);
+      window.removeEventListener("resize", closeStatusMenu);
       window.removeEventListener("keydown", onKey);
     };
-  }, [statusMenu]);
+  }, [closeStatusMenu, statusMenu]);
 
   // The scope menu has its own scrollable option list, so scrolling should not
   // dismiss it. Outside click, resize, and Escape still close it.

@@ -45,6 +45,7 @@ import {
   HeartPulse,
   House,
   Laptop,
+  LayoutGrid,
   Leaf,
   Lightbulb,
   MapPin,
@@ -88,10 +89,18 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MetricColorPicker } from "./MetricColorPicker";
+import {
+  AssistantIcon,
+  CalendarIcon,
+  CoreIcon,
+  InsightsIcon,
+  SettingsIcon,
+} from "./icons";
 
-export const NEST_ICONS = [
+const LUCIDE_NEST_ICONS = [
+  { key: "layout-grid", label: "Overview", Icon: LayoutGrid },
   { key: "activity", label: "Activity", Icon: Activity },
   { key: "apple", label: "Nutrition", Icon: Apple },
   { key: "battery", label: "Energy", Icon: BatteryCharging },
@@ -184,6 +193,16 @@ export const NEST_ICONS = [
   Icon: LucideIcon;
 }>;
 
+// Section marks that are not in the Lucide set. Same picker as every other icon.
+export const NEST_ICONS = [
+  ...LUCIDE_NEST_ICONS,
+  { key: "date" as const, label: "Calendar", Icon: CalendarIcon },
+  { key: "insights" as const, label: "Insights", Icon: InsightsIcon },
+  { key: "core" as const, label: "Core", Icon: CoreIcon },
+  { key: "assistant" as const, label: "Assistant", Icon: AssistantIcon },
+  { key: "settings" as const, label: "Settings", Icon: SettingsIcon },
+];
+
 const ICONS = Object.fromEntries(
   NEST_ICONS.map(({ key, Icon }) => [key, Icon]),
 ) as Record<string, LucideIcon>;
@@ -274,53 +293,99 @@ export function IconPicker({
 }
 
 /**
- * A trigger that opens its own IconPicker and closes on an outside press.
- * Scoped to this instance's own element: several of these can be mounted at
- * once, and a shared class selector would read a sibling's press as inside.
+ * The one way to open an IconPicker: it closes after a pick, on Escape, and
+ * on an outside press. Scoped to this instance's own element: several of
+ * these can be mounted at once, and a shared class selector would read a
+ * sibling's press as inside.
+ *
+ * Escape is handled on `document` (WKWebView does not focus a clicked
+ * button, so the trigger may not hold focus) and marks the event
+ * `defaultPrevented`, so a surrounding overlay can leave itself open.
  */
 export function IconPickerButton({
   icon,
   label,
   className = "",
+  controlClassName = "phase-settings__icon-control",
+  triggerClassName = "phase-settings__control",
+  iconColor,
+  color,
+  onColorChange,
   onChange,
+  children,
+  title,
+  ariaLabel,
+  ariaCurrent,
 }: {
   icon: string;
   label: string;
   /** Added to the wrapper, for callers that position the picker themselves. */
   className?: string;
+  /** Replaces the wrapper's base class for surfaces with their own control style. */
+  controlClassName?: string;
+  /** Replaces the trigger's base class for surfaces with their own control style. */
+  triggerClassName?: string;
+  /** Tints the trigger and the selected icon in the grid. */
+  iconColor?: string;
+  /** With `onColorChange`, shows the color swatches below the icon grid. */
+  color?: string | null;
+  onColorChange?: (color: string | null) => void;
   onChange: (icon: string) => void;
+  children?: ReactNode;
+  /** Native tooltip. Omit for the icon's friendly name. Pass "" for none. */
+  title?: string;
+  /** Replaces "Choose icon for {label}" when the trigger is also navigation. */
+  ariaLabel?: string;
+  ariaCurrent?: "page";
 }) {
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    const closePicker = (event: PointerEvent) => {
+    const closeOnOutsidePress = (event: PointerEvent) => {
       if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    document.addEventListener("pointerdown", closePicker);
-    return () => document.removeEventListener("pointerdown", closePicker);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [open]);
 
   return (
     <div
-      className={`phase-settings__icon-control${className ? ` ${className}` : ""}`}
+      className={`${controlClassName}${className ? ` ${className}` : ""}`}
       ref={controlRef}
     >
       <button
+        ref={triggerRef}
         type="button"
-        className="phase-settings__control"
-        aria-label={`Choose icon for ${label}`}
+        className={triggerClassName}
+        aria-label={ariaLabel ?? `Choose icon for ${label}`}
+        aria-current={ariaCurrent}
         aria-expanded={open}
-        title={nestIconLabel(icon)}
+        title={title === undefined ? nestIconLabel(icon) : title || undefined}
         onClick={() => setOpen((current) => !current)}
       >
-        <NestIcon name={icon} />
+        <NestIcon name={icon} color={iconColor} />
+        {children}
       </button>
       {open && (
         <IconPicker
           value={icon}
           label={`Icon for ${label}`}
+          color={color}
+          iconColor={iconColor}
+          onColorChange={onColorChange}
           onChange={(next) => {
             onChange(next);
             setOpen(false);

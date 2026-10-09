@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReactNode, Ref, PointerEvent as ReactPointerEvent } from "react";
 import type { Task } from "../../lib/types";
 import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
 import type { TaskGraphProjection } from "../lib/taskGraph";
@@ -27,18 +27,22 @@ function TaskTableCell({
   task,
   taskGraph,
   readOnly,
+  nowMs,
 }: {
   id: TaskTableColumnId;
   task: Task;
   taskGraph: TaskGraphProjection;
   readOnly: boolean;
+  nowMs?: number;
 }) {
   switch (id) {
     case "title":
       return (
         <td className="task-table__col task-table__col--title task-table__title">
-          <span>{task.title}</span>
-          {task.workingNow && <WorkingBadge />}
+          <div className="task-table__title-content">
+            <span title={task.title}>{task.title}</span>
+            {task.workingNow && <WorkingBadge />}
+          </div>
         </td>
       );
     case "scope":
@@ -96,7 +100,7 @@ function TaskTableCell({
     case "workedTime":
       return (
         <td className="task-table__col task-table__col--workedTime">
-          <WorkedTime task={task} />
+          <WorkedTime task={task} nowMs={nowMs} />
         </td>
       );
     case "created":
@@ -124,7 +128,13 @@ export function TaskTable({
   onSelect,
   columnInteraction,
   readOnly = false,
+  renderHeader,
+  headerSort,
+  wrapRef,
+  nowMs,
 }: {
+  renderHeader?: (column: TaskTableColumn) => ReactNode;
+  headerSort?: { column: TaskTableColumnId; direction: "ascending" | "descending" };
   columns: TaskTableColumn[];
   tasks: Task[];
   taskGraph: TaskGraphProjection;
@@ -134,12 +144,15 @@ export function TaskTable({
   columnInteraction?: TaskTableColumnInteraction;
   /** Overview peek: static cells, no row selection or edits. */
   readOnly?: boolean;
+  wrapRef?: Ref<HTMLDivElement>;
+  /** Shared live clock for callers that display several Working now totals. */
+  nowMs?: number;
 }) {
   const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
 
   return (
-    <div className="task-table-wrap">
-      <table className="task-table" style={{ width: tableWidth }}>
+    <div className="task-table-wrap" ref={wrapRef}>
+      <table className="task-table" style={{ width: tableWidth, minWidth: "100%" }}>
         <colgroup>
           {columns.map((column) => (
             <col key={column.id} style={{ width: column.width }} />
@@ -147,7 +160,7 @@ export function TaskTable({
         </colgroup>
         <thead>
           <tr>
-            {columns.map((column) => (
+            {columns.map((column, index) => (
               <th
                 key={column.id}
                 className={`task-table__col task-table__col--${column.id}${
@@ -159,6 +172,7 @@ export function TaskTable({
                     ? " task-table__col--over"
                     : ""
                 }`}
+                aria-sort={headerSort?.column === column.id ? headerSort.direction : undefined}
                 data-task-col={column.id}
                 onPointerDown={
                   columnInteraction
@@ -167,8 +181,13 @@ export function TaskTable({
                     : undefined
                 }
               >
-                {column.label}
-                {columnInteraction ? (
+                {renderHeader ? (
+                  <div className="task-table__header-controls">
+                    {columnInteraction && <span className="task-table__move" title={`Drag to move ${column.label}`} aria-hidden="true">⋮</span>}
+                    {renderHeader(column)}
+                  </div>
+                ) : column.label}
+                {columnInteraction && index < columns.length - 1 ? (
                   <span
                     className="task-table__resize"
                     role="separator"
@@ -234,6 +253,7 @@ export function TaskTable({
                     task={task}
                     taskGraph={taskGraph}
                     readOnly={readOnly}
+                    nowMs={nowMs}
                   />
                 ))}
               </tr>

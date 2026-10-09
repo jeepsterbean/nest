@@ -7,7 +7,6 @@ import {
   stretchEditorSide,
   timeOnColumn,
   workTotalsInSpan,
-  workedSecondsInSpan,
 } from "../../../src/dashboard/lib/workTimeline";
 import { phaseSessions } from "../../../src/dashboard/lib/timeline";
 import type { Task, TaskWorkStretch } from "../../../src/lib/types";
@@ -219,30 +218,6 @@ describe("workTotalsInSpan", () => {
     expect(workTotalsInSpan(blocks, 1400, 2000).map((row) => row.seconds)).toEqual([
       400,
     ]);
-  });
-});
-
-describe("workedSecondsInSpan", () => {
-  it("clips overnight work to local midnight and counts an open stretch to now", () => {
-    expect(
-      workedSecondsInSpan(
-        [stretch(1, 1, 800, 1200), stretch(2, 2, 1500, null)],
-        FROM,
-        TO,
-        NOW_MS,
-      ),
-    ).toBe(200 + 300);
-  });
-
-  it("adds concurrent stretches instead of taking the wall-clock union", () => {
-    expect(
-      workedSecondsInSpan(
-        [stretch(1, 1, 1000, 1300), stretch(2, 2, 1100, 1400)],
-        FROM,
-        TO,
-        NOW_MS,
-      ),
-    ).toBe(600);
   });
 });
 

@@ -1043,6 +1043,28 @@ SELECT 1, 60, COALESCE(
 );
 "#,
         ),
+        // Phase icon and color became fixed product choices, so earlier edits
+        // are reset and Offline gets a quiet color of its own.
+        M::up(
+            r#"
+UPDATE phases SET
+  icon = CASE name
+    WHEN 'Doing' THEN 'target'
+    WHEN 'Scoping' THEN 'idea'
+    WHEN 'Resting' THEN 'coffee'
+    WHEN 'Offline' THEN 'moon'
+    ELSE icon
+  END,
+  color = CASE name
+    WHEN 'Doing' THEN '#5f8fb8'
+    WHEN 'Scoping' THEN '#c18e43'
+    WHEN 'Resting' THEN '#35764e'
+    WHEN 'Offline' THEN '#8a8580'
+    ELSE color
+  END;
+"#,
+        ),
+        M::up("DROP TABLE metric_check_in_schedule;"),
     ])
 }
 
@@ -1055,6 +1077,49 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn removing_metric_schedule_preserves_ratings_and_timer() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        let migrations = migrations();
+        migrations.to_version(&mut conn, 53).unwrap();
+        conn.execute_batch(
+            "INSERT INTO metrics (id, name, created_at) VALUES (1, 'Energy', 1);
+             INSERT INTO metric_check_ins (id, created_at) VALUES (1, 40);
+             INSERT INTO metric_ratings (check_in_id, metric_id, value) VALUES (1, 1, 4);
+             UPDATE timer_schedule SET interval_minutes = 20, next_due_at = 1234 WHERE id = 1;",
+        )
+        .unwrap();
+
+        migrations.to_latest(&mut conn).unwrap();
+
+        let schedule_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name = 'metric_check_in_schedule'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(schedule_count, 0);
+        let saved_rating: (i64, i64) = conn
+            .query_row(
+                "SELECT ci.created_at, r.value FROM metric_check_ins ci
+             JOIN metric_ratings r ON r.check_in_id = ci.id WHERE ci.id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(saved_rating, (40, 4));
+        let timer: (i64, i64) = conn
+            .query_row(
+                "SELECT interval_minutes, next_due_at FROM timer_schedule WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(timer, (20, 1234));
+    }
 
     #[test]
     fn seeds_a_prompt_worded_as_the_user_and_drops_the_dead_prompt_columns() {
@@ -1201,9 +1266,16 @@ mod tests {
     }
 
     #[test]
-    fn adds_configurable_phase_appearance() {
+    fn resets_phase_appearance_to_fixed_defaults() {
         let mut conn = Connection::open_in_memory().unwrap();
-        migrations().to_latest(&mut conn).unwrap();
+        let migrations = migrations();
+        migrations.to_version(&mut conn, 52).unwrap();
+        conn.execute(
+            "UPDATE phases SET icon = 'star', color = '#000000' WHERE name = 'Doing'",
+            [],
+        )
+        .unwrap();
+        migrations.to_latest(&mut conn).unwrap();
 
         let phases: Vec<(String, String, Option<String>)> = conn
             .prepare(
@@ -1219,7 +1291,7 @@ mod tests {
             phases,
             vec![
                 ("Doing".into(), "target".into(), Some("#5f8fb8".into())),
-                ("Offline".into(), "moon".into(), None),
+                ("Offline".into(), "moon".into(), Some("#8a8580".into())),
                 ("Resting".into(), "coffee".into(), Some("#35764e".into())),
                 ("Scoping".into(), "idea".into(), Some("#c18e43".into())),
             ]

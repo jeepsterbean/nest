@@ -9,10 +9,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Phase } from "../../lib/types";
-import { phaseColor, phaseIcon, phaseName, phaseTone, taskHue } from "../lib/period";
-import { NestIcon } from "./PulseIcon";
-import { formatHourTick, formatTime, fromDateAndTime, toDateInput, toTimeInput } from "../lib/time";
-import type { PhaseSession } from "../lib/timeline";
+import { taskHue } from "../lib/period";
+import { formatTime, fromDateAndTime, toDateInput, toTimeInput } from "../lib/time";
 import {
   applyStretchDrag,
   placeOnWindow,
@@ -24,28 +22,21 @@ import {
   type StretchTimes,
   type WorkBlock,
 } from "../lib/workTimeline";
-
-/** Height of one hour. The calibration knob for the whole grid: it decides
- * whether a block is tall enough to carry its own label. TS owns it and hands
- * it to CSS, because the label thresholds below need the same number. */
-const HOUR_PX = 44;
-const DAY_PX = HOUR_PX * 24;
-const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+import {
+  pxOf,
+  TimelineFrame,
+  type FrameColumn,
+  type TimeSpan,
+} from "./TimelineFrame";
 
 /** A block this tall fits its title; twice that also fits its start–end line. */
 const TITLE_PX = 18;
 const TIMES_PX = 34;
 
-/** A rail segment this tall carries its Phase icon; shorter ones stay a bare tint. */
-const RAIL_ICON_PX = 20;
 /** Pointer must move this far before a press becomes a drag, so clicks still select. */
 const DRAG_START_DISTANCE = 6;
 
-export type GridColumn = {
-  from: number;
-  to: number;
-  label: string;
-  sessions: PhaseSession[];
+export type GridColumn = FrameColumn & {
   blocks: WorkBlock[];
 };
 
@@ -60,22 +51,6 @@ export type StretchEdit = {
 };
 
 type StretchPreview = StretchTimes & { id: number; source: WorkBlock };
-
-const pxOf = (sizePct: number) => (sizePct / 100) * DAY_PX;
-
-/** Sessions with their column placement and display name — the rail and the
- * wash draw the same list, so they can never disagree. */
-const placeSessions = (column: GridColumn, phases: Phase[]) =>
-  column.sessions.map((session) => {
-    const name = phaseName(session.phaseId, phases);
-    return {
-      session,
-      name,
-      icon: phaseIcon(session.phaseId, phases, name),
-      color: phaseColor(session.phaseId, phases),
-      ...placeOnWindow(session.from, session.to, column.from, column.to),
-    };
-  });
 
 const locateTime = (
   colsEl: HTMLElement | null,
@@ -149,16 +124,13 @@ const dragKindAt = (
   return "move";
 };
 
-/** Vertical calendar: hours down the gutter, one column per day. Phase is the
- * ground — a continuous wash behind the column, keyed by icon on the rail left
- * of the hours; Work stretches are the figure — cards on top, one hue per Task.
- * Every span is placed by percentage of its own column, so wash and card always
- * agree — a DST day's 23 or 25 hours are squeezed into the same pixel height,
- * off by ~4% twice a year. */
+/** Calendar: Work stretches are the figure on the shared day grid — cards on
+ * top of the Phase wash, one hue per Task, dragged and edited in place. */
 export function TimelineGrid({
   columns,
   phases,
   mode,
+  span,
   scrollPct,
   nowSec,
   selected,
@@ -169,6 +141,7 @@ export function TimelineGrid({
   columns: GridColumn[];
   phases: Phase[];
   mode: "day" | "week";
+  span?: TimeSpan | null;
   scrollPct: number | null;
   nowSec: number;
   selected: StretchEdit | null;
@@ -181,11 +154,7 @@ export function TimelineGrid({
   ) => void | Promise<void>;
   onDelete: (id: number) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const colsRef = useRef<HTMLDivElement>(null);
-  const target = useRef(scrollPct);
-  target.current = scrollPct;
-  const scrollKey = `${mode}:${columns[0]?.from ?? 0}`;
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
   const nowRef = useRef(nowSec);
@@ -207,17 +176,6 @@ export function TimelineGrid({
     startX: number;
     startY: number;
   } | null>(null);
-
-  // Re-aim only when the range changes, never on the minute tick — otherwise it
-  // would yank the view back out from under a scroll the user just made.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || target.current === null) return;
-    el.scrollTop = Math.max(
-      0,
-      (target.current / 100) * DAY_PX - el.clientHeight * 0.4,
-    );
-  }, [scrollKey]);
 
   const showPreview = (next: StretchPreview | null) => {
     previewRef.current = next;
@@ -358,79 +316,34 @@ export function TimelineGrid({
   };
 
   return (
-    <div className={`tl tl--${mode}`} style={{ "--tl-hour": `${HOUR_PX}px` } as CSSProperties}>
-      {columns.length > 1 ? (
-        <div className="tl__heads">
-          {columns.map((column) => (
-            <span key={column.from} className="tl__head">
-              {column.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <div className="tl__scroll" ref={scrollRef}>
-        {mode === "day" && columns[0] ? (
-          <div className="tl__rail" aria-hidden="true">
-            {placeSessions(columns[0], phases).map(
-              ({ session, name, icon, color, startPct, sizePct }) => (
-                <div
-                  key={`${session.from}-${session.phaseId}`}
-                  className={`tl__rail-seg tl__rail-seg--${phaseTone(name)}${
-                    color ? " tl__rail-seg--colored" : ""
-                  }`}
-                  style={{
-                    top: `${startPct}%`,
-                    height: `${sizePct}%`,
-                    ...(color
-                      ? ({ "--phase-color": color } as CSSProperties)
-                      : null),
-                  }}
-                  title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
-                >
-                  {pxOf(sizePct) >= RAIL_ICON_PX ? (
-                    <NestIcon name={icon} />
-                  ) : null}
-                </div>
-              ),
-            )}
-          </div>
-        ) : null}
-        <div className="tl__gutter">
-          {HOURS.map((hour) => (
-            <span key={hour} className="tl__hour">
-              {formatHourTick((columns[0]?.from ?? 0) + hour * 3600)}
-            </span>
-          ))}
-        </div>
-        <div className="tl__cols" ref={colsRef}>
-          {HOURS.map((hour) => (
-            <div key={hour} className="tl__rule" style={{ top: `${(hour / 24) * 100}%` }} />
-          ))}
-          {columns.map((column) => (
-            <Column
-              key={column.from}
-              column={column}
-              phases={phases}
-              nowSec={nowSec}
-              selected={selected?.columnFrom === column.from ? selected : null}
-              draggingId={preview?.id ?? null}
-              blocks={blocksWithPreview(column, preview, nowSec)}
-              onSelect={onSelect}
-              onSave={onSave}
-              onDelete={onDelete}
-              onBlockPointerDown={onBlockPointerDown}
-              suppressClick={suppressClick}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
+    <TimelineFrame
+      columns={columns}
+      phases={phases}
+      mode={mode}
+      span={span}
+      scrollPct={scrollPct}
+      nowSec={nowSec}
+      colsRef={colsRef}
+      renderLane={(column) => (
+        <WorkLane
+          column={column}
+          nowSec={nowSec}
+          selected={selected?.columnFrom === column.from ? selected : null}
+          draggingId={preview?.id ?? null}
+          blocks={blocksWithPreview(column, preview, nowSec)}
+          onSelect={onSelect}
+          onSave={onSave}
+          onDelete={onDelete}
+          onBlockPointerDown={onBlockPointerDown}
+          suppressClick={suppressClick}
+        />
+      )}
+    />
   );
 }
 
-function Column({
+function WorkLane({
   column,
-  phases,
   nowSec,
   selected,
   draggingId,
@@ -442,7 +355,6 @@ function Column({
   suppressClick,
 }: {
   column: GridColumn;
-  phases: Phase[];
   nowSec: number;
   selected: StretchEdit | null;
   draggingId: number | null;
@@ -465,32 +377,12 @@ function Column({
   const selectedRef = useRef<HTMLButtonElement>(null);
   // Stable, so the editor's placement listeners are not torn down every render.
   const cancel = useCallback(() => onSelect(null), [onSelect]);
-  const place = (from: number, to: number) =>
-    placeOnWindow(from, to, column.from, column.to);
-  const now = place(nowSec, nowSec);
-  const sessions = placeSessions(column, phases);
   const selectedBlock = selected
     ? blocks.find((block) => block.id === selected.id)
     : undefined;
 
   return (
-    <div className="tl__lane">
-      {sessions.map(({ session, name, color, startPct, sizePct }) => (
-        <div
-          key={`${session.from}-${session.phaseId}`}
-          className={`tl__wash tl__wash--${phaseTone(name)}${
-            color ? " tl__wash--colored" : ""
-          }`}
-          style={{
-            top: `${startPct}%`,
-            height: `${sizePct}%`,
-            ...(color
-              ? ({ "--phase-color": color } as CSSProperties)
-              : null),
-          }}
-          title={`${name} · ${formatTime(session.from)} – ${formatTime(session.to)}`}
-        />
-      ))}
+    <>
       {blocks.map((block) => {
         const height = pxOf(block.sizePct);
         const isOpen = block.endedAt === null;
@@ -577,10 +469,7 @@ function Column({
           onDelete={onDelete}
         />
       ) : null}
-      {nowSec >= column.from && nowSec < column.to ? (
-        <div className="tl__now" style={{ top: `${now.startPct}%` }} />
-      ) : null}
-    </div>
+    </>
   );
 }
 
@@ -622,8 +511,21 @@ function StretchEditor({
     // The card is fixed to the viewport but belongs to a block inside a
     // scrolling grid. Once that block has scrolled out of the grid entirely,
     // the card would sit over unrelated UI editing something unseen — close it.
-    const clip = anchor.closest(".tl__scroll")?.getBoundingClientRect();
-    if (clip && (rect.bottom <= clip.top || rect.top >= clip.bottom)) {
+    // Pinned chrome obscures stretches before they leave the scroll viewport.
+    const scroll = anchor.closest<HTMLElement>(".tl__scroll");
+    const clip = scroll?.getBoundingClientRect();
+    const gutter = scroll?.querySelector(".tl__gutter")?.getBoundingClientRect();
+    const heads = scroll?.querySelector(".tl__heads")?.getBoundingClientRect();
+    const columnGap = scroll ? parseFloat(getComputedStyle(scroll).columnGap) || 0 : 0;
+    const visibleTop = Math.max(clip?.top ?? 0, heads?.bottom ?? 0);
+    const visibleLeft = Math.max(clip?.left ?? 0, (gutter?.right ?? 0) + columnGap);
+    if (
+      clip &&
+      (rect.bottom <= visibleTop ||
+        rect.top >= clip.bottom ||
+        rect.right <= visibleLeft ||
+        rect.left >= clip.right)
+    ) {
       onCancel();
       return;
     }

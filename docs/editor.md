@@ -9,10 +9,12 @@ diagnosis, and manual regression checks. Domain words live in
 
 `BrainDumpSurface` is the only component that mounts several times on one
 screen and reaches for browser singletons, which is what turns its bugs into
-cross-instance ones. Three kinds of instance can be live at once: the Overview
-`brainDump` tile, one per expanded `.floating-brain-dump` sticky, and the popup
-composer. Each owns a separate TipTap editor with its own document, selection,
-and undo stack; there is no active-editor registry, and focus moves natively.
+cross-instance ones. Four kinds of instance exist: the Overview `brainDump`
+tile, the Core Brain dump pane composer on Today, one per expanded
+`.floating-brain-dump` sticky, and the popup composer. Overview unmounts while
+Core is showing, so those two dashboard composers are never live together. Each
+owns a separate TipTap editor with its own document, selection, and undo stack;
+there is no active-editor registry, and focus moves natively.
 
 The rule: anything a surface does to a process-wide resource must be
 conditional on that surface owning it. Both long-standing caret bugs were that
@@ -121,6 +123,16 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
   with the range still on the clicked node, means the selection is intact and
   the caret is simply not painted — a WKWebView rendering problem, so look at
   CSS rather than at handlers.
+- A caret missing only on an empty first line, with the editor still focused,
+  is that paint clip: `.brain-dump-surface__editor` uses `overflow-x: hidden`,
+  and the overview layout (Overview tile and the Core Today composer) otherwise
+  zeros input padding. Keep 1px of horizontal padding on
+  `.brain-dump-surface--overview .brain-dump-surface__input`, and a line-box
+  `min-height` on the empty first `p`.
+- The Core Today composer is the same `layout="overview"` surface. Do not give
+  its Tag strip `margin-top: auto` — that opens a dead zone under a one-line
+  editor, so a click in the card looks focused while the caret sits under the
+  clock. Pin the strip with `margin: 0 -18px -18px` and let the input grow.
 
 ## Verification
 
@@ -136,6 +148,8 @@ native Tauri/WKWebView environment:
 5. Minimise and expand a sticky. Its text survives.
 6. Type in the popup with the dashboard open. The main dump mirrors it and
    the popup caret stays put.
+7. Type in the Core Brain dump composer on Today with the popup open. The popup
+   mirrors it and both carets stay put.
 
 Vitest runs in the `node` environment, so caret placement, focus, selection,
 and bubble menu visibility require manual verification. Keep these checks in

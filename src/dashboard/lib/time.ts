@@ -64,6 +64,19 @@ export const snapToQuarterHour = (ts: number) => {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Local "02/10/2026" for range titles. Fixed-width fields, unlike "Today" or
+ * a spelled-out month, so paging never shifts the arrows beside it. */
+export const formatRangeDate = (tsSecs: number) => {
+  const d = new Date(tsSecs * 1000);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+/** Local "Fri 02/10/2026" for a single-day range title. */
+export const formatRangeDay = (tsSecs: number) =>
+  `${WEEKDAY_SHORT[new Date(tsSecs * 1000).getDay()]} ${formatRangeDate(tsSecs)}`;
+
 /** Local YYYY-MM-DD for `<input type="date">`. */
 export const toDateInput = (ts: number) => {
   const d = new Date(ts * 1000);
@@ -114,7 +127,7 @@ export const formatDate = (ts: number | null) =>
         day: "numeric",
       });
 
-export const taskWorkSessionSeconds = (
+export const taskWorkStretchSeconds = (
   startedAt: number | null,
   nowMs: number = Date.now(),
 ) =>
@@ -122,17 +135,27 @@ export const taskWorkSessionSeconds = (
     ? 0
     : Math.max(0, Math.floor(nowMs / 1000) - startedAt);
 
+/** Banked Worked time plus the open stretch, matching the table cell. */
+export const taskDisplayedWorkedSeconds = (
+  task: { workedSeconds: number; workStartedAt: number | null; workingNow: boolean },
+  nowMs: number = Date.now(),
+) =>
+  task.workedSeconds +
+  (task.workingNow && task.workStartedAt !== null
+    ? taskWorkStretchSeconds(task.workStartedAt, nowMs)
+    : 0);
+
 export const formatWorkedTime = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    return `${hours}h ${minutes}m ${remainder}s`;
   }
   if (minutes > 0) {
-    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+    return `${minutes}m ${remainder}s`;
   }
-  return String(remainder);
+  return `${remainder}s`;
 };
 
 /** Clock face / header elapsed time: always `m:ss`, then `h:mm:ss` after an hour. */

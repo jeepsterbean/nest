@@ -4,7 +4,7 @@ Countdown, due behavior, and the Popup panels. Domain words live in
 [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in [`UI.md`](../UI.md).
 
 Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-check-in. The dashboard timer due phrase `time to check in!` is the exception.
+check-in. The dashboard timer due phrase is `Timer due`.
 Popup timer UI shows countdown only. Metric check-in remains the saved Pulse
 scoring record.
 
@@ -27,6 +27,11 @@ completed or dismissed.
 
 ## Popup
 
+With `SIMPLIFIED_VIEW` enabled in `src/lib/simplifiedView.ts`, the Popup offers
+Brain dump and Tasks and metrics. Chat stays unmounted and its ⌘3 shortcut is
+disabled. Restored panel selections omit Chat; a Chat-only selection falls back
+to Brain dump. An explicitly empty selection still hides every panel.
+
 The popup has the Timer bar across the top (countdown, interval, and a line
 that drains with the remaining time; click the countdown to pick an
 interval) and an icon-only strip down the left with one toggle per panel:
@@ -36,7 +41,10 @@ share the width evenly, left to right in that order. Tasks and metrics holds
 Metric scoring above the Active / Up next task list; extra tasks scroll.
 Completed and Cancelled Tasks from the last 60 minutes sit above Active; the
 list opens on Active, and scrolling up reveals them so they can be returned
-to Active. Active rows have Up next to the left of Complete. Brain dump
+to Active. Active rows start or stop Working now with their leading control;
+while working, it shows the Task's total Worked time, including the open
+stretch. Starting an Up next Task moves it to Active and starts Working now.
+Active rows have Up next to the left of Complete. Brain dump
 holds the brain dump. Chat holds the same Chat workspace as the dashboard;
 Assistant setup stays in the dashboard. Every summon restores the last
 combination — manual or Timer-triggered alike, and even if the Timer is
@@ -47,10 +55,8 @@ control; hiding the panel that holds focus returns focus to its toggle.
 The Metric scoring panel opens on the first Metric of the first visible Pulse.
 Metrics can hide a Pulse from the popup. A pulse toggle swaps among Pulses
 shown there; finishing the last Metric of a Pulse saves a Metric check-in and
-closes the popup. A Silence control beside the Metric title skips that Metric
-for the Metric check-in interval. Once nothing is left to score, the due glow
-stays off and so does the dot on Tasks and metrics, which the toggle keeps
-while its panel is hidden.
+closes the popup. Metric scoring is manual and always available; it has no
+interval, due glow, or due dot.
 
 ⌘1, ⌘2 and ⌘3 toggle Brain dump, Tasks and metrics, and Chat in sidebar
 order, including while typing in Brain dump or Chat. A held key repeats but
@@ -58,7 +64,7 @@ toggles once. None of the three is an editing chord, so Copy, Cut and Paste
 stay themselves. The chords only count when the Popup itself has the
 keystroke; with the Dashboard focused they belong to the Dashboard. Tab and
 Shift+Tab are ordinary focus navigation, the panel toggles included. Timer,
-Dashboard, task, and Silence controls are pointer-only; Metric ratings use
+Dashboard and task controls are pointer-only; Metric ratings use
 the bare 1–5 number keys, which ⌘ keeps apart from the panel chords.
 
 Opening the dashboard from the popup dismisses it.

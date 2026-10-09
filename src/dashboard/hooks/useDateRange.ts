@@ -1,46 +1,55 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
   insightColumns,
   MODE_DAYS,
-  readRangeMode,
   stepColumns,
-  writeRangeMode,
   type RangeModeKey,
 } from "../lib/insights";
-import { historyStartSec, shiftDayMs } from "../lib/time";
+import { formatRangeDate, formatRangeDay, historyStartSec, startOfDayMs } from "../lib/time";
+import { boundedDayMs, selectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
 import { useCurrentTime } from "./useCurrentTime";
 
-/** Day / Week range state plus Earlier / Later / Today paging. Shared by Calendar
- * and Insights so the stored range and paging guards cannot drift. */
-export function useDateRange() {
-  const [mode, setMode] = useState(readRangeMode);
-  const [anchorMs, setAnchorMs] = useState(() => Date.now());
+/** Date paging is independent of persisted presentation mode. */
+export function useDateRange(mode: RangeModeKey) {
+  const [anchorMs, setAnchorMs] = useState<number | null>(null);
   const nowMs = useCurrentTime();
+  // Read the clock through a ref so `step` keeps one identity across ticks and
+  // keyboard listeners that depend on it are not re-registered each minute.
+  const nowMsRef = useRef(nowMs);
+  nowMsRef.current = nowMs;
 
+  const effectiveAnchorMs = selectedDayMs(anchorMs, nowMs);
   const columns = useMemo(
-    () => insightColumns(mode, anchorMs, nowMs),
-    [mode, anchorMs, nowMs],
+    () => insightColumns(mode, effectiveAnchorMs, nowMs),
+    [mode, effectiveAnchorMs, nowMs],
   );
   const from = columns[0].from;
   const to = columns[columns.length - 1].to;
   const nowSec = Math.floor(nowMs / 1000);
+  const earliestSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
   const canGoBack =
-    stepColumns(mode, anchorMs, -1, nowMs)[0].from >=
-    historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
+    stepColumns(mode, effectiveAnchorMs, -1, nowMs)[0].from >= earliestSec;
   const isNow = nowSec >= from && nowSec < to;
+  const lastColumn = columns[columns.length - 1];
   const title =
     columns.length === 1
-      ? columns[0].label
-      : `${columns[0].label} – ${columns[columns.length - 1].label}`;
+      ? formatRangeDay(from)
+      : `${formatRangeDate(from)} – ${formatRangeDate(lastColumn.from)}`;
 
-  const selectMode = (key: RangeModeKey) => {
-    setMode(key);
-    writeRangeMode(key);
-  };
-  const step = (direction: number) => {
-    setAnchorMs((current) => shiftDayMs(current, direction * MODE_DAYS[mode]));
-  };
+  const step = useCallback((direction: number) => {
+    setAnchorMs((current) => {
+      const now = nowMsRef.current;
+      const earliest = historyStartSec(now, HISTORY_WINDOW_DAYS);
+      if (stepColumns(mode, selectedDayMs(current, now), direction, now)[0].from < earliest) return current;
+      return stepSelectedDay(current, direction * MODE_DAYS[mode], now);
+    });
+  }, [mode]);
+  const goToday = useCallback(() => setAnchorMs(null), []);
+  const goToDay = useCallback((dayMs: number) => {
+    const bounded = boundedDayMs(dayMs, nowMs, earliestSec);
+    setAnchorMs(bounded === startOfDayMs(nowMs / 1000) ? null : bounded);
+  }, [nowMs, earliestSec]);
 
   return {
     mode,
@@ -49,11 +58,12 @@ export function useDateRange() {
     to,
     nowMs,
     nowSec,
+    earliestSec,
     canGoBack,
     isNow,
     title,
-    selectMode,
     step,
-    goToday: () => setAnchorMs(Date.now()),
+    goToday,
+    goToDay,
   };
 }

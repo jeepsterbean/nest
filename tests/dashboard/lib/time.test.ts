@@ -6,6 +6,8 @@ import {
   formatCompactDuration,
   formatDate,
   formatHourTick,
+  formatRangeDate,
+  formatRangeDay,
   formatTime,
   formatWorkedTime,
   greetingForHour,
@@ -14,7 +16,8 @@ import {
   shiftDayMs,
   snapToQuarterHour,
   startOfDayMs,
-  taskWorkSessionSeconds,
+  taskDisplayedWorkedSeconds,
+  taskWorkStretchSeconds,
   toDateInput,
   toTimeInput,
   fromDateAndTime,
@@ -97,6 +100,15 @@ describe("format helpers", () => {
     expect(typeof formatTime(ts)).toBe("string");
     expect(typeof formatDate(ts)).toBe("string");
     expect(typeof formatHourTick(ts)).toBe("string");
+  });
+
+  it("formats range days as a zero-padded weekday and dd/mm/yyyy", () => {
+    expect(formatRangeDay(sec(new Date(2026, 9, 2, 15, 0)))).toBe("Fri 02/10/2026");
+    expect(formatRangeDay(sec(new Date(2026, 11, 28, 0, 0)))).toBe("Mon 28/12/2026");
+  });
+
+  it("formats week range ends as dd/mm/yyyy without a weekday", () => {
+    expect(formatRangeDate(sec(new Date(2026, 8, 28, 9, 0)))).toBe("28/09/2026");
   });
 
   it("formats compact durations in whole minutes", () => {
@@ -198,17 +210,22 @@ describe("date and time field values", () => {
 
 describe("worked time", () => {
   it("starts each visible session at zero without going backwards", () => {
-    expect(taskWorkSessionSeconds(100, 130_000)).toBe(30);
-    expect(taskWorkSessionSeconds(130, 130_000)).toBe(0);
-    expect(taskWorkSessionSeconds(140, 130_000)).toBe(0);
-    expect(taskWorkSessionSeconds(null, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(100, 130_000)).toBe(30);
+    expect(taskWorkStretchSeconds(130, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(140, 130_000)).toBe(0);
+    expect(taskWorkStretchSeconds(null, 130_000)).toBe(0);
+  });
+
+  it("adds the open stretch to banked Worked time while Working now", () => {
+    expect(taskDisplayedWorkedSeconds({ workedSeconds: 40, workStartedAt: 100, workingNow: true }, 130_000)).toBe(70);
+    expect(taskDisplayedWorkedSeconds({ workedSeconds: 40, workStartedAt: 100, workingNow: false }, 130_000)).toBe(40);
   });
 
   it("formats worked time", () => {
-    expect(formatWorkedTime(0)).toBe("0");
-    expect(formatWorkedTime(45)).toBe("45");
-    expect(formatWorkedTime(60)).toBe("1:00");
-    expect(formatWorkedTime(330)).toBe("5:30");
-    expect(formatWorkedTime(3_661)).toBe("1:01:01");
+    expect(formatWorkedTime(0)).toBe("0s");
+    expect(formatWorkedTime(45)).toBe("45s");
+    expect(formatWorkedTime(60)).toBe("1m 0s");
+    expect(formatWorkedTime(330)).toBe("5m 30s");
+    expect(formatWorkedTime(3_661)).toBe("1h 1m 1s");
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildOverviewLayoutSnapshot,
   canShowTile,
+  createSavedLayout,
   CONTROL_PANEL_ID,
   COLS,
   DEFAULT_LAYOUT,
@@ -11,7 +11,9 @@ import {
   minimiseTile,
   moveTile,
   overlaps,
-  parseOverviewLayoutSnapshots,
+  overwriteSavedLayout,
+  parseSavedLayoutSelection,
+  parseSavedLayouts,
   parseTileLayout,
   pointerDeltaToCells,
   pointerToCell,
@@ -19,9 +21,13 @@ import {
   previewResizeTile,
   restoredTileSize,
   resizeTile,
+  renameSavedLayout,
   ROWS,
-  saveOverviewLayoutSnapshot,
+  MAX_SAVED_LAYOUTS,
+  DEFAULT_SAVED_LAYOUT_ICON,
   showTile,
+  type SavedLayout,
+  type SavedLayoutResult,
   type TileLayout,
 } from "../../../src/dashboard/lib/overviewGrid";
 
@@ -371,46 +377,173 @@ describe("overview grid", () => {
     ).toEqual({ x: 11, y: 11 });
   });
 
-  it("keeps only valid saved layout snapshots", () => {
-    const snapshots = parseOverviewLayoutSnapshots([
-      buildOverviewLayoutSnapshot(DEFAULT_LAYOUT, "Default", 1000),
+  it("keeps valid saved layouts in stored order and fills a missing icon", () => {
+    const layouts = parseSavedLayouts([
+      { id: "a", label: " Morning ", savedAt: 1000, layout: DEFAULT_LAYOUT },
       {
         id: "broken",
         label: "Broken",
+        icon: "bed",
         savedAt: 2000,
         layout: [{ id: "unknown", x: 0, y: 0, w: 1, h: 1, minimised: false }],
       },
       { id: "", label: "Missing id", savedAt: 3000, layout: DEFAULT_LAYOUT },
+      { id: "a", label: "Duplicate id", savedAt: 4000, layout: DEFAULT_LAYOUT },
     ]);
 
-    expect(snapshots).toHaveLength(2);
-    expect(snapshots[0]?.savedAt).toBe(2000);
-    expect(snapshots[1]?.savedAt).toBe(1000);
-    expect(snapshots[0]?.layout.some(({ id }) => id === CONTROL_PANEL_ID)).toBe(true);
-    expect(hiddenTileIds(snapshots[0]?.layout ?? [])).toContain("tasks");
-  });
-
-  it("dedupes matching layouts when saving a snapshot", () => {
-    const original = buildOverviewLayoutSnapshot(DEFAULT_LAYOUT, "First", 1000);
-    const saved = saveOverviewLayoutSnapshot(
-      [original!],
-      DEFAULT_LAYOUT,
-      "Renamed",
-      2000,
-    );
-
-    expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({
-      savedAt: 2000,
-      label: "Renamed",
+    expect(layouts.map(({ id }) => id)).toEqual(["a", "broken"]);
+    expect(layouts[0]).toMatchObject({
+      label: "Morning",
+      icon: DEFAULT_SAVED_LAYOUT_ICON,
+      createdAt: 1000,
     });
-    expect(saved[0]?.layout).not.toBe(DEFAULT_LAYOUT);
+    expect(layouts[1]?.icon).toBe("bed");
+    expect(hiddenTileIds(layouts[1]?.layout ?? [])).toContain("tasks");
   });
 
-  it("skips saving a snapshot when the label is blank", () => {
-    const original = buildOverviewLayoutSnapshot(DEFAULT_LAYOUT, "First", 1000);
-    const saved = saveOverviewLayoutSnapshot([original!], DEFAULT_LAYOUT, "   ", 2000);
+  it("orders saved layouts from oldest to newest, using savedAt when createdAt is missing", () => {
+    const layouts = parseSavedLayouts([
+      { id: "newest", label: "Newest", savedAt: 3000, layout: DEFAULT_LAYOUT },
+      { id: "oldest", label: "Oldest", savedAt: 1000, layout: DEFAULT_LAYOUT },
+      {
+        id: "kept",
+        label: "Kept",
+        savedAt: 9000,
+        createdAt: 2000,
+        layout: DEFAULT_LAYOUT,
+      },
+    ]);
 
-    expect(saved).toEqual([original]);
+    expect(layouts.map(({ id }) => id)).toEqual(["oldest", "kept", "newest"]);
+    expect(layouts.map(({ createdAt }) => createdAt)).toEqual([1000, 2000, 3000]);
+  });
+
+  const created = (result: SavedLayoutResult): SavedLayout[] => {
+    if (!result.ok) throw new Error(`expected ok, got ${result.problem.kind}`);
+    return result.layouts;
+  };
+  const otherBoard = hideTile(DEFAULT_LAYOUT, "tasks");
+
+  it("appends a new saved layout with its icon", () => {
+    const first = created(createSavedLayout([], DEFAULT_LAYOUT, " Focus ", "bed", 1000));
+    const second = created(createSavedLayout(first, otherBoard, "Review", "cat", 2000));
+
+    expect(second.map(({ label }) => label)).toEqual(["Focus", "Review"]);
+    expect(second[1]).toMatchObject({ icon: "cat", savedAt: 2000, createdAt: 2000 });
+    expect(second[1]?.layout).not.toBe(otherBoard);
+  });
+
+  it("refuses a new layout that is blank, a taken name, a duplicate, or over the cap", () => {
+    const layouts = created(createSavedLayout([], DEFAULT_LAYOUT, "Focus", "bed", 1000));
+
+    expect(createSavedLayout(layouts, otherBoard, "   ", "bed")).toEqual({
+      ok: false,
+      problem: { kind: "blank" },
+    });
+    expect(createSavedLayout(layouts, otherBoard, "focus", "bed")).toEqual({
+      ok: false,
+      problem: { kind: "nameTaken" },
+    });
+    expect(createSavedLayout(layouts, DEFAULT_LAYOUT, "Again", "bed")).toEqual({
+      ok: false,
+      problem: { kind: "duplicate", match: layouts[0] },
+    });
+
+    const full = Array.from({ length: MAX_SAVED_LAYOUTS }, (_, index) => ({
+      id: `layout-${index}`,
+      label: `Layout ${index}`,
+      icon: "bed",
+      createdAt: index,
+      savedAt: index,
+      layout: DEFAULT_LAYOUT,
+    }));
+    expect(createSavedLayout(full, otherBoard, "Sixth", "bed")).toEqual({
+      ok: false,
+      problem: { kind: "full" },
+    });
+  });
+
+  it("overwrites a saved layout in place unless another already matches", () => {
+    const layouts = created(
+      createSavedLayout(
+        created(createSavedLayout([], DEFAULT_LAYOUT, "Focus", "bed", 1000)),
+        otherBoard,
+        "Review",
+        "cat",
+        2000,
+      ),
+    );
+    const [focus, review] = layouts;
+    const moved = hideTile(otherBoard, "timeline");
+
+    const saved = created(overwriteSavedLayout(layouts, review!.id, moved, 3000));
+    expect(saved.map(({ id }) => id)).toEqual([focus!.id, review!.id]);
+    expect(saved[1]).toMatchObject({
+      savedAt: 3000,
+      createdAt: 2000,
+      label: "Review",
+      layout: moved,
+    });
+
+    expect(overwriteSavedLayout(layouts, review!.id, DEFAULT_LAYOUT)).toEqual({
+      ok: false,
+      problem: { kind: "duplicate", match: focus },
+    });
+    // Saving a layout over its own unchanged arrangement is not a duplicate.
+    expect(overwriteSavedLayout(layouts, focus!.id, DEFAULT_LAYOUT).ok).toBe(true);
+  });
+
+  it("renames a saved layout unless the name is blank or taken", () => {
+    const layouts = created(
+      createSavedLayout(
+        created(createSavedLayout([], DEFAULT_LAYOUT, "Focus", "bed", 1000)),
+        otherBoard,
+        "Review",
+        "cat",
+        2000,
+      ),
+    );
+    const reviewId = layouts[1]!.id;
+
+    expect(created(renameSavedLayout(layouts, reviewId, " Evening "))[1]?.label).toBe(
+      "Evening",
+    );
+    expect(created(renameSavedLayout(layouts, reviewId, "REVIEW"))[1]?.label).toBe(
+      "REVIEW",
+    );
+    expect(renameSavedLayout(layouts, reviewId, "FOCUS")).toEqual({
+      ok: false,
+      problem: { kind: "nameTaken" },
+    });
+    expect(renameSavedLayout(layouts, reviewId, " ")).toEqual({
+      ok: false,
+      problem: { kind: "blank" },
+    });
+  });
+
+  it("restores the stored selection only while its layout exists", () => {
+    const layouts = created(createSavedLayout([], DEFAULT_LAYOUT, "Focus", "bed", 1000));
+    const id = layouts[0]!.id;
+
+    expect(parseSavedLayoutSelection({ id, edited: true }, layouts, otherBoard)).toEqual({
+      id,
+      edited: true,
+    });
+    expect(
+      parseSavedLayoutSelection({ id: "gone", edited: false }, layouts, DEFAULT_LAYOUT),
+    ).toEqual({ id: null, edited: true });
+  });
+
+  it("adopts the matching saved layout when no selection was stored", () => {
+    const layouts = created(createSavedLayout([], DEFAULT_LAYOUT, "Focus", "bed", 1000));
+
+    expect(parseSavedLayoutSelection(null, layouts, DEFAULT_LAYOUT)).toEqual({
+      id: layouts[0]!.id,
+      edited: false,
+    });
+    expect(parseSavedLayoutSelection(null, layouts, otherBoard)).toEqual({
+      id: null,
+      edited: true,
+    });
   });
 });
