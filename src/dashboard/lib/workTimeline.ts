@@ -23,8 +23,10 @@ export type StretchTimes = { startedAt: number; endedAt: number | null };
 export type StretchDragKind = "move" | "start" | "end";
 
 /** Place a span on [from, to). The one geometry every track uses, so a work
- * block and the Phase wash behind it land on the same pixels. Axis-neutral:
- * the grid reads these as top/height. */
+ * block and the Phase wash behind it land on the same pixels; flex-grow
+ * layouts drift from the wash. Percentages of the real [from, to) span stay
+ * correct on DST days, when a day is 23 or 25 hours. Axis-neutral: the grid
+ * reads these as top/height. */
 export const placeOnWindow = (
   spanFrom: number,
   spanTo: number,

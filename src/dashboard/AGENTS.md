@@ -24,8 +24,9 @@ then only the surface document it routes for the task.
   `styles/` define the cascade. Extend the existing surface stylesheet and
   class pattern.
 - Read `.agents/standards/ui-standards.md` and `.impeccable.md` before visual
-  changes, then use the relevant heading in `UI.md` for concrete component,
-  class, storage-key, and layout constraints.
+  changes. `UI.md` covers shared controls and cross-surface rules; a surface's
+  storage keys live in its `docs/` file, and non-obvious class or layout
+  constraints are commented beside their rules in `styles/`.
 - Preserve accessible names, keyboard interaction, visible focus, drafts, and
   narrow-width behavior.
 - Reuse shared controls and icons before adding another implementation. Do not

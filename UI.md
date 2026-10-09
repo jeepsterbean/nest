@@ -7,7 +7,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 ## Find the relevant section
 
 - Shared shell and controls: [Shared controls and Section anchors](#shared-controls-and-section-anchors)
-- Product surfaces: [Tasks](#tasks), [Overview](#overview),
+- Product surfaces: [Overview](#overview),
   [Calendar](#calendar), [Insights](#insights), [Timeline](#timeline),
   [Assistant](#assistant), [Popup](#popup), [Metrics](#metrics),
   [Phases](#phases), and [Settings](#settings)
@@ -46,116 +46,6 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   sibling toolbar; each Section keeps its own.
 - Segmented controls: shared `ViewToggle` (`.view-toggle`), one size everywhere,
   for single-select only. No per-Section size overrides.
-- Tasks table typography stays fixed as columns change: headers 11px, cells
-  12.5px, titles 13.5px. Task rows stay 40px high with 7px vertical cell
-  padding. Cell text stays on one line and truncates with an ellipsis;
-  title truncation preserves the Working now badge.
-
-### Tasks
-
-Layout choice persists in `nest:task-view` (Day when unset). Day / Table / Map
-  use the shared `ViewToggle` in that order. `.task-day` holds shared
-  `DateNavigation` and a six-measure `__summary`. Each non-empty
-  `__measure` opens one `__detail` list beneath the summary; its Task rows open
-  the Task detail overlay.
-  `.task-table` is the Table layout. Column order, widths, and hidden columns belong to each saved view;
-  the old shared `nest:task-table` layout is no longer read.
-  The active Core Tasks pane adds `.dashboard--tasks` to scope its portal menus:
-  status dots are hidden; Value dots, column headers and filters, Save / Revert,
-  and Scope pill text, backgrounds, and borders use neutral tones.
-  Visible columns fill `.task-table-wrap`; a resize handle trades width with the
-  next column. The table scrolls horizontally only when min widths exceed the wrap.
-  No Working now play control or Readiness column in the table. The detail
-  panel also stays read-only for Working now: it shows the breathing
-  `.working-badge` only while work is active, followed by Worked time.
-- Tasks Map: `.task-map` fills the workspace. `.task-map__viewport` clips a
-  6000x4000 `.task-map__canvas` that carries the pan/zoom transform; the
-  sidebar `.task-map__tray` (composer row plus unplaced open tasks) and
-  `.task-map__zoom` float over it. Each placed Task is an entity box
-  `.task-entity` (header plus `.task-entity__field` attribute rows), and
-  relation lines are an SVG overlay `.task-map__edges` — solid for
-  Parent → child, dashed for Blocker → blocked. Layout is stored in
-  `nest:task-map-v2`, pan/zoom in `nest:task-map-view`. Drags use
-  `startPointerDrag` (box drags move, bare-canvas drags pan); every drag has a
-  click fallback (sidebar click places, box remove button unplaces).
-  Column-header filter/sort menus use `.task-column-trigger` and portal-mounted
-  `.task-column-menu` (`__head` with `__reset`, then `__row`s for Sort and
-  Filter with a muted `__hint` and `__chevron`, and a muted `__row--action`
-  for Hide column). Sort and Filter options open in a sibling
-  `.task-column-menu--submenu` flyout placed by `placeSubmenu` (right of the
-  menu, flipping left near the edge); it holds the `__presets` segmented
-  control for Status and for Value / Effort All · None, Created / Updated
-  `__dates` with a `__preset` dropdown (Any date plus the named windows, Custom
-  when From / To do not match one), `__date-row` / `__date-wrap` / `__date`
-  from/to fields, and an in-menu `DayCalendar` (`__calendar`) so the picker
-  uses dashboard type and `--accent-soft` instead of the OS date popup;
-  Worked time `__worked` with the `__presets` segmented control for More than /
-  Less than and a custom `__range` line (`__range-value` for the chosen minute,
-  `__range-scale` for the ends) painted with `--accent` instead of the OS slider; and
-  `__search` for long Parent lists. A Sort-only column (Title)
-  keeps a single `__section` with the options inline. The hidden-columns pill
-  is `.task-filter-pill--columns` with `__icon` and a hover `__names` list whose rows carry their own remove
-  buttons. In dark mode the menu
-  lifts to `--surface-2` with a heavier shadow so it separates from the rows.
-  Menu options mark selection with a trailing check only; row fills are for
-  hover and focus. `.task-new-button` sits flush right in `.task-header` beside the
-  Day / Table / Map toggle. `.task-table-toolbar` holds one query row.
-  `__query` leads with the `TaskViewPicker` trigger (`.task-views__trigger` with
-  a 10ch `__name`), then `__pills`, which wraps on its own and holds 30px
-  `.task-filter-pill` pills sized to match the picker (`__field` muted, `__value` truncated, `.is-edited`
-  marked with a stronger neutral border and tint, remove button revealed on
-  hover or focus). A single sort uses the original arrow-and-column pill.
-  For multiple sorts, the `.task-sort-rules` summary trigger opens `__popover`
-  with the same removable pills in priority order, with drag grips supporting
-  pointer reordering and Up / Down arrow keys. New rules append; direction
-  changes stay in column-header menus. Each sort pill compares its column,
-  direction, and priority with the saved view independently. Multiple filters
-  use `.task-filter-rules` with `__trigger` and `__popover`, sharing the sort
-  popover styling and preserving each filter pill’s `.is-edited` state.
-  Headers show sort direction; only the primary header carries `aria-sort`.
-  `.task-column-trigger.is-active` is only for a filter or sort that differs
-  from the saved view.
-  Saved views normalize legacy single sorts into ordered arrays.
-  `.task-views__control` groups the picker with Save and Revert icon buttons
-  (`.task-views__changes`, Lucide Save and RotateCcw) in place of its chevron while edited. Save is disabled
-  on Raw. The count (`.task-filter-result`) sits flush right on the query row;
-  an active filter differing from the saved view adds the total task count.
-  TasksView owns the single open column menu; outside pointer dismissal runs
-  in capture phase so nested controls can stop bubbling safely.
-  The `.task-table__move` grip supports column dragging.
-  The saved-view menu is a portal-mounted
-  `.menu-select__menu.task-column-menu.task-views__menu`, sharing the column
-  filter chrome (compact padding, 9px radius, dark-mode lift, 12px / 500
-  options, trailing check only). Like a Sort-only column menu, a muted
-  uppercase `__label` names the list (Views) so the view names stay the
-  content; a second `__section` holds the muted `__row--action` add row (or
-  the inline `__field` name input). `__list` rows (`__option`, hover/focus
-  `__actions` for Rename and Delete on custom views; Raw has neither) include
-  a `__confirm` delete row. Saved views and the selection persist in
-  `nest:task-table-views`; the query state lives in `useTaskTableViews`.
-  The one-line task composer renders only inside `.task-map__tray` on the Map.
-  The table's `.task-new-button` opens `TaskCreateCard`: a `.task-create-overlay`
-  scrim (z-index 75, under MenuSelect menus at 80) holding `.task-create-card`.
-  Only a press on the scrim itself dismisses, because MenuSelect menus are
-  React children of the card and their events bubble through it.
-  Selecting a table row opens `.task-detail-overlay` (z-index 70, under the
-  create overlay) over `.task-workspace`, with `.task-detail` aligned right,
-  filling the workspace height at `clamp(500px, 46vw, 600px)` and becoming
-  full-width below 620px.
-  Only a press on the scrim itself dismisses. `.task-workspace__main` is `inert`
-  while it is open. Map selection still uses `.task-workspace--detail` and the
-  in-flow panel. Scope, Value, and Effort share one inline
-  `.task-detail__fields` row with muted labels, outlined controls, and
-  chevrons; the scores use compact `MenuSelect` controls. Remaining `.task-detail__field`
-  rows share one `--task-detail-label-width` label column with muted
-  sentence-case `.task-detail__label`s. Controls are borderless 28px rows that
-  fill on hover and ring on focus; `.task-child-create` submits on Enter or its
-  ↵ button. In the full-height overlay panel `.task-card__description` takes
-  the free space with a 160px floor and a quiet tinted surface, keeping the
-  writing area visually prominent; relations follow it directly. Relation
-  lists re-show status dots, which the Tasks pane hides elsewhere. The
-  description is 14px body text whose editor auto-grows with its content, and
-  the editor shares that minimum height so opening it keeps the layout still.
 
 ### Overview
 

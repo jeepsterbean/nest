@@ -369,6 +369,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
       if (submenu) closeSubmenu(true);
       else close();
     };
+    // Capture phase, so controls that stop pointerdown propagation still let
+    // an outside press close this menu.
     document.addEventListener("pointerdown", onPointer, true);
     document.addEventListener("keydown", onKey);
     return () => {
