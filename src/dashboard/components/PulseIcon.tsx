@@ -193,7 +193,8 @@ const LUCIDE_NEST_ICONS = [
   Icon: LucideIcon;
 }>;
 
-// Section marks that are not in the Lucide set. Same picker as every other icon.
+// Nest's own marks, offered in the same picker as every other icon. Chat and
+// Settings outlived their Sections because Pulses and Phases may store them.
 export const NEST_ICONS = [
   ...LUCIDE_NEST_ICONS,
   { key: "date" as const, label: "Calendar", Icon: CalendarIcon },

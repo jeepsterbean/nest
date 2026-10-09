@@ -21,22 +21,22 @@ describe("tile icons", () => {
     expect(readTileIcons(storage)).toEqual(DEFAULT_TILE_ICONS);
   });
 
-  it("preserves the fixed Insights icon and falls back for unknown choices", () => {
+  it("keeps saved choices, and ignores unknown icons and retired ids", () => {
     const storage = memory();
     storage.setItem(
       "nest:overview-tile-icons",
       JSON.stringify({
-        lastHour: "timer",
-        tasks: "unknown",
+        overview: "sun",
+        assistant: "moon",
         timeline: "calendar",
+        tasks: "unknown",
         brainDump: 42,
-        metrics: "gauge",
+        metrics: "heart",
       }),
     );
     expect(readTileIcons(storage)).toEqual({
       ...DEFAULT_TILE_ICONS,
-      timeline: "calendar",
-      metrics: "gauge",
+      metrics: "heart",
     });
   });
 
