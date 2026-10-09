@@ -3,8 +3,8 @@
 The Calendar Section (Calendar and Timeline presentations, with Insights
 beside Calendar) and the Phases pane of Core. Shared date, Last hour, Logs
 kind, and Phase appearance rules live in
-[`docs/time-surfaces.md`](./time-surfaces.md). Domain words and Phase
-derivation live in [`CONTEXT.md`](../CONTEXT.md). Shared dashboard controls
+[`docs/time-surfaces.md`](./time-surfaces.md). Domain words live in [`CONTEXT.md`](../CONTEXT.md); Phase derivation lives in
+[Phases](./phases.md). Shared dashboard controls
 live in [`UI.md`](../UI.md).
 
 ## Range sidebar
@@ -178,7 +178,7 @@ and Metric scores. Pulse, Metric, and brain dump icons stand in for names.
 The Phases pane of Core is a read-only guide: how Phase is derived, then the
 four Phases (Doing, Scoping, Resting, Offline) with their meanings from
 `src/dashboard/lib/phaseGuide.ts`, which must mirror the Phase derivation in
-[`CONTEXT.md`](../CONTEXT.md). The current Phase is marked. Its icon is
+[Phases](./phases.md). The current Phase is marked. Its icon is
 picked from the Core sidebar.
 Phase icons and colors follow
 [Phase appearance](./time-surfaces.md#phase-appearance).

@@ -3,8 +3,8 @@
 Rules shared by every surface that shows time: Calendar, Insights, and
 Timeline. Each surface's own behavior lives in
 [`docs/calendar.md`](./calendar.md) (Calendar, Insights, Timeline, Phases
-pane). Domain words and Phase
-derivation live in [`CONTEXT.md`](../CONTEXT.md). Shared dashboard controls
+pane). Domain words live in [`CONTEXT.md`](../CONTEXT.md); Phase derivation lives in
+[Phases](./phases.md). Shared dashboard controls
 live in [`UI.md`](../UI.md).
 
 ## Dates and ranges
@@ -58,3 +58,6 @@ Each Phase has a fixed icon and color (set by migration, not editable), which
 drive Calendar rail and wash, Insights mix and totals,
 Timeline Phase rows, and the Timeline time column (quiet surface tone when
 uncolored).
+
+Historical checkpoints with no Phase display as **Idle** and count as Offline
+in summaries. The live inactivity Phase is Resting.

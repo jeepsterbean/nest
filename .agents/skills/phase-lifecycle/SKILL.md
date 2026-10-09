@@ -5,11 +5,16 @@ description: Change or diagnose Nest's Phase derivation, Working now transitions
 
 # Nest Phase lifecycle
 
-Preserve the transaction and recovery boundaries that keep Worked time and
-Phase history consistent.
+## Implementation and verification
 
-1. Read the Phase, Working now, Work stretch, and Worked time definitions in
-   `CONTEXT.md`, then read `src-tauri/AGENTS.md`.
+Preserve the behavior and lifecycle guarantees in
+[docs/phases.md](../../../docs/phases.md), and the transaction and recovery
+boundaries that keep Worked time and Phase history consistent.
+
+1. Read the Working now, Work stretch, and Worked time definitions in
+   `CONTEXT.md`, the behavior in
+   [docs/phases.md](../../../docs/phases.md), and
+   `src-tauri/AGENTS.md`.
 2. Trace the complete transition, including the command or operating-system
    event, stretch mutation, Phase derivation, PhaseSignal write, event emit,
    and frontend refresh. Do not reason from one handler in isolation.
@@ -20,14 +25,8 @@ Phase history consistent.
 4. Keep lock/sleep Offline handling in `phase.rs`; it writes PhaseSignals in
    addition to clearing Working now. Keep startup crash recovery, heartbeat
    upkeep, and graceful quit behavior in `task_lifecycle.rs`.
-5. Preserve these user-visible outcomes:
-   - starting any Work stretch can derive Doing;
-   - stopping the last open stretch derives the next Phase;
-   - leaving Active closes Working now;
-   - lock, display sleep, system sleep, and quit bank open Worked time;
-   - startup recovery ends an abandoned stretch at its last-known-live time;
-   - editing or deleting a stretch recomputes totals and synchronizes Phase
-     history in the same transaction where applicable.
+5. Editing or deleting a stretch recomputes totals and synchronizes Phase
+   history in the same transaction where applicable.
 6. Add focused tests for the changed transition and its nearest edge cases.
    Include multiple simultaneously Working now Tasks whenever changing the
    boundary between Doing and another Phase.

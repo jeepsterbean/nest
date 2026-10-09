@@ -7,6 +7,12 @@ constraints are commented beside their rules in `src/dashboard/styles/`.
 The Tasks pane icon is picked from the Core sidebar and also marks Task
 events in Logs. The Core Section icon is picked separately on the main Sidebar.
 
+## Task fields
+
+Persisted statuses are Backlog, Up next, Active, Completed, and Cancelled.
+Completed and Cancelled are closed; the others are open. Value and effort
+are optional 1–5 scores.
+
 ## Day
 
 Day is the default Tasks layout (Table and Map are the others). It is a

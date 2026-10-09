@@ -15,8 +15,8 @@ reference by default.
 | Dashboard implementation | `src/dashboard/AGENTS.md` |
 | Rust, SQLite, or Tauri backend implementation | `src-tauri/AGENTS.md` |
 | Schema, migration, command payload, or shared DTO change | `.agents/skills/schema-ipc-change/SKILL.md` |
-| Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `.agents/skills/phase-lifecycle/SKILL.md` |
-| Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
+| Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `docs/phases.md`, then `.agents/skills/phase-lifecycle/SKILL.md` |
+| Domain words, Ready/Blocked | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
 | Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
@@ -33,7 +33,8 @@ reference by default.
 
 | Change kind | File |
 |-------------|------|
-| Product language, lifecycle invariants | `CONTEXT.md` |
+| Product language, shared domain distinctions | `CONTEXT.md` |
+| Phase behavior, derivation, work recording lifecycle | `docs/phases.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
 | Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
 | Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
