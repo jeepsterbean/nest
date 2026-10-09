@@ -78,8 +78,9 @@ Follow the table above when editing a Nest doc.
   instead of repeating them. A surface-only topic needs no matching domain doc.
 - Write the fact in the file that owns it, and link to that file from anywhere
   else. When the owner already says it, delete the copy.
-- `CONTEXT.md` keeps the word, its Avoid line, and a distinction several
-  surfaces share. A glossary entry is that definition plus a link.
+- `CONTEXT.md` keeps domain definitions and distinctions several surfaces
+  share, with links to the authoritative rules. Include naming guidance when
+  it resolves an ambiguity; use the inline format of the existing entries.
 - A surface doc keeps what that surface does: what is saved, what an action
   changes, keyboard and focus, empty and missing cases, and a boundary with
   another surface.

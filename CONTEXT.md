@@ -28,7 +28,8 @@ are Doing, Scoping, Resting, and Offline. Derivation and work recording rules:
 
 ## Metrics and capture
 
-**Metric** is a 1–5 rating scored during a manual Metric check-in.
+**Metric** is a named measure rated from 1–5 during a manual Metric check-in.
+A **rating** is the recorded score for one Metric.
 **Pulse** groups Metrics for scoring together. **Metric check-in** names the
 saved ratings for one Pulse. Check-ins are manual and have no due state.
 Use Metric check-in rather than Pulse check-in.
