@@ -15,14 +15,11 @@ export function PopupTimerBar({
   nowMs,
   timerButtonRef,
   onSelectInterval,
-  initialOpen = false,
 }: {
   timer: TimerState;
   nowMs: number;
   timerButtonRef: RefObject<HTMLButtonElement | null>;
   onSelectInterval: (minutes: number) => Promise<void>;
-  /** First-frame seed for tests. Later open and close stay inside this control. */
-  initialOpen?: boolean;
 }) {
   // Due also covers a Rust-side pause the local clock has not reached yet,
   // so the face pins to 0:00 instead of trusting the countdown alone.
@@ -40,7 +37,7 @@ export function PopupTimerBar({
       );
   const selectedInterval = timer.intervalMinutes;
   const anchorRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(initialOpen);
+  const [open, setOpen] = useState(false);
   const [pendingInterval, setPendingInterval] = useState<number | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const displayedInterval = pendingInterval ?? selectedInterval;
