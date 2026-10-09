@@ -1,6 +1,7 @@
 import { moveItem } from "../../lib/reorder";
 
 export const TASK_VIEWS = [
+  { key: "day", label: "Day" },
   { key: "table", label: "Table" },
   { key: "map", label: "Map" },
 ] as const;
@@ -57,10 +58,10 @@ const isColumnId = (value: unknown): value is TaskTableColumnId =>
 const clampWidth = (minWidth: number, width: number) =>
   Math.max(minWidth, Math.round(width));
 
-/** Table is the default Tasks layout. An unknown stored value falls back. */
+/** Day is the default Tasks layout. An unknown stored value falls back. */
 export const readTaskView = (storage: TaskStorage = localStorage): TaskViewKey => {
   const stored = storage.getItem(TASK_VIEW_KEY);
-  return stored === "map" || stored === "table" ? stored : "table";
+  return stored === "day" || stored === "table" || stored === "map" ? stored : "day";
 };
 
 export const writeTaskView = (

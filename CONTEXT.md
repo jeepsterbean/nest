@@ -65,7 +65,7 @@ one Worked time total across every day, not only the open stretch. The total
 also has its own column in the Tasks table and remains visible on every Task
 whatever its status. A breathing dot marks Working now in Task details and
 Table rows. Starting an Up next Task in the Popup first moves it to Active.
-Table and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
+Day, Table, and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Session, stopwatch, in progress
 
 **Map**:
@@ -262,7 +262,7 @@ _Avoid_: using Logs as the name of the Timeline presentation
 - "view" for Overview / Calendar / Core / Assistant / Settings — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Insights is a summary beside the Calendar presentation. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
 - "sidebar" — **Sidebar** is the Section switcher; the panel over the Map canvas is the **Map sidebar**. Tasks table scope filtering lives in the Scope column header.
-- "view" — Table and Map are Tasks **layouts**; a **saved view** is a named Tasks table query (filters and sort). See [`docs/tasks.md`](./docs/tasks.md#saved-views).
+- "view" — Day, Table, and Map are Tasks **layouts**; a **saved view** is a named Tasks table query (filters and sort). See [`docs/tasks.md`](./docs/tasks.md#saved-views).
 - "section heading" / title above Section content — resolved: main content starts with its controls; the Sidebar names the place. Core, Overview, and Calendar also have a title in their secondary sidebar. Each Section keeps its own top controls without a shared product name for that row.
 - "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview tiles, Task detail, popup Metric scoring). **Pane** is a destination inside Core, Settings, Assistant, or Metrics. Brain dump has one History surface.
 - "section" lowercase — resolved: capitalized **Section** specifically names one of the five Sidebar destinations. Lowercase "section" is a general-purpose word and may also describe panes, presentations, panels, or layout regions when their precise subtype does not matter, including in user-facing copy, accessible names, CSS (`.dash-section__head`), `<section>` elements, and agent-facing docs.

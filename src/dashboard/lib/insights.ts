@@ -5,9 +5,7 @@ import type {
   Phase,
   PhaseCheckIn,
   Pulse,
-  RecordedTaskStatus,
   Task,
-  TaskStatus,
   TaskStatusEvent,
   TaskWorkStretch,
 } from "../../lib/types";
@@ -17,6 +15,7 @@ import {
   cancelledInPeriod,
   completedInPeriod,
   isQuietPhase,
+  taskStatusAt,
   type Period,
 } from "./period";
 import {
@@ -293,38 +292,12 @@ const INSIGHT_OUTCOME_ORDER: InsightOutcome[] = [
   "incomplete",
 ];
 
-const asLiveStatus = (
-  status: RecordedTaskStatus | null,
-  fallback: TaskStatus,
-): TaskStatus => {
-  if (status === "paused") return "active";
-  return status ?? fallback;
-};
-
-/** Status at `at`. A change after the range must not rewrite its outcome. */
-const statusAt = (
-  task: Task,
-  events: TaskStatusEvent[],
-  at: number,
-): TaskStatus => {
-  const mine = [...events]
-    .filter((event) => event.taskId === task.id)
-    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
-  for (const event of mine) {
-    if (event.createdAt >= at) {
-      return asLiveStatus(event.fromStatus, task.status);
-    }
-  }
-  const last = mine[mine.length - 1];
-  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
-};
-
 const outcomeAt = (
   task: Task,
   events: TaskStatusEvent[],
   at: number,
 ): InsightOutcome => {
-  const status = statusAt(task, events, at);
+  const status = taskStatusAt(task, events, at);
   return status === "completed" || status === "cancelled"
     ? status
     : "incomplete";

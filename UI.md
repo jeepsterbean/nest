@@ -53,8 +53,12 @@ tone, and aesthetic direction. Preserve light and dark system themes.
 
 ### Tasks
 
-`.task-table` is the Table layout. Layout choice persists in `nest:task-view` (Table
-  when unset). Column order, widths, and hidden columns belong to each saved view;
+Layout choice persists in `nest:task-view` (Day when unset). Day / Table / Map
+  use the shared `ViewToggle` in that order. `.task-day` holds shared
+  `DateNavigation` and a six-measure `__summary`. Each non-empty
+  `__measure` opens one `__detail` list beneath the summary; its Task rows open
+  the Task detail overlay.
+  `.task-table` is the Table layout. Column order, widths, and hidden columns belong to each saved view;
   the old shared `nest:task-table` layout is no longer read.
   The active Core Tasks pane adds `.dashboard--tasks` to scope its portal menus:
   status dots are hidden; Value dots, column headers and filters, Save / Revert,
@@ -95,7 +99,7 @@ tone, and aesthetic direction. Preserve light and dark system themes.
   lifts to `--surface-2` with a heavier shadow so it separates from the rows.
   Menu options mark selection with a trailing check only; row fills are for
   hover and focus. `.task-new-button` sits flush right in `.task-header` beside the
-  Table / Map toggle. `.task-table-toolbar` holds one query row.
+  Day / Table / Map toggle. `.task-table-toolbar` holds one query row.
   `__query` leads with the `TaskViewPicker` trigger (`.task-views__trigger` with
   a 10ch `__name`), then `__pills`, which wraps on its own and holds 30px
   `.task-filter-pill` pills sized to match the picker (`__field` muted, `__value` truncated, `.is-edited`

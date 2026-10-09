@@ -12,12 +12,19 @@ import { eyeOffIcon, plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
 import { ViewToggle } from "../components/ViewToggle";
-import { useDashboardData } from "../context/DashboardDataContext";
+import {
+  HISTORY_WINDOW_DAYS,
+  useDashboardData,
+} from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
 import type { CorePaneControls } from "../lib/corePane";
+import {
+  boundedDayMs,
+  stepSelectedDay,
+} from "../lib/dateNavigation";
 import { scopeMatches } from "../lib/scope";
 import {
   canHideTaskTableColumn,
@@ -40,11 +47,13 @@ import { taskScoreFilterLabel, taskMatchesScoreFilter, type TaskScoreFilter } fr
 import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
 import { changedTaskTableQueryFields, taskTableColumnQueryEdited, taskTableFiltersEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
 import { taskMatchesWorkedTimeFilter, taskWorkedTimeFilterLabel, type TaskWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
+import { historyStartSec, startOfDayMs } from "../lib/time";
 import {
   EMPTY_TASK_DRAFT,
   TaskCreateCard,
   type TaskDraft,
 } from "../task/TaskCreateCard";
+import { TaskDay } from "../task/TaskDay";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
@@ -61,9 +70,18 @@ const optionalPill = (field: TableQueryPill["field"], name: string, value: strin
   value === null ? [] : [{ field, name, value, remove }];
 
 export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
-  const { tasks, scopeTree, taskGraph, loaded, reload, setError } =
-    useDashboardData();
+  const {
+    tasks,
+    taskStatusEvents,
+    taskWorkStretches,
+    scopeTree,
+    taskGraph,
+    loaded,
+    reload,
+    setError,
+  } = useDashboardData();
   const [taskView, setTaskView] = useState(readTaskView);
+  const [dayAnchorMs, setDayAnchorMs] = useState<number | null>(null);
   const taskTableViews = useTaskTableViews();
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
   const {
@@ -93,6 +111,17 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     || tableSort.some(rule => rule.column === "workedTime")
   );
   const dateNowMs = useCurrentTime();
+  const earliestTaskHistorySec = historyStartSec(
+    dateNowMs,
+    HISTORY_WINDOW_DAYS,
+  );
+  const selectedTaskDayMs = boundedDayMs(
+    dayAnchorMs ?? dateNowMs,
+    dateNowMs,
+    earliestTaskHistorySec,
+  );
+  const todayMs = startOfDayMs(dateNowMs / 1000);
+  const earliestTaskDayMs = startOfDayMs(earliestTaskHistorySec);
   const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
   useEffect(() => {
     if (!tickWorkedTime) return;
@@ -257,7 +286,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     selectedTaskId === null
       ? null
       : taskGraph.byId.get(selectedTaskId) ?? null;
-  const tableDetailOpen = selectedTask !== null && taskView === "table";
+  const overlayDetailOpen = selectedTask !== null && taskView !== "map";
 
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
@@ -290,9 +319,32 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
         <div className="task-board__loading">Laying out the board…</div>
       ) : (
         <div
-          className={`task-workspace${selectedTask && taskView === "map" ? " task-workspace--detail" : ""}${taskView === "map" ? " task-workspace--map" : ""}${tableDetailOpen ? " task-workspace--overlay" : ""}`}
+          className={`task-workspace${selectedTask && taskView === "map" ? " task-workspace--detail" : ""}${taskView === "map" ? " task-workspace--map" : ""}${overlayDetailOpen ? " task-workspace--overlay" : ""}`}
         >
-          <div className="task-workspace__main" inert={tableDetailOpen}>
+          <div className="task-workspace__main" inert={overlayDetailOpen}>
+            {taskView === "day" && (
+              <TaskDay
+                selectedDayMs={selectedTaskDayMs}
+                nowMs={dateNowMs}
+                canGoPrevious={selectedTaskDayMs > earliestTaskDayMs}
+                canGoNext={selectedTaskDayMs < todayMs}
+                tasks={tasks}
+                statusEvents={taskStatusEvents}
+                workStretches={taskWorkStretches}
+                onPreviousDay={() =>
+                  setDayAnchorMs(
+                    stepSelectedDay(selectedTaskDayMs, -1, dateNowMs),
+                  )
+                }
+                onNextDay={() =>
+                  setDayAnchorMs(
+                    stepSelectedDay(selectedTaskDayMs, 1, dateNowMs),
+                  )
+                }
+                onToday={() => setDayAnchorMs(null)}
+                onSelectTask={selectTask}
+              />
+            )}
             {taskView === "map" && (
               <TaskMap
                 tasks={tasks}
@@ -400,7 +452,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
               onClose={closeDetail}
             />
           )}
-          {selectedTask && tableDetailOpen && (
+          {selectedTask && overlayDetailOpen && (
             <div
               className="task-detail-overlay"
               onMouseDown={(e) => {

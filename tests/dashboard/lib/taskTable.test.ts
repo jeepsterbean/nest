@@ -13,6 +13,7 @@ import {
   showAllTaskTableColumns,
   splitTaskTableColumn,
   TASK_TABLE_COLUMNS,
+  TASK_VIEWS,
   writeTaskView,
   type TaskTableColumn,
 } from "../../../src/dashboard/lib/taskTable";
@@ -30,17 +31,20 @@ const memory = () => {
 const defaultIds = TASK_TABLE_COLUMNS.map((column) => column.id);
 
 describe("task view", () => {
-  it("defaults to Table and restores the last saved layout", () => {
+  it("defaults to Day and restores the last saved layout", () => {
     const storage = memory();
-    expect(readTaskView(storage)).toBe("table");
+    expect(TASK_VIEWS.map((view) => view.key)).toEqual(["day", "table", "map"]);
+    expect(readTaskView(storage)).toBe("day");
     writeTaskView("map", storage);
     expect(readTaskView(storage)).toBe("map");
+    writeTaskView("table", storage);
+    expect(readTaskView(storage)).toBe("table");
   });
 
-  it("falls back to Table for an unknown stored view, including retired Kanban", () => {
+  it("falls back to Day for an unknown stored view, including retired Kanban", () => {
     const storage = memory();
     storage.setItem("nest:task-view", "kanban");
-    expect(readTaskView(storage)).toBe("table");
+    expect(readTaskView(storage)).toBe("day");
   });
 });
 

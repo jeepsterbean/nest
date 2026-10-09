@@ -1,6 +1,8 @@
 import type {
   Phase,
+  RecordedTaskStatus,
   Task,
+  TaskStatus,
   TaskStatusEvent,
 } from "../../lib/types";
 import type { PhaseTotal } from "./timeline";
@@ -11,6 +13,29 @@ export type Period = { from: number; to: number };
 
 const inPeriod = (at: number, period: Period) =>
   at >= period.from && at < period.to;
+
+const asLiveStatus = (
+  status: RecordedTaskStatus | null,
+  fallback: TaskStatus,
+): TaskStatus => status === "paused" ? "active" : status ?? fallback;
+
+/** Status at `at`. A later change must not rewrite an earlier day. */
+export function taskStatusAt(
+  task: { id: number; status: TaskStatus },
+  events: TaskStatusEvent[],
+  at: number,
+): TaskStatus {
+  const mine = events
+    .filter((event) => event.taskId === task.id)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  for (const event of mine) {
+    if (event.createdAt >= at) {
+      return asLiveStatus(event.fromStatus, task.status);
+    }
+  }
+  const last = mine[mine.length - 1];
+  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
+}
 
 /** Tasks moved to `toStatus` inside the window, in first-move order. */
 export function tasksMovedToInPeriod(

@@ -1,14 +1,37 @@
 # Tasks layouts
 
-Table and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md).
+Day, Table, and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md).
 CSS hooks and persistence keys live in [`UI.md`](../UI.md).
 
 The Tasks pane icon is picked from the Core sidebar and also heads the Overview
 Tasks tile. The Core Section icon is picked separately on the main Sidebar.
 
+## Day
+
+Day is the default Tasks layout (Table and Map are the others). It is a
+task-focused daily report over the same 30-day history window as Calendar.
+The shared day navigation opens on today, moves one local calendar day at a
+time, cannot move into the future or before loaded history, and returns to
+today from any historical day.
+
+The summary shows Tasks created; Tasks ending the day Completed, Cancelled, or
+Incomplete; distinct Tasks worked on; and Worked time clipped to that day. A
+Completed or Cancelled Task must have reached that outcome during the day and
+still have it at day end. Incomplete contains Tasks with Worked time that end
+the day in any open status. Those three outcome stats are exclusive. An open
+Work stretch is clipped to now.
+
+Selecting any non-empty stat reveals the Tasks that contributed to it. Created,
+Completed, and Cancelled show the recorded time; Incomplete, Worked on, and
+Worked time show each Task's Worked time for the day. Selecting a Task opens
+its detail panel. A Task is counted once in each lifecycle stat even if it
+reaches that outcome more than once that day. Other Task edits are not
+historical events, and deleting a Task removes its status events and Work
+stretches, so neither appears here.
+
 ## Table
 
-Table is the default Tasks layout (Map is the other); last choice is
+The last Day / Table / Map choice is
 remembered (`nest:task-view`). The table filters by any set of persisted
 statuses — Backlog, Up next, Active, Completed, Cancelled — with Open /
 Closed / All presets; first visit is the Raw saved view.
@@ -40,7 +63,7 @@ or Parent no longer exists, that filter is dropped once Tasks load, which
 marks the view edited until it is saved or reverted. Views apply to the Table
 only: the Map is never filtered, and its composer adds unscoped Tasks.
 
-The header holds Table / Map. Sorting and filtering live in column-header
+The header holds Day / Table / Map. Sorting and filtering live in column-header
 menus. Each menu starts with the column name and a Reset link (shown only when
 that column is filtered or sorted). Below it, a column with more than one
 action lists them as rows — Sort, Filter (Status, Scope, Parent, Created,
@@ -74,7 +97,7 @@ not this one). The line is captured when the flyout opens so a live Working
 now total cannot move the stops; matching still uses the displayed total
 (banked plus the open stretch), inclusive of the chosen minute. Filters combine. Selection is
 shown by a trailing check; filter options show labels without counts.
-New task sits on the Table / Map row, flush right, and shows only in Table.
+New task sits on the Day / Table / Map row, flush right, and shows only in Table.
 The toolbar places the view picker and count on the same row. The count reads
 `42 tasks` for the current result, or `42 out of 380 tasks` when an active
 filter differs from the saved view; sort and column edits keep the simple count.
