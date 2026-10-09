@@ -59,26 +59,16 @@ _Avoid_: Session, sitting, block
 The total time a Task has been Working now, kept even after work stops. It is
 the sum of the Task's finished Work stretches plus the elapsed time in its open
 stretch, so correcting a stretch moves the total. It keeps counting if Working
-now is left on. The Popup's Tasks and metrics panel starts and stops Working
-now; its working control shows the total while work runs. The detail panel shows
-one Worked time total across every day, not only the open stretch. The total
-also has its own column in the Tasks table and remains visible on every Task
-whatever its status. A breathing dot marks Working now in Task details and
-Table rows. Starting an Up next Task in the Popup first moves it to Active.
-Day, Table, and Map layouts: [`docs/tasks.md`](./docs/tasks.md).
+now is left on, and it stays on the Task in every status.
 _Avoid_: Session, stopwatch, in progress
 
 **Map**:
-The other Tasks layout: a free-form canvas the user arranges by hand, drawn
-like a data model. A box's position never creates or implies a relation.
-Connectors are solid from Parent to child, dashed from Blocker to the Task it
-blocks.
+The other Tasks layout: a free-form canvas the user arranges by hand.
 Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Board (that word means the Note Board), Canvas, Kanban
 
 **Map sidebar**:
-The panel floating over the Map canvas: unplaced open Tasks and the "Add an
-active task" composer.
+The panel floating over the Map canvas.
 Behavior: [`docs/tasks.md`](./docs/tasks.md).
 _Avoid_: Sidebar (alone — that word means the Section switcher), tray, backlog
 
@@ -95,16 +85,13 @@ stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
-Calendar (Calendar and Timeline presentations, with Insights beside Calendar):
+`src/dashboard/lib/phaseGuide.ts` mirrors this derivation for the Phases pane.
+Calendar, Timeline, Insights, and the Phases pane:
 [`docs/calendar.md`](./docs/calendar.md).
-Each Phase has a fixed icon and color. The Phases pane of Core explains each
-Phase; `src/dashboard/lib/phaseGuide.ts` mirrors the derivation above.
 _Avoid_: Status, Working now, Scope
 
 **Pulse**:
-A named group of Metrics scored together during a Metric check-in. The order of
-Pulses, and of Metrics inside a Pulse, is the order they appear in the popup.
-A Pulse can be hidden from the popup without deleting it.
+A named group of Metrics scored together during a Metric check-in.
 _Avoid_: set, category, collection
 
 **Metric**:
@@ -118,25 +105,19 @@ or due state. Deleting history removes the saved record and its ratings.
 _Avoid_: Pulse check-in
 
 **Timer**:
-The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
-opens the Popup. Closing the Popup leaves it paused; picking an interval
-starts that cycle from now. The macOS menu bar shows Phase and the countdown
-as a read-only readout; the Popup is the only place that changes the interval.
+The recurring countdown.
 Behavior: [`docs/timer.md`](./docs/timer.md).
 _Avoid_: Check-in, schedule
 
 **Popup**:
-The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
-resumes after an idle stretch that was spent Resting, unless the Timer is
-already due or the Popup is already up. It is for scoring Metrics, capturing a
-brain dump, and starting or stopping Working now; it is not a stored record.
+The window the Timer, ⌘⇧E, or returning from a Resting idle stretch opens. It
+is not a stored record.
 Behavior: [`docs/popup.md`](./docs/popup.md).
 _Avoid_: Check-in popup
 
 **Brain dump**:
 An unstructured captured thought stored on its own, with zero or more Tags.
-Its text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
-and collapsible lists. Brain dumps have no title field.
+Brain dumps have no title field.
 Capture, stickies, and Note Board: [`docs/brain-dump.md`](./docs/brain-dump.md).
 Editor internals: [`docs/editor.md`](./docs/editor.md).
 _Avoid_: note, journal entry, title (brain dumps have no title field)
@@ -148,42 +129,31 @@ Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 **Section**:
 One primary destination in the dashboard, chosen from the **Sidebar**. The two
 are Calendar and Core, and the dashboard opens on Calendar. Timeline and
-Insights are part of Calendar, not Sections of their own. Each Section gives
-its content the full content area beside the Sidebar. No Section shows a
-title above its main content —
-the Sidebar already names where you are. Core and Calendar also
-name the Section at the top of their secondary sidebar. Top-of-Section controls (range,
-filters, layout toggles, and so on) stay; each Section keeps its own, with no
-shared product name for that row.
+Insights are part of Calendar, not Sections of their own.
+Shell: [`UI.md`](./UI.md).
 _Avoid_: View, screen (for these two)
 
 **Sidebar**:
-The left strip that switches **Sections** (Calendar, Core). The **Background**
-button sits at its foot.
+The left strip that switches **Sections** (Calendar, Core).
 _Avoid_: Nav, rail (for this strip)
 
 **Core**:
-The dashboard Section for Brain dump, Tasks, Metrics, and Phases. One Sidebar
-entry; an icon-and-label sidebar switches those panes. The last pane is remembered
-(Brain dump when unset). Each pane keeps its own controls; pane icons are picked from the Core sidebar.
+The dashboard Section for Brain dump, Tasks, Metrics, and Phases.
 _Avoid_: Hub, home (the dashboard opens on Calendar)
 
 **Background**:
-The ambient animation behind the dashboard and Popup while Phase is Doing. Its
-style, speed, and intensity are chosen from the Background button at the foot
-of the Sidebar, with a live preview; it is a preference, not a Section.
+The ambient animation behind the dashboard and Popup while Phase is Doing.
+It is a preference, not a Section.
 _Avoid_: Wallpaper, theme
 
 **Timeline**:
-A Calendar presentation: a day-grouped history of Metric check-ins, brain
-dumps, Phase checkpoints, and Task activity. Not a stored record: each stands
-on its own.
+A Calendar presentation of Metric check-ins, brain dumps, Phase checkpoints,
+and Task activity. Not a stored record: each stands on its own.
 Behavior: [`docs/calendar.md`](./docs/calendar.md#timeline).
 _Avoid_: Journal, Logs (Logs is a Calendar figure)
 
 **Logs**:
-Those same events on Calendar, chosen beside **Work stretch**.
-Choosing Logs shows the kind filters.
+Those same events on Calendar, beside **Work stretch**.
 Behavior: [`docs/calendar.md`](./docs/calendar.md#calendar).
 _Avoid_: using Logs as the name of the Timeline presentation
 

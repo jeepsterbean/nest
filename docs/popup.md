@@ -12,18 +12,16 @@ window and restores the same panel selection.
 The Popup is fixed and non-resizable; its size lives in
 `src-tauri/tauri.conf.json`. Opening the dashboard from the Popup dismisses it.
 
-The Popup hosts a Timer bar across the top with the countdown, interval picker,
-and a line that drains with the remaining time. This is a Timer surface inside
-the Popup; the Popup's other behavior does not depend on why it was summoned.
+The Popup hosts a Timer bar with the countdown and interval picker. This is a
+Timer surface inside the Popup; the Popup's other behavior does not depend on
+why it was summoned.
 
 ## Panels
 
-An icon-only strip down the left has one toggle per panel: Brain dump and
-Tasks and metrics. Each toggle shows or hides its panel, so any combination
-can be visible, including none. Visible panels share the width evenly in that
-order.
+Brain dump and Tasks and metrics each have a toggle. Each toggle shows or hides
+its panel, so any combination can be visible, including none.
 
-Tasks and metrics holds Metric scoring above the Active / Up next task list;
+Tasks and metrics holds Metric scoring and the Active / Up next task list;
 extra tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
 above Active. The list opens on Active, and scrolling up reveals those Tasks so
 they can be returned to Active.
@@ -31,9 +29,7 @@ they can be returned to Active.
 Active rows start or stop Working now with their leading control. While
 working, a row shows the Task's total Worked time, including the open stretch.
 Starting an Up next Task moves it to Active and starts Working now. Active rows
-have Up next to the left of Complete.
-
-Brain dump holds the brain dump.
+have Up next and Complete.
 
 Every summon restores `nest:popup-panels`, even if the Timer is still paused at
 zero. Brain dump shows on first use. A saved selection naming the retired Chat

@@ -907,6 +907,7 @@
 .task-views__trigger:hover,
 .task-views__trigger[aria-expanded="true"] { border-color: var(--border-strong); background: var(--surface-2); }
 .task-views__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Fixed to the 10-character name limit so switching views does not shift the pills. */
 .task-views__name {
   flex: none;
   width: 10ch;

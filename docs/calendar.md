@@ -29,9 +29,8 @@ stop; arrow keys move focus by a day or week, Home / End move to the week
 edges, and Enter / Space selects the focused date.
 
 Timeline uses the same sidebar: the Calendar / Timeline selector, then an
-always-visible month calendar, separated from the presentation selector by a
-quiet divider. Calendar groups Last hour / Day / Week with its month calendar
-below that divider. Timeline is fixed to Day and shows only the month calendar;
+always-visible month calendar. Calendar places its Last hour / Day / Week
+selector between the two. Timeline is fixed to Day and shows only the month calendar;
 older saved range modes are ignored. The mini calendar dots dates with
 recorded entries.
 
@@ -42,8 +41,7 @@ remembered in `nest:calendar-display` (shown on first visit, and for the
 retired Insights-only value). At a Section width of 640px or less, Insights
 moves under Calendar.
 
-Last hour draws today in Day and marks the trailing hour on it: a quiet
-tint across the lane and an accent bracket on the hour gutter. That mark moves
+Last hour draws today in Day and marks the trailing hour on it. That mark moves
 with the minute clock while Calendar stays put. Just after midnight the mark
 clips at the day's start, while Insights still reads the full hour. At midnight
 Calendar follows the clock onto the new day. Choosing
@@ -68,10 +66,9 @@ heads and the hour gutter stay pinned, and opening a Week brings today's day
 into view. A stretch editor closes once its stretch scrolls out of view
 in either direction, including behind the pinned day heads or hour gutter.
 An open stretch's live end stays pinned to
-now. That stretch cannot be moved or resized on Calendar — its bottom edge is
-an unfinished line, and Working now is cleared from the Task, not from
-Calendar. Clicking a stretch opens an editor beside that stretch — left or right
-of the selected block, toward its outer edge when two share the hour, flipping
+now. That stretch cannot be moved or resized on Calendar, and Working now is
+cleared from the Task, not from Calendar. Clicking a stretch opens an editor
+beside that stretch — left or right of the selected block, toward its outer edge when two share the hour, flipping
 so the editor stays on screen and closing once its stretch scrolls out of
 view. The Task title can be renamed there. Start and end each have a date and
 a time, locked while the stretch is still open, and save first, since only
@@ -98,10 +95,8 @@ reachable.
 
 ## Insights
 
-Insights is part of Calendar. Phases, Brain dumps, Tasks, and Metrics stack as four left-aligned rows.
-Alone, each uses one third of the content width, with a 16rem minimum; at
-content widths of 720px or less (including the Calendar Insights column), each fills the
-available width.
+Insights is part of Calendar. It shows Phases, Brain dumps, Tasks, and Metrics,
+in that order.
 Brain dumps summarizes the selected range. Saved dumps count by their recorded time. Untagged always leads the
 list, including at 0. Tags then show the number of dumps carrying each Tag,
 ordered by frequency then name; a dump with several Tags contributes to each
@@ -131,18 +126,17 @@ keeps one shape from range to range. Each group is one collapsed ledger line
 read as a short phrase: Task count, label, and the group's total Worked time
 ("no time" when 0). Opening it lists each Task with
 its Worked time, longest first.
-A long group scrolls inside a box about five rows tall, faded at the edge
-with more Tasks, so it never sets the board's height. An empty group
-cannot open. Groups start collapsed on every visit.
+A long group scrolls inside itself, so it never sets the board's height. An
+empty group cannot open. Groups start collapsed on every visit.
 
 Metric check-ins sit in a dedicated row grouped by
 Pulse. Every Pulse is listed, including one with no check-ins in the range
 (count 0, no average). A range with no Pulses and no check-ins stays quiet.
 Each Pulse is one collapsed row (the check-in count before the Pulse name,
 including 0, and the average of all its ratings); opening it lists one line
-per Metric that was rated, with a compact colored number per rating and that
-Metric's average. Ratings stay in time order and wrap within their column so
-every score remains readable.
+per Metric that was rated, with each rating and that Metric's average.
+Ratings stay in time order and wrap within their column so every score remains
+readable.
 That row clips at a live now, so a just-saved
 rating appears as soon as data reloads. Last hour keeps that split on
 purpose: dumps and Metric check-ins use wall-clock now; Phase mix and the
@@ -174,22 +168,17 @@ Timeline shows no Phase totals. Each visible day
 has an Export control that downloads a chronological Markdown timeline of every
 event type for that calendar day, regardless of the active kind filter.
 
-In Timeline, each day's icons sit on a hairline
-through the mark column, from the first mark to the last. When the selected
-range includes now, today opens with the current time and an empty event
-cell, including when today has no visible entries. A breathing dot marks that
-point on the spine, and the hairline from there to the next mark is a
-repeating squiggle. Timeline does not show the day strip or outcome stats.
-Metric check-ins show the Pulse icon and Metric scores on one row at the same
-height as brain dumps and Working now marks. Brain dumps keep that row height
-when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
-in for names.
+When the selected range includes now, today opens with the current time and an
+empty event cell, including when today has no visible entries. Timeline does
+not show the day strip or outcome stats. Metric check-ins show the Pulse icon
+and Metric scores. Pulse, Metric, and brain dump icons stand in for names.
 
 ## Phases pane
 
 The Phases pane of Core is a read-only guide: how Phase is derived, then the
 four Phases (Doing, Scoping, Resting, Offline) with their meanings from
-`src/dashboard/lib/phaseGuide.ts`. The current Phase is marked, and its icon
-breathes a halo in its color. Its icon is picked from the Core sidebar.
+`src/dashboard/lib/phaseGuide.ts`, which must mirror the Phase derivation in
+[`CONTEXT.md`](../CONTEXT.md). The current Phase is marked. Its icon is
+picked from the Core sidebar.
 Phase icons and colors follow
 [Phase appearance](./time-surfaces.md#phase-appearance).

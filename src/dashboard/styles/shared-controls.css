@@ -317,6 +317,7 @@
   font-size: 12px;
 }
 
+/* A fixed label width keeps the arrows in place as the date text changes. */
 .date-navigation__label {
   width: 220px;
   flex: none;

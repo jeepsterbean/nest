@@ -37,8 +37,7 @@ Reuse these before adding a control:
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color
   swatches.
 - `DateNavigation`: day and month paging for Brain dump, Tasks Day, Calendar,
-  Timeline, and Metrics. Its arrows keep fixed positions because the label has
-  a fixed width. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
+  Timeline, and Metrics. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
   today (`onToday`); Calendar's month pager does not.
 - `DayCalendar`: in-app date picker, used instead of the OS date popup.
 - `startPointerDrag`: threshold, pointer capture, and listener cleanup for
