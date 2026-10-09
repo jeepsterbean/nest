@@ -83,7 +83,9 @@ Tiles can be hidden into the always-present control panel. Clicking a hidden
 tile's chip restores it minimised at the first free spot; dragging the chip onto
 the board drops it there when it fits. Moving a tile pushes its neighbours into
 free space; when none can move, it trades places with the tile it covers most, and
-the move is refused if either tile would fall below its minimum size. Below
+the move is refused if either tile would fall below its minimum size. Metric
+check-in is pinned to 4×2 and is not resizable, so it only moves once the board
+has slack. Below
 861px the tiles stack in board order and cannot be dragged or resized. The
 board persists in `nest:overview-layout`. Tasks, Timeline, and Brain dump can be minimised to
 counts, the three newest events, and a one-line capture field. Both capture

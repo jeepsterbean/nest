@@ -32,9 +32,10 @@ Brain dump and Tasks and metrics. Chat stays unmounted and its ⌘3 shortcut is
 disabled. Restored panel selections omit Chat; a Chat-only selection falls back
 to Brain dump. An explicitly empty selection still hides every panel.
 
-The popup has the Timer bar across the top (countdown, interval, and a line
-that drains with the remaining time; click the countdown to pick an
-interval) and an icon-only strip down the left with one toggle per panel:
+The Popup is a fixed, non-resizable window; its size lives in
+`src-tauri/tauri.conf.json`. It has the Timer bar across the top (countdown,
+interval, and a line that drains with the remaining time; click the countdown
+to pick an interval) and an icon-only strip down the left with one toggle per panel:
 Brain dump, Tasks and metrics, and Chat. Each toggle shows or hides its own
 panel, so any combination can be up, including none at all; the visible ones
 share the width evenly, left to right in that order. Tasks and metrics holds
