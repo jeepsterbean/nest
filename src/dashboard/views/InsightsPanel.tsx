@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#insights
 import { useMemo } from "react";
 import { PhaseMix } from "../components/DayReflection";
 import {

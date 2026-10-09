@@ -19,7 +19,8 @@ reference by default.
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Timeline, or Phases | `docs/time-surfaces.md` |
+| Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
+| Overview tiles, saved layouts, or `SIMPLIFIED_VIEW` | `docs/overview.md`, then `docs/time-surfaces.md` |
 | Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
 | Timer or Popup | `docs/timer-popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
@@ -35,7 +36,9 @@ reference by default.
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Timeline, Phases | `docs/time-surfaces.md` |
+| Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
+| Overview | `docs/overview.md` |
+| Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
 | Metrics pane behavior | `docs/metrics.md` |
 | Timer / Popup | `docs/timer-popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
@@ -69,7 +72,7 @@ each fact in its closest authoritative source and link to it elsewhere.
 - `SIMPLIFIED_VIEW` in `src/lib/simplifiedView.ts` is currently `true`, which
   hides the Overview, Assistant, and Settings Sections and starts the dashboard
   on Calendar. Changes to those Sections stay invisible until it is `false`.
-  Scope and restore behavior: `docs/time-surfaces.md`.
+  Scope and restore behavior: `docs/overview.md#simplified-view`.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,

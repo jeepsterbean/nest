@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#calendar
 import type { Task, TaskWorkStretch } from "../../lib/types";
 import { QUARTER_HOUR_SECONDS, snapToQuarterHour } from "./time";
 

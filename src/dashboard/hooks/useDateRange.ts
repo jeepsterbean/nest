@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#range-sidebar
 import { useCallback, useMemo, useRef, useState } from "react";
 import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {

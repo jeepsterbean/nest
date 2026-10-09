@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/overview.md
 import { useCallback, useEffect, useState } from "react";
 
 export const COLS = 12;

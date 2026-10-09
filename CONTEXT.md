@@ -4,7 +4,7 @@ Nest is a private self-care workspace for checking in, organizing personal work,
 and capturing thoughts without interrupting flow.
 
 Documentation map: `AGENTS.md`. Surface behavior: `docs/tasks.md`,
-`docs/time-surfaces.md`, `docs/timer-popup.md`, `docs/brain-dump.md`,
+`docs/calendar.md`, `docs/overview.md`, `docs/time-surfaces.md`, `docs/timer-popup.md`, `docs/brain-dump.md`,
 `docs/assistant-context.md`, `docs/metrics.md`. Shared dashboard controls and
 cross-surface UI rules: `UI.md`. Design feel: `.impeccable.md`.
 
@@ -95,8 +95,8 @@ stays Active) and writes Offline even from Resting. Quitting clears it the same
 way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
-Overview and Calendar (Calendar and Timeline presentations, with Insights beside Calendar):
-[`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Calendar (Calendar and Timeline presentations, with Insights beside Calendar):
+[`docs/calendar.md`](./docs/calendar.md). Overview: [`docs/overview.md`](./docs/overview.md).
 Each Phase has a fixed icon and color. The Phases pane of Core explains each
 Phase; `src/dashboard/lib/phaseGuide.ts` mirrors the derivation above.
 _Avoid_: Status, Working now, Scope
@@ -148,7 +148,7 @@ Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 One primary destination in the dashboard, chosen from the **Sidebar**. The five
 are Overview, Calendar, Core, Assistant, and Settings; `SIMPLIFIED_VIEW` in
 `src/lib/simplifiedView.ts` currently leaves only Calendar and Core reachable
-([`docs/time-surfaces.md`](./docs/time-surfaces.md)). Timeline and Insights are
+([`docs/overview.md`](./docs/overview.md#simplified-view)). Timeline and Insights are
 part of Calendar, not Sections of their own. Overview shows the
 **Greetings board** except while Phase is Doing; every other Section always
 gives its content the full content area beside the Sidebar. No Section shows a
@@ -207,13 +207,13 @@ _Avoid_: Preferences, admin
 A Calendar presentation: a day-grouped history of Metric check-ins, brain
 dumps, Phase checkpoints, and Task activity. Not a stored record: each stands
 on its own.
-Behavior: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Behavior: [`docs/calendar.md`](./docs/calendar.md#timeline).
 _Avoid_: Journal, Logs (Logs is a Calendar figure)
 
 **Logs**:
 Those same events on Calendar, chosen beside **Work stretch**.
 Choosing Logs shows the kind filters.
-Behavior: [`docs/time-surfaces.md`](./docs/time-surfaces.md).
+Behavior: [`docs/calendar.md`](./docs/calendar.md#calendar).
 _Avoid_: using Logs as the name of the Timeline presentation
 
 ## Relationships

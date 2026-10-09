@@ -36,8 +36,9 @@ then only the surface document it routes for the task.
 
 - Use `CONTEXT.md` vocabulary in user-facing copy and types.
 - Prefer the shared formatters in `lib/time.ts` for dashboard dates and times.
-- Keep Day, Table, and Map behavior in `docs/tasks.md`, time-surface behavior in
-  `docs/time-surfaces.md`, Metrics behavior in `docs/metrics.md`, and Brain dump
+- Keep Day, Table, and Map behavior in `docs/tasks.md`, Calendar behavior in
+  `docs/calendar.md`, Overview behavior in `docs/overview.md`, rules shared by
+  time surfaces in `docs/time-surfaces.md`, Metrics behavior in `docs/metrics.md`, and Brain dump
   behavior in `docs/brain-dump.md`.
 - For editor selection, focus, draft synchronization, TipTap, or ProseMirror,
   follow `.agents/skills/brain-dump-text-editor/SKILL.md`.

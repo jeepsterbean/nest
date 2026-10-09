@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/time-surfaces.md#logs-kinds
 import type {
   BrainDump,
   Metric,

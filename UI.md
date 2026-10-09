@@ -6,8 +6,10 @@ project-agnostic UI standards in `.agents/standards/ui-standards.md`. Follow
 light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
-[`docs/tasks.md`](./docs/tasks.md); Overview, Calendar, Insights, Timeline,
-and Phases in [`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
+[`docs/tasks.md`](./docs/tasks.md); Calendar, Insights, Timeline, and Phases in
+[`docs/calendar.md`](./docs/calendar.md); Overview in
+[`docs/overview.md`](./docs/overview.md), with rules shared by time surfaces in
+[`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
 [`docs/metrics.md`](./docs/metrics.md); Timer and Popup in
 [`docs/timer-popup.md`](./docs/timer-popup.md); Brain dump in
 [`docs/brain-dump.md`](./docs/brain-dump.md); Assistant in
