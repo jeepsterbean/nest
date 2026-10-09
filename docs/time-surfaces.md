@@ -16,8 +16,9 @@ historical dates stay fixed. Date selection and paging enforce the Today limit
 in shared navigation logic as well as in the controls. Direct selections clamp
 to loaded history; paging stops before a page starts outside it. Day
 navigation and the month header share one arrow control with Brain dump,
-Tasks Day, Timeline, and Metrics, with fixed button positions and centered
-icons. Those four supply Go to today.
+Tasks Day, Calendar, Timeline, and Metrics, with fixed button positions and
+centered icons. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
+today; Calendar's month pager does not.
 
 ## Last hour
 

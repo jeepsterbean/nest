@@ -96,8 +96,7 @@ each fact in its closest authoritative source and link to it elsewhere.
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
   check-in. Popup timer UI shows the countdown and selected interval. The macOS
-  menu bar is a read-only Phase and countdown readout. Metric check-in remains
-  the saved Pulse scoring record.
+  menu bar is a read-only Phase and countdown readout.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.
