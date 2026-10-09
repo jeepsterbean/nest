@@ -4,9 +4,8 @@ Nest is a private self-care workspace for checking in, organizing personal work,
 and capturing thoughts without interrupting flow.
 
 Documentation map: `AGENTS.md`. Surface behavior: `docs/tasks.md`,
-`docs/calendar.md`, `docs/overview.md`, `docs/time-surfaces.md`, `docs/timer.md`,
-`docs/popup.md`, `docs/brain-dump.md`,
-`docs/assistant-context.md`, `docs/metrics.md`. Shared dashboard controls and
+`docs/calendar.md`, `docs/time-surfaces.md`, `docs/timer.md`,
+`docs/popup.md`, `docs/brain-dump.md`, `docs/metrics.md`. Shared dashboard controls and
 cross-surface UI rules: `UI.md`. Design feel: `.impeccable.md`.
 
 ## Language
@@ -75,7 +74,7 @@ like a data model. A box's position never creates or implies a relation.
 Connectors are solid from Parent to child, dashed from Blocker to the Task it
 blocks.
 Behavior: [`docs/tasks.md`](./docs/tasks.md).
-_Avoid_: Board (that word means the Overview tiles), Canvas, Kanban
+_Avoid_: Board (that word means the Note Board), Canvas, Kanban
 
 **Map sidebar**:
 The panel floating over the Map canvas: unplaced open Tasks and the "Add an
@@ -97,7 +96,7 @@ way, so time with Nest closed is never Worked time; if Nest dies without
 quitting, the next launch ends the stretch where it was last known live. Clicking another display
 leaves dashboard attention even if the Nest window is still key.
 Calendar (Calendar and Timeline presentations, with Insights beside Calendar):
-[`docs/calendar.md`](./docs/calendar.md). Overview: [`docs/overview.md`](./docs/overview.md).
+[`docs/calendar.md`](./docs/calendar.md).
 Each Phase has a fixed icon and color. The Phases pane of Core explains each
 Phase; `src/dashboard/lib/phaseGuide.ts` mirrors the derivation above.
 _Avoid_: Status, Working now, Scope
@@ -128,8 +127,8 @@ _Avoid_: Check-in, schedule
 **Popup**:
 The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
 resumes after an idle stretch that was spent Resting, unless the Timer is
-already due or the Popup is already up. It is for scoring Metrics, capturing a
-brain dump, and quick Assistant chats; it is not a stored record.
+already due or the Popup is already up. It is for scoring Metrics and capturing a
+brain dump; it is not a stored record.
 Behavior: [`docs/popup.md`](./docs/popup.md).
 _Avoid_: Check-in popup
 
@@ -146,63 +145,33 @@ A reusable label for brain dumps.
 Composer and deletion: [`docs/brain-dump.md`](./docs/brain-dump.md).
 
 **Section**:
-One primary destination in the dashboard, chosen from the **Sidebar**. The five
-are Overview, Calendar, Core, Assistant, and Settings; `SIMPLIFIED_VIEW` in
-`src/lib/simplifiedView.ts` currently leaves only Calendar and Core reachable
-([`docs/overview.md`](./docs/overview.md#simplified-view)). Timeline and Insights are
-part of Calendar, not Sections of their own. Overview shows the
-**Greetings board** except while Phase is Doing; every other Section always
-gives its content the full content area beside the Sidebar. No Section shows a
+One primary destination in the dashboard, chosen from the **Sidebar**. The two
+are Calendar and Core, and the dashboard opens on Calendar. Timeline and
+Insights are part of Calendar, not Sections of their own. Each Section gives
+its content the full content area beside the Sidebar. No Section shows a
 title above its main content —
-the Sidebar already names where you are. Core, Overview, and Calendar also
+the Sidebar already names where you are. Core and Calendar also
 name the Section at the top of their secondary sidebar. Top-of-Section controls (range,
 filters, layout toggles, and so on) stay; each Section keeps its own, with no
 shared product name for that row.
-_Avoid_: View, screen (for these five)
+_Avoid_: View, screen (for these two)
 
 **Sidebar**:
-The left strip that switches **Sections** (Overview, Calendar, Core, Assistant,
-Settings).
+The left strip that switches **Sections** (Calendar, Core). The **Background**
+button sits at its foot.
 _Avoid_: Nav, rail (for this strip)
 
 **Core**:
 The dashboard Section for Brain dump, Tasks, Metrics, and Phases. One Sidebar
 entry; an icon-and-label sidebar switches those panes. The last pane is remembered
 (Brain dump when unset). Each pane keeps its own controls; pane icons are picked from the Core sidebar.
-Brain dump, Tasks, and Metrics supply their Overview tile icons;
-Phases has no Overview tile.
-_Avoid_: Hub, home (Overview is the tile board; simplified startup opens Calendar)
+_Avoid_: Hub, home (the dashboard opens on Calendar)
 
-**Greetings board**:
-The Overview strip with the typewriter greeting, live Phase, and Timer
-(countdown and interval control). Hidden while Phase is Doing so Overview can
-stay on work; Timer interval and countdown stay available on the **Popup**.
-After the time-of-day greeting, it rotates through every **Active** Reminder;
-with none Active, only the greeting shows.
-_Avoid_: Header, masthead, status bar (for this strip)
-
-**Reminder**:
-A short line the user owns in Settings. Active Reminders rotate on the
-Greetings board; Inactive ones stay in Settings but are skipped there. New
-Reminders start Active. Text is capped so one line fits the board.
-_Avoid_: Tip, prompt, notification
-
-**Assistant**:
-The dashboard Section for private, reflective chats backed by OpenAI. The
-Assistant suggests next actions and never changes Tasks. Prompts, titles, and
-messages stay in Nest's local database. The popup and dashboard share that
-saved history; each window keeps its own open chat.
-Context assembly: [`docs/assistant-context.md`](./docs/assistant-context.md).
-
-**Settings**:
-Dashboard configuration for Assistant, Reminders, and Background. The Phases
-pane of Core explains each Phase. Pulses and the full Metric list live
-in the Metrics pane of Core. The Brain dump tile icon, Tags, and saved brain dump
-history live in the Brain dump pane of Core. The Tasks, Metrics, and Phases
-icons are picked in those panes. One Sidebar entry;
-a segmented control switches Settings panes. The last pane is remembered
-(Assistant when unset).
-_Avoid_: Preferences, admin
+**Background**:
+The ambient animation behind the dashboard and Popup while Phase is Doing. Its
+style, speed, and intensity are chosen from the Background button at the foot
+of the Sidebar, with a live preview; it is a preference, not a Section.
+_Avoid_: Wallpaper, theme
 
 **Timeline**:
 A Calendar presentation: a day-grouped history of Metric check-ins, brain
@@ -243,7 +212,7 @@ _Avoid_: using Logs as the name of the Timeline presentation
 > **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
 > **Dev:** "Is the Timer part of every Section header?"
-> **Domain expert:** "No. The Timer sits on the **Greetings board**, which appears on Overview except while Phase is Doing. Section main content starts with its own controls; Core, Overview, and Calendar name the Section in their secondary sidebar. During Doing, use the **Popup** for the countdown and interval."
+> **Domain expert:** "No. The Timer lives on the **Popup**, which shows the countdown and changes the interval. Section main content starts with its own controls; Core and Calendar name the Section in their secondary sidebar."
 
 ## Flagged ambiguities
 
@@ -260,10 +229,9 @@ _Avoid_: using Logs as the name of the Timeline presentation
   shows the countdown only.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that presentation is **Timeline**. A brain dump is not a journal entry. **Logs** is the event figure on Calendar, beside Work stretch.
-- "view" for Overview / Calendar / Core / Assistant / Settings — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Insights is a summary beside the Calendar presentation. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
-- "header" for the typewriter / Phase / Timer strip — resolved: that strip is the **Greetings board**, on Overview except while Doing.
+- "view" for Calendar / Core — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Insights is a summary beside the Calendar presentation. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.
 - "sidebar" — **Sidebar** is the Section switcher; the panel over the Map canvas is the **Map sidebar**. Tasks table scope filtering lives in the Scope column header.
 - "view" — Day, Table, and Map are Tasks **layouts**; a **saved view** is a named Tasks table query (filters and sort). See [`docs/tasks.md`](./docs/tasks.md#saved-views).
-- "section heading" / title above Section content — resolved: main content starts with its controls; the Sidebar names the place. Core, Overview, and Calendar also have a title in their secondary sidebar. Each Section keeps its own top controls without a shared product name for that row.
-- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Overview tiles, Task detail, popup Metric scoring). **Pane** is a destination inside Core, Settings, Assistant, or Metrics. Brain dump has one History surface.
-- "section" lowercase — resolved: capitalized **Section** specifically names one of the five Sidebar destinations. Lowercase "section" is a general-purpose word and may also describe panes, presentations, panels, or layout regions when their precise subtype does not matter, including in user-facing copy, accessible names, CSS (`.dash-section__head`), `<section>` elements, and agent-facing docs.
+- "section heading" / title above Section content — resolved: main content starts with its controls; the Sidebar names the place. Core and Calendar also have a title in their secondary sidebar. Each Section keeps its own top controls without a shared product name for that row.
+- "panel" vs "pane" — resolved: keep both. **Panel** is a content surface (Task detail, popup Metric scoring, the Background panel). **Pane** is a destination inside Core or Metrics. Brain dump has one History surface.
+- "section" lowercase — resolved: capitalized **Section** specifically names one of the two Sidebar destinations. Lowercase "section" is a general-purpose word and may also describe panes, presentations, panels, or layout regions when their precise subtype does not matter, including in user-facing copy, accessible names, CSS (`.dash-section__head`), `<section>` elements, and agent-facing docs.

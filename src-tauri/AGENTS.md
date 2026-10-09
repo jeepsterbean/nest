@@ -11,8 +11,9 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
   not glob re-export command modules.
 - Shared behavior that also runs outside a command belongs in a top-level
   domain module: Timer state and cadence in `timer.rs`, Phase derivation and
-  lock/sleep handling in `phase.rs`, OpenAI streaming and keychain access in
-  `assistant.rs`, and lifecycle upkeep in `task_lifecycle.rs`.
+  lock/sleep handling in `phase.rs`, removal of the retired Assistant's
+  Keychain key in `retired_assistant.rs`, and lifecycle upkeep in
+  `task_lifecycle.rs`.
 - Task row reads and the Updated stamp live in `task.rs`, shared by commands
   and lifecycle upkeep.
 - Rust models under `src-tauri/src/models/` mirror shared TypeScript DTOs under

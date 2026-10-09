@@ -3,18 +3,16 @@
 The Timer is the recurring countdown. Popup behavior lives in
 [`popup.md`](./popup.md); domain words live in [`CONTEXT.md`](../CONTEXT.md).
 
-Timer chrome, aria, and class names use Timer / due, never check-in. The
-dashboard due phrase is `Timer due`. A Metric check-in remains the saved Pulse
-scoring record.
+Timer chrome, aria, and class names use Timer / due, never check-in. A Metric
+check-in remains the saved Pulse scoring record.
 
 ## Countdown and interval
 
 The interval is 5–30 minutes in five-minute steps. Picking an interval starts
 that cycle immediately, including when the Timer is due.
 
-The **Greetings board** shows the countdown and interval control when Overview
-is showing it (not during Doing). The Popup hosts another Timer surface whose
-clock shows the countdown only.
+The Popup is the only Timer surface. Its clock shows the countdown only, and
+choosing it opens the interval list.
 
 ## Due behavior
 

@@ -18,13 +18,8 @@ the Popup; the Popup's other behavior does not depend on why it was summoned.
 
 ## Panels
 
-With `SIMPLIFIED_VIEW` enabled in `src/lib/simplifiedView.ts`, the Popup offers
-Brain dump and Tasks and metrics. Chat stays unmounted and its ⌘3 shortcut is
-disabled. Restored panel selections omit Chat; a Chat-only selection falls
-back to Brain dump. An explicitly empty selection still hides every panel.
-
-An icon-only strip down the left has one toggle per panel: Brain dump, Tasks
-and metrics, and Chat. Each toggle shows or hides its panel, so any combination
+An icon-only strip down the left has one toggle per panel: Brain dump and
+Tasks and metrics. Each toggle shows or hides its panel, so any combination
 can be visible, including none. Visible panels share the width evenly in that
 order.
 
@@ -38,14 +33,13 @@ working, a row shows the Task's total Worked time, including the open stretch.
 Starting an Up next Task moves it to Active and starts Working now. Active rows
 have Up next to the left of Complete.
 
-Brain dump holds the brain dump. Chat holds the same Chat workspace as the
-dashboard; Assistant setup stays in the dashboard. Chat drops the saved-chat
-sidebar for a single chat switcher row and compact Popup controls. It mounts
-the first time Chat shows and then stays mounted.
+Brain dump holds the brain dump.
 
 Every summon restores `nest:popup-panels`, even if the Timer is still paused at
-zero. Brain dump shows on first use. Showing Brain dump focuses its editor,
-Chat its composer, and Tasks and metrics the Metric control. Hiding the panel
+zero. Brain dump shows on first use. A saved selection naming the retired Chat
+panel drops it, and one naming only Chat falls back to Brain dump; an
+explicitly empty selection still hides every panel. Showing Brain dump focuses
+its editor, and Tasks and metrics the Metric control. Hiding the panel
 that holds focus returns focus to its toggle.
 
 ## Metric scoring
@@ -60,9 +54,8 @@ or due dot.
 
 ## Keyboard and focus
 
-⌘1, ⌘2, and ⌘3 toggle Brain dump, Tasks and metrics, and Chat in sidebar order,
-including while typing in Brain dump or Chat. A held key repeats but toggles
-once. Copy, Cut, and Paste retain their normal behavior.
+⌘1 and ⌘2 toggle Brain dump and Tasks and metrics in sidebar order, including
+while typing in Brain dump. A held key repeats but toggles once. Copy, Cut, and Paste retain their normal behavior.
 
 The chords apply only when the Popup has the keystroke; with the Dashboard
 focused they belong to the Dashboard. Tab and Shift+Tab provide ordinary focus

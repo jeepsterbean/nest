@@ -4,8 +4,8 @@ Day, Table, and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md)
 Shared dashboard controls live in [`UI.md`](../UI.md); non-obvious CSS
 constraints are commented beside their rules in `src/dashboard/styles/`.
 
-The Tasks pane icon is picked from the Core sidebar and also heads the Overview
-Tasks tile. The Core Section icon is picked separately on the main Sidebar.
+The Tasks pane icon is picked from the Core sidebar and also marks Task
+events in Logs. The Core Section icon is picked separately on the main Sidebar.
 
 ## Day
 

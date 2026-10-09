@@ -145,8 +145,7 @@ every score remains readable.
 That row clips at a live now, so a just-saved
 rating appears as soon as data reloads. Last hour does not clamp it to
 its minute-clock end. Phase mix and the task ledger stay on the shared
-minute clock. Last hour uses that same board on a rolling 60-minute window,
-and so does Overview's Last hour tile.
+minute clock. Last hour uses that same board on a rolling 60-minute window.
 
 ## Timeline
 
@@ -168,11 +167,11 @@ while focus is outside interactive controls.
 
 The list is one day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
-Timeline and the Overview Timeline tile show no Phase totals. Each visible day
+Timeline shows no Phase totals. Each visible day
 has an Export control that downloads a chronological Markdown timeline of every
 event type for that calendar day, regardless of the active kind filter.
 
-In Timeline and the Overview Timeline, each day's icons sit on a hairline
+In Timeline, each day's icons sit on a hairline
 through the mark column, from the first mark to the last. When the selected
 range includes now, today opens with the current time and an empty event
 cell, including when today has no visible entries. A breathing dot marks that
@@ -181,14 +180,13 @@ repeating squiggle. Timeline does not show the day strip or outcome stats.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same
 height as brain dumps and Working now marks. Brain dumps keep that row height
 when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
-in for names. The Timeline icon is picked in Overview settings and heads the
-Overview Timeline tile.
+in for names.
 
 ## Phases pane
 
 The Phases pane of Core is a read-only guide: how Phase is derived, then the
 four Phases (Doing, Scoping, Resting, Offline) with their meanings from
 `src/dashboard/lib/phaseGuide.ts`. The current Phase is marked, and its icon
-breathes a halo in its color. Its icon is picked from the Core sidebar;
-Phases has no Overview tile. Phase icons and colors follow
+breathes a halo in its color. Its icon is picked from the Core sidebar.
+Phase icons and colors follow
 [Phase appearance](./time-surfaces.md#phase-appearance).

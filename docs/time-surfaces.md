@@ -1,9 +1,9 @@
 # Time surfaces
 
-Rules shared by every surface that shows time: Calendar, Insights, Timeline,
-and the Overview tiles built on them. Each surface's own behavior lives in
+Rules shared by every surface that shows time: Calendar, Insights, and
+Timeline. Each surface's own behavior lives in
 [`docs/calendar.md`](./calendar.md) (Calendar, Insights, Timeline, Phases
-pane) and [`docs/overview.md`](./overview.md). Domain words and Phase
+pane). Domain words and Phase
 derivation live in [`CONTEXT.md`](../CONTEXT.md). Shared dashboard controls
 live in [`UI.md`](../UI.md).
 
@@ -21,18 +21,17 @@ Metrics, with fixed button positions and centered icons.
 ## Last hour
 
 Last hour is a rolling 60 minutes from now, advanced by one shared minute
-clock. Calendar's Last hour range, its Insights, and Overview's Last hour tile
-all read that same window through the same code.
+clock. Calendar's Last hour range and its Insights read that same window
+through the same code.
 
 ## Logs kinds
 
-Timeline, Calendar's Logs figure, and the Overview Timeline tile filter
+Timeline and Calendar's Logs figure filter
 history by four kinds: Brain dumps, Phases, Metrics, and Tasks. All four are
 on by default. A click toggles one kind, and the last kind on stays on. A
 double click keeps only that kind, and double clicking the kind already alone
 turns all four back on. Timeline and Calendar Logs share one selection in
-`nest:logs-preferences`; the Overview Timeline tile keeps its own, which is
-not stored.
+`nest:logs-preferences`.
 
 With Phases alone, an eye button swaps the settled Phase rows for every Phase
 checkpoint in the window; it starts off whenever Phases becomes the only kind
@@ -52,6 +51,6 @@ shows Reopened to its destination status.
 ## Phase appearance
 
 Each Phase has a fixed icon and color (set by migration, not editable), which
-drive the Greetings board, Calendar rail and wash, Insights mix and totals,
+drive Calendar rail and wash, Insights mix and totals,
 Timeline Phase rows, and the Timeline time column (quiet surface tone when
 uncolored).

@@ -7,14 +7,12 @@ light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
 [`docs/tasks.md`](./docs/tasks.md); Calendar, Insights, Timeline, and Phases in
-[`docs/calendar.md`](./docs/calendar.md); Overview in
-[`docs/overview.md`](./docs/overview.md), with rules shared by time surfaces in
+[`docs/calendar.md`](./docs/calendar.md), with rules shared by time surfaces in
 [`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
 [`docs/metrics.md`](./docs/metrics.md); Timer in
 [`docs/timer.md`](./docs/timer.md); Popup in
 [`docs/popup.md`](./docs/popup.md); Brain dump in
-[`docs/brain-dump.md`](./docs/brain-dump.md); Assistant in
-[`docs/assistant-context.md`](./docs/assistant-context.md). Non-obvious class
+[`docs/brain-dump.md`](./docs/brain-dump.md). Non-obvious class
 and layout constraints are commented beside their rules in
 `src/dashboard/styles/`.
 
@@ -22,11 +20,10 @@ and layout constraints are commented beside their rules in
 
 - Section main content has no title and starts with its controls, in
   `.dash-section__head` or a sibling toolbar; the Sidebar names the current
-  place. Core, Overview, and Calendar also have a title in their Section
-  sidebar.
+  place. Core and Calendar also have a title in their Section sidebar.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs,
-  Section, Sidebar, and Greetings board.
+  Section, Sidebar, and Background.
 
 ## Shared controls
 
@@ -56,14 +53,19 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 - Dashboard CSS enters through `src/dashboard/Dashboard.css`, whose ordered
   imports from `src/dashboard/styles/` define the cascade.
-- Greetings board: `DashboardHeader` (`.dash-header`) shows on Overview except
-  while Phase tone is Doing. Other Sections always omit it; Overview during
-  Doing adds `.dashboard__inner--no-greetings` so content fills the area beside
-  the Sidebar. The Timer stays on the Popup.
-- Sidebar Section icons are `NestIcon`s from `nest:overview-tile-icons`
-  (`overview`, `calendar`, `core`, `assistant`, `settings`). Clicking an icon
-  selects its Section; clicking the selected one opens its `IconPickerButton`.
-- Core, Overview, and Calendar add a Section sidebar, `.section-sidebar` (grid
+- `DashboardSidebar` holds the two Sections, Calendar and Core; the dashboard
+  opens on Calendar. Section icons are `NestIcon`s stored in
+  `nest:overview-tile-icons`, a key kept from the retired Overview so saved
+  choices carry over. Clicking an icon selects its Section; clicking the
+  selected one opens its `IconPickerButton`. The Timer lives on the Popup.
+- The Background button sits at the foot of the Sidebar (`.dash-background`)
+  and opens `BackgroundView` in a non-modal panel beside the rail
+  (`.dash-background__panel`, `role="dialog"`). The panel follows the button in
+  DOM order so Tab reaches its controls; `useDismiss` closes it on an outside
+  press or Escape, and Escape returns focus to the button. Changes preview live
+  and apply with Set background. Style persists in `nest:background-style`,
+  speed and intensity in `nest:background-tuning`.
+- Core and Calendar add a Section sidebar, `.section-sidebar` (grid
   class `.dashboard--section-sidebar`), between the Sidebar and
   `.dashboard__inner`. Rows are `.section-nav__button` icon-and-label buttons
   on tiles tinted with `--pane-tone`; selecting the selected row again opens
@@ -75,13 +77,8 @@ portaled menu has to be scoped from a dashboard-level class, as
   stored in `nest:core-pane` (Brain dump when unset), and `.dashboard__inner`
   takes the active pane's layout class (`--brainDump`, `--tasks`, `--metrics`,
   `--phases`).
-- Settings panes are Assistant / Reminders / Background in a `ViewToggle`; the
-  last pane is stored in `nest:settings-pane` (Assistant when unset).
-  Background style persists in `nest:background-style` and its speed and
-  intensity in `nest:background-tuning`.
-- Core and Settings keep every pane mounted (`.core-slot`, `.settings-slot`)
-  and hide inactive ones with `hidden`, so filters, selection, and drafts
-  survive pane switches.
+- Core keeps every pane mounted (`.core-slot`) and hides inactive ones with
+  `hidden`, so filters, selection, and drafts survive pane switches.
 
 ## Shared surfaces
 

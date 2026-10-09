@@ -41,7 +41,3 @@ New data model. which basically, is textual summary of what the user is doing fr
 
 ## Note board
 figure out how the notes are arranged in the noteboard
-
-
-# Chat assistant
-- set default config values
