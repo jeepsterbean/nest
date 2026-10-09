@@ -6,25 +6,19 @@ lives in the docs routed by [`AGENTS.md`](./AGENTS.md).
 ## Tasks and work
 
 **Parent / Child** describes work breakdown. **Blocker / Dependent** determines
-readiness. These relationships are independent: making a Task a Child does
-not make it a Blocker. A Task has at most one Parent. Both relationship graphs
-must be acyclic.
+readiness. The two relationships are independent.
 
-**Ready / Blocked** is derived for Tasks outside Completed and Cancelled:
-Ready when all Blockers are completed, otherwise Blocked. Readiness is
-separate from persisted status.
+**Ready / Blocked** is readiness derived for open Tasks; it is never a
+persisted status.
 
-**Scope** categorizes Tasks by path, independently of Parent/Child hierarchy.
+**Scope** categorizes Tasks by path.
 
-**Working now** is toggled independently on Active Tasks. Multiple Tasks may
-be Working now. Leaving Active clears it; stopping work preserves Active.
+**Working now** marks an Active Task as being worked on. A **Work stretch**
+records one span of Working now, and **Worked time** totals a Task's Work
+stretches.
 
-**Work stretch** records one span of Working now. An open stretch has no end.
-**Worked time** sums finished stretches and elapsed time in the open stretch,
-across every day and status. Correcting a stretch updates the total; leaving
-Working now on keeps it counting.
-
-Task behavior: [`docs/tasks.md`](./docs/tasks.md).
+Task rules: [Tasks domain](./docs/domain/tasks.md).
+Dashboard interactions: [Tasks interface](./docs/interface/tasks.md).
 
 ## Phase
 
@@ -55,7 +49,7 @@ Behavior: [`docs/metrics.md`](./docs/metrics.md),
   Tasks, Metrics, and Phases panes.
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.
 - Day, Table, and Map are Tasks **layouts**. A **saved view** is a named Table
-  query. Map placement creates no Task relationships.
+  query.
 - **Map** names the Tasks layout; **Note Board** names the brain dump board.
 - **Timeline** lists history; **Logs** places it on Calendar beside Work stretch.
 - A **pane** is a destination within Core or Metrics; a **panel** is a content

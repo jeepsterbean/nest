@@ -18,7 +18,8 @@ reference by default.
 | Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `docs/phases.md`, then `.agents/skills/phase-lifecycle/SKILL.md` |
 | Domain words, Ready/Blocked | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
-| Tasks table or Map | `docs/tasks.md` |
+| Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
+| Tasks Day, Table, Map, or detail interactions | `docs/interface/tasks.md` |
 | Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
 | Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
 | Timer | `docs/timer.md` |
@@ -35,7 +36,8 @@ reference by default.
 |-------------|------|
 | Product language, shared domain distinctions | `CONTEXT.md` |
 | Phase behavior, derivation, work recording lifecycle | `docs/phases.md` |
-| Tasks table / Map behavior | `docs/tasks.md` |
+| Task fields, relationships, readiness, history, deletion | `docs/domain/tasks.md` |
+| Tasks dashboard interactions | `docs/interface/tasks.md` |
 | Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
 | Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
 | Metrics pane behavior | `docs/metrics.md` |
@@ -54,6 +56,31 @@ reference by default.
 Project-agnostic process rules live under `.agents/standards/`, which
 `.claude/standards/` and `.codex/standards/` expose through symlinks. Keep
 each fact in its closest authoritative source and link to it elsewhere.
+
+## Writing documentation
+
+Follow the table above when editing a Nest doc.
+
+- Write the fact in the file that owns it, and link to that file from anywhere
+  else. When the owner already says it, delete the copy.
+- `CONTEXT.md` keeps the word, its Avoid line, and a distinction several
+  surfaces share. A glossary entry is that definition plus a link.
+- A surface doc keeps what that surface does: what is saved, what an action
+  changes, keyboard and focus, empty and missing cases, and a boundary with
+  another surface.
+- Keep a sentence when leaving it out would let someone build the wrong
+  behavior. Drop a sentence that only places a control, names a color or
+  weight, or gives a size in pixels. A breakpoint, a shared row, and a corner
+  radius stay in the CSS comment the table already names. A limit that exists
+  so copy fits a control stays with that control, beside the CSS and the
+  constant.
+- When one sentence mixes a behavior rule with placement or paint, keep the
+  rule.
+- A negative earns its place when it settles a mix-up the other docs would
+  leave open, such as the Tasks table having no scope sidebar. Skip a negative
+  that repeats a positive rule already written beside it.
+- Copy the interface must say stays in the surface doc. Class names, component
+  names, and file paths stay in `UI.md` and `docs/editor.md`.
 
 ## Package manager
 

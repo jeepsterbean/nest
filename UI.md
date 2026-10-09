@@ -6,7 +6,7 @@ project-agnostic UI standards in `.agents/standards/ui-standards.md`. Follow
 light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
-[`docs/tasks.md`](./docs/tasks.md); Calendar, Insights, Timeline, and Phases in
+[`docs/interface/tasks.md`](./docs/interface/tasks.md); Calendar, Insights, Timeline, and Phases in
 [`docs/calendar.md`](./docs/calendar.md), with rules shared by time surfaces in
 [`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
 [`docs/metrics.md`](./docs/metrics.md); Timer in
@@ -90,3 +90,9 @@ portaled menu has to be scoped from a dashboard-level class, as
   Logs figure.
 - Saved and floating stickies, docked Note Board rows, the Note Board frame,
   and the Core Brain dump composer share one 6px corner radius.
+
+## Tasks implementation
+
+`taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
+edges for Table, Map, and Task details. The Map draws connectors as an SVG
+overlay. Task surface behavior lives in [`docs/interface/tasks.md`](./docs/interface/tasks.md).
