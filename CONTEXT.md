@@ -226,7 +226,7 @@ _Avoid_: using Logs as the name of the Timeline presentation
 - "check-in" for the clock or the window — resolved: the clock is the **Timer**;
   the window it opens is the **Popup**. A Metric check-in is a saved Pulse scoring.
   Timer/Popup aria, class names, and chrome never say check-in. The Popup clock
-  shows the countdown only.
+  shows the countdown and selected interval.
 - "Pulse check-in" sounds right because Metrics are scored inside a Pulse — resolved: the recorded event is a **Metric check-in**; Pulse only groups which Metrics are scored together.
 - "journal" was the history screen — resolved: that presentation is **Timeline**. A brain dump is not a journal entry. **Logs** is the event figure on Calendar, beside Work stretch.
 - "view" for Calendar / Core — resolved: each is a **Section**. Calendar and Timeline are presentations inside Calendar; Insights is a summary beside the Calendar presentation. Brain dump, Tasks, Metrics, and Phases are panes of Core. Code may still say `view`; product language does not.

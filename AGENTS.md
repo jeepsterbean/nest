@@ -68,9 +68,6 @@ each fact in its closest authoritative source and link to it elsewhere.
 ## Repository-wide invariants
 
 - The dashboard has two Sections, Calendar and Core, and starts on Calendar.
-  Overview, Assistant, Settings, and Reminders are retired: their SQLite
-  tables and migrations stay so existing databases keep opening, but no code
-  reads them. Do not add commands against those tables.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
@@ -98,8 +95,8 @@ each fact in its closest authoritative source and link to it elsewhere.
 - User-facing copy should match the calm, private tone in `.impeccable.md` and
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-  check-in. Popup timer UI shows countdown only. Metric check-in remains the
-  saved Pulse scoring record.
+  check-in. Popup timer UI shows the countdown and selected interval. Metric
+  check-in remains the saved Pulse scoring record.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.
