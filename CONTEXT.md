@@ -5,8 +5,8 @@ and capturing thoughts without interrupting flow.
 
 Documentation map: `AGENTS.md`. Surface behavior: `docs/tasks.md`,
 `docs/time-surfaces.md`, `docs/timer-popup.md`, `docs/brain-dump.md`,
-`docs/assistant-context.md`. Dashboard CSS classes, component hooks, and
-layout constraints: `UI.md`. Design feel: `.impeccable.md`.
+`docs/assistant-context.md`, `docs/metrics.md`. Shared dashboard controls and
+cross-surface UI rules: `UI.md`. Design feel: `.impeccable.md`.
 
 ## Language
 

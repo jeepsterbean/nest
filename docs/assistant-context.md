@@ -119,7 +119,11 @@ contradiction.
 
 ## Config view
 
-Settings → Assistant holds the OpenAI key. Assistant Config has a sidebar:
+Settings → Assistant holds the OpenAI key. Rust keeps it in the system keychain
+and the renderer never receives it. The Assistant Section switches Chat /
+Config (`nest:assistant-pane`, Chat when unset); composer and prompt drafts
+persist in `nest:assistant-chat-drafts` and `nest:assistant-prompt-drafts`.
+Assistant Config has a sidebar:
 
 | Section | What it holds |
 |---|---|

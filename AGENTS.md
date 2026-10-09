@@ -20,13 +20,13 @@ reference by default.
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
 | Overview, Calendar (and its Insights), Timeline, or Phases | `docs/time-surfaces.md` |
-| Metrics section, Pulses, or Metric check-in behavior | `CONTEXT.md`, `UI.md` |
+| Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
 | Timer or Popup | `docs/timer-popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
 | Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
 | Reminders, Greetings board, Sidebar, or Settings panes | `CONTEXT.md`, `UI.md` |
-| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
+| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
 ## Which Nest doc to edit
@@ -36,12 +36,13 @@ reference by default.
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
 | Overview, Calendar (and its Insights), Timeline, Phases | `docs/time-surfaces.md` |
-| Metrics section chrome, Pulses / Metrics panes | `UI.md`, `CONTEXT.md` |
+| Metrics pane behavior | `docs/metrics.md` |
 | Timer / Popup | `docs/timer-popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
 | Assistant context assembly | `docs/assistant-context.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
-| CSS hooks, component constraints, layout constants | `UI.md` |
+| Shared dashboard controls, shell, cross-surface UI rules | `UI.md` |
+| Non-obvious CSS or layout constraint | comment beside the rule |
 | Brain dump editor invariants or library behavior | `docs/editor.md` |
 | Closing, parking, or adding durable product work | `BACKLOG-FEATURE-REQUESTS.md` |
 | Engineering backlog | `BACKLOG-BACKEND.md` |

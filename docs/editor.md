@@ -3,7 +3,7 @@
 This is the authoritative reference for editor invariants, dependency findings,
 diagnosis, and manual regression checks. Domain words live in
 [CONTEXT.md](../CONTEXT.md); capture and Note Board behavior live in
-[docs/brain-dump.md](./brain-dump.md); shared UI hooks live in [UI.md](../UI.md).
+[docs/brain-dump.md](./brain-dump.md); shared dashboard controls live in [UI.md](../UI.md).
 
 ## Editor ownership and synchronization
 

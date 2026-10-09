@@ -1,8 +1,8 @@
 # Overview and Calendar
 
 How those Sections show Phase, Worked time, and history. Domain words and
-Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). CSS hooks live in
-[`UI.md`](../UI.md).
+Phase derivation live in [`CONTEXT.md`](../CONTEXT.md). Shared dashboard
+controls live in [`UI.md`](../UI.md).
 
 The Calendar Section switches between Calendar and Timeline in its range
 sidebar. The presentation is remembered in `nest:calendar-presentation`
@@ -24,7 +24,8 @@ control over an always-visible Monday-first month calendar. The calendar's
 highlight is the range, so the sidebar shows no range title text: it
 highlights the selected day or week, and Last hour highlights the dates it
 overlaps. Dates outside the loaded history and future dates are disabled;
-picking a date during Last hour switches to Day. The month calendar has one Tab
+picking a date during Last hour switches to Day. At a Section width of 600px or
+less, the range controls move above the content. The month calendar has one Tab
 stop; arrow keys move focus by a day or week, Home / End move to the week
 edges, and Enter / Space selects the focused date.
 
@@ -60,7 +61,10 @@ minute clock as Calendar Last hour.
 
 Overview has its own configuration panel that opens over the right side of
 the tile board from the Greetings board, closed by default. It lets
-the user choose the Control panel and Timeline icons. The Overview Section icon is picked
+the user choose the Control panel and Timeline icons, stored with the other tile
+icons in `nest:overview-tile-icons`. It closes on its close control, Escape, or
+a press outside it, and its button sits on the Greetings board, so it cannot
+open while Doing hides the board. The Overview Section icon is picked
 from the Sidebar. Feature tiles (Tasks, Timeline, Brain dump, Metric check-in)
 take their icon from their own pane (Tasks, Brain dump, and Metrics are Core
 panes; Timeline is configured beside Control panel in Overview settings), and Last hour always uses the
@@ -75,8 +79,13 @@ dumps / Phases / Metrics / Tasks chips as the Timeline presentation — independ
 all four on by default, with the Phases-only eye and load-older batching when
 needed — a brain dump composer that matches the popup (shared
 text and tag draft, Cmd/Ctrl+Enter to save), and Metric check-in scoring.
-Tiles can be hidden into the always-present control panel and restored from
-there as space allows. Tasks, Timeline, and Brain dump can be minimised to
+Tiles can be hidden into the always-present control panel. Clicking a hidden
+tile's chip restores it minimised at the first free spot; dragging the chip onto
+the board drops it there when it fits. Moving a tile pushes its neighbours into
+free space; when none can move, it trades places with the tile it covers most, and
+the move is refused if either tile would fall below its minimum size. Below
+861px the tiles stack in board order and cannot be dragged or resized. The
+board persists in `nest:overview-layout`. Tasks, Timeline, and Brain dump can be minimised to
 counts, the three newest events, and a one-line capture field. Both capture
 surfaces can independently browse the five most recent dumps as read-only
 text with their tags. Full dump history lives in Timeline.
@@ -96,10 +105,23 @@ another saved layout is refused with a link to switch to that one. Names are
 unique, ignoring case. New layout saves the current board and is unavailable
 at five. Deleting the selected layout leaves the board as it is, belonging to
 no saved layout, and switching away from that board also asks first.
+A layout name field saves its text when the user presses outside it, without
+activating the control under the pointer. Below 861px, name fields, Save ·
+Revert, and prompts open beside the rail. Layouts persist in
+`nest:overview-layout-snapshots` and the selection with its edited flag in
+`nest:overview-layout-selection`.
 
 Overview shows the **Greetings board** except while Phase is Doing; every
 other Section always gives its content the full content area beside the
 Sidebar.
+
+## Phases
+
+The Phases pane of Core is a read-only guide: how Phase is derived, then the
+four Phases (Doing, Scoping, Resting, Offline) with their meanings from
+`src/dashboard/lib/phaseGuide.ts`. The current Phase is marked, and its icon
+breathes a halo in its color. Its icon is picked from the Core sidebar;
+Phases has no Overview tile.
 
 ## Insights
 

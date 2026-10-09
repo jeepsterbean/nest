@@ -1,7 +1,7 @@
 # Timer and Popup
 
 Countdown, due behavior, and the Popup panels. Domain words live in
-[`CONTEXT.md`](../CONTEXT.md). CSS hooks live in [`UI.md`](../UI.md).
+[`CONTEXT.md`](../CONTEXT.md). Shared dashboard controls live in [`UI.md`](../UI.md).
 
 Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
 check-in. The dashboard timer due phrase is `Timer due`.
@@ -46,8 +46,10 @@ while working, it shows the Task's total Worked time, including the open
 stretch. Starting an Up next Task moves it to Active and starts Working now.
 Active rows have Up next to the left of Complete. Brain dump
 holds the brain dump. Chat holds the same Chat workspace as the dashboard;
-Assistant setup stays in the dashboard. Every summon restores the last
-combination — manual or Timer-triggered alike, and even if the Timer is
+Assistant setup stays in the dashboard. Chat drops the saved-chat sidebar for a
+single chat switcher row and uses compact controls sized for the Popup. It
+mounts the first time Chat shows and then stays mounted. Every summon restores the last
+combination (`nest:popup-panels`) — manual or Timer-triggered alike, and even if the Timer is
 still paused at zero. Brain dump is what shows the first time. Showing Brain
 dump focuses its editor, Chat its composer, and Tasks and metrics the Metric
 control; hiding the panel that holds focus returns focus to its toggle.
