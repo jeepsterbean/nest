@@ -4,7 +4,8 @@ Nest is a private self-care workspace for checking in, organizing personal work,
 and capturing thoughts without interrupting flow.
 
 Documentation map: `AGENTS.md`. Surface behavior: `docs/tasks.md`,
-`docs/calendar.md`, `docs/overview.md`, `docs/time-surfaces.md`, `docs/timer-popup.md`, `docs/brain-dump.md`,
+`docs/calendar.md`, `docs/overview.md`, `docs/time-surfaces.md`, `docs/timer.md`,
+`docs/popup.md`, `docs/brain-dump.md`,
 `docs/assistant-context.md`, `docs/metrics.md`. Shared dashboard controls and
 cross-surface UI rules: `UI.md`. Design feel: `.impeccable.md`.
 
@@ -121,7 +122,7 @@ _Avoid_: Pulse check-in
 The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
 opens the Popup. Closing the Popup leaves it paused; picking an interval
 starts that cycle from now.
-Behavior: [`docs/timer-popup.md`](./docs/timer-popup.md).
+Behavior: [`docs/timer.md`](./docs/timer.md).
 _Avoid_: Check-in, schedule
 
 **Popup**:
@@ -129,7 +130,7 @@ The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
 resumes after an idle stretch that was spent Resting, unless the Timer is
 already due or the Popup is already up. It is for scoring Metrics, capturing a
 brain dump, and quick Assistant chats; it is not a stored record.
-Behavior: [`docs/timer-popup.md`](./docs/timer-popup.md).
+Behavior: [`docs/popup.md`](./docs/popup.md).
 _Avoid_: Check-in popup
 
 **Brain dump**:

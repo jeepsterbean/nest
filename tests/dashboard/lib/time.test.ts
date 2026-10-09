@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   dayLabel,
   formatClockedTime,
-  formatTimerCountdown,
   formatCompactDuration,
   formatDate,
   formatHourTick,
@@ -12,7 +11,6 @@ import {
   formatWorkedTime,
   greetingForHour,
   historyStartSec,
-  isTimerDue,
   shiftDayMs,
   snapToQuarterHour,
   startOfDayMs,
@@ -122,8 +120,6 @@ describe("format helpers", () => {
 });
 
 describe("minute helpers", () => {
-  const now = new Date(2026, 5, 17, 14, 30, 30).getTime();
-
   it("formats elapsed clocked time with a minutes field", () => {
     expect(formatClockedTime(0)).toBe("0:00");
     expect(formatClockedTime(45)).toBe("0:45");
@@ -131,26 +127,6 @@ describe("minute helpers", () => {
     expect(formatClockedTime(3661)).toBe("1:01:01");
   });
 
-  it("shows second-precision countdowns", () => {
-    expect(
-      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 31)), now),
-    ).toBe("0:30");
-    expect(
-      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 32, 5)), now),
-    ).toBe("1:35");
-    expect(
-      formatTimerCountdown(sec(new Date(2026, 5, 17, 14, 30)), now),
-    ).toBe("0:00");
-  });
-
-  it("marks a timer due once it hits zero or is waiting on a response", () => {
-    const due = (waitingForResponse: boolean, at: Date) =>
-      isTimerDue({ waitingForResponse, nextDueAt: sec(at) }, now);
-
-    expect(due(false, new Date(2026, 5, 17, 14, 30))).toBe(true);
-    expect(due(true, new Date(2026, 5, 17, 14, 40))).toBe(true);
-    expect(due(false, new Date(2026, 5, 17, 14, 40))).toBe(false);
-  });
 });
 
 describe("snapToQuarterHour", () => {

@@ -1,0 +1,158 @@
+/* Unpositioned so the sweep uses .popup-header and spans the whole bar. */
+.popup-timer {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+}
+
+.popup-timer__anchor {
+  position: relative;
+}
+
+.popup-timer__trigger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 12px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  transition:
+    border-color 0.14s,
+    background 0.14s;
+}
+
+.popup-timer__trigger:hover,
+.popup-timer__trigger:focus-visible,
+.popup-timer__trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  outline: none;
+  background: var(--accent-soft);
+}
+
+.popup-timer__value {
+  color: var(--accent);
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.popup-timer__interval {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Remaining time drains along the Popup header's bottom border. */
+.popup-timer__track {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  pointer-events: none;
+}
+
+.popup-timer__sweep {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+@keyframes timer-zero-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(
+      0 0 10px color-mix(in srgb, var(--rating-2) 80%, transparent)
+    );
+  }
+}
+
+@keyframes timer-zero-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    text-shadow:
+      0 0 12px color-mix(in srgb, var(--rating-2) 75%, transparent),
+      0 0 28px color-mix(in srgb, var(--rating-2) 35%, transparent);
+  }
+}
+
+.popup-timer--due .popup-timer__track {
+  background: var(--rating-2);
+  animation: timer-zero-pulse 2.4s ease-in-out infinite;
+}
+
+.popup-timer--due .popup-timer__value {
+  color: var(--rating-2);
+  animation: timer-zero-glow 2.4s ease-in-out infinite;
+}
+
+.popup-timer__picker {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  width: 122px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
+  box-shadow: var(--shadow);
+}
+
+.popup-timer__picker button {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.popup-timer__picker button:hover,
+.popup-timer__picker button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.popup-timer__picker button[aria-selected="true"] {
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-timer__sweep {
+    transition: none;
+  }
+
+  .popup-timer--due .popup-timer__track {
+    animation: none;
+    filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--rating-2) 55%, transparent)
+    );
+  }
+
+  .popup-timer--due .popup-timer__value {
+    animation: none;
+    text-shadow: 0 0 9px color-mix(in srgb, var(--rating-2) 60%, transparent);
+  }
+}

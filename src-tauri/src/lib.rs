@@ -170,7 +170,7 @@ fn phase_emoji(name: &str) -> &'static str {
 }
 
 /// macOS has no animated status item, so movement is just re-setting the title
-/// with the next frame — one per tick while the timer waits on the popup.
+/// with the next frame — one per tick while the Timer is due.
 /// ponytail: 1 frame/sec off the existing loop; shorten the sleep to spin faster.
 const TIMER_DUE_FRAMES: [&str; 8] = ["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗"];
 

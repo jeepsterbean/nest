@@ -10,8 +10,9 @@ Each surface's behavior and storage keys live in its own doc: Tasks in
 [`docs/calendar.md`](./docs/calendar.md); Overview in
 [`docs/overview.md`](./docs/overview.md), with rules shared by time surfaces in
 [`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
-[`docs/metrics.md`](./docs/metrics.md); Timer and Popup in
-[`docs/timer-popup.md`](./docs/timer-popup.md); Brain dump in
+[`docs/metrics.md`](./docs/metrics.md); Timer in
+[`docs/timer.md`](./docs/timer.md); Popup in
+[`docs/popup.md`](./docs/popup.md); Brain dump in
 [`docs/brain-dump.md`](./docs/brain-dump.md); Assistant in
 [`docs/assistant-context.md`](./docs/assistant-context.md). Non-obvious class
 and layout constraints are commented beside their rules in

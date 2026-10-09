@@ -169,29 +169,3 @@ export const formatClockedTime = (seconds: number) => {
   }
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 };
-
-export const timerRemainingSeconds = (
-  nextDueAt: number,
-  nowMs: number = Date.now(),
-) => Math.max(0, Math.ceil(nextDueAt - nowMs / 1000));
-
-/** Valid popup / header interval picks; must match Rust `timer` step rules. */
-export const TIMER_INTERVALS = [5, 10, 15, 20, 25, 30] as const;
-
-/** Due when the timer is paused waiting, or the countdown has hit zero. */
-export const isTimerDue = (
-  timer: { waitingForResponse: boolean; nextDueAt: number },
-  nowMs: number = Date.now(),
-) =>
-  timer.waitingForResponse ||
-  timerRemainingSeconds(timer.nextDueAt, nowMs) === 0;
-
-export const formatTimerCountdown = (
-  nextDueAt: number,
-  nowMs: number = Date.now(),
-) => {
-  const secondsRemaining = timerRemainingSeconds(nextDueAt, nowMs);
-  const minutes = Math.floor(secondsRemaining / 60);
-  const seconds = secondsRemaining % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-};

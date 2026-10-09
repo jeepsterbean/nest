@@ -22,7 +22,8 @@ reference by default.
 | Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
 | Overview tiles, saved layouts, or `SIMPLIFIED_VIEW` | `docs/overview.md`, then `docs/time-surfaces.md` |
 | Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
-| Timer or Popup | `docs/timer-popup.md` |
+| Timer | `docs/timer.md` |
+| Popup | `docs/popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
 | Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
@@ -40,7 +41,8 @@ reference by default.
 | Overview | `docs/overview.md` |
 | Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
 | Metrics pane behavior | `docs/metrics.md` |
-| Timer / Popup | `docs/timer-popup.md` |
+| Timer | `docs/timer.md` |
+| Popup | `docs/popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
 | Assistant context assembly | `docs/assistant-context.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
