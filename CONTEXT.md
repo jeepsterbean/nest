@@ -120,15 +120,16 @@ _Avoid_: Pulse check-in
 **Timer**:
 The recurring countdown. The interval is 5–30 minutes. At zero it pauses and
 opens the Popup. Closing the Popup leaves it paused; picking an interval
-starts that cycle from now.
+starts that cycle from now. The macOS menu bar shows Phase and the countdown
+as a read-only readout; the Popup is the only place that changes the interval.
 Behavior: [`docs/timer.md`](./docs/timer.md).
 _Avoid_: Check-in, schedule
 
 **Popup**:
 The window the Timer (or ⌘⇧E) opens. It also opens by itself when input
 resumes after an idle stretch that was spent Resting, unless the Timer is
-already due or the Popup is already up. It is for scoring Metrics and capturing a
-brain dump; it is not a stored record.
+already due or the Popup is already up. It is for scoring Metrics, capturing a
+brain dump, and starting or stopping Working now; it is not a stored record.
 Behavior: [`docs/popup.md`](./docs/popup.md).
 _Avoid_: Check-in popup
 
@@ -212,7 +213,7 @@ _Avoid_: using Logs as the name of the Timeline presentation
 > **Domain expert:** "No. Worked time is a piggy bank. It counts the whole time the marker is on. Lock or sleep clears the marker and records Offline, so overnight away time is not Doing."
 
 > **Dev:** "Is the Timer part of every Section header?"
-> **Domain expert:** "No. The Timer lives on the **Popup**, which shows the countdown and changes the interval. Section main content starts with its own controls; Core and Calendar name the Section in their secondary sidebar."
+> **Domain expert:** "No. The menu bar shows Phase and the countdown. The **Popup** is where you change the interval. Section main content starts with its own controls; Core and Calendar name the Section in their secondary sidebar."
 
 ## Flagged ambiguities
 

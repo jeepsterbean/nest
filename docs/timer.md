@@ -11,8 +11,10 @@ check-in remains the saved Pulse scoring record.
 The interval is 5–30 minutes in five-minute steps. Picking an interval starts
 that cycle immediately, including when the Timer is due.
 
-The Popup is the only Timer surface. Its clock shows the countdown and selected
-interval, and choosing it opens the interval list.
+The macOS menu bar is a read-only Timer readout: Phase and the countdown
+(animated clocks while due). The Popup is the only place that changes the
+interval. Its clock shows the countdown and selected interval, and choosing it
+opens the interval list.
 
 ## Due behavior
 

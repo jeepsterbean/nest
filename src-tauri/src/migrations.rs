@@ -896,11 +896,10 @@ END;
         // Brain dumps no longer carry an optional title; first line of text is
         // enough for Logs display, and fork-to-sticky replaces editing.
         M::up("ALTER TABLE brain_dumps DROP COLUMN title;"),
-        // Assistant and Reminders are retired. Keep their migrations and tables
-        // to preserve migration numbering and existing data on upgrades; these
-        // tables have no active readers or commands.
-        // Reminders move from a hardcoded list into Settings-owned rows. Seed
-        // the previous defaults so upgrades keep the same Greetings board lines.
+        // Historical: Reminders were seeded as Settings-owned rows (the previous
+        // Greetings board lines). Assistant tables follow in this same era.
+        // Assistant and Reminders are retired; keep these migrations and tables
+        // so numbering and existing data stay valid. Do not add commands.
         M::up(
             r#"
 CREATE TABLE reminders (

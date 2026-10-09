@@ -5,7 +5,7 @@ The Popup is a compact window for quick actions. Timer behavior lives in
 
 ## Window lifecycle
 
-The Popup can be summoned manually, by the Timer becoming due, or when input
+The Popup can be summoned with ⌘⇧E, by the Timer becoming due, or when input
 resumes after an idle stretch spent Resting. Each trigger opens the same
 window and restores the same panel selection.
 

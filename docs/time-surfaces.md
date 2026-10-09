@@ -15,14 +15,18 @@ where the loaded 30 days end. Today follows the clock across midnight;
 historical dates stay fixed. Date selection and paging enforce the Today limit
 in shared navigation logic as well as in the controls. Direct selections clamp
 to loaded history; paging stops before a page starts outside it. Day
-navigation and the month header share one arrow control with Brain dump and
-Metrics, with fixed button positions and centered icons.
+navigation and the month header share one arrow control with Brain dump,
+Tasks Day, Timeline, and Metrics, with fixed button positions and centered
+icons. Those four supply Go to today.
 
 ## Last hour
 
-Last hour is a rolling 60 minutes from now, advanced by one shared minute
-clock. Calendar's Last hour range and its Insights read that same window
-through the same code.
+Last hour is a rolling 60 minutes from now. Calendar, Phase mix, and the
+Insights task ledger advance that window on one shared minute clock.
+Insights brain dumps and Metric check-ins use wall-clock now instead, so a
+just-saved item shows immediately. Calendar's Last hour range and Insights
+share the window; the two clocks are described under
+[Insights](./calendar.md#insights).
 
 ## Logs kinds
 

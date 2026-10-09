@@ -95,8 +95,9 @@ each fact in its closest authoritative source and link to it elsewhere.
 - User-facing copy should match the calm, private tone in `.impeccable.md` and
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-  check-in. Popup timer UI shows the countdown and selected interval. Metric
-  check-in remains the saved Pulse scoring record.
+  check-in. Popup timer UI shows the countdown and selected interval. The macOS
+  menu bar is a read-only Phase and countdown readout. Metric check-in remains
+  the saved Pulse scoring record.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.

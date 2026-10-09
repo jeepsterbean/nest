@@ -18,12 +18,12 @@ export const PHASE_GUIDE: readonly PhaseGuideEntry[] = [
   {
     name: "Scoping",
     meaning:
-      "Nothing is Working now, and the dashboard has your attention, the popup is up, or Notion or Notion Calendar is in front.",
+      "Nothing is Working now, and the dashboard has your attention, the popup is up, or Notion or Notion Calendar is in front. Three minutes without keyboard or pointer input is Resting instead, even then.",
   },
   {
     name: "Resting",
     meaning:
-      "Nothing is Working now, and three minutes pass without keyboard or pointer input, or your attention is outside Nest and Notion.",
+      "Nothing is Working now, and three minutes pass without keyboard or pointer input, whatever has attention, or your attention is outside Nest and Notion.",
   },
   {
     name: "Offline",

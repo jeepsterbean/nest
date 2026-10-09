@@ -36,9 +36,10 @@ Reuse these before adding a control:
   pick, on Escape, and on an outside press; `controlClassName` /
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color
   swatches.
-- `DateNavigation`: day and month paging for Brain dump, Calendar, Timeline,
-  and Metrics. Its arrows keep fixed positions because the label has a fixed
-  width. Only Brain dump supplies the optional double-forward Today action.
+- `DateNavigation`: day and month paging for Brain dump, Tasks Day, Calendar,
+  Timeline, and Metrics. Its arrows keep fixed positions because the label has
+  a fixed width. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
+  today (`onToday`); Calendar's month pager does not.
 - `DayCalendar`: in-app date picker, used instead of the OS date popup.
 - `startPointerDrag`: threshold, pointer capture, and listener cleanup for
   every pointer drag. Ordering and resize rules stay in each feature's hook.
@@ -57,7 +58,8 @@ portaled menu has to be scoped from a dashboard-level class, as
   opens on Calendar. Section icons are `NestIcon`s stored in
   `nest:overview-tile-icons`, a key kept from the retired Overview so saved
   choices carry over. Clicking an icon selects its Section; clicking the
-  selected one opens its `IconPickerButton`. The Timer lives on the Popup.
+  selected one opens its `IconPickerButton`. The Timer interval lives on the
+  Popup; the macOS menu bar is a read-only Phase and countdown readout.
 - The Background button sits at the foot of the Sidebar (`.dash-background`)
   and opens `BackgroundView` in a non-modal panel beside the rail
   (`.dash-background__panel`, `role="dialog"`). The panel follows the button in

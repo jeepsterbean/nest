@@ -118,12 +118,13 @@ happened to it, never by live status:
 - Incomplete: everything else with Worked time in the range, whatever its
   open status (Active, Up next, Backlog).
 
-A Task has one status at the range's end, so the three are exclusive and
-exhaustive. A closure reopened within the range does not count; without
-Worked time that Task is left out. Completions and Cancellations with no
-Working now still list, with 0 Worked time. Week sums each Task across its
-days rather than listing day by day. Deleted Tasks take their status history
-with them, so they never appear.
+The ledger lists Tasks with Worked time in the range, plus Completions and
+Cancellations that are still closed at the range's end (0 Worked time
+allowed). Among those members the three groups are exclusive. A closure
+reopened within the range does not count. Open Tasks with no Worked time in
+the range are omitted. Week sums each Task across its days rather than
+listing day by day. Deleted Tasks take their status history with them, so
+they never appear.
 
 All three groups always show, in that order, even when empty, so the ledger
 keeps one shape from range to range. Each group is one collapsed ledger line
@@ -143,9 +144,10 @@ per Metric that was rated, with a compact colored number per rating and that
 Metric's average. Ratings stay in time order and wrap within their column so
 every score remains readable.
 That row clips at a live now, so a just-saved
-rating appears as soon as data reloads. Last hour does not clamp it to
-its minute-clock end. Phase mix and the task ledger stay on the shared
-minute clock. Last hour uses that same board on a rolling 60-minute window.
+rating appears as soon as data reloads. Last hour keeps that split on
+purpose: dumps and Metric check-ins use wall-clock now; Phase mix and the
+task ledger stay on the shared minute clock. Last hour uses that same board
+on a rolling 60-minute window.
 
 ## Timeline
 
@@ -157,8 +159,9 @@ The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
 The toolbar shows the selected
 day with Previous day, Next day, and Go to today controls shared with Brain dump,
-followed by kind filters and the Phases-only eye. Previous day stops at loaded
-history, and Next day stops at Today. Each day's entries retain their own Export.
+followed by kind filters and the Phases-only eye. The sidebar month calendar
+and this toolbar both stay: month jump and day-step select the same day.
+Previous day stops at loaded history, and Next day stops at Today. Each day's entries retain their own Export.
 Files use the Nest Timeline heading and `nest-timeline-*` name.
 A day label switches to the Calendar presentation, opens that day on its Logs
 figure, and switches Calendar's range to Day.
