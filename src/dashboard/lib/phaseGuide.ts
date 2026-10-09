@@ -13,7 +13,7 @@ export const PHASE_GUIDE: readonly PhaseGuideEntry[] = [
   {
     name: "Doing",
     meaning:
-      "A Task is Working now. Overview sets the Greetings board aside to give the work room.",
+      "A Task is Working now. Your Background plays behind the dashboard and popup.",
   },
   {
     name: "Scoping",

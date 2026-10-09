@@ -2,7 +2,6 @@ import type { ReactNode, Ref, PointerEvent as ReactPointerEvent } from "react";
 import type { Task } from "../../lib/types";
 import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
 import type { TaskGraphProjection } from "../lib/taskGraph";
-import { TASK_STATUS_LABEL } from "../lib/tasks";
 import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
 import { TaskScopeButton } from "./TaskScopeButton";
@@ -26,13 +25,11 @@ function TaskTableCell({
   id,
   task,
   taskGraph,
-  readOnly,
   nowMs,
 }: {
   id: TaskTableColumnId;
   task: Task;
   taskGraph: TaskGraphProjection;
-  readOnly: boolean;
   nowMs?: number;
 }) {
   switch (id) {
@@ -48,7 +45,7 @@ function TaskTableCell({
     case "scope":
       return (
         <td className="task-table__col task-table__col--scope">
-          {readOnly ? (task.scope || "—") : <TaskScopeButton task={task} />}
+          <TaskScopeButton task={task} />
         </td>
       );
     case "parent":
@@ -62,39 +59,19 @@ function TaskTableCell({
     case "status":
       return (
         <td className="task-table__col task-table__col--status">
-          {readOnly ? (
-            <span
-              className={`task-status-badge task-status-badge--${task.status}`}
-            >
-              <span
-                className={`status-dot status-dot--${task.status}`}
-                aria-hidden="true"
-              />
-              <span>{TASK_STATUS_LABEL[task.status]}</span>
-            </span>
-          ) : (
-            <StatusTrigger task={task} />
-          )}
+          <StatusTrigger task={task} />
         </td>
       );
     case "value":
       return (
         <td className="task-table__col task-table__col--value">
-          {readOnly ? (
-            (task.value ?? "—")
-          ) : (
-            <TaskScoreControls task={task} score="value" />
-          )}
+          <TaskScoreControls task={task} score="value" />
         </td>
       );
     case "effort":
       return (
         <td className="task-table__col task-table__col--effort">
-          {readOnly ? (
-            (task.effort ?? "—")
-          ) : (
-            <TaskScoreControls task={task} score="effort" />
-          )}
+          <TaskScoreControls task={task} score="effort" />
         </td>
       );
     case "workedTime":
@@ -127,7 +104,6 @@ export function TaskTable({
   selectedTaskId = null,
   onSelect,
   columnInteraction,
-  readOnly = false,
   renderHeader,
   headerSort,
   wrapRef,
@@ -142,8 +118,6 @@ export function TaskTable({
   selectedTaskId?: number | null;
   onSelect?: (id: number, origin: HTMLElement) => void;
   columnInteraction?: TaskTableColumnInteraction;
-  /** Overview peek: static cells, no row selection or edits. */
-  readOnly?: boolean;
   wrapRef?: Ref<HTMLDivElement>;
   /** Shared live clock for callers that display several Working now totals. */
   nowMs?: number;
@@ -214,13 +188,13 @@ export function TaskTable({
               <tr
                 key={task.id}
                 className={`task-table__row${
-                  !readOnly && selectedTaskId === task.id
+                  selectedTaskId === task.id
                     ? " task-table__row--selected"
                     : ""
-                }${readOnly ? " task-table__row--readonly" : ""}`}
-                tabIndex={readOnly ? undefined : 0}
+                }`}
+                tabIndex={0}
                 onClick={
-                  readOnly || !onSelect
+                  !onSelect
                     ? undefined
                     : (e) => {
                         const target = e.target as HTMLElement;
@@ -233,7 +207,7 @@ export function TaskTable({
                       }
                 }
                 onKeyDown={
-                  readOnly || !onSelect
+                  !onSelect
                     ? undefined
                     : (e) => {
                         if (
@@ -252,7 +226,6 @@ export function TaskTable({
                     id={column.id}
                     task={task}
                     taskGraph={taskGraph}
-                    readOnly={readOnly}
                     nowMs={nowMs}
                   />
                 ))}

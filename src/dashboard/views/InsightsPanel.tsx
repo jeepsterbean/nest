@@ -9,23 +9,20 @@ import {
 import { useDashboardData } from "../context/DashboardDataContext";
 import { rangeInsight } from "../lib/insights";
 
-/** The review of a range: Phases, Brain dumps, Tasks, and Metrics. Calendar
- * stacks them in its side column; the Overview Last hour tile (`tile`) sets
- * them side by side and scrolls them inside the tile. */
+/** The review of a range: Phases, Brain dumps, Tasks, and Metrics, stacked in
+ * Calendar's side column. */
 export function InsightsPanel({
   from,
   to,
   live,
   nowMs,
   nowSec,
-  variant = "panel",
 }: {
   from: number;
   to: number;
   live: boolean;
   nowMs: number;
   nowSec: number;
-  variant?: "panel" | "tile";
 }) {
   const {
     tasks,
@@ -75,9 +72,7 @@ export function InsightsPanel({
   );
 
   return (
-    <div
-      className={`insights-body${variant === "tile" ? " insights-body--tile" : ""}`}
-    >
+    <div className="insights-body">
       <section className="insight-list" aria-label="Phases">
         <h3>Phases</h3>
         <PhaseMix sessions={insight.sessions} phases={phases} />

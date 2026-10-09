@@ -15,7 +15,6 @@ import {
   lastHourPeriod,
   lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
-  openLastHourOnCalendar,
   writeCalendarFigure,
   writeCalendarPresentation,
   type InsightData,
@@ -357,14 +356,6 @@ describe("insight range memory", () => {
   it("reads the retired Insights-only display as Insights shown", () => {
     const storage = memory();
     storage.setItem("nest:calendar-display", "insights");
-    expect(readCalendarInsightsShown(storage)).toBe(true);
-  });
-
-  it("opens Last hour with its Insights in view", () => {
-    const storage = memory();
-    writeCalendarInsightsShown(false, storage);
-    openLastHourOnCalendar(storage);
-    expect(readCalendarRangeMode(storage)).toBe("lastHour");
     expect(readCalendarInsightsShown(storage)).toBe(true);
   });
 

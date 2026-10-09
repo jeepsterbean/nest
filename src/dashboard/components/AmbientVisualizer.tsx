@@ -233,7 +233,7 @@ function stepParticles(
 
 /**
  * Ambient canvas layer for the "Doing" phase, in one of a few styles picked
- * under Settings → Background (see backgroundStyle.ts). Softened into a glow
+ * from the sidebar Background panel (see backgroundStyle.ts). Softened into a glow
  * by a CSS blur on the canvas element (cheaper and simpler than a per-frame
  * ctx.filter blur or manual gradient blending). Amplitude/speed/brightness
  * rise briefly on an activity-pulse event (task completions, check-ins),

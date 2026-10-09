@@ -43,7 +43,7 @@ export type SavedTaskViewResult =
 
 export type SavedTaskViewState = { views: SavedTaskView[]; selectedId: string };
 
-// Matches the Overview saved-layout cap, so both pickers stay short enough to scan.
+// Short enough to scan at a glance in the picker.
 export const MAX_SAVED_TASK_VIEWS = 5;
 
 /** Fits the picker trigger, which is sized to this many characters. */

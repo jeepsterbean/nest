@@ -100,9 +100,9 @@ export function DayExportButton({
   );
 }
 
-/** Memoized: the Overview brain dump composer re-renders on every keystroke,
- * and rebuilding up to LOG_EVENT_BATCH_SIZE rows underneath it is what made
- * typing lag. Callers must pass stable handler identities for this to hold. */
+/** Memoized so an unrelated parent re-render does not rebuild up to
+ * LOG_EVENT_BATCH_SIZE rows. Callers must pass stable handler identities for
+ * this to hold. */
 export const TimelineList = memo(function TimelineList({
   events,
   phaseCheckIns,
@@ -117,7 +117,6 @@ export const TimelineList = memo(function TimelineList({
   onOpenDay,
   nowMs,
   showCurrentTime = true,
-  dayChrome = true,
   colorsTimeColumn = true,
 }: {
   events: RawLogEvent[];
@@ -133,8 +132,6 @@ export const TimelineList = memo(function TimelineList({
   /** Timeline turns each day label into a jump to that day on Calendar's Logs figure. */
   onOpenDay?: (dayKey: number) => void;
   nowMs: number;
-  /** Overview's minimised peek hides the day label. */
-  dayChrome?: boolean;
   showCurrentTime?: boolean;
   /** Timeline with Phases filtered out keeps the quiet time column. */
   colorsTimeColumn?: boolean;
@@ -163,33 +160,31 @@ export const TimelineList = memo(function TimelineList({
         key={day.key}
         className="day-group logs-chrono-day"
       >
-        {dayChrome ? (
-          <header className="day-group__head">
-            <h3 className="day-group__label">
-              {onOpenDay ? (
-                <button
-                  type="button"
-                  className="day-group__open"
-                  title="Open in Logs"
-                  onClick={() => onOpenDay(day.key)}
-                >
-                  {day.label}
-                </button>
-              ) : (
-                day.label
-              )}
-            </h3>
-            {onExportDay ? (
-              <div className="day-group__meta">
-                <DayExportButton
-                  label={day.label}
-                  dayKey={day.key}
-                  onExportDay={onExportDay}
-                />
-              </div>
-            ) : null}
-          </header>
-        ) : null}
+        <header className="day-group__head">
+          <h3 className="day-group__label">
+            {onOpenDay ? (
+              <button
+                type="button"
+                className="day-group__open"
+                title="Open in Logs"
+                onClick={() => onOpenDay(day.key)}
+              >
+                {day.label}
+              </button>
+            ) : (
+              day.label
+            )}
+          </h3>
+          {onExportDay ? (
+            <div className="day-group__meta">
+              <DayExportButton
+                label={day.label}
+                dayKey={day.key}
+                onExportDay={onExportDay}
+              />
+            </div>
+          ) : null}
+        </header>
         <ol className="logs-chrono">
           {showCurrentTime && day.key === todayKey ? (
             <CurrentTimeRow nowMs={nowMs} phase={nowPhase} />

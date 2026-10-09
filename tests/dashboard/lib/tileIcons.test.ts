@@ -58,7 +58,7 @@ describe("tile icons", () => {
     });
   });
 
-  it("writes a Sidebar icon and keeps the tile icons", () => {
+  it("writes a Section icon and keeps the others", () => {
     const storage = memory();
     writeTileIcon("calendar", "sun", storage);
     expect(readTileIcons(storage)).toEqual({

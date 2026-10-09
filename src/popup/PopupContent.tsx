@@ -8,7 +8,6 @@ import {
 } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { pulseActivity } from "../lib/activityPulse";
-import { SIMPLIFIED_VIEW } from "../lib/simplifiedView";
 import {
   createTask,
   getTimerState,
@@ -43,7 +42,7 @@ import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
 import { useTileIcons } from "../dashboard/hooks/useTileIcons";
-import type { TileId } from "../dashboard/lib/overviewGrid";
+import type { TileIcons } from "../dashboard/lib/tileIcons";
 import {
   groupTasksByStatus,
   pinnedIdOrder,
@@ -60,19 +59,15 @@ import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
-import { assistantIcon } from "../dashboard/components/icons";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
 import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
-import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
-import { AssistantView } from "../dashboard/views/AssistantView";
 import { shouldDismissOnPointerDown } from "./overlay";
 import { PopupTimerBar } from "./PopupTimerBar";
 import { isPopupWindowDragTarget, startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 import "../dashboard/styles/shared-controls.css";
-import "../dashboard/styles/assistant.css";
 
 /** Stable identity so the composer's tag memo holds before tags load. */
 const EMPTY_TAGS: Tag[] = [];
@@ -174,24 +169,18 @@ function ExpandIcon() {
   );
 }
 
-export type PopupPanelId = "dump" | "now" | "assistant";
+export type PopupPanelId = "dump" | "now";
 
 /** Sidebar order, which is also the left-to-right order of the panels. */
-export const POPUP_PANELS = ([
+export const POPUP_PANELS = [
   { id: "dump", label: "Brain dump", shortcutKey: "1", tileIcon: "brainDump" },
   { id: "now", label: "Tasks and metrics", shortcutKey: "2", tileIcon: "tasks" },
-  {
-    id: "assistant",
-    label: "Chat assistant",
-    shortcutKey: "3",
-    tileIcon: "assistant",
-  },
 ] as const satisfies ReadonlyArray<{
   id: PopupPanelId;
   label: string;
   shortcutKey: string;
-  tileIcon: TileId | "assistant";
-}>).filter((panel) => !SIMPLIFIED_VIEW || panel.id !== "assistant");
+  tileIcon: keyof TileIcons;
+}>;
 
 const POPUP_PANELS_KEY = "nest:popup-panels";
 const POPUP_TAB_KEY = "nest:popup-tab";
@@ -242,7 +231,8 @@ export function initialPopupPanels(
     const saved = parsePopupPanels(stored);
     // An empty string is "every panel hidden"; other unreadable text is not.
     if (saved.length > 0 || stored.trim() === "") return saved;
-    if (SIMPLIFIED_VIEW && stored.split(",").includes("assistant")) return ["dump"];
+    // The retired Chat assistant panel may be the only one saved.
+    if (stored.split(",").includes("assistant")) return ["dump"];
   }
   if (lastTab === "overview") return POPUP_PANELS.map((panel) => panel.id);
   return [POPUP_PANELS.find((panel) => panel.id === lastTab)?.id ?? "dump"];
@@ -259,15 +249,7 @@ export function togglePopupPanel(
   ).map((panel) => panel.id);
 }
 
-/** Chat stays unmounted until it is first shown, including a restored default. */
-export function popupAssistantMounted(
-  visible: readonly PopupPanelId[],
-  opened: boolean,
-) {
-  return !SIMPLIFIED_VIEW && (opened || visible.includes("assistant"));
-}
-
-/** ⌘1 / ⌘2 / ⌘3 toggle one panel; a held key repeats, which must not. */
+/** ⌘1 / ⌘2 toggle one panel; a held key repeats, which must not. */
 export function popupPanelShortcut(
   event: Pick<
     KeyboardEvent,
@@ -337,7 +319,7 @@ export function PopupPanelToggles({
   onToggle,
 }: {
   visible: readonly PopupPanelId[];
-  icons: Record<TileId, string>;
+  icons: TileIcons;
   toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>>;
   onToggle: (id: PopupPanelId) => void;
 }) {
@@ -355,11 +337,7 @@ export function PopupPanelToggles({
           title={`${label} (⌘${shortcutKey})`}
           onClick={() => onToggle(id)}
         >
-          {tileIcon === "assistant" ? (
-            assistantIcon
-          ) : (
-            <NestIcon name={icons[tileIcon]} />
-          )}
+          <NestIcon name={icons[tileIcon]} />
         </button>
       ))}
     </nav>
@@ -477,9 +455,6 @@ function PopupContent({
   const [visiblePanels, setVisiblePanels] = useState<PopupPanelId[]>(() =>
     initialPopupPanels(readPopupPanels(), readLastPopupTab()),
   );
-  const [assistantOpened, setAssistantOpened] = useState(() =>
-    visiblePanels.includes("assistant"),
-  );
   // A fresh object per show, so re-showing the same panel focuses it again.
   const [panelToFocus, setPanelToFocus] = useState<{ id: PopupPanelId } | null>(
     () => (visiblePanels[0] ? { id: visiblePanels[0] } : null),
@@ -490,12 +465,10 @@ function PopupContent({
   const panelRefs: Record<PopupPanelId, RefObject<HTMLElement | null>> = {
     dump: useRef<HTMLElement | null>(null),
     now: useRef<HTMLElement | null>(null),
-    assistant: useRef<HTMLElement | null>(null),
   };
   const toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>> = {
     dump: useRef<HTMLButtonElement | null>(null),
     now: useRef<HTMLButtonElement | null>(null),
-    assistant: useRef<HTMLButtonElement | null>(null),
   };
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
   const timerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -521,7 +494,6 @@ function PopupContent({
 
   const togglePanel = (id: PopupPanelId) => {
     const showing = !visiblePanels.includes(id);
-    if (showing && id === "assistant") setAssistantOpened(true);
     // Hiding the panel holding focus would strand it on a display:none node;
     // hiding any other panel leaves focus where it is.
     if (!showing && panelRefs[id].current?.contains(document.activeElement)) {
@@ -651,16 +623,6 @@ function PopupContent({
       if (panelToFocus.id === "now") {
         // Focus inside the Metrics panel is what routes the 1–5 shortcuts.
         (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
-        return;
-      }
-      if (panelToFocus.id === "assistant") {
-        const composer = panelRefs.assistant.current?.querySelector("textarea");
-        if (!composer && frames++ < 30) {
-          requestAnimationFrame(focusShownPanel);
-          return;
-        }
-        composer?.focus();
-        composer?.setSelectionRange(composer.value.length, composer.value.length);
         return;
       }
       const brainDump = brainDumpRef.current;
@@ -1287,9 +1249,7 @@ function PopupContent({
         onToggle={togglePanel}
       />
 
-      {/* Tasks and Brain dump stay mounted so their drafts survive hiding.
-          Assistant mounts the first time Chat is shown — including a restored
-          default — then stays mounted so it does not reload. */}
+      {/* Tasks and Brain dump stay mounted so their drafts survive hiding. */}
       <section
         ref={panelRefs.dump}
         className="popup-pane popup-dump"
@@ -1330,19 +1290,6 @@ function PopupContent({
 
         {taskView}
       </main>
-
-      {popupAssistantMounted(visiblePanels, assistantOpened) && (
-        <section
-          ref={panelRefs.assistant}
-          className="popup-pane popup-assistant"
-          aria-label="Chat assistant"
-          hidden={!visiblePanels.includes("assistant")}
-        >
-          <DashboardDataProvider>
-            <AssistantView chatOnly />
-          </DashboardDataProvider>
-        </section>
-      )}
 
       {error && (
         <div className="popup-workspace__error" role="alert">

@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type {
   Metric,
   MetricRatingInput,
@@ -28,32 +22,16 @@ export function MetricCheckIn({
   metrics,
   pulses,
   submitting,
-  layout = "default",
   emptyCopy,
   onComplete,
-  pulseButtonsRef,
   selectedPulseButtonRef,
-  onTabBack,
-  onTabForward,
-  headerStart,
-  headerEnd,
-  onHeaderPointerDown,
-  dragTitle,
 }: {
   metrics: Metric[];
   pulses: Pulse[];
   submitting: boolean;
-  layout?: "default" | "overview";
   emptyCopy: string;
   onComplete: (pulse: Pulse, ratings: MetricRatingInput[]) => Promise<void>;
-  pulseButtonsRef?: RefObject<HTMLDivElement | null>;
   selectedPulseButtonRef?: RefObject<HTMLButtonElement | null>;
-  onTabBack?: () => void;
-  onTabForward?: () => void;
-  headerStart?: ReactNode;
-  headerEnd?: ReactNode;
-  onHeaderPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
-  dragTitle?: string;
 }) {
   const [selectedPulseId, setSelectedPulseId] = useState<number | null>(
     () => firstScorablePulse(pulses)?.id ?? null,
@@ -70,7 +48,6 @@ export function MetricCheckIn({
     : [];
   const activeMetric = pulseMetrics[metricIndex] ?? null;
   const ratingKey = (metricId: number) => `${selectedPulseId}:${metricId}`;
-  const usesOverviewChrome = layout === "overview";
 
   useEffect(() => {
     if (pulseMetrics.length) return;
@@ -125,9 +102,7 @@ export function MetricCheckIn({
 
   return (
     <section
-      className={`pulse-panel${
-        usesOverviewChrome ? " pulse-panel--overview" : ""
-      }`}
+      className="pulse-panel"
       aria-label="Metrics"
       onKeyDown={(event) => {
         if (event.key >= "1" && event.key <= "5") {
@@ -136,27 +111,8 @@ export function MetricCheckIn({
         }
       }}
     >
-      <div
-        className={`${
-          usesOverviewChrome ? "overview-panel__head" : "pulse-panel__header"
-        }${
-          onHeaderPointerDown
-            ? usesOverviewChrome
-              ? " overview-panel__head--draggable"
-              : " pulse-panel__header--draggable"
-            : ""
-        }`}
-        title={dragTitle}
-        onPointerDown={onHeaderPointerDown}
-      >
-        <div
-          className={
-            usesOverviewChrome
-              ? "overview-panel__head-start"
-              : "pulse-panel__header-start"
-          }
-        >
-          {headerStart}
+      <div className="pulse-panel__header">
+        <div className="pulse-panel__header-start">
           {activeMetric && (
             <div
               className="metric-step__title"
@@ -171,74 +127,44 @@ export function MetricCheckIn({
             </div>
           )}
         </div>
-        {(pulses.length > 0 || headerEnd) && (
-          <div
-            className={
-              usesOverviewChrome
-                ? "overview-panel__head-end"
-                : "pulse-panel__header-end"
-            }
-          >
-            {pulses.length > 0 && (
-              <div
-                ref={pulseButtonsRef}
-                className="popup-pulse-toggle"
-                role="group"
-                aria-label="Pulses"
-                onKeyDown={(event) => {
-                  if (event.key !== "Tab") return;
-                  const buttons = event.currentTarget.querySelectorAll(
-                    "button:not(:disabled)",
-                  );
-                  const boundary = buttons.item(
-                    event.shiftKey ? 0 : buttons.length - 1,
-                  );
-                  if (boundary !== event.target) return;
-                  const moveFocus = event.shiftKey ? onTabBack : onTabForward;
-                  if (!moveFocus) return;
-                  event.preventDefault();
-                  moveFocus();
-                }}
-              >
-                {pulses.map((pulse) => (
-                  <button
-                    key={pulse.id}
-                    ref={
-                      pulse.id === selectedPulseId
-                        ? selectedPulseButtonRef
-                        : undefined
-                    }
-                    type="button"
-                    aria-label={pulse.name}
-                    title={pulse.name}
-                    aria-pressed={pulse.id === selectedPulseId}
-                    disabled={submitting || pulse.metricIds.length === 0}
-                    onFocus={() => {
-                      if (pulse.id === selectedPulseId) return;
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                    onClick={() => {
-                      setSelectedPulseId(pulse.id);
-                      setMetricIndex(0);
-                    }}
-                  >
-                    <NestIcon name={pulse.icon} />
-                  </button>
-                ))}
-              </div>
-            )}
-            {headerEnd}
+        {pulses.length > 0 && (
+          <div className="pulse-panel__header-end">
+            <div
+              className="popup-pulse-toggle"
+              role="group"
+              aria-label="Pulses"
+            >
+              {pulses.map((pulse) => (
+                <button
+                  key={pulse.id}
+                  ref={
+                    pulse.id === selectedPulseId
+                      ? selectedPulseButtonRef
+                      : undefined
+                  }
+                  type="button"
+                  aria-label={pulse.name}
+                  title={pulse.name}
+                  aria-pressed={pulse.id === selectedPulseId}
+                  disabled={submitting || pulse.metricIds.length === 0}
+                  onFocus={() => {
+                    if (pulse.id === selectedPulseId) return;
+                    setSelectedPulseId(pulse.id);
+                    setMetricIndex(0);
+                  }}
+                  onClick={() => {
+                    setSelectedPulseId(pulse.id);
+                    setMetricIndex(0);
+                  }}
+                >
+                  <NestIcon name={pulse.icon} />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
-      <div
-        className={
-          usesOverviewChrome
-            ? "overview-panel__scroll pulse-panel__body"
-            : "pulse-panel__body"
-        }
-      >
+      <div className="pulse-panel__body">
         {activeMetric ? (
           <div
             className="metric-step"

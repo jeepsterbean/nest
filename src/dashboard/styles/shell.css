@@ -81,26 +81,14 @@
   width: 100%;
   min-height: 100vh;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
   max-width: 1040px;
   margin: 0 auto;
-  padding: 36px 32px 64px;
+  padding: 24px 32px 64px;
 }
 
-/* No Greetings board — reclaim the top for content (other Sections, or
-   Overview while Doing). */
-.dashboard__inner--no-greetings {
-  gap: 16px;
-  padding-top: 24px;
-}
-
-.dashboard__inner > .overview-grid,
 .dashboard__inner > .dash-section {
   min-height: 0;
-}
-
-.dashboard__inner > .overview-grid,
-.dashboard__inner > .dash-section {
   flex: 1;
 }
 

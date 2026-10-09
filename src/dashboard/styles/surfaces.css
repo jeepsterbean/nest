@@ -1,0 +1,683 @@
+/* ---------- Panel chrome, Note Board, and Brain dump surfaces ---------- */
+
+@media (min-width: 861px) {
+  .dashboard__inner--timeline,
+  .dashboard__inner--tasks,
+  .dashboard__inner--calendar {
+    height: 100vh;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+}
+
+.surface-panel__head {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 12px 14px 0;
+}
+
+.surface-panel__head-start,
+.surface-panel__head-end {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.surface-panel__head-end {
+  margin-left: auto;
+}
+
+.brain-dump-surface--anchored {
+  min-height: 100%;
+}
+
+.brain-dump-surface--compact {
+  height: 100%;
+}
+
+.brain-dump-surface--compact .brain-dump-surface__input {
+  height: 100%;
+  min-height: 0;
+  padding: 6px 10px;
+  overflow: hidden;
+  line-height: 1.35;
+  resize: none;
+  white-space: pre;
+}
+
+.brain-dump-surface--floating .brain-dump-surface__head {
+  min-height: 28px;
+  padding: 4px 8px 0;
+}
+
+.brain-dump-surface--floating .brain-dump-surface__input {
+  padding: 8px 12px 12px;
+  font-size: 0.9rem;
+}
+
+.brain-dump-surface--floating .brain-dump-tags {
+  flex: none;
+  align-self: stretch;
+  padding: 0;
+  height: 36px;
+}
+
+.brain-dump-surface--anchored .brain-dump-tags {
+  flex: none;
+}
+
+.brain-dump-surface--panel .brain-dump-surface__scroll {
+  gap: 10px;
+}
+
+.brain-dump-surface--panel .brain-dump-surface__input {
+  /* Keep 1px so WKWebView can paint an empty-line caret. The editor clips
+     overflow-x, and a caret on that edge disappears while focus stays. */
+  padding: 0 1px;
+}
+
+.brain-dump-surface--panel > .brain-dump-surface__scroll > .brain-dump-tags {
+  flex: none;
+  padding: 0;
+}
+
+.floating-brain-dumps-board {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.floating-note-board {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #ece5d8 20%, #2d251e);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 27px,
+      color-mix(in srgb, #ece5d8 7%, transparent) 27px 28px
+    ),
+    #2d251e;
+  color: #ece5d8;
+  box-shadow: var(--shadow);
+}
+
+.floating-note-board.is-drop-target {
+  border-color: color-mix(in srgb, var(--dump) 58%, #ece5d8);
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 2px color-mix(in srgb, var(--dump) 34%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--dump) 16%, transparent);
+}
+
+.floating-note-board > .brain-dump-surface__head {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+.floating-note-board--minimised > .brain-dump-surface__head {
+  min-height: 100%;
+}
+
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__head-end {
+  flex: 0 0 34px;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.floating-note-board > .brain-dump-surface__head .floating-brain-dump__summary,
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action {
+  color: #ece5d8;
+}
+
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:hover,
+.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:focus-visible {
+  color: #fff;
+  background: color-mix(in srgb, #ece5d8 14%, transparent);
+}
+
+.floating-note-board > .floating-brain-dump__resize {
+  color: color-mix(in srgb, #ece5d8 70%, transparent);
+}
+
+.floating-note-board__preview {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.floating-note-board__rows {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 0 6px 6px;
+  overflow: auto;
+}
+
+.floating-note-board__empty {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed color-mix(in srgb, #ece5d8 20%, transparent);
+  border-radius: 9px;
+  color: color-mix(in srgb, #ece5d8 58%, transparent);
+  font-size: 0.78rem;
+}
+
+.floating-brain-dumps-toggle {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 201;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.floating-brain-dumps-toggle__note,
+.floating-brain-dumps-toggle__cross {
+  display: inline-flex;
+}
+
+.floating-brain-dumps-toggle__note svg {
+  width: 16px;
+  height: 16px;
+}
+
+.floating-brain-dumps-toggle__cross {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px;
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.floating-brain-dumps-toggle__cross svg {
+  width: 8px;
+  height: 8px;
+}
+
+.floating-brain-dumps-toggle:hover,
+.floating-brain-dumps-toggle:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--text);
+  outline: none;
+}
+
+.floating-brain-dumps-toggle:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.floating-brain-dump {
+  position: fixed;
+  display: flex;
+  width: 280px;
+  min-width: 220px;
+  height: 200px;
+  pointer-events: auto;
+  border: 1px solid color-mix(in srgb, var(--sticky-tint) 28%, var(--border));
+  border-radius: 6px;
+  /* Paper wash strong enough to read as a real sticky tint. */
+  --sticky-tint: var(--dump);
+  background: color-mix(in srgb, var(--sticky-tint) 36%, var(--surface));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.floating-brain-dump--minimised {
+  height: 36px;
+}
+
+.floating-brain-dump.floating-brain-dump--docked {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  flex: none;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__head {
+  min-height: 100%;
+  padding: 2px 6px;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__head-end {
+  flex: 0 0 24px;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.floating-brain-dump--docked .brain-dump-surface__action {
+  width: 20px;
+  height: 20px;
+}
+
+.floating-brain-dump.floating-brain-dump--lifting {
+  position: fixed;
+  box-shadow: var(--shadow);
+}
+
+.floating-brain-dump--over-board {
+  visibility: hidden;
+}
+
+.floating-brain-dump[data-color="paper"] {
+  --sticky-tint: var(--dump);
+}
+
+.floating-brain-dump[data-color="blush"] {
+  --sticky-tint: var(--rating-1);
+}
+
+.floating-brain-dump[data-color="sage"] {
+  --sticky-tint: var(--doing);
+}
+
+.floating-brain-dump[data-color="sky"] {
+  --sticky-tint: var(--accent);
+}
+
+.floating-brain-dump[data-color="lilac"] {
+  --sticky-tint: var(--phase);
+}
+
+.floating-sticky-colors {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.floating-sticky-colors::-webkit-scrollbar {
+  display: none;
+}
+
+.floating-sticky-colors__swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 999px;
+  /* Match the note wash so the circle previews the paper. */
+  background: color-mix(in srgb, var(--swatch-tint) 36%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.floating-sticky-colors__swatch--paper {
+  --swatch-tint: var(--dump);
+}
+
+.floating-sticky-colors__swatch--blush {
+  --swatch-tint: var(--rating-1);
+}
+
+.floating-sticky-colors__swatch--sage {
+  --swatch-tint: var(--doing);
+}
+
+.floating-sticky-colors__swatch--sky {
+  --swatch-tint: var(--accent);
+}
+
+.floating-sticky-colors__swatch--lilac {
+  --swatch-tint: var(--phase);
+}
+
+.floating-sticky-colors__swatch:hover,
+.floating-sticky-colors__swatch:focus-visible {
+  transform: scale(1.12);
+  border-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  outline: none;
+}
+
+.floating-sticky-colors__swatch.is-selected {
+  border-color: var(--ink);
+  box-shadow:
+    0 0 0 1.5px var(--surface),
+    inset 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
+}
+
+.floating-brain-dump__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.floating-brain-dump--minimised .floating-brain-dump__resize {
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  height: auto;
+  cursor: ew-resize;
+}
+
+.floating-brain-dump__resize::after {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+}
+
+.floating-brain-dump--minimised .floating-brain-dump__resize::after {
+  top: 50%;
+  right: 4px;
+  bottom: auto;
+  width: 4px;
+  height: 12px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-left: 1.5px solid currentColor;
+  transform: translateY(-50%);
+}
+
+.floating-note-board--minimised .floating-brain-dump__resize {
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  height: auto;
+  cursor: ew-resize;
+}
+
+.floating-note-board--minimised .floating-brain-dump__resize::after {
+  top: 50%;
+  right: 4px;
+  bottom: auto;
+  width: 4px;
+  height: 12px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-left: 1.5px solid currentColor;
+  transform: translateY(-50%);
+}
+
+.floating-brain-dump__resize:hover,
+.floating-brain-dump__resize:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.floating-brain-dump .brain-dump-surface {
+  min-height: 0;
+  flex: 1;
+  background: inherit;
+}
+
+.brain-dump-surface--floating-minimised {
+  min-height: 0;
+}
+
+.floating-brain-dump--minimised .brain-dump-surface__head {
+  min-height: 100%;
+  padding: 4px 8px;
+}
+
+.floating-brain-dump--minimised .brain-dump-surface__head-start {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.floating-brain-dump--minimised .brain-dump-surface__head-end {
+  flex: 0 0 34px;
+  justify-content: flex-end;
+  gap: 2px;
+  padding-right: 10px;
+}
+
+.floating-brain-dump__summary {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-brain-dump .brain-dump-surface__input,
+.floating-brain-dump .brain-dump-tags {
+  background: transparent;
+}
+
+.floating-brain-dump .brain-dump-tags {
+  background: color-mix(in srgb, var(--sticky-tint) 22%, var(--surface));
+}
+
+.floating-brain-dump .brain-dump-tags__scroll {
+  padding: 5px 6px 3px;
+}
+
+.floating-brain-dump .brain-dump-tag,
+.floating-brain-dump .brain-dump-tags__more {
+  border-color: color-mix(in srgb, var(--sticky-tint) 24%, var(--border));
+  background: color-mix(in srgb, var(--sticky-tint) 18%, var(--surface));
+}
+
+.floating-brain-dump .brain-dump-tags__more {
+  margin-right: 24px;
+}
+
+.surface-panel__scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden auto;
+  padding: 16px 18px 18px;
+  scrollbar-gutter: stable;
+}
+
+.event-dump__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+
+.event-dump__toggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-dump__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.event-dump__edit-title {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.62;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    opacity 0.15s;
+}
+
+.event-dump__edit-title:hover {
+  background: var(--dump-soft);
+  color: var(--dump);
+  opacity: 1;
+}
+
+.event-dump__edit-title:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--dump-soft);
+  opacity: 1;
+}
+
+.event-dump__edit-title svg {
+  width: 13px;
+  height: 13px;
+}
+
+.event-dump__chevron {
+  color: var(--dump);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.event-dump__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-dump__inline-tags {
+  display: inline-flex;
+  flex: 0 0 auto;
+  max-width: min(45%, 16rem);
+  gap: 5px;
+  overflow: hidden;
+}
+
+.event-dump__title {
+  font-size: 13.5px;
+}
+
+.event-dump__text {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.event-dump__text > * {
+  margin: 0;
+}
+
+.event-dump__text > * + * {
+  margin-top: 0.55em;
+}
+
+.event-dump__text ul,
+.event-dump__text ol {
+  padding-left: 1.35em;
+}
+
+.event-dump__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.event-dump__inline-tags span,
+.event-dump__tags span {
+  max-width: 130px;
+  padding: 2px 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-dump__tag-editor {
+  margin-top: 6px;
+}
+
+.event-dump__tag-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.event-dump__tag-actions button {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.event-dump {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--dump);
+  border-radius: 4px 10px 10px 4px;
+  background: var(--dump-soft);
+}
+
+
+
+
+
+.event-dump__text {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}

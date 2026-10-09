@@ -9,7 +9,6 @@ import {
   formatRangeDay,
   formatTime,
   formatWorkedTime,
-  greetingForHour,
   historyStartSec,
   shiftDayMs,
   snapToQuarterHour,
@@ -76,15 +75,6 @@ describe("dayLabel", () => {
     const label = dayLabel(sec(new Date(2026, 5, 10, 12, 0)), now);
     expect(label).not.toBe("Today");
     expect(label).not.toBe("Yesterday");
-  });
-});
-
-describe("greetingForHour", () => {
-  it("maps hours to greetings", () => {
-    expect(greetingForHour(2)).toBe("Up late");
-    expect(greetingForHour(9)).toBe("Good morning");
-    expect(greetingForHour(14)).toBe("Good afternoon");
-    expect(greetingForHour(20)).toBe("Good evening");
   });
 });
 

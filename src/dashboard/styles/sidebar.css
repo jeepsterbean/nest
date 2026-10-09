@@ -1,0 +1,147 @@
+/* ---------- Dashboard sidebar ---------- */
+
+.dash-sidebar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: flex;
+  height: 100vh;
+  padding: 24px 11px;
+  align-items: center;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.dash-nav__btn {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.dash-nav__btn:not(.dash-nav__btn--active):hover,
+.dash-nav__btn:not(.dash-nav__btn--active):focus-visible {
+  color: var(--ink);
+}
+
+.dash-nav__btn:hover {
+  transform: translateX(2px);
+}
+
+.dash-nav__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dash-nav__btn--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dash-nav__picker {
+  position: relative;
+}
+
+.dash-nav__picker:has(.icon-picker) {
+  z-index: 5;
+}
+
+.dash-nav__picker .icon-picker {
+  top: 0;
+  left: calc(100% + 10px);
+}
+
+/* Lower Sections open upward so the grid stays in the window. */
+.dash-nav__picker:nth-last-child(-n + 3) .icon-picker {
+  top: auto;
+  bottom: 0;
+}
+
+.dash-nav__picker:has(.icon-picker) .dash-nav__btn {
+  transform: none;
+}
+
+.dash-nav__picker:has(.icon-picker) .dash-nav__label {
+  opacity: 0;
+}
+
+.dash-nav__icon,
+.dash-nav__icon svg,
+.dash-nav__btn > svg {
+  width: 19px;
+  height: 19px;
+}
+
+.dash-nav__icon {
+  display: inline-flex;
+}
+
+.dash-nav__icon svg,
+.dash-nav__btn > svg {
+  stroke-width: 1.8;
+}
+
+.dash-nav__label {
+  position: absolute;
+  z-index: 40;
+  top: 50%;
+  left: calc(100% + 12px);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(5px, -50%);
+  transition: opacity 0.12s, transform 0.12s;
+  white-space: nowrap;
+}
+
+.dash-nav__btn:hover .dash-nav__label,
+.dash-nav__btn:focus-visible .dash-nav__label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* Pinned to the bottom of the rail so Sections stay grouped at the top. */
+.dash-background {
+  position: relative;
+  margin-top: auto;
+}
+
+/* Opens beside the rail and grows upward from the button, so it stays in the
+   window however short it is. Above the nav labels (z-index 40). */
+.dash-background__panel {
+  position: absolute;
+  z-index: 50;
+  bottom: 0;
+  left: calc(100% + 12px);
+  width: min(340px, calc(100vw - 96px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}

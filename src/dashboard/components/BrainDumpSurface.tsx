@@ -231,7 +231,7 @@ export function BrainDumpSurface({
   tagsDisabled?: boolean;
   readOnly?: boolean;
   showTags?: boolean;
-  layout?: "default" | "overview";
+  layout?: "default" | "panel";
   textareaLabel: string;
   className?: string;
   headerStart?: ReactNode;
@@ -245,7 +245,7 @@ export function BrainDumpSurface({
   dismissPopupsOnOutsideInteraction?: boolean;
 }) {
   const hasHeader = headerStart || headerEnd;
-  const usesOverviewChrome = layout === "overview";
+  const usesPanelChrome = layout === "panel";
   // useEditor consumes `content` only on creation; later changes to `text`
   // arrive through the sync effect below, so this deliberately runs once.
   const [initialContent] = useState(() => brainDumpStorageToEditorHtml(text));
@@ -421,26 +421,22 @@ export function BrainDumpSurface({
     <div
       ref={surfaceRef}
       className={`brain-dump-surface${
-        usesOverviewChrome ? " brain-dump-surface--overview" : ""
+        usesPanelChrome ? " brain-dump-surface--panel" : ""
       }${className ? ` ${className}` : ""}`}
     >
       {hasHeader && (
         <header
           className={`${
-            usesOverviewChrome ? "overview-panel__head" : "brain-dump-surface__head"
+            usesPanelChrome ? "surface-panel__head" : "brain-dump-surface__head"
           }${
-            onHeaderPointerDown
-              ? usesOverviewChrome
-                ? " overview-panel__head--draggable"
-                : " brain-dump-surface__head--draggable"
-              : ""
+            onHeaderPointerDown ? " brain-dump-surface__head--draggable" : ""
           }`}
           onPointerDown={onHeaderPointerDown}
         >
           <div
             className={
-              usesOverviewChrome
-                ? "overview-panel__head-start"
+              usesPanelChrome
+                ? "surface-panel__head-start"
                 : "brain-dump-surface__head-start"
             }
           >
@@ -448,8 +444,8 @@ export function BrainDumpSurface({
           </div>
           <div
             className={
-              usesOverviewChrome
-                ? "overview-panel__head-end"
+              usesPanelChrome
+                ? "surface-panel__head-end"
                 : "brain-dump-surface__head-end"
             }
           >
@@ -459,8 +455,8 @@ export function BrainDumpSurface({
       )}
       <div
         className={
-          usesOverviewChrome
-            ? "overview-panel__scroll brain-dump-surface__scroll"
+          usesPanelChrome
+            ? "surface-panel__scroll brain-dump-surface__scroll"
             : "brain-dump-surface__scroll"
         }
       >

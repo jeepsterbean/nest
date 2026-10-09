@@ -18,16 +18,6 @@
   min-width: 0;
 }
 
-.pulse-panel__header--draggable {
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-}
-
-.pulse-panel__header--draggable:active {
-  cursor: grabbing;
-}
-
 .pulse-panel__header-start,
 .pulse-panel__header-end {
   min-width: 0;

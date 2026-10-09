@@ -167,13 +167,6 @@ export const writeCalendarFigure = (
   storage.setItem(CALENDAR_FIGURE_KEY, figure);
 };
 
-/** Open Calendar on Last hour with its Insights in view, since that summary is
- * what the Overview tile linked to. */
-export const openLastHourOnCalendar = (storage: RangeStorage = localStorage) => {
-  writeCalendarRangeMode("lastHour", storage);
-  writeCalendarInsightsShown(true, storage);
-};
-
 /** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
 export const lastHourPeriod = (nowSec: number): Period => ({
   from: nowSec - LAST_HOUR_WINDOW_SECONDS,
@@ -510,8 +503,7 @@ export type RangeInsight = {
   checkIns: InsightPulseGroup[];
 };
 
-/** Everything Insights shows for one range, shared by Calendar and the
- * Overview Last hour tile so the two always read the same. */
+/** Everything Insights shows for one range. */
 export const rangeInsight = (
   data: InsightData,
   { from, to, live }: InsightRange,
