@@ -36,11 +36,13 @@ then only the surface document it routes for the task.
 
 - Use `CONTEXT.md` vocabulary in user-facing copy and types.
 - Prefer the shared formatters in `lib/time.ts` for dashboard dates and times.
-- Keep shared Task rules in `docs/domain/tasks.md`.
+- Keep shared record rules, lifecycle, and calculations in `docs/domain/`;
+  use the root ownership table to choose the topic. Frontend preferences and
+  interactions belong in `docs/interface/`.
 - Keep Day, Table, and Map behavior in `docs/interface/tasks.md`, Calendar behavior in
-  `docs/calendar.md`, rules shared by
-  time surfaces in `docs/time-surfaces.md`, Metrics behavior in `docs/metrics.md`, and Brain dump
-  behavior in `docs/brain-dump.md`.
+  `docs/interface/calendar.md`, rules shared by
+  time surfaces in `docs/interface/time-surfaces.md`, Metrics behavior in `docs/interface/metrics.md`, and Brain dump
+  behavior in `docs/interface/brain-dump.md`.
 - For editor selection, focus, draft synchronization, TipTap, or ProseMirror,
   follow `.agents/skills/brain-dump-text-editor/SKILL.md`.
 

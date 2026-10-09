@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md
+// Behavior and invariants: docs/interface/calendar.md
 import { useMemo, useState } from "react";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { LogKindToggle } from "../components/logs/LogKindToggle";

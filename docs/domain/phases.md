@@ -1,8 +1,8 @@
-# Phases
+# Phases domain
 
 Phase derivation and work recording behavior. Domain definitions live in
-[`CONTEXT.md`](../CONTEXT.md); implementation and verification guidance lives
-in the [Phase lifecycle skill](../.agents/skills/phase-lifecycle/SKILL.md).
+[`CONTEXT.md`](../../CONTEXT.md); implementation and verification guidance lives
+in the [Phase lifecycle skill](../../.agents/skills/phase-lifecycle/SKILL.md).
 
 ## Phase derivation
 
@@ -20,13 +20,15 @@ rules in order:
 
 Starting work makes the Phase Doing. Stopping work keeps it Doing while
 another Task is Working now; stopping the last one lets attention, inactivity,
-and lock/sleep determine the Phase. Leaving Active stops Working now.
+and lock/sleep determine the Phase. A Task leaving Active
+[stops Working now](tasks.md#work), which closes its Work stretch and counts as
+stopping work here.
 Lock or sleep closes open Work stretches, preserves Active, and records Offline.
 Quitting saves elapsed Worked time and closes open Work stretches; time with
 Nest closed is untracked. After a crash, the next launch ends open stretches
 at the last known live time.
 Clicking another display leaves dashboard attention even if Nest remains key.
 
-`src/dashboard/lib/phaseGuide.ts` must mirror this derivation. Historical labels
-and display rules live in [time surfaces](./time-surfaces.md).
+The frontend guide follows this derivation; see [Phases interface](../interface/phases.md).
+Historical interpretation lives in [History domain](history.md#phase-history).
 

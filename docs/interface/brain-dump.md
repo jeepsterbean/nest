@@ -1,9 +1,11 @@
-# Brain dump capture
+# Brain dump interface
 
 Stickies, Note Board, saved-dump browsing, and Tags. Domain words live in
-[`CONTEXT.md`](../CONTEXT.md). Editor ownership, caret, and TipTap behavior
-live in [`docs/editor.md`](./editor.md). Shared dashboard controls live in
-[`UI.md`](../UI.md).
+[`CONTEXT.md`](../../CONTEXT.md). Editor ownership, caret, and TipTap behavior
+live in [`docs/interface/editor.md`](editor.md). Shared dashboard controls live in
+[`UI.md`](../../UI.md).
+
+Domain rules live in [Brain dump domain](../domain/brain-dump.md).
 
 ## Capture
 
@@ -22,13 +24,7 @@ the content by forking it into a draft.
 Expanding a saved dump in Timeline opens a read-only sticky, and it closes on
 an outside click or Escape. It has no editing or action controls; collapsible
 lists are unfolded for reading. The Brain dump pane of Core shows one local
-calendar day, starting at Today.
-Previous and next arrows move one day at a time; the double-forward arrow
-returns to Today. Next day is disabled on Today, keeping navigation within
-Today and earlier days. Previous day has no earliest bound: days older than
-the dashboard's 30-day history window are fetched one day at a time. Today
-follows the clock across midnight; selected historical dates stay fixed. The
-day navigator shares its controls with Calendar and Timeline. The Tag filter
+calendar day through the [shared day navigation](time-surfaces.md#dates-and-ranges). The Tag filter
 has All tags to clear the filter and an Add tag button. Right-clicking a
 Tag (or Shift+F10 while focused) opens Rename and Delete actions; deletion asks
 for confirmation.
@@ -64,5 +60,5 @@ still only hides free drafts; docked rows stay in the board.
 ## Tags
 
 The composer shows selected Tags followed by the five most recently used
-unselected Tags; its overflow menu lists every Tag. Deleting a Tag removes it
-from every historical brain dump.
+unselected Tags; its overflow menu lists every Tag. Tag validation and deletion follow the
+[domain rules](../domain/brain-dump.md#tags).

@@ -1,9 +1,9 @@
-# Nest Brain dump editor
+# Brain dump editor implementation
 
 This is the authoritative reference for editor invariants, dependency findings,
 diagnosis, and manual regression checks. Domain words live in
-[CONTEXT.md](../CONTEXT.md); capture and Note Board behavior live in
-[docs/brain-dump.md](./brain-dump.md); shared dashboard controls live in [UI.md](../UI.md).
+[CONTEXT.md](../../CONTEXT.md); capture and Note Board behavior live in
+[docs/interface/brain-dump.md](brain-dump.md); shared dashboard controls live in [UI.md](../../UI.md).
 
 ## Editor ownership and synchronization
 
@@ -135,7 +135,7 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
 ## Verification
 
 After changing `BrainDumpSurface` or its editor helpers, run the frontend
-checks in [AGENTS.md](../AGENTS.md#verification) and this manual pass in Nest's
+checks in [AGENTS.md](../../AGENTS.md#verification) and this manual pass in Nest's
 native Tauri/WKWebView environment:
 
 1. Two stickies plus the Core Today composer open; click into each and type. The

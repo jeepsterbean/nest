@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md#timeline
+// Behavior and invariants: docs/interface/calendar.md#timeline
 import {
   useEffect,
   useMemo,

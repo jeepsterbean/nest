@@ -60,7 +60,7 @@
   min-height: 0;
   flex-direction: column;
   border: 1px solid color-mix(in srgb, var(--dump) 28%, var(--border));
-  border-radius: 6px;
+  border-radius: var(--paper-radius);
   /* A lighter wash than the 36% floating sticky keeps a full grid calm. */
   background: color-mix(in srgb, var(--dump) 20%, var(--surface));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -71,7 +71,7 @@
   grid-row: span 3;
   height: auto;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--paper-radius);
   background: color-mix(in srgb, var(--dump) 6%, var(--surface));
   box-shadow: var(--shadow);
 }
@@ -137,7 +137,8 @@
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-radius: 5px 5px 0 0;
+  /* Inset by the item's 1px border. */
+  border-radius: calc(var(--paper-radius) - 1px) calc(var(--paper-radius) - 1px) 0 0;
   outline: none;
   cursor: pointer;
 }
@@ -155,7 +156,7 @@
 .brain-dump-history__item .brain-dump-tags {
   flex: none;
   border-top-color: color-mix(in srgb, var(--dump) 24%, var(--border));
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 calc(var(--paper-radius) - 1px) calc(var(--paper-radius) - 1px);
   background: color-mix(in srgb, var(--dump) 30%, var(--surface));
 }
 

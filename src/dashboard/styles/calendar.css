@@ -686,6 +686,8 @@
   }
 }
 
+/* Too narrow for a range column beside the content: the range sidebar stacks
+   above it, keeping the month calendar and range controls reachable. */
 @media (max-width: 600px) {
   .dashboard--range-sidebar {
     grid-template-columns: 52px minmax(0, 1fr);

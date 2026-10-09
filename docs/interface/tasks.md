@@ -11,17 +11,13 @@ in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
 ## Day
 
 Day is the default Tasks layout (Table and Map are the others). It is a
-task-focused daily report over the same 30-day history window as Calendar. The
-shared day navigation opens on today, moves one local calendar day at a time,
-cannot move into the future or before loaded history, and returns to today from
-any historical day.
+task-focused daily report over the same 30-day history window as Calendar,
+paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
 
 The summary shows Tasks created; Tasks ending the day Completed, Cancelled, or
-Incomplete; distinct Tasks worked on; and Worked time clipped to that day. A
-Completed or Cancelled Task must have reached that outcome during the day and
-still have it at day end. Incomplete contains Tasks with Worked time that end
-the day in any open status. Those three outcome stats are exclusive. An open
-Work stretch is clipped to now.
+Incomplete; distinct Tasks worked on; and Worked time clipped to that day.
+Outcomes and clipping follow the
+[range summary rules](../domain/history.md#range-summaries) for a one-day range.
 
 Selecting any non-empty stat reveals the Tasks that contributed to it. Created,
 Completed, and Cancelled show the recorded time; Incomplete, Worked on, and
@@ -157,7 +153,7 @@ originating control when it is still available.
 
 Details show status, Working now, and Worked time across every day. Table rows
 also indicate Working now. Work controls live in the [Popup's Tasks and metrics
-panel](../popup.md). Scope, Value, and Effort can be edited in details. The
+panel](popup.md). Scope, Value, and Effort can be edited in details. The
 description is edited in place and the editor grows with its text: Enter saves,
 Shift+Enter breaks the line, Escape cancels, and leaving the field saves.
 Parent, Children, Blocked by, and Blocks (only when the Task blocks others) are

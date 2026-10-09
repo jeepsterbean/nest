@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/time-surfaces.md#dates-and-ranges
+// Behavior and invariants: docs/interface/time-surfaces.md#dates-and-ranges
 import { shiftDayMs, startOfDayMs } from "./time";
 
 export function boundedDayMs(dayMs: number, nowMs: number, earliestSec?: number) {

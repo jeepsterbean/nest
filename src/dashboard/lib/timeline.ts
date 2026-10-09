@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/time-surfaces.md#logs-kinds
+// Behavior and invariants: docs/domain/history.md#phase-history
 import type {
   BrainDump,
   MetricCheckInWithRatings,

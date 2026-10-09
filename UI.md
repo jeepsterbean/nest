@@ -6,13 +6,14 @@ project-agnostic UI standards in `.agents/standards/ui-standards.md`. Follow
 light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
-[`docs/interface/tasks.md`](./docs/interface/tasks.md); Calendar, Insights, Timeline, and Phases in
-[`docs/calendar.md`](./docs/calendar.md), with rules shared by time surfaces in
-[`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
-[`docs/metrics.md`](./docs/metrics.md); Timer in
-[`docs/timer.md`](./docs/timer.md); Popup in
-[`docs/popup.md`](./docs/popup.md); Brain dump in
-[`docs/brain-dump.md`](./docs/brain-dump.md). Non-obvious class
+[`docs/interface/tasks.md`](docs/interface/tasks.md); Calendar, Insights, and Timeline in
+[`docs/interface/calendar.md`](docs/interface/calendar.md), with the Phases guide in
+[Phases interface](docs/interface/phases.md) and rules shared by time surfaces in
+[`docs/interface/time-surfaces.md`](docs/interface/time-surfaces.md); Metrics in
+[`docs/interface/metrics.md`](docs/interface/metrics.md); Timer in
+[`docs/interface/timer.md`](docs/interface/timer.md); Popup in
+[`docs/interface/popup.md`](docs/interface/popup.md); Brain dump in
+[`docs/interface/brain-dump.md`](docs/interface/brain-dump.md). Non-obvious class
 and layout constraints are commented beside their rules in
 `src/dashboard/styles/`.
 
@@ -36,9 +37,9 @@ Reuse these before adding a control:
   pick, on Escape, and on an outside press; `controlClassName` /
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color
   swatches.
-- `DateNavigation`: day and month paging for Brain dump, Tasks Day, Calendar,
-  Timeline, and Metrics. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
-  today (`onToday`); Calendar's month pager does not.
+- `DateNavigation`: the shared day and month pager. `onToday` adds Go to today,
+  and `canGoPrevious` sets the earliest-day limit; which surfaces use each lives
+  in [Time surfaces](docs/interface/time-surfaces.md#dates-and-ranges).
 - `DayCalendar`: in-app date picker, used instead of the OS date popup.
 - `startPointerDrag`: threshold, pointer capture, and listener cleanup for
   every pointer drag. Ordering and resize rules stay in each feature's hook.
@@ -88,11 +89,9 @@ portaled menu has to be scoped from a dashboard-level class, as
   (`LogsHours`) draw their figure through `renderLane`.
 - The `logs-` CSS prefix covers both the Timeline presentation and Calendar's
   Logs figure.
-- Saved and floating stickies, docked Note Board rows, the Note Board frame,
-  and the Core Brain dump composer share one 6px corner radius.
 
 ## Tasks implementation
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
 edges for Table, Map, and Task details. The Map draws connectors as an SVG
-overlay. Task surface behavior lives in [`docs/interface/tasks.md`](./docs/interface/tasks.md).
+overlay. Task surface behavior lives in [`docs/interface/tasks.md`](docs/interface/tasks.md).

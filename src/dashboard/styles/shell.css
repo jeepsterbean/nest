@@ -1,6 +1,10 @@
 /* Warm, journal-like theme for the dashboard window. Variables are scoped to
    .dashboard so the popup (which shares this bundle) is unaffected. */
 .dashboard {
+  /* Saved and floating stickies, docked Note Board rows, the Note Board frame,
+     and the Core Brain dump composer read as one family of paper, so they
+     share this corner. */
+  --paper-radius: 6px;
   --bg: #f6f1e8;
   --bg-glow-1: rgba(116, 153, 217, 0.16);
   --bg-glow-2: rgba(214, 164, 88, 0.14);

@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md#insights
+// Behavior and invariants: docs/domain/history.md#range-summaries
 import type {
   BrainDump,
   Metric,

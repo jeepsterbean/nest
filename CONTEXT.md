@@ -1,7 +1,7 @@
 # Nest Domain Context
 
 Rules and terminology that affect decisions across features. Surface behavior
-lives in the docs routed by [`AGENTS.md`](./AGENTS.md).
+lives in the docs routed by [`AGENTS.md`](AGENTS.md).
 
 ## Tasks and work
 
@@ -17,14 +17,14 @@ persisted status.
 records one span of Working now, and **Worked time** totals a Task's Work
 stretches.
 
-Task rules: [Tasks domain](./docs/domain/tasks.md).
-Dashboard interactions: [Tasks interface](./docs/interface/tasks.md).
+Task rules: [Tasks domain](docs/domain/tasks.md).
+Dashboard interactions: [Tasks interface](docs/interface/tasks.md).
 
 ## Phase
 
 **Phase** describes attention independently of Task status. Its live values
 are Doing, Scoping, Resting, and Offline. Derivation and work recording rules:
-[Phases](./docs/phases.md).
+[Phases](docs/domain/phases.md).
 
 ## Metrics and capture
 
@@ -36,8 +36,10 @@ Use Metric check-in rather than Pulse check-in.
 Brain dumps are independent of Tasks and Pulses and have no title field.
 A **Tag** is a reusable label for brain dumps.
 
-Behavior: [`docs/metrics.md`](./docs/metrics.md),
-[`docs/brain-dump.md`](./docs/brain-dump.md).
+Record rules: [Metrics domain](docs/domain/metrics.md),
+[Brain dump domain](docs/domain/brain-dump.md).
+Surface behavior: [Metrics interface](docs/interface/metrics.md),
+[Brain dump interface](docs/interface/brain-dump.md).
 
 ## Surface names
 
@@ -58,5 +60,5 @@ Behavior: [`docs/metrics.md`](./docs/metrics.md),
 Lowercase section can describe a general content region. Internal code may
 retain older names such as `view`.
 
-Surface behavior: [`UI.md`](./UI.md), [`docs/calendar.md`](./docs/calendar.md),
-[`docs/timer.md`](./docs/timer.md), [`docs/popup.md`](./docs/popup.md).
+Surface behavior: [`UI.md`](UI.md), [`docs/interface/calendar.md`](docs/interface/calendar.md),
+[`docs/interface/timer.md`](docs/interface/timer.md), [`docs/interface/popup.md`](docs/interface/popup.md).

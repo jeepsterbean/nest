@@ -1,7 +1,7 @@
-# Popup
+# Popup interface
 
 The Popup is a compact window for quick actions. Timer behavior lives in
-[`timer.md`](./timer.md); domain words live in [`CONTEXT.md`](../CONTEXT.md).
+[`timer.md`](timer.md); domain words live in [`CONTEXT.md`](../../CONTEXT.md).
 
 ## Window lifecycle
 
@@ -12,9 +12,8 @@ window and restores the same panel selection.
 The Popup is fixed and non-resizable; its size lives in
 `src-tauri/tauri.conf.json`. Opening the dashboard from the Popup dismisses it.
 
-The Popup hosts a Timer bar with the countdown and interval picker. This is a
-Timer surface inside the Popup; the Popup's other behavior does not depend on
-why it was summoned.
+The Popup hosts the Timer bar, described in [Timer interface](timer.md). The
+Popup's other behavior does not depend on why it was summoned.
 
 ## Panels
 
@@ -45,8 +44,8 @@ Metrics can hide a Pulse from the Popup. A Pulse toggle swaps among Pulses
 shown there. Finishing the last Metric of a Pulse saves a Metric check-in and
 closes the Popup.
 
-Metric scoring is manual and always available. It has no interval, due glow,
-or due dot.
+Scoring follows [Metrics domain](../domain/metrics.md#metric-check-ins).
+The scoring controls have no due glow or due dot.
 
 ## Keyboard and focus
 

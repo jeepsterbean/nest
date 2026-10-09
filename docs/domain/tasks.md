@@ -38,7 +38,7 @@ Active.
 Each span of Working now is a Work stretch; an open stretch has no end yet.
 Worked time sums finished stretches and the elapsed time in the open stretch,
 across all days and statuses. Correcting a stretch updates the total.
-Recording, recovery, and Phase behavior live in [Phases](../phases.md).
+Recording, recovery, and Phase behavior live in [Phases](phases.md).
 
 ## History and deletion
 

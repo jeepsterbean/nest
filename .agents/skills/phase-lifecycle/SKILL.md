@@ -8,12 +8,12 @@ description: Change or diagnose Nest's Phase derivation, Working now transitions
 ## Implementation and verification
 
 Preserve the behavior and lifecycle guarantees in
-[docs/phases.md](../../../docs/phases.md), and the transaction and recovery
+[docs/domain/phases.md](../../../docs/domain/phases.md), and the transaction and recovery
 boundaries that keep Worked time and Phase history consistent.
 
 1. Read the Working now, Work stretch, and Worked time definitions in
    `CONTEXT.md`, the behavior in
-   [docs/phases.md](../../../docs/phases.md), and
+   [docs/domain/phases.md](../../../docs/domain/phases.md), and
    `src-tauri/AGENTS.md`.
 2. Trace the complete transition, including the command or operating-system
    event, stretch mutation, Phase derivation, PhaseSignal write, event emit,
