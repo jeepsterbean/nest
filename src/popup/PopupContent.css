@@ -602,6 +602,51 @@
   flex: none;
 }
 
+/* The subtask input wraps onto its own line inside the row it was
+   double-clicked from, indented past the row's 30px lead control. */
+.now-task:has(.now-task__child-composer),
+.now-hero:has(.now-task__child-composer) {
+  flex-wrap: wrap;
+}
+
+.now-task__child-composer {
+  display: flex;
+  flex-basis: 100%;
+  padding: 4px 8px;
+  margin-left: 40px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Sortable rows turn off selection for dragging; WebKit then refuses to
+   place a caret in a nested input unless it opts back in. */
+.now-task__child-composer input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 550;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.now-task__child-composer input::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Double-click names a subtask, so it must not also select a title word. */
+.now-task__title,
+.now-hero__title {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .now-task--composer:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);

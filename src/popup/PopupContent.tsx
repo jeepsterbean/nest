@@ -447,6 +447,8 @@ function PopupContent({
   const backgroundTuning = useBackgroundTuning();
   const [taskTitle, setTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
+  const [childParentId, setChildParentId] = useState<number | null>(null);
+  const [childTitle, setChildTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -870,6 +872,73 @@ function PopupContent({
     }
   };
 
+  const openChildComposer = (parent: Task) => {
+    if (submitting) return;
+    setChildParentId(parent.id);
+    setChildTitle("");
+  };
+
+  const closeChildComposer = () => {
+    setChildParentId(null);
+    setChildTitle("");
+  };
+
+  /**
+   * A child shares only its Parent's status at creation; Worked time and later
+   * status changes stay independent. ⌘↵ starts it only under an Active Parent,
+   * because Working now needs Active and promoting the child would break the
+   * same-status rule.
+   */
+  const addChildTask = async (parent: Task, start: boolean) => {
+    const title = childTitle.trim();
+    if (!loaded || submitting || !title) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      let child = await createTask(
+        title,
+        "",
+        parent.status,
+        parent.scope,
+        parent.id,
+      );
+      // Lanes render in array order, so splicing after the Parent shows the
+      // child directly below it before the order is persisted.
+      const tasks = loaded.tasks.flatMap((task) =>
+        task.id === parent.id ? [task, child] : [task],
+      );
+      setLoaded((current) => (current ? { ...current, tasks } : current));
+      closeChildComposer();
+
+      // Done orders by close time, so only the live lanes keep a manual order.
+      if (parent.status === "active" || parent.status === "up_next") {
+        await reorderTasks(
+          groupTasksByStatus(tasks)[parent.status].map((task) => task.id),
+        );
+      }
+
+      if (start && parent.status === "active") {
+        child = await setTaskWorking(child.id, true);
+        setLoaded((current) =>
+          current
+            ? {
+                ...current,
+                tasks: current.tasks.map((task) =>
+                  task.id === child.id ? child : task,
+                ),
+              }
+            : current,
+        );
+      }
+
+      await emit("data-changed");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const saveMetrics = async (
     pulse: Pulse,
     ratingsInput: MetricRatingInput[],
@@ -924,10 +993,41 @@ function PopupContent({
     : false;
 
   const workingCount = workingTasks.length;
+  const childComposerProps = (parent: Task) => ({
+    onDoubleClick: (event: { target: EventTarget }) => {
+      if ((event.target as Element).closest(CARD_CONTROLS)) return;
+      openChildComposer(parent);
+    },
+  });
+  const renderChildComposer = (parent: Task) =>
+    childParentId === parent.id && (
+      <div className="now-task__child-composer">
+        <input
+          autoFocus
+          tabIndex={-1}
+          aria-label={`New child of ${parent.title}`}
+          autoComplete="off"
+          disabled={submitting}
+          placeholder="Name the subtask…"
+          value={childTitle}
+          onChange={(event) => setChildTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void addChildTask(parent, event.metaKey || event.ctrlKey);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              closeChildComposer();
+            }
+          }}
+        />
+      </div>
+    );
   // Working tasks lead as hero rows: the one thing the popup wants you to
   // see first, so it reads at a glance instead of blending into the list.
   const renderHeroRow = (task: Task) => (
-    <li className="now-hero" key={task.id}>
+    <li className="now-hero" key={task.id} {...childComposerProps(task)}>
       <div className="now-hero__lead">
         <WorkingToggle
           task={task}
@@ -963,6 +1063,7 @@ function PopupContent({
           <CheckIcon />
         </button>
       </div>
+      {renderChildComposer(task)}
     </li>
   );
   // Idle lanes share a row: lead play control, title, trailing status
@@ -976,6 +1077,7 @@ function PopupContent({
       }`}
       key={task.id}
       {...boardSort.rowProps(task.id)}
+      {...childComposerProps(task)}
     >
       <div className="now-task__actions now-task__lead">
         {task.status === "active" ? (
@@ -1026,10 +1128,15 @@ function PopupContent({
           <CheckIcon />
         </button>
       </div>
+      {renderChildComposer(task)}
     </li>
   );
   const renderClosedRow = (task: Task) => (
-    <li className={`now-task now-task--${task.status}`} key={task.id}>
+    <li
+      className={`now-task now-task--${task.status}`}
+      key={task.id}
+      {...childComposerProps(task)}
+    >
       <div className="now-task__mark now-task__lead" aria-hidden="true">
         {task.status === "completed" ? <CheckIcon /> : <CancelledMark />}
       </div>
@@ -1046,6 +1153,7 @@ function PopupContent({
           <RestoreIcon />
         </button>
       </div>
+      {renderChildComposer(task)}
     </li>
   );
   const taskView = (
@@ -1231,6 +1339,15 @@ function PopupContent({
           )
         ) {
           setAddingTask(false);
+        }
+        if (
+          shouldDismissOnPointerDown(
+            childParentId !== null,
+            event.target,
+            ".now-task__child-composer",
+          )
+        ) {
+          closeChildComposer();
         }
       }}
     >

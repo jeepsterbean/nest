@@ -30,6 +30,15 @@ working, a row shows the Task's total Worked time, including the open stretch.
 Starting an Up next Task moves it to Active and starts Working now. Active rows
 have Up next and Complete.
 
+Double-clicking any task row, including working and Done rows, opens an input
+inside that row to name a Child. Enter creates the Child with the Parent's
+status and Scope, as its own row directly below the Parent; Done rows keep
+their close-time order instead. ⌘↵ also starts Working now on the Child, but
+only under an Active Parent; elsewhere it acts like Enter. The Parent keeps
+working either way, and the Child shares no status or Worked time with it after
+creation. Escape or clicking outside discards the input. Child rows look like
+any other row.
+
 Every summon restores `nest:popup-panels`, even if the Timer is still paused at
 zero. Brain dump shows on first use. A saved selection naming the retired Chat
 panel drops it, and one naming only Chat falls back to Brain dump; an
