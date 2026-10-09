@@ -12,7 +12,7 @@ use crate::error::Result;
 
 pub const DEMO_IDENTIFIER: &str = "com.huwenjie.nest.demo";
 
-/// Drafts, stickies, and Assistant drafts live in WebView storage, which an
+/// Drafts and stickies live in WebView storage, which an
 /// unbundled dev binary shares across identifiers. Both windows use this store
 /// so the dashboard and Popup still share their drafts with each other.
 const DEMO_WEBVIEW_STORE: [u8; 16] = *b"nest-demo-store!";
@@ -57,8 +57,8 @@ pub fn remove_database(db_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Expects a freshly migrated database: the default Phases, Reminders, and
-/// Assistant Prompt come from migrations and are kept.
+/// Expects a freshly migrated database: the default Phases come from
+/// migrations and are kept.
 pub fn seed(conn: &mut Connection, now: i64) -> Result<()> {
     let tx = conn.transaction()?;
     let today_start = local_day_start(&tx, now)?;
@@ -80,7 +80,6 @@ pub fn seed(conn: &mut Connection, now: i64) -> Result<()> {
     let metrics = seed_metrics_and_pulses(&tx)?;
     seed_metric_check_ins(&tx, &days, cutoff, &metrics)?;
     seed_brain_dumps(&tx, &day_start, cutoff)?;
-    seed_assistant_chat(&tx, &day_start)?;
     seed_timer(&tx, now)?;
     tx.commit()?;
     Ok(())
@@ -670,47 +669,6 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
     Ok(())
 }
 
-fn seed_assistant_chat(tx: &Transaction, day_start: &dyn Fn(i64) -> i64) -> Result<()> {
-    let started_at = day_start(1) + hm(16, 10) * 60;
-    let messages: [(&str, &str); 4] = [
-        (
-            "user",
-            "I keep opening the Field Notes case study and closing it again. Where do I start?",
-        ),
-        (
-            "assistant",
-            "It sounds like the whole case study feels like one big step. You already have an outline, so the hard part may be the first sentence rather than the structure.\n\nA smaller start:\n1. Set a 25-minute Timer.\n2. Write only the opening scene, badly, on purpose.\n3. Stop when the Timer ends, even mid-sentence.\n\nWhat moment made you want to build Field Notes in the first place?",
-        ),
-        (
-            "user",
-            "Honestly, a notebook that got soaked on a hike. I lost a whole week of sketches.",
-        ),
-        (
-            "assistant",
-            "That is a strong opening: concrete, a little painful, and it explains the product without selling it. Try starting with the rain and the smudged pages, then the question it left you with.\n\nOne next step: write three sentences about that hike before you look at the outline again.",
-        ),
-    ];
-    tx.execute(
-        "INSERT INTO assistant_conversations (title, model, created_at, updated_at) \
-         VALUES (?1, 'gpt-5.6-luna', ?2, ?3)",
-        params![
-            "Getting the case study unstuck",
-            started_at,
-            started_at + (messages.len() as i64 - 1) * 60
-        ],
-    )?;
-    let conversation_id = tx.last_insert_rowid();
-    for (index, (role, content)) in messages.iter().enumerate() {
-        let sent_message = (*role == "user").then_some(*content);
-        tx.execute(
-            "INSERT INTO assistant_messages (conversation_id, role, content, sent_message, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![conversation_id, role, content, sent_message, started_at + index as i64 * 60],
-        )?;
-    }
-    Ok(())
-}
-
 fn seed_timer(tx: &Transaction, now: i64) -> Result<()> {
     tx.execute(
         "UPDATE timer_schedule SET interval_minutes = 25, next_due_at = ?1, waiting_for_response = 0 \
@@ -748,7 +706,6 @@ mod tests {
         assert!(count(&conn, "SELECT COUNT(*) FROM phase_check_ins") > 50);
         assert!(count(&conn, "SELECT COUNT(*) FROM metric_check_ins") > 30);
         assert!(count(&conn, "SELECT COUNT(*) FROM brain_dumps") >= 10);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM assistant_messages"), 4);
         let violations: Vec<String> = conn
             .prepare("PRAGMA foreign_key_check")
             .unwrap()

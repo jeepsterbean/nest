@@ -1,5 +1,4 @@
 mod activity;
-mod assistant;
 mod timer;
 mod commands;
 mod db;
@@ -9,6 +8,7 @@ mod migrations;
 mod models;
 mod phase;
 mod popup_placement;
+mod retired_assistant;
 mod task;
 mod task_graph;
 mod task_lifecycle;
@@ -1150,6 +1150,10 @@ pub fn run() {
             let mut conn = db::open(&db_path)?;
             if is_demo {
                 demo::seed(&mut conn, now_unix_secs())?;
+            } else {
+                // Off the setup thread: a Keychain access prompt must not hold
+                // up launch.
+                std::thread::spawn(retired_assistant::forget_saved_api_key);
             }
             // Before anything reads stretches — the first Phase sync below
             // derives Doing from them, and a leftover open stretch would make
@@ -1315,25 +1319,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::assistant::assistant_api_key_configured,
-            commands::assistant::set_assistant_api_key,
-            commands::assistant::delete_assistant_api_key,
-            commands::assistant::list_assistant_prompts,
-            commands::assistant::create_assistant_prompt,
-            commands::assistant::update_assistant_prompt,
-            commands::assistant::delete_assistant_prompt,
-            commands::assistant::list_assistant_system_instruction_versions,
-            commands::assistant::save_assistant_system_instructions,
-            commands::assistant::list_assistant_conversations,
-            commands::assistant::list_assistant_messages,
-            commands::assistant::rename_assistant_conversation,
-            commands::assistant::delete_assistant_conversation,
-            commands::assistant::send_assistant_message,
-            commands::reminder::list_reminders,
-            commands::reminder::create_reminder,
-            commands::reminder::update_reminder_text,
-            commands::reminder::set_reminder_active,
-            commands::reminder::delete_reminder,
             commands::metric::list_metrics,
             commands::task::list_tasks,
             commands::task::list_task_dependencies,
