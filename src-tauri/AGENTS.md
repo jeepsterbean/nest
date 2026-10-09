@@ -11,8 +11,9 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
   not glob re-export command modules.
 - Shared behavior that also runs outside a command belongs in a top-level
   domain module: Timer state and cadence in `timer.rs`, Phase derivation and
-  lock/sleep handling in `phase.rs`, OpenAI streaming and keychain access in
-  `assistant.rs`, and lifecycle upkeep in `task_lifecycle.rs`.
+  lock/sleep handling in `phase.rs`, removal of the retired Assistant's
+  Keychain key in `retired_assistant.rs`, and lifecycle upkeep in
+  `task_lifecycle.rs`.
 - Task row reads and the Updated stamp live in `task.rs`, shared by commands
   and lifecycle upkeep.
 - Rust models under `src-tauri/src/models/` mirror shared TypeScript DTOs under
@@ -25,6 +26,9 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
 - Persistence is local SQLite through rusqlite.
 - Apply schema changes as new forward migrations in `src/migrations.rs`.
   Never rewrite a migration that may have run on a real database.
+- Overview, Assistant, Settings, and Reminders are retired. Their SQLite
+  tables and migrations stay so existing databases keep opening. Do not add
+  commands against those tables.
 - Validate user-provided values at Tauri command boundaries and preserve
   relational integrity with foreign keys, status checks, and graph cycle
   checks.

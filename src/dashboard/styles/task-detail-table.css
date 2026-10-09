@@ -584,20 +584,6 @@
   padding: 4px 7px;
 }
 
-.task-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.task-status-badge--cancelled {
-  color: var(--muted);
-}
-
 .task-status-backdrop {
   position: fixed;
   inset: 0;
@@ -934,16 +920,8 @@
   cursor: pointer;
 }
 
-.task-table__row--readonly {
-  cursor: default;
-}
-
 .task-table__row:hover td {
   background: color-mix(in srgb, var(--surface-2) 55%, transparent);
-}
-
-.task-table__row--readonly:hover td {
-  background: transparent;
 }
 
 .task-table__row:focus-visible {

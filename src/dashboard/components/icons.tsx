@@ -13,13 +13,6 @@ const iconProps = {
   "aria-hidden": true,
 } as const;
 
-export const clockIcon = (
-  <svg {...iconProps}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 2" />
-  </svg>
-);
-
 export const plusIcon = (
   <svg {...iconProps}>
     <line x1="12" x2="12" y1="5" y2="19" />
@@ -128,19 +121,10 @@ export function AssistantIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export const assistantIcon = <AssistantIcon />;
-
 export const editIcon = (
   <svg {...iconProps}>
     <path d="m4 20 4.2-1 10.7-10.7a2.1 2.1 0 0 0-3-3L5.2 16Z" />
     <path d="m14.5 6.7 3 3" />
-  </svg>
-);
-
-export const sendIcon = (
-  <svg {...iconProps}>
-    <path d="m4 4 17 8-17 8 3-8Z" />
-    <path d="M7 12h14" />
   </svg>
 );
 
@@ -156,8 +140,6 @@ export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-export const settingsIcon = <SettingsIcon />;
 
 export const tagsIcon = (
   <svg {...iconProps}>

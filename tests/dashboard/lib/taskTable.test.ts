@@ -4,7 +4,6 @@ import {
   hiddenColumnsLabel,
   moveTaskTableColumn,
   normalizeTaskTableLayout,
-  overviewTaskColumns,
   sameHiddenTaskTableColumns,
   sameTaskTableLayout,
   serializeTaskTableLayout,
@@ -145,15 +144,6 @@ describe("task table layout", () => {
     expect(sameTaskTableLayout(columns, hidden)).toBe(false);
     expect(sameHiddenTaskTableColumns(hidden, moveTaskTableColumn(hidden, "created", "title"))).toBe(true);
     expect(sameHiddenTaskTableColumns(columns, hidden)).toBe(false);
-  });
-
-  it("builds Overview columns in status · title · value · effort order", () => {
-    expect(overviewTaskColumns().map((column) => column.id)).toEqual([
-      "status",
-      "title",
-      "value",
-      "effort",
-    ]);
   });
 });
 

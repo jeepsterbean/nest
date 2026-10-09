@@ -41,7 +41,7 @@
 /* Separate chips rather than a segmented bar: several kinds are usually on at
    once, so each chip carries its own on/off state. Kind colors match the
    timeline marks; Phases uses --phase since each Phase row has its own color.
-   A tight toolbar or Overview tile scrolls the chips sideways instead of wrapping. */
+   A tight toolbar scrolls the chips sideways instead of wrapping. */
 .logs-kind-filter {
   display: flex;
   flex-wrap: nowrap;
@@ -177,7 +177,7 @@
   font-size: 12px;
 }
 
-/* Event body beside the timeline mark (Logs and the Overview Timeline tile). */
+/* Event body beside the timeline mark (Logs and Timeline). */
 .log-detail {
   display: flex;
   align-items: center;

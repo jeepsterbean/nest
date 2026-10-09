@@ -20,14 +20,12 @@ reference by default.
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
 | Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
-| Overview tiles, saved layouts, or `SIMPLIFIED_VIEW` | `docs/overview.md`, then `docs/time-surfaces.md` |
 | Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
 | Timer | `docs/timer.md` |
 | Popup | `docs/popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
-| Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
-| Reminders, Greetings board, Sidebar, or Settings panes | `CONTEXT.md`, `UI.md` |
+| Sidebar or Background panel | `CONTEXT.md`, `UI.md` |
 | Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
@@ -38,13 +36,11 @@ reference by default.
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
 | Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
-| Overview | `docs/overview.md` |
 | Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
 | Metrics pane behavior | `docs/metrics.md` |
 | Timer | `docs/timer.md` |
 | Popup | `docs/popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
-| Assistant context assembly | `docs/assistant-context.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | Shared dashboard controls, shell, cross-surface UI rules | `UI.md` |
 | Non-obvious CSS or layout constraint | comment beside the rule |
@@ -71,10 +67,7 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 ## Repository-wide invariants
 
-- `SIMPLIFIED_VIEW` in `src/lib/simplifiedView.ts` is currently `true`, which
-  hides the Overview, Assistant, and Settings Sections and starts the dashboard
-  on Calendar. Changes to those Sections stay invisible until it is `false`.
-  Scope and restore behavior: `docs/overview.md#simplified-view`.
+- The dashboard has two Sections, Calendar and Core, and starts on Calendar.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
@@ -102,9 +95,8 @@ each fact in its closest authoritative source and link to it elsewhere.
 - User-facing copy should match the calm, private tone in `.impeccable.md` and
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-  check-in. The dashboard timer due phrase is `Timer due`. Popup timer UI
-  shows countdown only. Metric check-in remains the
-  saved Pulse scoring record.
+  check-in. Popup timer UI shows the countdown and selected interval. The macOS
+  menu bar is a read-only Phase and countdown readout.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.

@@ -32,13 +32,6 @@ export const dayLabel = (tsSecs: number, nowMs: number = Date.now()) => {
   });
 };
 
-export const greetingForHour = (hour: number) => {
-  if (hour < 5) return "Up late";
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-};
-
 export const formatTime = (ts: number) =>
   new Date(ts * 1000).toLocaleTimeString(undefined, {
     hour: "numeric",

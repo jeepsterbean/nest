@@ -100,7 +100,7 @@ import {
 } from "./icons";
 
 const LUCIDE_NEST_ICONS = [
-  { key: "layout-grid", label: "Overview", Icon: LayoutGrid },
+  { key: "layout-grid", label: "Grid", Icon: LayoutGrid },
   { key: "activity", label: "Activity", Icon: Activity },
   { key: "apple", label: "Nutrition", Icon: Apple },
   { key: "battery", label: "Energy", Icon: BatteryCharging },
@@ -193,13 +193,14 @@ const LUCIDE_NEST_ICONS = [
   Icon: LucideIcon;
 }>;
 
-// Section marks that are not in the Lucide set. Same picker as every other icon.
+// Nest's own marks, offered in the same picker as every other icon. Chat and
+// Settings outlived their Sections because Pulses and Phases may store them.
 export const NEST_ICONS = [
   ...LUCIDE_NEST_ICONS,
   { key: "date" as const, label: "Calendar", Icon: CalendarIcon },
   { key: "insights" as const, label: "Insights", Icon: InsightsIcon },
   { key: "core" as const, label: "Core", Icon: CoreIcon },
-  { key: "assistant" as const, label: "Assistant", Icon: AssistantIcon },
+  { key: "assistant" as const, label: "Chat", Icon: AssistantIcon },
   { key: "settings" as const, label: "Settings", Icon: SettingsIcon },
 ];
 

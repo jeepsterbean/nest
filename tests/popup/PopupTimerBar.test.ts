@@ -11,23 +11,15 @@ const props: ComponentProps<typeof PopupTimerBar> = {
   nowMs,
   timerButtonRef: createRef(),
   onSelectInterval: vi.fn(),
-  initialOpen: true,
 };
 
 describe("PopupTimerBar", () => {
-  it("starts a new timer from the clock when the timer is due", () => {
+  it("pins the clock to 0:00 when the timer is due", () => {
     const html = renderToStaticMarkup(createElement(PopupTimerBar, props));
 
     expect(html).toContain('aria-label="Timer"');
     expect(html).toContain("0:00");
-    expect(html).toContain('aria-label="Start timer"');
     expect(html).toContain("15 min");
-    expect(html).toContain('tabindex="-1"');
-    // Picker must sit inside the anchor, not under a full-height wrapper
-    // (that places it below the popup viewport where overflow clips it).
-    expect(html).toMatch(
-      /popup-timer__anchor[\s\S]*popup-timer__picker[\s\S]*15 min/,
-    );
     expect(html).not.toContain("popup-timer__sweep");
     expect(html).not.toContain("Open dashboard");
   });
@@ -41,7 +33,6 @@ describe("PopupTimerBar", () => {
           nextDueAt: nowSecs + 450,
           waitingForResponse: false,
         },
-        initialOpen: false,
       }),
     );
 

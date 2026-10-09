@@ -3,10 +3,6 @@
     animation: none !important;
     transition: none !important;
   }
-
-  .dash-header__typewriter-caret {
-    display: none;
-  }
 }
 
 @media (max-width: 860px) {
@@ -35,60 +31,12 @@
   .metric-axis {
     display: none;
   }
-
-  .overview-grid {
-    display: flex;
-    flex: none;
-    flex-direction: column;
-    overflow: visible;
-  }
-
-  .overview-tile {
-    min-height: 280px;
-    flex: none;
-  }
-
-  .overview-tile[data-tile="lastHour"],
-  .overview-tile[data-tile="controlPanel"],
-  .overview-tile[data-tile="metrics"] {
-    min-height: 150px;
-  }
-
-  .overview-tile[data-tile="tasks"],
-  .overview-tile[data-tile="timeline"] {
-    min-height: 360px;
-  }
-
-  .overview-tile--minimised:not([data-tile="timeline"]) {
-    min-height: 52px;
-  }
-
-  .overview-tile--minimised[data-tile="timeline"] {
-    min-height: 240px;
-  }
-
-  .overview-tile__head {
-    cursor: default;
-  }
-
-  .overview-tile__resize {
-    display: none;
-  }
 }
 
 @media (max-width: 680px) {
   .dashboard__inner {
     gap: 20px;
     padding: 24px 14px 48px;
-  }
-
-  .dash-header__meta {
-    flex-wrap: wrap;
-    gap: 10px 14px;
-  }
-
-  .dash-header__timer-wrap {
-    margin-left: 0;
   }
 
   .dashboard {
@@ -112,23 +60,14 @@
     min-height: 40px;
   }
 
-  .dash-header__intro {
-    --greeting-size: 31px;
-  }
-
   .dash-section {
     padding: 18px;
   }
 
-  .dash-section--settings,
   .dash-section--brain-dump,
   .dash-section--metrics,
   .dash-section--phases {
     padding: 0;
-  }
-
-  .dash-section--settings > .dash-section__head {
-    padding: 18px 18px 16px;
   }
 
   .dash-section--brain-dump > .dash-section__head,
@@ -145,10 +84,6 @@
     padding: 0 18px 18px;
   }
 
-  .settings-pane {
-    padding: 0 18px 18px;
-  }
-
   .metrics-board {
     padding: 0 18px 18px;
   }
@@ -157,7 +92,7 @@
     flex-wrap: wrap;
   }
 
-  .overview-panel__scroll {
+  .surface-panel__scroll {
     max-height: 420px;
     padding: 14px;
   }

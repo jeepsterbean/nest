@@ -50,8 +50,8 @@ provide supporting evidence; read the implementation behind a claim.
 Distinguish current behavior, intended behavior, and historical or planned
 behavior. Migrations, compatibility identifiers, dated backlog entries, and
 internal technical names can legitimately use older vocabulary. Read the
-exceptions in `CONTEXT.md` before proposing renames. Check visibility flags
-such as `SIMPLIFIED_VIEW` before describing a surface as currently reachable.
+exceptions in `CONTEXT.md` before proposing renames. Check the Sidebar in
+code before describing a surface as currently reachable.
 
 When docs and code disagree, state both sides and identify which decision
 needs resolution. A mismatch alone does not establish whether the code or the

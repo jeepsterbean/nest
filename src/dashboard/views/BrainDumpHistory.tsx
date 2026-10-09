@@ -52,7 +52,7 @@ function BrainDumpTodayComposer() {
   return (
     <div className="brain-dump-history__item brain-dump-history__item--composer">
       <BrainDumpSurface
-        layout="overview"
+        layout="panel"
         className="brain-dump-surface--anchored"
         text={composer.draft.text}
         tagIds={composer.draft.tagIds}

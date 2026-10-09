@@ -6,6 +6,8 @@
   align-items: center;
 }
 
+/* The picker must stay inside this box: positioned against the full-height
+   bar instead, it drops past the Popup's bottom edge and gets clipped. */
 .popup-timer__anchor {
   position: relative;
 }

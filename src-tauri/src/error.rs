@@ -16,9 +16,6 @@ pub enum AppError {
 
     #[error("invalid input: {0}")]
     InvalidInput(String),
-
-    #[error("{0}")]
-    Assistant(String),
 }
 
 impl Serialize for AppError {

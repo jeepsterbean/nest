@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import {
   TILE_ICONS_KEY,
   readTileIcons,
-  type OverviewIcons,
+  type TileIcons,
 } from "../lib/tileIcons";
 
 /**
- * Tracks the Overview tile icon preferences across both windows. The native
+ * Tracks the Section and pane icon preferences across both windows. The native
  * `storage` event only fires in the other window, so writes also dispatch a
  * same-window event under `TILE_ICONS_KEY`.
  */
-export function useTileIcons(): OverviewIcons {
+export function useTileIcons(): TileIcons {
   const [icons, setIcons] = useState(readTileIcons);
 
   useEffect(() => {

@@ -9,7 +9,7 @@ import {
  * Tracks the Background style preference. The native `storage` event only
  * fires in *other* windows than the one that wrote it, so writeBackgroundStyle
  * also dispatches a same-window event under the same key — together they
- * cover both this window's own Settings pane and the other window.
+ * cover both this window's own Background panel and the other window.
  */
 export function useBackgroundStyle(): BackgroundStyle {
   const [style, setStyle] = useState<BackgroundStyle>(readBackgroundStyle);

@@ -118,12 +118,13 @@ happened to it, never by live status:
 - Incomplete: everything else with Worked time in the range, whatever its
   open status (Active, Up next, Backlog).
 
-A Task has one status at the range's end, so the three are exclusive and
-exhaustive. A closure reopened within the range does not count; without
-Worked time that Task is left out. Completions and Cancellations with no
-Working now still list, with 0 Worked time. Week sums each Task across its
-days rather than listing day by day. Deleted Tasks take their status history
-with them, so they never appear.
+The ledger lists Tasks with Worked time in the range, plus Completions and
+Cancellations that are still closed at the range's end (0 Worked time
+allowed). Among those members the three groups are exclusive. A closure
+reopened within the range does not count. Open Tasks with no Worked time in
+the range are omitted. Week sums each Task across its days rather than
+listing day by day. Deleted Tasks take their status history with them, so
+they never appear.
 
 All three groups always show, in that order, even when empty, so the ledger
 keeps one shape from range to range. Each group is one collapsed ledger line
@@ -143,10 +144,10 @@ per Metric that was rated, with a compact colored number per rating and that
 Metric's average. Ratings stay in time order and wrap within their column so
 every score remains readable.
 That row clips at a live now, so a just-saved
-rating appears as soon as data reloads. Last hour does not clamp it to
-its minute-clock end. Phase mix and the task ledger stay on the shared
-minute clock. Last hour uses that same board on a rolling 60-minute window,
-and so does Overview's Last hour tile.
+rating appears as soon as data reloads. Last hour keeps that split on
+purpose: dumps and Metric check-ins use wall-clock now; Phase mix and the
+task ledger stay on the shared minute clock. Last hour uses that same board
+on a rolling 60-minute window.
 
 ## Timeline
 
@@ -158,8 +159,9 @@ The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
 The toolbar shows the selected
 day with Previous day, Next day, and Go to today controls shared with Brain dump,
-followed by kind filters and the Phases-only eye. Previous day stops at loaded
-history, and Next day stops at Today. Each day's entries retain their own Export.
+followed by kind filters and the Phases-only eye. The sidebar month calendar
+and this toolbar both stay: month jump and day-step select the same day.
+Previous day stops at loaded history, and Next day stops at Today. Each day's entries retain their own Export.
 Files use the Nest Timeline heading and `nest-timeline-*` name.
 A day label switches to the Calendar presentation, opens that day on its Logs
 figure, and switches Calendar's range to Day.
@@ -168,11 +170,11 @@ while focus is outside interactive controls.
 
 The list is one day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
-Timeline and the Overview Timeline tile show no Phase totals. Each visible day
+Timeline shows no Phase totals. Each visible day
 has an Export control that downloads a chronological Markdown timeline of every
 event type for that calendar day, regardless of the active kind filter.
 
-In Timeline and the Overview Timeline, each day's icons sit on a hairline
+In Timeline, each day's icons sit on a hairline
 through the mark column, from the first mark to the last. When the selected
 range includes now, today opens with the current time and an empty event
 cell, including when today has no visible entries. A breathing dot marks that
@@ -181,14 +183,13 @@ repeating squiggle. Timeline does not show the day strip or outcome stats.
 Metric check-ins show the Pulse icon and Metric scores on one row at the same
 height as brain dumps and Working now marks. Brain dumps keep that row height
 when their read-only sticky opens. Pulse, Metric, and brain dump icons stand
-in for names. The Timeline icon is picked in Overview settings and heads the
-Overview Timeline tile.
+in for names.
 
 ## Phases pane
 
 The Phases pane of Core is a read-only guide: how Phase is derived, then the
 four Phases (Doing, Scoping, Resting, Offline) with their meanings from
 `src/dashboard/lib/phaseGuide.ts`. The current Phase is marked, and its icon
-breathes a halo in its color. Its icon is picked from the Core sidebar;
-Phases has no Overview tile. Phase icons and colors follow
+breathes a halo in its color. Its icon is picked from the Core sidebar.
+Phase icons and colors follow
 [Phase appearance](./time-surfaces.md#phase-appearance).

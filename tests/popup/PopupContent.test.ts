@@ -8,11 +8,9 @@ vi.mock("../../src/popup/windowDrag", async () => {
   );
   return { ...actual, startPopupWindowDrag: vi.fn() };
 });
-vi.mock("../../src/lib/simplifiedView", () => ({ SIMPLIFIED_VIEW: false }));
 
 import {
   initialPopupPanels,
-  popupAssistantMounted,
   popupPanelShortcut,
   PopupPanelToggles,
   readLastPopupTab,
@@ -166,30 +164,25 @@ describe("MetricCheckIn manual scoring", () => {
 });
 
 describe("togglePopupPanel", () => {
-  const ALL: PopupPanelId[] = ["dump", "now", "assistant"];
+  const ALL: PopupPanelId[] = ["dump", "now"];
 
-  it("reaches all eight combinations, including none at all", () => {
+  it("reaches all four combinations, including none at all", () => {
     const combinations = new Set<string>();
     // Every subset is one toggle away from the subset without that panel.
-    for (let mask = 0; mask < 8; mask += 1) {
+    for (let mask = 0; mask < 4; mask += 1) {
       let visible: PopupPanelId[] = [];
       ALL.forEach((panel, index) => {
         if (mask & (1 << index)) visible = togglePopupPanel(visible, panel);
       });
       combinations.add(visible.join(","));
     }
-    expect(combinations.size).toBe(8);
+    expect(combinations.size).toBe(4);
     expect(combinations.has("")).toBe(true);
-    expect(combinations.has("dump,now,assistant")).toBe(true);
+    expect(combinations.has("dump,now")).toBe(true);
   });
 
   it("keeps sidebar order however the panels were shown", () => {
-    expect(togglePopupPanel(["assistant"], "dump")).toEqual(["dump", "assistant"]);
-    expect(togglePopupPanel(["assistant", "dump"], "now")).toEqual([
-      "dump",
-      "now",
-      "assistant",
-    ]);
+    expect(togglePopupPanel(["now"], "dump")).toEqual(["dump", "now"]);
   });
 
   it("returns to the same combination on a repeated toggle", () => {
@@ -197,46 +190,33 @@ describe("togglePopupPanel", () => {
     expect(togglePopupPanel(togglePopupPanel(visible, "now"), "now")).toEqual(
       visible,
     );
-    expect(
-      togglePopupPanel(togglePopupPanel(visible, "assistant"), "assistant"),
-    ).toEqual(visible);
     expect(togglePopupPanel(togglePopupPanel([], "dump"), "dump")).toEqual([]);
   });
 });
 
 describe("initialPopupPanels", () => {
   it("restores a saved combination, empty selection included", () => {
-    expect(initialPopupPanels("dump,assistant", null)).toEqual([
-      "dump",
-      "assistant",
-    ]);
-    expect(initialPopupPanels("assistant,dump", null)).toEqual([
-      "dump",
-      "assistant",
-    ]);
+    expect(initialPopupPanels("now,dump", null)).toEqual(["dump", "now"]);
     expect(initialPopupPanels("", "now")).toEqual([]);
   });
 
   it("migrates the tab preference it replaced", () => {
-    expect(initialPopupPanels(null, "overview")).toEqual([
-      "dump",
-      "now",
-      "assistant",
-    ]);
+    expect(initialPopupPanels(null, "overview")).toEqual(["dump", "now"]);
     expect(initialPopupPanels(null, "dump")).toEqual(["dump"]);
     expect(initialPopupPanels(null, "now")).toEqual(["now"]);
-    expect(initialPopupPanels(null, "assistant")).toEqual(["assistant"]);
+  });
+
+  it("drops the retired Chat assistant panel from saved preferences", () => {
+    expect(initialPopupPanels("assistant,now,dump", null)).toEqual(["dump", "now"]);
+    expect(initialPopupPanels("assistant", "now")).toEqual(["dump"]);
+    expect(initialPopupPanels(null, "assistant")).toEqual(["dump"]);
   });
 
   it("falls back to Brain dump when either preference is missing or invalid", () => {
     expect(initialPopupPanels(null, null)).toEqual(["dump"]);
     expect(initialPopupPanels(null, "nope")).toEqual(["dump"]);
     expect(initialPopupPanels("nope", null)).toEqual(["dump"]);
-    expect(initialPopupPanels("nope", "overview")).toEqual([
-      "dump",
-      "now",
-      "assistant",
-    ]);
+    expect(initialPopupPanels("nope", "overview")).toEqual(["dump", "now"]);
   });
 });
 
@@ -255,11 +235,11 @@ describe("popup panel storage", () => {
     const storage = fakeStorage();
 
     expect(readPopupPanels(storage)).toBeNull();
-    writePopupPanels(["dump", "assistant"], storage);
-    expect(readPopupPanels(storage)).toBe("dump,assistant");
+    writePopupPanels(["dump", "now"], storage);
+    expect(readPopupPanels(storage)).toBe("dump,now");
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
-    ).toEqual(["dump", "assistant"]);
+    ).toEqual(["dump", "now"]);
 
     writePopupPanels([], storage);
     expect(readPopupPanels(storage)).toBe("");
@@ -275,7 +255,7 @@ describe("popup panel storage", () => {
 
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
-    ).toEqual(["dump", "now", "assistant"]);
+    ).toEqual(["dump", "now"]);
     writePopupPanels(["now"], storage);
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
@@ -315,16 +295,16 @@ describe("popupPanelShortcut", () => {
     ...mods,
   });
 
-  it("maps \u23181, \u23182 and \u23183 to their panels in sidebar order", () => {
+  it("maps \u23181 and \u23182 to their panels in sidebar order", () => {
     expect(popupPanelShortcut(key("1"))).toBe("dump");
     expect(popupPanelShortcut(key("2"))).toBe("now");
-    expect(popupPanelShortcut(key("3"))).toBe("assistant");
+    expect(popupPanelShortcut(key("3"))).toBeNull();
     expect(popupPanelShortcut(key("4"))).toBeNull();
   });
 
   it("ignores held-key repeats and composition so one press is one toggle", () => {
     expect(popupPanelShortcut(key("1", { repeat: true }))).toBeNull();
-    expect(popupPanelShortcut(key("3", { isComposing: true }))).toBeNull();
+    expect(popupPanelShortcut(key("2", { isComposing: true }))).toBeNull();
   });
 
   it("stays out of other chords and plain typing", () => {
@@ -341,23 +321,11 @@ describe("popupPanelShortcut", () => {
   });
 });
 
-describe("popupAssistantMounted", () => {
-  it("mounts Chat once shown, then keeps it mounted while hidden", () => {
-    expect(popupAssistantMounted(["assistant"], false)).toBe(true);
-    expect(popupAssistantMounted(["dump", "assistant"], false)).toBe(true);
-    expect(popupAssistantMounted(["dump"], false)).toBe(false);
-    expect(popupAssistantMounted([], false)).toBe(false);
-    // Hidden after being shown: still mounted, so the chat keeps its activity.
-    expect(popupAssistantMounted(["dump"], true)).toBe(true);
-  });
-});
-
 describe("PopupPanelToggles", () => {
-  const ALL: PopupPanelId[] = ["dump", "now", "assistant"];
+  const ALL: PopupPanelId[] = ["dump", "now"];
   const toggleRefs = {
     dump: createRef<HTMLButtonElement>(),
     now: createRef<HTMLButtonElement>(),
-    assistant: createRef<HTMLButtonElement>(),
   };
   const render = (visible: PopupPanelId[]) =>
     renderToStaticMarkup(
@@ -373,8 +341,8 @@ describe("PopupPanelToggles", () => {
       ([, value]) => value === "true",
     );
 
-  it("reports each panel's own visibility for all eight combinations", () => {
-    for (let mask = 0; mask < 8; mask += 1) {
+  it("reports each panel's own visibility for all four combinations", () => {
+    for (let mask = 0; mask < 4; mask += 1) {
       const visible = ALL.filter((_, index) => mask & (1 << index));
       expect(pressedStates(render(visible))).toEqual(
         ALL.map((panel) => visible.includes(panel)),
@@ -389,8 +357,8 @@ describe("PopupPanelToggles", () => {
     expect(html).toContain('aria-keyshortcuts="Meta+1"');
     expect(html).toContain('title="Tasks and metrics (\u23182)"');
     expect(html).toContain('aria-keyshortcuts="Meta+2"');
-    expect(html).toContain('title="Chat assistant (\u23183)"');
-    expect(html).toContain('aria-keyshortcuts="Meta+3"');
+    expect(html).not.toContain("Chat assistant");
+    expect(html).not.toContain("Meta+3");
     expect(html).not.toContain('tabindex="-1"');
   });
 

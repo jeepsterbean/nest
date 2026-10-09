@@ -7,12 +7,12 @@ live in [`docs/editor.md`](./editor.md). Shared dashboard controls live in
 
 ## Capture
 
-Overview, the popup, and the Core Brain dump pane on Today share the text and
+The popup and the Core Brain dump pane on Today share the text and
 selected-tag draft (Cmd/Ctrl+Enter to save), persisted in `nest:brain-dump-draft`
 and `nest:brain-dump-draft-tags`. The Core Today composer header
-shows the current clock time, updating each minute. Shift+Enter on Overview or the Core
-Today composer peels the live draft into a floating sticky. Overview and the popup independently
-browse the five most recent saved dumps. Saved
+shows the current clock time, updating each minute. Shift+Enter on the Core
+Today composer peels the live draft into a floating sticky. The popup browses
+the five most recent saved dumps. Saved
 checklist boxes show their recorded state in history, Timeline, and Calendar Logs; edit the
 content by forking it into a draft.
 
@@ -42,12 +42,11 @@ sideways, and the `…` menu pinned at the right adds or removes Tags on that
 saved dump right away. A top-right control copies that dump into a new
 floating draft; the saved dump stays.
 Timeline can edit a saved dump's Tags, and fork a saved dump into a new unsaved
-floating draft (text and Tags). A saved brain dump being browsed in Overview
-can also be copied into a new floating draft.
+floating draft (text and Tags).
 
 ## Floating drafts
 
-Overview drafts and the Core Today composer can be peeled into movable floating
+The Core Today composer can be peeled into movable floating
 drafts (Shift+Enter, or the header control) and resized from their lower-right
 corner. Each draft has a paper color (paper, blush, sage, sky, or lilac) picked
 from swatches in its header; drafts persist in `nest:floating-brain-dumps`.

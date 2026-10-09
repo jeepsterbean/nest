@@ -33,20 +33,6 @@ export type TaskTableColumn = {
 /** Title names the row, so it stays visible. */
 export const canHideTaskTableColumn = (id: TaskTableColumnId) => id !== "title";
 
-/** Overview Tasks peek: Status, Title, Value, Effort — read-only, Open/Closed. */
-export const OVERVIEW_TASK_COLUMN_IDS: readonly TaskTableColumnId[] = [
-  "status",
-  "title",
-  "value",
-  "effort",
-];
-
-export const overviewTaskColumns = (): TaskTableColumn[] =>
-  OVERVIEW_TASK_COLUMN_IDS.map((id) => {
-    const column = TASK_TABLE_COLUMNS.find((item) => item.id === id)!;
-    return { id: column.id, label: column.label, width: column.width, minWidth: column.minWidth };
-  });
-
 const TASK_VIEW_KEY = "nest:task-view";
 const COLUMN_IDS = new Set<string>(TASK_TABLE_COLUMNS.map((column) => column.id));
 

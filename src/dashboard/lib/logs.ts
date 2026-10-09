@@ -41,7 +41,7 @@ export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }>
   {
     dumps: {
       title: "No brain dumps yet",
-      body: "Capture a thought from Overview or the popup.",
+      body: "Capture a thought from Brain dump or the popup.",
     },
     phases: {
       title: "No Phase changes yet",

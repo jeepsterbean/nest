@@ -9,10 +9,9 @@ diagnosis, and manual regression checks. Domain words live in
 
 `BrainDumpSurface` is the only component that mounts several times on one
 screen and reaches for browser singletons, which is what turns its bugs into
-cross-instance ones. Four kinds of instance exist: the Overview `brainDump`
-tile, the Core Brain dump pane composer on Today, one per expanded
-`.floating-brain-dump` sticky, and the popup composer. Overview unmounts while
-Core is showing, so those two dashboard composers are never live together. Each
+cross-instance ones. Three kinds of instance exist: the Core Brain dump pane
+composer on Today, one per expanded `.floating-brain-dump` sticky, and the
+popup composer. Each
 owns a separate TipTap editor with its own document, selection, and undo stack;
 there is no active-editor registry, and focus moves natively.
 
@@ -32,9 +31,8 @@ Process-wide resources it touches:
 - Document-level capture listeners for `pointerdown` and `focusin`, one per
   surface with `dismissPopupsOnOutsideInteraction`. Each fires for clicks
   landing in every other surface.
-- `window` `keydown`, from `useRecentBrainDumpHistory`: Cmd/Ctrl+[ and ] are
-  global and navigate the Overview dump's history even while a sticky is
-  focused.
+- `window` `keydown`, from `useRecentBrainDumpHistory`: in the popup,
+  Cmd/Ctrl+[ and ] are global and navigate the popup dump's history.
 
 Invariants that are easy to break:
 
@@ -86,7 +84,7 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
 ## Diagnosing caret and focus bugs
 
 - First decide whether it is one surface or many: hide the stickies with
-  `.floating-brain-dumps-toggle` so the Overview dump is the only live editor,
+  `.floating-brain-dumps-toggle` so the Core Today composer is the only live editor,
   then retry. A symptom that survives is local; one that disappears is a
   cross-instance problem with a browser singleton.
 - Note whether the caret dies on a click that moves focus or on a click inside
@@ -125,11 +123,11 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
   CSS rather than at handlers.
 - A caret missing only on an empty first line, with the editor still focused,
   is that paint clip: `.brain-dump-surface__editor` uses `overflow-x: hidden`,
-  and the overview layout (Overview tile and the Core Today composer) otherwise
-  zeros input padding. Keep 1px of horizontal padding on
-  `.brain-dump-surface--overview .brain-dump-surface__input`, and a line-box
+  and the panel layout of the Core Today composer otherwise zeros input
+  padding. Keep 1px of horizontal padding on
+  `.brain-dump-surface--panel .brain-dump-surface__input`, and a line-box
   `min-height` on the empty first `p`.
-- The Core Today composer is the same `layout="overview"` surface. Do not give
+- The Core Today composer is the `layout="panel"` surface. Do not give
   its Tag strip `margin-top: auto` — that opens a dead zone under a one-line
   editor, so a click in the card looks focused while the caret sits under the
   clock. Pin the strip with `margin: 0 -18px -18px` and let the input grow.
@@ -140,7 +138,7 @@ After changing `BrainDumpSurface` or its editor helpers, run the frontend
 checks in [AGENTS.md](../AGENTS.md#verification) and this manual pass in Nest's
 native Tauri/WKWebView environment:
 
-1. Two stickies plus the Overview dump open; click into each and type. The
+1. Two stickies plus the Core Today composer open; click into each and type. The
    caret lands every time.
 2. Click twice inside one editor. The caret lands where clicked.
 3. Select text, press B, then click outside. The formatting menu closes.

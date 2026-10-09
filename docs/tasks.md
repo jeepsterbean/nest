@@ -4,8 +4,8 @@ Day, Table, and Map behavior. Domain words live in [`CONTEXT.md`](../CONTEXT.md)
 Shared dashboard controls live in [`UI.md`](../UI.md); non-obvious CSS
 constraints are commented beside their rules in `src/dashboard/styles/`.
 
-The Tasks pane icon is picked from the Core sidebar and also heads the Overview
-Tasks tile. The Core Section icon is picked separately on the main Sidebar.
+The Tasks pane icon is picked from the Core sidebar and also marks Task
+events in Logs. The Core Section icon is picked separately on the main Sidebar.
 
 ## Day
 
@@ -60,8 +60,10 @@ views are already saved. A save or new view whose query matches another view
 is refused with a link to switch to that one. Custom rows reveal Rename and Delete on hover or focus; Delete
 confirms inline, and deleting the selected view loads Raw. Saved views and the selected view
 are remembered across launches (`nest:task-table-views`); unsaved changes are not. When a view's Scope
-or Parent no longer exists, that filter is dropped once Tasks load, which
-marks the view edited until it is saved or reverted. Views apply to the Table
+or Parent no longer exists, that filter is dropped from the live query once
+Tasks load. The saved view is left unchanged, so the picker shows Save and
+Revert until the view is saved (Revert restores the missing filter, which is
+then dropped again). Views apply to the Table
 only: the Map is never filtered, and its composer adds unscoped Tasks.
 
 The header holds Day / Table / Map. Sorting and filtering live in column-header

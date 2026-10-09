@@ -35,7 +35,7 @@ export function BackgroundView() {
   };
 
   return (
-    <div className="settings-pane settings-pane--background background-settings">
+    <div className="background-settings">
       <div className="background-settings__preview">
         <AmbientVisualizer active style={draftStyle} tuning={draftTuning} />
       </div>

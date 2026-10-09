@@ -1,5 +1,4 @@
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { SIMPLIFIED_VIEW } from "../lib/simplifiedView";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardDataProvider, useDashboardData } from "./context/DashboardDataContext";
@@ -7,26 +6,20 @@ import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext"
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import { AmbientVisualizer } from "./components/AmbientVisualizer";
 import {
-  DashboardHeader,
   DashboardSidebar,
   type DashboardView,
-} from "./components/DashboardHeader";
+} from "./components/DashboardSidebar";
 import { CorePaneSidebar } from "./components/CorePaneSidebar";
-import { OverviewLayoutSidebar } from "./components/OverviewLayoutSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
 import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
-import { OverviewView } from "./views/OverviewView";
 import { CalendarView } from "./views/CalendarView";
 import { TimelineView } from "./views/TimelineView";
 import { CoreView } from "./views/CoreView";
-import { SettingsView } from "./views/SettingsView";
-import { AssistantView } from "./views/AssistantView";
 import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
 import {
-  openLastHourOnCalendar,
   readCalendarPresentation,
   writeCalendarFigure,
   writeCalendarPresentation,
@@ -35,17 +28,11 @@ import {
 import { useCalendarRange } from "./hooks/useCalendarRange";
 import { LOGS_CALENDAR_RANGE_STORE } from "./lib/logs";
 import { phaseName, phaseTone } from "./lib/period";
-import { useOverviewLayout } from "./lib/overviewGrid";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
-  const [selectedView, setView] = useState<DashboardView>(
-    SIMPLIFIED_VIEW ? "calendar" : "overview",
-  );
-  const view = SIMPLIFIED_VIEW && selectedView !== "calendar" && selectedView !== "core"
-    ? "calendar"
-    : selectedView;
+  const [view, setView] = useState<DashboardView>("calendar");
   const [calendarPresentation, setCalendarPresentation] =
     useState<CalendarPresentation>(readCalendarPresentation);
   const calendarRange = useCalendarRange();
@@ -62,12 +49,6 @@ function DashboardInner() {
     },
     [],
   );
-  const overviewLayout = useOverviewLayout();
-  const [overviewSettingsOpen, setOverviewSettingsOpen] = useState(false);
-  const closeOverviewSettings = useCallback(
-    () => setOverviewSettingsOpen(false),
-    [],
-  );
   const { phases, latestPhase } = useDashboardData();
   const backgroundStyle = useBackgroundStyle();
   const backgroundTuning = useBackgroundTuning();
@@ -77,18 +58,10 @@ function DashboardInner() {
   const isDoing = currentPhaseName
     ? phaseTone(currentPhaseName) === "doing"
     : false;
-  // During Doing, Overview drops the Greetings board so the ambient work
-  // surface takes the top of the content area. Timer stays on the Popup.
-  const showGreetings = view === "overview" && !isDoing;
   // Core panes reuse the layout rules written for their former Sections.
-  const surface =
-    view === "core"
-      ? corePane
-      : view === "calendar"
-        ? calendarPresentation
-        : view;
+  const surface = view === "core" ? corePane : calendarPresentation;
   const hasRangeSidebar = view === "calendar";
-  const hasSectionSidebar = view === "core" || view === "overview" || hasRangeSidebar;
+  const hasSectionSidebar = view === "core" || hasRangeSidebar;
   const [rangeSidebarTarget, setRangeSidebarTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -130,41 +103,14 @@ function DashboardInner() {
         {view === "core" && (
           <CorePaneSidebar pane={corePane} onSelectPane={selectCorePane} />
         )}
-        {view === "overview" && <OverviewLayoutSidebar {...overviewLayout} />}
         {hasRangeSidebar && <aside className="section-sidebar range-sidebar" ref={setRangeSidebarTarget} />}
         <div
           className={`dashboard__inner dashboard__inner--${surface}${
             view === "core" ? " dashboard__inner--core" : ""
-          }${showGreetings ? "" : " dashboard__inner--no-greetings"}`}
+          }`}
         >
-          {showGreetings && (
-            <DashboardHeader
-              overviewSettings={{
-                open: overviewSettingsOpen,
-                onToggle: () => setOverviewSettingsOpen((open) => !open),
-              }}
-            />
-          )}
-
           <ErrorBanner />
 
-          {view === "overview" && (
-            <OverviewView
-              onOpenTasks={() => {
-                selectCorePane("tasks");
-                setView("core");
-              }}
-              onOpenLastHour={() => {
-                openLastHourOnCalendar();
-                calendarRange.selectMode("lastHour");
-                selectCalendarPresentation("calendar");
-                setView("calendar");
-              }}
-              overviewLayout={overviewLayout}
-              settingsOpen={overviewSettingsOpen}
-              onCloseSettings={closeOverviewSettings}
-            />
-          )}
           {view === "calendar" && calendarPresentation === "calendar" && (
             <CalendarView
               sidebarTarget={rangeSidebarTarget}
@@ -190,8 +136,6 @@ function DashboardInner() {
           {view === "core" && (
             <CoreView pane={corePane} />
           )}
-          {view === "assistant" && <AssistantView onOpenSettings={() => setView("settings")} />}
-          {view === "settings" && <SettingsView />}
         </div>
         <ScopeMenu />
         <StatusMenu />
