@@ -2,12 +2,14 @@
 
 Stickies, Note Board, saved-dump browsing, and Tags. Domain words live in
 [`CONTEXT.md`](../CONTEXT.md). Editor ownership, caret, and TipTap behavior
-live in [`docs/editor.md`](./editor.md). CSS hooks live in [`UI.md`](../UI.md).
+live in [`docs/editor.md`](./editor.md). Shared dashboard controls live in
+[`UI.md`](../UI.md).
 
 ## Capture
 
 Overview, the popup, and the Core Brain dump pane on Today share the text and
-selected-tag draft (Cmd/Ctrl+Enter to save). The Core Today composer header
+selected-tag draft (Cmd/Ctrl+Enter to save), persisted in `nest:brain-dump-draft`
+and `nest:brain-dump-draft-tags`. The Core Today composer header
 shows the current clock time, updating each minute. Shift+Enter on Overview or the Core
 Today composer peels the live draft into a floating sticky. Overview and the popup independently
 browse the five most recent saved dumps. Saved
@@ -47,7 +49,8 @@ can also be copied into a new floating draft.
 
 Overview drafts and the Core Today composer can be peeled into movable floating
 drafts (Shift+Enter, or the header control) and resized from their lower-right
-corner.
+corner. Each draft has a paper color (paper, blush, sage, sky, or lilac) picked
+from swatches in its header; drafts persist in `nest:floating-brain-dumps`.
 
 ## Note Board
 
@@ -59,7 +62,8 @@ target. While the draft is held over the expanded board, the sticky itself is
 hidden and a preview row appears in the list. Dragging a row out restores the
 draft as a free sticky at the drop point, still expanded or minimised as it
 was, snapped fully on screen. The board itself can be minimised to a single
-row labelled Note Board, which counts the rows it is hiding. Hiding stickies
+row labelled Note Board, which counts the rows it is hiding. Its geometry persists in
+`nest:floating-note-board`. Hiding stickies
 still only hides free drafts; docked rows stay in the board.
 
 ## Tags

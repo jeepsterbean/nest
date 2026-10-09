@@ -908,6 +908,7 @@
   text-overflow: ellipsis;
 }
 
+/* Keeps the Working now badge visible when the title truncates. */
 .task-table__title .working-badge {
   flex: none;
 }

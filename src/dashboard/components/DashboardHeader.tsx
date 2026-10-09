@@ -15,7 +15,12 @@ import {
   INITIAL_TYPEWRITER_FRAME,
   TYPEWRITER_CYCLE_MS,
 } from "../lib/typewriter";
-import { formatTimerCountdown, greetingForHour, TIMER_INTERVALS, isTimerDue } from "../lib/time";
+import { greetingForHour } from "../lib/time";
+import {
+  formatTimerCountdown,
+  isTimerDue,
+  TIMER_INTERVALS,
+} from "../../lib/timer";
 import { phaseColor, phaseIcon, phaseName } from "../lib/period";
 import { IconPickerButton, NestIcon } from "./PulseIcon";
 import { chevronDownIcon, clockIcon, settingsIcon } from "./icons";

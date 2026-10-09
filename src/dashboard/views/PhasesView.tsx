@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#phases-pane
 import type { CSSProperties } from "react";
 import { NestIcon } from "../components/PulseIcon";
 import { useDashboardData } from "../context/DashboardDataContext";

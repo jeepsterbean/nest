@@ -35,7 +35,7 @@ fn validate_timer_interval(minutes: i64) -> Result<i64> {
     Ok(minutes)
 }
 
-// Cadence of the recurring popup. At zero it pauses until an interval pick.
+// Recurring Timer cadence. At zero it pauses until an interval pick.
 pub struct Timer {
     pub interval_minutes: i64,
     pub next_due_at: i64,

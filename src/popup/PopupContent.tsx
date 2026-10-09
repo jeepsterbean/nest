@@ -38,12 +38,6 @@ import type {
   Task,
   Tag,
 } from "../lib/types";
-import {
-  formatTimerCountdown,
-  timerRemainingSeconds,
-  TIMER_INTERVALS,
-  isTimerDue,
-} from "../dashboard/lib/time";
 import { phaseName, phaseTone } from "../dashboard/lib/period";
 import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
@@ -73,7 +67,9 @@ import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { DashboardDataProvider } from "../dashboard/context/DashboardDataContext";
 import { AssistantView } from "../dashboard/views/AssistantView";
-import { startPopupWindowDrag } from "./windowDrag";
+import { shouldDismissOnPointerDown } from "./overlay";
+import { PopupTimerBar } from "./PopupTimerBar";
+import { isPopupWindowDragTarget, startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 import "../dashboard/styles/shared-controls.css";
 import "../dashboard/styles/assistant.css";
@@ -175,19 +171,6 @@ function ExpandIcon() {
         strokeWidth="1.8"
       />
     </svg>
-  );
-}
-
-/** Empty timer chrome may move the window; controls inside it must not. */
-export function isPopupWindowDragTarget(target: EventTarget | null): boolean {
-  if (
-    target == null ||
-    typeof (target as { closest?: unknown }).closest !== "function"
-  ) {
-    return false;
-  }
-  return !(target as Element).closest(
-    "button, [role='listbox'], a, input, textarea",
   );
 }
 
@@ -304,76 +287,22 @@ export function popupPanelShortcut(
   return POPUP_PANELS.find((panel) => panel.shortcutKey === event.key)?.id ?? null;
 }
 
-/** Close an open overlay when the pointer lands outside its keep-alive root. */
-export function shouldDismissOnPointerDown(
-  open: boolean,
-  target: EventTarget | null,
-  keepInsideSelector: string,
-): boolean {
-  if (
-    !open ||
-    target == null ||
-    typeof (target as { closest?: unknown }).closest !== "function"
-  ) {
-    return false;
-  }
-  return !(target as Element).closest(keepInsideSelector);
-}
-
-/** Ignore re-render blurs (relatedTarget is null); close when focus actually left. */
-export function shouldCloseOverlayOnFocusLeave(
-  currentTarget: EventTarget | null,
-  relatedTarget: EventTarget | null,
-): boolean {
-  if (relatedTarget == null) return false;
-  if (
-    currentTarget == null ||
-    typeof (currentTarget as { contains?: unknown }).contains !== "function"
-  ) {
-    return true;
-  }
-  return !(currentTarget as Node).contains(relatedTarget as Node);
-}
-
-export function PopupTopPanel({
-  timerDue,
-  countdown,
-  remainingRatio,
-  timerPickerOpen,
-  schedulingTimer,
-  selectedInterval,
+function PopupHeader({
+  timer,
+  nowMs,
   timerButtonRef,
-  onTimerPickerOpenChange,
   onSelectInterval,
   onOpenDashboard,
 }: {
-  timerDue: boolean;
-  countdown: string;
-  /** Remaining share of the current interval, 0–1. Hidden at 0. */
-  remainingRatio: number;
-  timerPickerOpen: boolean;
-  schedulingTimer: boolean;
-  selectedInterval: number;
+  timer: TimerState;
+  nowMs: number;
   timerButtonRef: RefObject<HTMLButtonElement | null>;
-  onTimerPickerOpenChange: (open: boolean) => void;
-  onSelectInterval: (minutes: number) => void;
+  onSelectInterval: (minutes: number) => Promise<void>;
   onOpenDashboard: () => void;
 }) {
-  const [pendingInterval, setPendingInterval] = useState<number | null>(null);
-  const displayedInterval = pendingInterval ?? selectedInterval;
-
-  useEffect(() => {
-    if (!timerPickerOpen) setPendingInterval(null);
-  }, [timerPickerOpen]);
-
-  const moveTimerSelection = (direction: -1 | 1) => {
-    setPendingInterval(adjacentTimerInterval(displayedInterval, direction));
-    onTimerPickerOpenChange(true);
-  };
-
   return (
     <header
-      className={timerDue ? "combined-timer combined-timer--due" : "combined-timer"}
+      className="popup-header"
       onPointerDown={(event) => {
         if (event.button !== 0 || !isPopupWindowDragTarget(event.target)) {
           return;
@@ -381,110 +310,23 @@ export function PopupTopPanel({
         startPopupWindowDrag();
       }}
     >
-      <div
-        className="combined-timer__main"
-        onBlur={(event) => {
-          if (
-            shouldCloseOverlayOnFocusLeave(
-              event.currentTarget,
-              event.relatedTarget,
-            )
-          ) {
-            setPendingInterval(null);
-            onTimerPickerOpenChange(false);
-          }
-        }}
-      >
-        {/* The picker positions against the trigger, so it drops just below. */}
-        <div className="combined-timer__anchor">
-          <button
-            ref={timerButtonRef}
-            type="button"
-            className="combined-timer__trigger"
-            aria-haspopup="listbox"
-            aria-expanded={timerPickerOpen}
-            aria-label={timerDue ? "Timer" : `Timer, ${countdown}`}
-            disabled={schedulingTimer}
-            onClick={() => onTimerPickerOpenChange(!timerPickerOpen)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                event.preventDefault();
-                moveTimerSelection(event.key === "ArrowDown" ? 1 : -1);
-              } else if (event.key === "Enter" && pendingInterval !== null) {
-                event.preventDefault();
-                onSelectInterval(pendingInterval);
-                setPendingInterval(null);
-              } else if (event.key === "Escape") {
-                event.preventDefault();
-                setPendingInterval(null);
-                onTimerPickerOpenChange(false);
-              }
-            }}
-          >
-            <strong className="combined-timer__value" role="timer">
-              {countdown}
-            </strong>
-            <span className="combined-timer__interval">
-              {selectedInterval} min
-            </span>
-          </button>
-          {timerPickerOpen && (
-            <div
-              className="combined-timer__picker"
-              role="listbox"
-              aria-label="Start timer"
-            >
-              {TIMER_INTERVALS.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  tabIndex={-1}
-                  role="option"
-                  aria-selected={displayedInterval === minutes}
-                  disabled={schedulingTimer}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onSelectInterval(minutes)}
-                >
-                  {minutes} min
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <PopupTimerBar
+        timer={timer}
+        nowMs={nowMs}
+        timerButtonRef={timerButtonRef}
+        onSelectInterval={onSelectInterval}
+      />
       <button
         type="button"
-        className="combined-dashboard-link"
+        className="popup-dashboard-link"
         aria-label="Open dashboard"
         title="Open dashboard"
         onClick={onOpenDashboard}
       >
         <ExpandIcon />
       </button>
-      <span className="combined-timer__track" aria-hidden="true">
-        {remainingRatio > 0 && (
-          <span
-            className="combined-timer__sweep"
-            style={{ transform: `scaleX(${remainingRatio})` }}
-          />
-        )}
-      </span>
     </header>
   );
-}
-
-export function adjacentTimerInterval(current: number, direction: -1 | 1) {
-  const currentIndex = TIMER_INTERVALS.findIndex(
-    (interval) => interval === current,
-  );
-  const nextIndex = Math.max(
-    0,
-    Math.min(
-      TIMER_INTERVALS.length - 1,
-      (currentIndex < 0 ? 0 : currentIndex) + direction,
-    ),
-  );
-  return TIMER_INTERVALS[nextIndex];
 }
 
 /** Sidebar of independent panel toggles; several can be pressed at once. */
@@ -630,8 +472,6 @@ function PopupContent({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [timerPickerOpen, setTimerPickerOpen] = useState(false);
-  const [schedulingTimer, setSchedulingTimer] = useState(false);
   // Per-summon remount: the combination comes from the saved preference, the
   // same for a manual summon and a Timer-triggered one.
   const [visiblePanels, setVisiblePanels] = useState<PopupPanelId[]>(() =>
@@ -697,7 +537,6 @@ function PopupContent({
   const hiddenPulseIds = readHiddenPulseIds();
   const visiblePulses =
     loaded?.pulses.filter((pulse) => !hiddenPulseIds.has(pulse.id)) ?? [];
-  const timerDue = loaded !== null && isTimerDue(loaded.timer, nowMs);
   const tasksByStatus = groupTasksByStatus(loaded?.tasks ?? []);
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
@@ -879,19 +718,19 @@ function PopupContent({
   };
 
   const applyTimer = async (minutes: number) => {
-    if (schedulingTimer) return;
-    setSchedulingTimer(true);
     setError(null);
     try {
       const timer = await startTimer(minutes);
       setLoaded((current) => (current ? { ...current, timer } : current));
       setNowMs(Date.now());
-      setTimerPickerOpen(false);
+    } catch (e) {
+      setError(String(e));
+      throw e;
+    }
+    try {
       await emit("data-changed");
     } catch (e) {
       setError(String(e));
-    } finally {
-      setSchedulingTimer(false);
     }
   };
 
@@ -1411,16 +1250,6 @@ function PopupContent({
     </section>
   );
 
-  const countdown = timerDue
-    ? "0:00"
-    : formatTimerCountdown(loaded.timer.nextDueAt, nowMs);
-  const remainingRatio = timerDue
-    ? 0
-    : Math.min(
-        1,
-        timerRemainingSeconds(loaded.timer.nextDueAt, nowMs) /
-          (loaded.timer.intervalMinutes * 60),
-      );
   return (
     <div
       className="popup-workspace"
@@ -1432,21 +1261,10 @@ function PopupContent({
           : "48px",
       }}
       onPointerDownCapture={(event) => {
-        const target = event.target;
-        // Anchor (circle + list), not full-height __main — clock chrome counts as away.
-        if (
-          shouldDismissOnPointerDown(
-            timerPickerOpen,
-            target,
-            ".combined-timer__anchor",
-          )
-        ) {
-          setTimerPickerOpen(false);
-        }
         if (
           shouldDismissOnPointerDown(
             addingTask,
-            target,
+            event.target,
             ".now-task--composer, .now-group__add",
           )
         ) {
@@ -1454,16 +1272,11 @@ function PopupContent({
         }
       }}
     >
-      <PopupTopPanel
-        timerDue={timerDue}
-        countdown={countdown}
-        remainingRatio={remainingRatio}
-        timerPickerOpen={timerPickerOpen}
-        schedulingTimer={schedulingTimer}
-        selectedInterval={loaded.timer.intervalMinutes}
+      <PopupHeader
+        timer={loaded.timer}
+        nowMs={nowMs}
         timerButtonRef={timerButtonRef}
-        onTimerPickerOpenChange={setTimerPickerOpen}
-        onSelectInterval={(minutes) => void applyTimer(minutes)}
+        onSelectInterval={applyTimer}
         onOpenDashboard={() => void openDashboard()}
       />
 

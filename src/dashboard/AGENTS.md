@@ -24,8 +24,9 @@ then only the surface document it routes for the task.
   `styles/` define the cascade. Extend the existing surface stylesheet and
   class pattern.
 - Read `.agents/standards/ui-standards.md` and `.impeccable.md` before visual
-  changes, then use the relevant heading in `UI.md` for concrete component,
-  class, storage-key, and layout constraints.
+  changes. `UI.md` covers shared controls and cross-surface rules; a surface's
+  storage keys live in its `docs/` file, and non-obvious class or layout
+  constraints are commented beside their rules in `styles/`.
 - Preserve accessible names, keyboard interaction, visible focus, drafts, and
   narrow-width behavior.
 - Reuse shared controls and icons before adding another implementation. Do not
@@ -35,8 +36,10 @@ then only the surface document it routes for the task.
 
 - Use `CONTEXT.md` vocabulary in user-facing copy and types.
 - Prefer the shared formatters in `lib/time.ts` for dashboard dates and times.
-- Keep Day, Table, and Map behavior in `docs/tasks.md`, time-surface behavior in
-  `docs/time-surfaces.md`, and Brain dump behavior in `docs/brain-dump.md`.
+- Keep Day, Table, and Map behavior in `docs/tasks.md`, Calendar behavior in
+  `docs/calendar.md`, Overview behavior in `docs/overview.md`, rules shared by
+  time surfaces in `docs/time-surfaces.md`, Metrics behavior in `docs/metrics.md`, and Brain dump
+  behavior in `docs/brain-dump.md`.
 - For editor selection, focus, draft synchronization, TipTap, or ProseMirror,
   follow `.agents/skills/brain-dump-text-editor/SKILL.md`.
 

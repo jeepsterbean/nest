@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/overview.md
 import { useCallback, useEffect, useState } from "react";
 
 export const COLS = 12;
@@ -103,6 +104,7 @@ export const TILE_RULES: Record<TileId, TileRules> = {
     minimisedH: 1,
   },
   metrics: {
+    // Scoring needs a fixed 4x2; a swap is refused until the board has slack.
     resizable: false,
     minimisable: false,
     fixed: { w: 4, h: 2 },

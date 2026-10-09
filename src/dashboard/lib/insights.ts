@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#insights
 import type {
   BrainDump,
   Metric,

@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#range-sidebar
 import { useMemo, useState } from "react";
 import {
   insightColumns,

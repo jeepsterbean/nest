@@ -11,7 +11,7 @@ actionable items. When empty, there is no known backend work queued.
 - [ ] Define and align Last hour refresh behavior across Calendar, Timeline,
   and Insights. Calendar and Timeline bounds follow the minute clock; Insights uses
   wall-clock ends for fresh dumps and Metric check-ins. Preserve prompt visibility
-  of saved records and update `docs/time-surfaces.md` to describe the chosen
+  of saved records and update `docs/calendar.md` and `docs/time-surfaces.md` to describe the chosen
   behavior consistently.
 - [ ] Verify and resolve compact Overview sidebar prompt overlap at widths of
   860px or less. Save/Revert and switch confirmation are positioned relative to

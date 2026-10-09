@@ -22,5 +22,5 @@ stickies, and the Popup while keeping the shared draft synchronized.
 
 Read the Brain dump and Tag definitions in `CONTEXT.md` and
 [docs/brain-dump.md](../../../docs/brain-dump.md) when changing capture,
-history, or draft behavior. Read `.impeccable.md` and relevant `UI.md`
-sections when changing presentation.
+history, or draft behavior. Read `.impeccable.md` and `UI.md` when changing
+presentation.

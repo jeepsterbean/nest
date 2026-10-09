@@ -19,14 +19,16 @@ reference by default.
 | Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | Tasks table or Map | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Timeline, or Phases | `docs/time-surfaces.md` |
-| Metrics section, Pulses, or Metric check-in behavior | `CONTEXT.md`, `UI.md` |
-| Timer or Popup | `docs/timer-popup.md` |
+| Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
+| Overview tiles, saved layouts, or `SIMPLIFIED_VIEW` | `docs/overview.md`, then `docs/time-surfaces.md` |
+| Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
+| Timer | `docs/timer.md` |
+| Popup | `docs/popup.md` |
 | Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
 | Assistant, chat context, or OpenAI IPC | `docs/assistant-context.md` |
 | Reminders, Greetings board, Sidebar, or Settings panes | `CONTEXT.md`, `UI.md` |
-| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, then relevant `UI.md` sections |
+| Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
 ## Which Nest doc to edit
@@ -35,13 +37,17 @@ reference by default.
 |-------------|------|
 | Product language, lifecycle invariants | `CONTEXT.md` |
 | Tasks table / Map behavior | `docs/tasks.md` |
-| Overview, Calendar (and its Insights), Timeline, Phases | `docs/time-surfaces.md` |
-| Metrics section chrome, Pulses / Metrics panes | `UI.md`, `CONTEXT.md` |
-| Timer / Popup | `docs/timer-popup.md` |
+| Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
+| Overview | `docs/overview.md` |
+| Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
+| Metrics pane behavior | `docs/metrics.md` |
+| Timer | `docs/timer.md` |
+| Popup | `docs/popup.md` |
 | Brain dump capture / Note Board | `docs/brain-dump.md` |
 | Assistant context assembly | `docs/assistant-context.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
-| CSS hooks, component constraints, layout constants | `UI.md` |
+| Shared dashboard controls, shell, cross-surface UI rules | `UI.md` |
+| Non-obvious CSS or layout constraint | comment beside the rule |
 | Brain dump editor invariants or library behavior | `docs/editor.md` |
 | Closing, parking, or adding durable product work | `BACKLOG-FEATURE-REQUESTS.md` |
 | Engineering backlog | `BACKLOG-BACKEND.md` |
@@ -68,7 +74,7 @@ each fact in its closest authoritative source and link to it elsewhere.
 - `SIMPLIFIED_VIEW` in `src/lib/simplifiedView.ts` is currently `true`, which
   hides the Overview, Assistant, and Settings Sections and starts the dashboard
   on Calendar. Changes to those Sections stay invisible until it is `false`.
-  Scope and restore behavior: `docs/time-surfaces.md`.
+  Scope and restore behavior: `docs/overview.md#simplified-view`.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,

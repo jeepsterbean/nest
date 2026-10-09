@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#calendar
 import {
   useCallback,
   useEffect,

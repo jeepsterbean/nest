@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#phases-pane
 import type { Phase } from "../../lib/types";
 
 type PhaseGuideEntry = { name: string; meaning: string };

@@ -1,3 +1,4 @@
+// Behavior and invariants: docs/calendar.md#timeline
 import { memo, useMemo, type CSSProperties } from "react";
 import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";

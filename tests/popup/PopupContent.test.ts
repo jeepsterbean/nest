@@ -1,28 +1,31 @@
-import { createElement, createRef, type ComponentProps } from "react";
+import { createElement, createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/popup/windowDrag", () => ({
-  startPopupWindowDrag: vi.fn(),
-}));
+vi.mock("../../src/popup/windowDrag", async () => {
+  const actual = await vi.importActual<typeof import("../../src/popup/windowDrag")>(
+    "../../src/popup/windowDrag",
+  );
+  return { ...actual, startPopupWindowDrag: vi.fn() };
+});
 vi.mock("../../src/lib/simplifiedView", () => ({ SIMPLIFIED_VIEW: false }));
 
 import {
-  adjacentTimerInterval,
   initialPopupPanels,
-  isPopupWindowDragTarget,
   popupAssistantMounted,
   popupPanelShortcut,
   PopupPanelToggles,
-  PopupTopPanel,
   readLastPopupTab,
   readPopupPanels,
-  shouldCloseOverlayOnFocusLeave,
-  shouldDismissOnPointerDown,
   togglePopupPanel,
   writePopupPanels,
 } from "../../src/popup/PopupContent";
 import type { PopupPanelId } from "../../src/popup/PopupContent";
+import {
+  shouldCloseOverlayOnFocusLeave,
+  shouldDismissOnPointerDown,
+} from "../../src/popup/overlay";
+import { isPopupWindowDragTarget } from "../../src/popup/windowDrag";
 import { DEFAULT_TILE_ICONS } from "../../src/dashboard/lib/tileIcons";
 import {
   firstScorablePulse,
@@ -39,52 +42,6 @@ const pulse = (id: number, metricIds: number[]): Pulse => ({
   metricIds,
 });
 
-const props: ComponentProps<typeof PopupTopPanel> = {
-  timerDue: true,
-  countdown: "0:00",
-  remainingRatio: 0,
-  timerPickerOpen: true,
-  schedulingTimer: false,
-  selectedInterval: 15,
-  timerButtonRef: createRef(),
-  onTimerPickerOpenChange: vi.fn(),
-  onSelectInterval: vi.fn(),
-  onOpenDashboard: vi.fn(),
-};
-
-describe("PopupTopPanel", () => {
-  it("starts a new timer from the clock when the timer is due", () => {
-    const html = renderToStaticMarkup(createElement(PopupTopPanel, props));
-
-    expect(html).toContain('aria-label="Timer"');
-    expect(html).toContain("0:00");
-    expect(html).toContain('aria-label="Start timer"');
-    expect(html).toContain("15 min");
-    expect(html).toContain('tabindex="-1"');
-    // Picker must sit inside the circle anchor, not under full-height __main
-    // (that places it below the popup viewport where overflow clips it).
-    expect(html).toMatch(
-      /combined-timer__anchor[\s\S]*combined-timer__picker[\s\S]*15 min/,
-    );
-    expect(html).not.toContain("combined-timer__sweep");
-  });
-
-  it("draws the remaining sweep while the timer is running", () => {
-    const html = renderToStaticMarkup(
-      createElement(PopupTopPanel, {
-        ...props,
-        timerDue: false,
-        countdown: "7:30",
-        remainingRatio: 0.5,
-        timerPickerOpen: false,
-      }),
-    );
-
-    expect(html).toContain("combined-timer__sweep");
-    expect(html).toContain("7:30");
-  });
-});
-
 describe("shouldDismissOnPointerDown", () => {
   const target = (matches: string | null) =>
     ({
@@ -94,14 +51,10 @@ describe("shouldDismissOnPointerDown", () => {
 
   it("dismisses open overlays only when the pointer is outside their root", () => {
     expect(
-      shouldDismissOnPointerDown(true, target(null), ".combined-timer__anchor"),
+      shouldDismissOnPointerDown(true, target(null), ".overlay-root"),
     ).toBe(true);
     expect(
-      shouldDismissOnPointerDown(
-        true,
-        target("combined-timer__anchor"),
-        ".combined-timer__anchor",
-      ),
+      shouldDismissOnPointerDown(true, target("overlay-root"), ".overlay-root"),
     ).toBe(false);
     expect(
       shouldDismissOnPointerDown(
@@ -118,7 +71,7 @@ describe("shouldDismissOnPointerDown", () => {
       ),
     ).toBe(false);
     expect(
-      shouldDismissOnPointerDown(false, target(null), ".combined-timer__anchor"),
+      shouldDismissOnPointerDown(false, target(null), ".overlay-root"),
     ).toBe(false);
   });
 });
@@ -138,15 +91,6 @@ describe("shouldCloseOverlayOnFocusLeave", () => {
         current,
       ),
     ).toBe(false);
-  });
-});
-
-describe("adjacentTimerInterval", () => {
-  it("moves between timer values and stops at either end", () => {
-    expect(adjacentTimerInterval(15, 1)).toBe(20);
-    expect(adjacentTimerInterval(15, -1)).toBe(10);
-    expect(adjacentTimerInterval(30, 1)).toBe(30);
-    expect(adjacentTimerInterval(5, -1)).toBe(5);
   });
 });
 
