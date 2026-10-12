@@ -7,6 +7,7 @@ import {
   writeRecapDateRangeMode,
   writeInsightLastHour,
   type RecapDateRangeStore,
+  type RecapPresentation,
   type RangeModeKey,
 } from "../lib/insights";
 import { startOfDayMs } from "../lib/time";
@@ -17,17 +18,21 @@ const recapDateRangeStore: RecapDateRangeStore = {
   write: (mode) => writeRecapDateRangeMode(mode),
 };
 
-/** Day / Week for the whole Recap Section. Calendar and Timeline share the
- * selected day. Last hour is an Insights window on today: choosing it lands
- * on today in Day, and leaving that day or opening Week drops it so the grid
- * and the panel stay on the same range. */
+/** The Recap Section's date range. Day / Week belongs to Calendar; Timeline
+ * always reads the selected day and leaves Calendar's choice stored, so
+ * returning to Calendar reopens the week that contains that day. Last hour is
+ * an Insights window on today: choosing it lands on today in Day, and leaving
+ * that day or opening Week drops it so the grid and the panel stay on the
+ * same range. */
 export function useRecapDateRange(
+  presentation: RecapPresentation,
   store: RecapDateRangeStore = recapDateRangeStore,
 ) {
   const [lastHour, setLastHour] = useState(readInsightLastHour);
-  const [mode, setMode] = useState<RangeModeKey>(() =>
+  const [calendarMode, setMode] = useState<RangeModeKey>(() =>
     readInsightLastHour() ? "day" : store.read(),
   );
+  const mode = presentation === "timeline" ? "day" : calendarMode;
   const dates = useDateRange(mode);
   const lastHourRef = useRef(lastHour);
   lastHourRef.current = lastHour;
@@ -100,6 +105,7 @@ export function useRecapDateRange(
     earliestSec: dates.earliestSec,
     canGoBack: dates.canGoBack,
     isNow: dates.isNow,
+    title: dates.title,
     lastHour,
     insight,
     selectMode,

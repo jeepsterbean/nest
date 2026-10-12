@@ -36,17 +36,17 @@ export function DateRangeSidebar({
     <h2 className="section-sidebar__title">Recap</h2>
     <div className="range-sidebar__modes">
       <ViewToggle
-        value={range.mode}
-        options={RANGE_MODES}
-        label="Recap date range"
-        onChange={onMode}
+        value={presentation}
+        options={RECAP_PRESENTATIONS}
+        label="Recap presentation"
+        onChange={onPresentation}
       />
-      {range.mode === "day" && (
+      {presentation === "calendar" && (
         <ViewToggle
-          value={presentation}
-          options={RECAP_PRESENTATIONS}
-          label="Recap presentation"
-          onChange={onPresentation}
+          value={range.mode}
+          options={RANGE_MODES}
+          label="Calendar date range"
+          onChange={onMode}
         />
       )}
     </div>

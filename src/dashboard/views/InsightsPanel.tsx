@@ -1,3 +1,4 @@
+import type { CorePane } from "../lib/corePane";
 // Behavior and invariants: docs/interface/calendar.md#insights
 import { useMemo, type ReactNode } from "react";
 import { PanelRight } from "lucide-react";
@@ -44,6 +45,7 @@ export function InsightsColumn({
   onToggleKind,
   lastHour,
   onLastHour,
+  onOpenCorePane,
 }: {
   from: number;
   to: number;
@@ -54,6 +56,7 @@ export function InsightsColumn({
   onToggleKind: (key: LogKindKey) => void;
   lastHour: boolean;
   onLastHour: (on: boolean) => void;
+  onOpenCorePane: (pane: CorePane) => void;
 }) {
   return (
     <div id="recap-insights" className="recap-body__insights" aria-label="Insights" role="region">
@@ -67,6 +70,7 @@ export function InsightsColumn({
         onToggleKind={onToggleKind}
         lastHour={lastHour}
         onLastHour={onLastHour}
+        onOpenCorePane={onOpenCorePane}
       />
     </div>
   );
@@ -84,6 +88,7 @@ export function InsightsPanel({
   onToggleKind,
   lastHour,
   onLastHour,
+  onOpenCorePane,
 }: {
   from: number;
   to: number;
@@ -94,6 +99,7 @@ export function InsightsPanel({
   onToggleKind: (key: LogKindKey) => void;
   lastHour: boolean;
   onLastHour: (on: boolean) => void;
+  onOpenCorePane: (pane: CorePane) => void;
 }) {
   const {
     tasks,
@@ -170,10 +176,10 @@ export function InsightsPanel({
         onToggle={() => onToggleKind("dumps")}
       />
       <InsightSection label="Tasks" shown={shown("tasks")} alone={alone("tasks")} onToggle={() => onToggleKind("tasks")}>
-        <InsightLedger groups={insight.taskGroups} />
+        <InsightLedger groups={insight.taskGroups} onOpenTasks={() => onOpenCorePane("tasks")} />
       </InsightSection>
       <InsightSection label="Metrics" shown={shown("metrics")} alone={alone("metrics")} onToggle={() => onToggleKind("metrics")}>
-        <InsightCheckIns groups={insight.checkIns} />
+        <InsightCheckIns groups={insight.checkIns} onOpenMetrics={() => onOpenCorePane("metrics")} />
       </InsightSection>
     </div>
   );

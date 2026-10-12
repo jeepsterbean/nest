@@ -38,25 +38,20 @@ describe("InsightLedger", () => {
     { outcome: "cancelled", rows: rows(2, () => 0), seconds: 0 },
     { outcome: "incomplete", rows: [], seconds: 0 },
   ];
-  const html = renderToStaticMarkup(createElement(InsightLedger, { groups }));
+  const html = renderToStaticMarkup(createElement(InsightLedger, { groups, onOpenTasks: () => {} }));
 
-  it("leads each group line with its Task count", () => {
-    expect(html).toMatch(/>7<\/span> Completed/);
-    expect(html).toMatch(/>2<\/span> Cancelled/);
+  it("shows each outcome title followed by its count", () => {
+    expect(html).toMatch(/>Completed<\/button><span class="insight-row__count">7<\/span>/);
+    expect(html).toMatch(/>Cancelled<\/button><span class="insight-row__count">2<\/span>/);
+    expect(html).toMatch(/>Incomplete<\/button><span class="insight-row__count">0<\/span>/);
+    expect(html).not.toContain("no time");
   });
 
-  it("lists each Task without a share bar", () => {
-    expect(html).not.toContain("insight-share");
-    expect(html).not.toContain("--share:");
-  });
-
-  it("says no time instead of a dash when a group has no Worked time", () => {
-    expect(html).toContain("Cancelled, 2 Tasks, no time");
-    expect(html).not.toContain("—");
-  });
-
-  it("lists every Task in the group for its scroll box", () => {
-    expect(html).toContain("Task 7");
-    expect(html).not.toMatch(/more</);
+  it("makes only the outcome title clickable and removes expansion details", () => {
+    expect(html.match(/<button /g)).toHaveLength(3);
+    expect(html).not.toContain("aria-expanded");
+    expect(html).not.toContain("chevron");
+    expect(html).not.toContain("Task 7");
+    expect(html).not.toContain("<ul");
   });
 });

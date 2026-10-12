@@ -21,7 +21,6 @@ import { CoreView } from "./views/CoreView";
 import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
 import {
   readRecapPresentation,
-  writeCalendarFigure,
   writeRecapPresentation,
   type RecapPresentation,
 } from "./lib/insights";
@@ -34,12 +33,16 @@ function DashboardInner() {
   const [view, setView] = useState<DashboardView>("recap");
   const [recapPresentation, setRecapPresentation] =
     useState<RecapPresentation>(readRecapPresentation);
-  const recapDateRange = useRecapDateRange();
+  const recapDateRange = useRecapDateRange(recapPresentation);
   const [corePane, setCorePane] = useState<CorePane>(readCorePane);
   const selectCorePane = useCallback((pane: CorePane) => {
     writeCorePane(pane);
     setCorePane(pane);
   }, []);
+  const openCorePane = (pane: CorePane) => {
+    selectCorePane(pane);
+    setView("core");
+  };
   const selectRecapPresentation = useCallback(
     (presentation: RecapPresentation) => {
       writeRecapPresentation(presentation);
@@ -57,12 +60,7 @@ function DashboardInner() {
     ? phaseTone(currentPhaseName) === "doing"
     : false;
   // Core panes reuse the layout rules written for their former Sections.
-  // Week has no Timeline, so a remembered Timeline presentation shows Calendar
-  // until Day is chosen again.
-  const showTimeline =
-    view === "recap" &&
-    recapPresentation === "timeline" &&
-    recapDateRange.mode === "day";
+  const showTimeline = view === "recap" && recapPresentation === "timeline";
   const surface = view === "core" ? corePane : showTimeline ? "timeline" : "calendar";
   const hasRangeSidebar = view === "recap";
   const hasSectionSidebar = view === "core" || hasRangeSidebar;
@@ -120,21 +118,17 @@ function DashboardInner() {
               sidebarTarget={rangeSidebarTarget}
               presentation={recapPresentation}
               onPresentation={selectRecapPresentation}
+              onOpenCorePane={openCorePane}
               range={recapDateRange}
             />
           )}
           {showTimeline && (
             <TimelineView
+              onOpenCorePane={openCorePane}
               range={recapDateRange}
               sidebarTarget={rangeSidebarTarget}
               presentation={recapPresentation}
               onPresentation={selectRecapPresentation}
-              onOpenDayInCalendarLogs={(dayMs) => {
-                recapDateRange.selectMode("day");
-                writeCalendarFigure("logs");
-                recapDateRange.goToDay(dayMs);
-                selectRecapPresentation("calendar");
-              }}
             />
           )}
           {view === "core" && (

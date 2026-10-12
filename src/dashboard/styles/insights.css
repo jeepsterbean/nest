@@ -3,21 +3,15 @@
 .insights-body {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 22px;
   align-items: flex-start;
   min-height: 100%;
   container-type: inline-size;
 }
 
 .insights-body > .insight-list {
-  width: min(100%, max(16rem, calc((100% - 48px) / 3)));
+  width: 100%;
   min-width: 0;
-}
-
-.insight-list .insight-brain-dumps__tags {
-  max-height: 8rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .insight-brain-dumps__tags li {
@@ -25,18 +19,52 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 30px;
+  font-size: 13px;
 }
 
-.insight-brain-dumps__tags .brain-dump-tag {
+.insight-brain-dumps__tag {
   min-width: 0;
-  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.insight-brain-dumps__more {
+  min-height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.insight-brain-dumps__more:hover {
+  color: var(--ink);
+}
+
+.insight-brain-dumps__more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Summary rows share a 30px rhythm and the panel's right edge for values. */
+.insight-brain-dumps__tags {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* Rows share one grid so every duration lines up. */
 .insight-mix {
   display: grid;
-  grid-template-columns: max-content max-content;
-  gap: 7px 24px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0 16px;
   align-items: center;
   margin: 0;
   padding: 0;
@@ -73,21 +101,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 550;
+  min-height: 30px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .insight-mix__name svg {
   display: block;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   flex: none;
   stroke-width: 1.9;
 }
 
 .insight-mix__duration {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -143,9 +172,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
   font-family: var(--serif);
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -196,7 +227,7 @@
 
 /* Lists with their own layout opt out: this selector outranks a single class,
  * so it would override their gaps and their [hidden] display. */
-.insight-list ul:not(.insight-mix, .insight-outcome__tasks) {
+.insight-list ul:not(.insight-mix, .insight-brain-dumps__tags) {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -211,318 +242,54 @@
   font-size: 13px;
 }
 
-/* Ledger lines read as one short phrase: count, label, total. */
-.insight-ledger {
-  /* Chevron width plus the toggle gap, so open Tasks start under the count. */
-  --ledger-gutter: 20px;
-  --ledger-time-width: 56px;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.insight-outcome__toggle {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 5px 0;
-  border: none;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.insight-outcome__toggle:disabled {
-  cursor: default;
-}
-
-.insight-outcome__toggle:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.insight-outcome__chevron {
-  width: 12px;
-  height: 12px;
-  flex: none;
-  align-self: center;
-  color: var(--muted);
-  stroke-width: 2;
-  transition: transform 0.15s, color 0.15s;
-}
-
-.insight-outcome__toggle:hover .insight-outcome__chevron,
-.insight-outcome.is-open .insight-outcome__chevron {
-  color: var(--ink);
-}
-
-.insight-outcome.is-open .insight-outcome__chevron {
-  transform: rotate(90deg);
-}
-
-.insight-outcome.is-empty .insight-outcome__chevron {
-  visibility: hidden;
-}
-
-.insight-outcome__label {
-  font-size: 13px;
-  font-weight: 550;
-}
-
-.insight-outcome__count {
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.insight-outcome__total {
-  color: var(--muted);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.insight-outcome__total::before {
-  content: "·";
-  margin-right: 8px;
-}
-
-.insight-outcome__total.is-none,
-.insight-task__time.is-none {
-  color: var(--muted);
-  font-weight: 450;
-  opacity: 0.75;
-}
-
-.insight-outcome.is-empty .insight-outcome__toggle > * {
-  opacity: 0.5;
-}
-
-/* About five rows tall, so a busy Completed group scrolls in place instead
- * of setting the board's height. The fade marks the edge with more Tasks. */
-.insight-outcome__tasks {
-  --tasks-fade: 14px;
-  display: flex;
-  min-width: 0;
-  max-height: 124px;
-  flex-direction: column;
-  gap: 1px;
-  margin: 2px 0 10px var(--ledger-gutter);
-  padding: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  list-style: none;
-  scrollbar-width: thin;
-}
-
-.insight-outcome__tasks[hidden] {
-  display: none;
-}
-
-.insight-outcome__tasks.is-clipped-above {
-  mask-image: linear-gradient(transparent, #000 var(--tasks-fade));
-}
-
-.insight-outcome__tasks.is-clipped-below {
-  mask-image: linear-gradient(#000 calc(100% - var(--tasks-fade)), transparent);
-}
-
-.insight-outcome__tasks.is-clipped-above.is-clipped-below {
-  mask-image: linear-gradient(
-    transparent,
-    #000 var(--tasks-fade),
-    #000 calc(100% - var(--tasks-fade)),
-    transparent
-  );
-}
-
-.insight-task {
-  display: grid;
-  grid-template-columns: 6px minmax(0, 1fr) var(--ledger-time-width);
-  align-items: center;
-  column-gap: 8px;
-  padding: 2px 0;
-}
-
-.insight-task__swatch {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: hsl(var(--task-hue, 210) 50% 42%);
-}
-
-@media (prefers-color-scheme: dark) {
-  .insight-task__swatch {
-    background: hsl(var(--task-hue, 210) 45% 62%);
-  }
-}
-
-.insight-task__title {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.insight-task__time {
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
+.insight-ledger,
 .insight-pulses {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-width: 0;
 }
 
-.insight-pulse__toggle {
+.insight-outcome__row,
+.insight-pulse__row {
   display: flex;
-  width: 100%;
   align-items: center;
   gap: 8px;
-  padding: 5px 6px;
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.insight-row__count {
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.insight-title-link {
+  min-width: 0;
+  padding: 4px 0;
+  overflow: hidden;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   background: transparent;
   color: var(--ink);
   font: inherit;
+  font-weight: 500;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.insight-pulse__toggle:hover {
-  background: var(--surface-2);
+.insight-title-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.insight-pulse__toggle:focus-visible {
+.insight-title-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-.insight-pulse__toggle > svg:first-child {
-  display: block;
-  width: 14px;
-  height: 14px;
-  flex: none;
-  stroke-width: 1.9;
-}
-
-.insight-pulse__count {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.insight-pulse__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.insight-pulse__avg {
-  min-width: 2.2em;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.insight-pulse__chevron {
-  width: 13px;
-  height: 13px;
-  flex: none;
-  color: var(--muted);
-  stroke-width: 2;
-  transition: transform 0.15s;
-}
-
-.insight-pulse.is-open .insight-pulse__chevron {
-  transform: rotate(90deg);
-}
-
-/* Metric columns line up with the Pulse row above: name, ratings, then an
- * average under the Pulse average and a gutter under the chevron. */
-.insight-pulse ul {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 2px 0 8px;
-  padding: 0 calc(6px + 13px + 8px) 0 6px;
-  list-style: none;
-}
-
-.insight-pulse ul[hidden] {
-  display: none;
-}
-
-.insight-metric {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.2em;
-  align-items: center;
-  gap: 10px;
-  min-height: 22px;
-}
-
-.insight-metric__name {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.insight-metric__name svg {
-  display: block;
-  width: 13px;
-  height: 13px;
-  flex: none;
-  stroke-width: 1.9;
-}
-
-.insight-metric__avg {
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.insight-metric__ribbon {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-
-.insight-metric__ribbon .rating-pill {
-  flex: none;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 3px;
-  border-radius: 4px;
-  font-size: 11px;
-}
-
-@container (max-width: 720px) {
-  .insights-body > .insight-list {
-    width: 100%;
-  }
 }
 
 .day-group + .day-group {
@@ -533,24 +300,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 6px 16px;
   margin: 0 0 10px;
-}
-
-.day-group__label {
-  margin: 0;
-  font-family: var(--serif);
-  font-size: 15.5px;
-  font-weight: 600;
-}
-
-.day-group__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px 14px;
 }
 
 .day-group__export {

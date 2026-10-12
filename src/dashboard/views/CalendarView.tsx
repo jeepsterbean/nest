@@ -1,7 +1,10 @@
+import type { CorePane } from "../lib/corePane";
 // Behavior and invariants: docs/interface/calendar.md
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { ViewToggle } from "../components/ViewToggle";
+import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
   TimelineGrid,
@@ -36,7 +39,7 @@ import {
   type LogKindKey,
 } from "../lib/logs";
 import { logHours } from "../lib/logHours";
-import { historyStartSec } from "../lib/time";
+import { dayLabel, historyStartSec } from "../lib/time";
 import { InsightsColumn, InsightsToggle } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
 
@@ -44,11 +47,13 @@ export function CalendarView({
   sidebarTarget,
   presentation,
   onPresentation,
+  onOpenCorePane,
   range,
 }: {
   sidebarTarget: HTMLElement | null;
   presentation: RecapPresentation;
   onPresentation: (presentation: RecapPresentation) => void;
+  onOpenCorePane: (pane: CorePane) => void;
   range: ReturnType<typeof useRecapDateRange>;
 }) {
   const {
@@ -154,6 +159,10 @@ export function CalendarView({
     range.nowSec,
   ]);
 
+  useDatePagingKeys(range);
+  // The stretch editor belongs to a block on screen, so paging away closes it.
+  useEffect(() => setSelected(null), [range.from, range.to]);
+
   const selectFigure = (next: CalendarFigure) => {
     setFigure(next);
     writeCalendarFigure(next);
@@ -170,22 +179,32 @@ export function CalendarView({
     <section className="dash-section dash-section--calendar">
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
-        onMode={(mode) => { range.selectMode(mode); setSelected(null); }}
-        onPick={(dayMs) => { range.goToDay(dayMs); setSelected(null); }} />
+        onMode={range.selectMode} onPick={range.goToDay} />
       <div className="dash-toolbar calendar-panel-controls">
-        <ViewToggle
-          value={figure}
-          options={CALENDAR_FIGURES}
-          label="Calendar figure"
-          onChange={selectFigure}
+        <DateNavigation
+          label={range.mode === "day" ? dayLabel(range.from, range.nowMs) : range.title}
+          unit={range.mode}
+          canGoPrevious={range.canGoBack}
+          canGoNext={!range.isNow}
+          onPrevious={() => range.step(-1)}
+          onNext={() => range.step(1)}
+          onToday={range.goToday}
         />
-        <InsightsToggle
-          shown={showInsights}
-          onToggle={() => {
-            setShowInsights(!showInsights);
-            writeRecapInsightsShown(!showInsights);
-          }}
-        />
+        <div className="calendar-panel-controls__display">
+          <ViewToggle
+            value={figure}
+            options={CALENDAR_FIGURES}
+            label="Calendar figure"
+            onChange={selectFigure}
+          />
+          <InsightsToggle
+            shown={showInsights}
+            onToggle={() => {
+              setShowInsights(!showInsights);
+              writeRecapInsightsShown(!showInsights);
+            }}
+          />
+        </div>
       </div>
       <div className={`dash-section__body recap-body${showInsights ? " recap-body--both" : ""}`}>
         {!loaded ? null : (
@@ -239,6 +258,7 @@ export function CalendarView({
             </div>
             {showInsights ? (
               <InsightsColumn
+                onOpenCorePane={onOpenCorePane}
                 from={range.insight.from}
                 to={range.insight.to}
                 live={range.insight.live}

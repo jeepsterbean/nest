@@ -1,3 +1,4 @@
+import type { CorePane } from "../lib/corePane";
 // Behavior and invariants: docs/interface/calendar.md#timeline
 import {
   useEffect,
@@ -24,6 +25,7 @@ import {
   useDashboardData,
 } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
   readRecapInsightsShown,
@@ -42,13 +44,13 @@ export function TimelineView({
   sidebarTarget,
   presentation,
   onPresentation,
-  onOpenDayInCalendarLogs,
+  onOpenCorePane,
 }: {
   range: ReturnType<typeof useRecapDateRange>;
   sidebarTarget: HTMLElement | null;
   presentation: RecapPresentation;
   onPresentation: (presentation: RecapPresentation) => void;
-  onOpenDayInCalendarLogs: (dayMs: number) => void;
+  onOpenCorePane: (pane: CorePane) => void;
 }) {
   const {
     metrics,
@@ -140,20 +142,7 @@ export function TimelineView({
   const markedDays = useMemo(() => new Set(logDayKeys(exportEvents)), [exportEvents]);
   useEffect(() => { setVisibleEventCount(LOG_EVENT_BATCH_SIZE); }, [range.from]);
   const { canGoBack, isNow, step, goToday } = range;
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.isContentEditable || target?.closest("input, textarea, select, button, [role='dialog']")) return;
-      if (event.key === "ArrowLeft" && canGoBack) step(-1);
-      else if (event.key === "ArrowRight" && !isNow) step(1);
-      else if (event.key === "t") goToday();
-      else return;
-      event.preventDefault();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canGoBack, isNow, step, goToday]);
+  useDatePagingKeys(range);
 
   const updateKinds = (key: LogKindKey) => {
     const nextKinds = toggleLogKind(kinds, key);
@@ -245,7 +234,6 @@ export function TimelineView({
               onDeleteCheckIn={onDeleteCheckIn}
               onToggleDump={toggleDumpExpanded}
               onExportDay={exportDay}
-              onOpenDay={onOpenDayInCalendarLogs}
               nowMs={nowMs}
               colorsTimeColumn={kinds.includes("phases")}
             />
@@ -269,6 +257,7 @@ export function TimelineView({
         </div>
         {showInsights ? (
           <InsightsColumn
+                onOpenCorePane={onOpenCorePane}
             from={range.insight.from}
             to={range.insight.to}
             live={range.insight.live}

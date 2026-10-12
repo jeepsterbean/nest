@@ -15,10 +15,11 @@ The dashboard loads a 30-day history window. Day and Week are anchored to real
 dates rather than measured back from now. Today follows the clock across
 midnight; historical dates stay fixed.
 
-Day navigation (Brain dump, Tasks Day, Timeline, Metrics, Phases Day) and the Recap sidebar's month
+Day navigation (Brain dump, Tasks Day, Calendar, Timeline, Metrics, Phases Day) and the Recap sidebar's month
 pager share one arrow control. Every surface opens on today when the app
 launches, pages one local day (or month) at a time, and never moves past Today; shared navigation logic
-enforces that limit as well as the controls. Day navigation also returns to
+enforces that limit as well as the controls. Calendar on Week pages a week at
+a time through the same control. Day navigation also returns to
 Today from any historical day; the month pager does not.
 
 The earliest day depends on the surface. Calendar, the Recap sidebar, Tasks Day,
@@ -31,7 +32,7 @@ no earliest day and fetch older days on demand.
 Last hour is a rolling 60 minutes from now, chosen on Insights. Choosing it
 moves the Recap Section to today and to Day. The grid and Timeline keep
 that full day, and Insights summarizes the hour. Leaving that day, or choosing
-Week, leaves Last hour. Phase mix and the task ledger advance the hour on the
+Week on Calendar, leaves Last hour. Phase mix and the task ledger advance the hour on the
 shared minute clock. Brain dumps and Metric check-ins use wall-clock now, so a
 just-saved item shows immediately. Just after midnight the hour still includes
 the end of the previous day. The two clocks are described under

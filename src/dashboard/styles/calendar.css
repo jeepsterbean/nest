@@ -619,6 +619,15 @@
   justify-content: flex-start;
 }
 
+/* Figure and Insights stay together at the right edge, and wrap as one group
+   under the date navigation when the toolbar is too narrow for both. */
+.calendar-panel-controls__display {
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  margin-left: auto;
+}
+
 .recap-insights-toggle {
   display: inline-flex;
   margin-left: auto;

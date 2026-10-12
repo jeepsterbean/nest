@@ -14,28 +14,6 @@
   min-width: 0;
 }
 
-/* Day labels open that day on Calendar's Logs figure; quiet until hovered. */
-.day-group__open {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.day-group__open:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
-}
-
-.day-group__open:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* ---------- Logs Phase checkpoint toggle ---------- */
 
 .logs-raw-toggle {

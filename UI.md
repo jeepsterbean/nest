@@ -37,7 +37,7 @@ Reuse these before adding a control:
   pick, on Escape, and on an outside press; `controlClassName` /
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color
   swatches.
-- `DateNavigation`: the shared day and month pager. `onToday` adds Go to today,
+- `DateNavigation`: the shared day, week, and month pager. `onToday` adds Go to today,
   and `canGoPrevious` sets the earliest-day limit; which surfaces use each lives
   in [Time surfaces](docs/interface/time-surfaces.md#dates-and-ranges).
 - `DayCalendar`: in-app date picker, used instead of the OS date popup.

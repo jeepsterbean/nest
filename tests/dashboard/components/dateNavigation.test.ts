@@ -27,6 +27,8 @@ describe("date navigation and empty Timeline", () => {
       onToggleDump: () => {}, nowMs, showCurrentTime,
     }));
     expect(markup.includes("logs-chrono__row--now")).toBe(showCurrentTime);
+    expect(markup).not.toContain("day-group__label");
+    expect(markup).not.toContain("Open in Logs");
   });
 });
 
@@ -40,6 +42,15 @@ describe("shared date control", () => {
     expect(markup).toMatch(/aria-label="Next day" disabled=""/);
     expect(markup).toContain('aria-label="Go to today"');
     expect(markup).toContain('class="date-navigation__label"');
+  });
+
+  it("names the week unit for Calendar's Week range", () => {
+    const markup = renderToStaticMarkup(createElement(DateNavigation, {
+      label: "05/10/2026 – 11/10/2026", unit: "week", canGoNext: false,
+      onPrevious: () => {}, onNext: () => {}, onToday: () => {},
+    }));
+    expect(markup).toContain('aria-label="Week navigation"');
+    expect(markup).toMatch(/aria-label="Next week" disabled=""/);
   });
 
   it("keeps the month picker free of a separate Today action", () => {

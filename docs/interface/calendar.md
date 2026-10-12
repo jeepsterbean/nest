@@ -10,18 +10,18 @@ live in [`UI.md`](../../UI.md).
 
 ## Range sidebar
 
-The Recap Section offers Day and Week, remembered in `nest:date-range`
-(first visit is Day; a stored Last hour opens as Day). Day is the default.
-Calendar and Timeline share the selected day, and Week is the week that
-contains it. These anchors survive Section navigation during the current
-dashboard session; app restarts open on today.
+The Recap Section's first choice is its presentation, Calendar or Timeline,
+remembered in `nest:recap-presentation` (Calendar when unset). Calendar then
+offers Day and Week, remembered in `nest:date-range` (first visit is Day; a
+stored Last hour opens as Day). Timeline has no Week: it always shows the
+selected day and leaves Calendar's Day / Week choice stored, so returning to
+Calendar on Week opens the week that contains that day. Calendar and Timeline
+share the selected day. These anchors survive Section navigation during the
+current dashboard session; app restarts open on today.
 
-The range selection lives in a Section sidebar matching Core: a Day / Week
-segmented control over an always-visible Monday-first month calendar. On Day,
-a Calendar / Timeline selector sits with it. The presentation is remembered
-in `nest:recap-presentation` (Calendar when unset). Week has no Timeline:
-choosing Week while Timeline is showing opens that week's Calendar, and
-choosing Day returns to Timeline on the same day. The calendar's highlight is
+These selections live in a Section sidebar matching Core: the Calendar /
+Timeline segmented control, Calendar's Day / Week control under it, and an
+always-visible Monday-first month calendar. The calendar's highlight is
 the range, so the sidebar shows no range title text. Dates outside the loaded
 history and future dates are disabled. In a narrow window, the range controls
 move above the content. The month calendar has one Tab stop; arrow keys move
@@ -38,7 +38,14 @@ under the figure instead of hiding.
 
 ## Calendar
 
-A control at the top left chooses the figure on Calendar, remembered in
+The toolbar opens with the
+[shared date navigation](time-surfaces.md#dates-and-ranges) for the day or
+week on screen; on Week it pages a week at a time and names the week's first
+and last day. Left / Right arrows page that range and `t` returns to Today
+while focus is outside interactive controls. The sidebar month calendar and
+this toolbar select the same range.
+
+A control beside the Insights toggle chooses the figure on Calendar, remembered in
 `nest:calendar-figure` (Work stretch on first visit). Work stretch is the
 timetable of recorded work. Logs places history on that same Calendar.
 [Logs kinds](time-surfaces.md#logs-kinds) are chosen from Insights and shared
@@ -101,32 +108,30 @@ mix and the task ledger stay on the shared minute clock.
 Range membership, Tag counts, Phase totals, and Task outcomes follow
 [History domain](../domain/history.md#range-summaries). Untagged leads the
 Brain dumps list, including at 0; Tags follow in frequency then name order.
-An empty range shows 0 and a quiet empty message. Every range opens on the
+The Brain dumps summary initially shows Untagged and the three most frequent
+Tags. Show more reveals the remaining Tags; Show less returns to that compact
+list. An empty range shows 0 and a quiet empty message. Every range opens on the
 Phase mix, with a row for each live Phase (0m included), then the Task ledger.
 
 The ledger's three outcome groups (Completed, Cancelled, Incomplete) always
-show, in that order, even when empty, so the ledger keeps one shape from range
-to range. Each group is one collapsed ledger line
-read as a short phrase: Task count, label, and the group's total Worked time
-("no time" when 0). Opening it lists each Task with
-its Worked time, longest first.
-A long group scrolls inside itself, so it never sets the board's height. An
-empty group cannot open. Groups start collapsed on every visit.
+show, in that order, even when empty. Each row shows the outcome title and
+its Task count at the right edge. Only the outcome title is
+clickable: it opens Tasks in Core on today, without filtering the outcome.
+Rows show summaries without expanding into individual Tasks.
 
-Metric check-ins sit in a dedicated row grouped by Pulse, with counts and
-averages from [Metric summaries](../domain/history.md#metric-summaries). Every
-Pulse is listed, including one with no check-ins in the range. A range with no
-Pulses and no check-ins stays quiet. Each Pulse is one collapsed row (the
-check-in count before the Pulse name, then its average); opening it lists one
-line per Metric that was rated, with each rating and that Metric's average.
-Ratings stay in time order and wrap within their column so every score remains
-readable.
-That row clips at a live now, so a just-saved
-rating appears as soon as data reloads.
+Metric check-ins are grouped by Pulse, with counts from
+[Metric summaries](../domain/history.md#metric-summaries). Every Pulse is
+listed, including one with no check-ins in the range. A range with no Pulses
+and no check-ins stays quiet. Each row shows the clickable Pulse title and
+its check-in count at the right edge. Only the Pulse title
+is clickable: it opens Metrics in Core on today, without selecting a Pulse.
+Rows show summaries without expanding into individual Metric ratings.
+The summary clips at live now, so a just-saved rating appears as soon as data
+reloads.
 
 ## Timeline
 
-The history presentation inside Recap, available on Day. Not a stored record: Metric check-ins, brain dumps, and
+The history presentation inside Recap, one day at a time. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. Its [Logs kinds](time-surfaces.md#logs-kinds)
 are the same selection Calendar's Logs figure and Insights use. Insights
 sits beside the list, on the same day.
@@ -136,11 +141,9 @@ needed. Selecting another day resets the batch.
 The toolbar shows the selected
 day with the [shared day navigation](time-surfaces.md#dates-and-ranges),
 then the Phases-only eye when Phases is the only kind shown. The sidebar month calendar
-and this toolbar both stay: month jump and day-step select the same day. Each
-day's entries retain their own Export.
+and this toolbar both stay: month jump and day-step select the same day. The list
+does not repeat that day. Each day's entries retain their own Export.
 Files use the Nest Timeline heading and `nest-timeline-*` name.
-A day label switches to the Calendar presentation, opens that day on its Logs
-figure, and switches Recap's date range to Day.
 Left / Right arrows page the selected day and `t` returns to Today
 while focus is outside interactive controls.
 

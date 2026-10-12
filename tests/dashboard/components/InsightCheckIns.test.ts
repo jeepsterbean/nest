@@ -24,12 +24,19 @@ const groups: InsightPulseGroup[] = [
 ];
 
 describe("InsightCheckIns", () => {
-  const html = renderToStaticMarkup(createElement(InsightCheckIns, { groups }));
+  const html = renderToStaticMarkup(createElement(InsightCheckIns, { groups, onOpenMetrics: () => {} }));
 
-  it("leads each Pulse name with its check-in count", () => {
-    expect(html).toMatch(/>3<\/span><span class="insight-pulse__name">Energy</);
-    expect(html).toMatch(/>0<\/span><span class="insight-pulse__name">Focus</);
-    expect(html).toContain("Energy, 3 check-ins");
-    expect(html).toContain("Focus, 0 check-ins");
+  it("shows each Pulse title followed by its check-in count", () => {
+    expect(html).toMatch(/>Energy<\/button><span class="insight-row__count">3<\/span>/);
+    expect(html).toMatch(/>Focus<\/button><span class="insight-row__count">0<\/span>/);
+    expect(html).not.toContain("4.2");
+  });
+
+  it("removes expansion and keeps navigation available for empty Pulses", () => {
+    expect(html.match(/<button /g)).toHaveLength(2);
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain("aria-expanded");
+    expect(html).not.toContain("chevron");
+    expect(html).not.toContain("<ul");
   });
 });

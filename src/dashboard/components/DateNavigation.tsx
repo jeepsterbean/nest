@@ -1,8 +1,10 @@
 import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 
+const UNIT_NAMES = { day: "Day", week: "Week", month: "Month" } as const;
+
 export function DateNavigation({ label, unit, canGoPrevious = true, canGoNext, onPrevious, onNext, onToday }: {
   label: string;
-  unit: "day" | "month";
+  unit: keyof typeof UNIT_NAMES;
   canGoPrevious?: boolean;
   canGoNext: boolean;
   onPrevious: () => void;
@@ -10,7 +12,7 @@ export function DateNavigation({ label, unit, canGoPrevious = true, canGoNext, o
   onToday?: () => void;
 }) {
   return (
-    <div className={`date-navigation date-navigation--${unit}`} role="group" aria-label={`${unit === "day" ? "Day" : "Month"} navigation`}>
+    <div className={`date-navigation date-navigation--${unit}`} role="group" aria-label={`${UNIT_NAMES[unit]} navigation`}>
       <button type="button" aria-label={`Previous ${unit}`} disabled={!canGoPrevious} onClick={onPrevious}>
         <ChevronLeft aria-hidden="true" />
       </button>
