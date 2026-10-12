@@ -6,6 +6,7 @@ import {
   type InsightOutcomeGroup,
   type InsightPulseGroup,
 } from "../lib/insights";
+import { NestIcon } from "./PulseIcon";
 
 /** Hide control for one Insights kind. Pressed while that kind is hidden.
  * Disabled on the last kind still shown, which stays visible. */
@@ -35,32 +36,61 @@ export function InsightHideButton({
   );
 }
 
-export function InsightBrainDumps({
-  summary,
+/** Section title opens that kind in Core. The eye still hides or shows it. */
+export function InsightHeading({
+  label,
+  icon,
   shown,
   alone,
   onToggle,
+  onOpen,
 }: {
-  summary: InsightBrainDumpSummary;
+  label: string;
+  icon: string;
   shown: boolean;
   alone: boolean;
   onToggle: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <h3>
+      <button type="button" className="insight-list__title" onClick={onOpen}>
+        <NestIcon name={icon} />
+        {label}
+      </button>
+      <InsightHideButton label={label} shown={shown} disabled={alone} onClick={onToggle} />
+    </h3>
+  );
+}
+
+export function InsightBrainDumps({
+  summary,
+  icon,
+  shown,
+  alone,
+  onToggle,
+  onOpen,
+}: {
+  summary: InsightBrainDumpSummary;
+  icon: string;
+  shown: boolean;
+  alone: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
 }) {
   const [showAllTags, setShowAllTags] = useState(false);
   const visibleTags = showAllTags ? summary.tags : summary.tags.slice(0, 3);
 
   return (
     <section className="insight-list insight-brain-dumps" aria-label="Brain dumps">
-      <h3>
-        Brain dumps
-        <span className="insight-list__count">{summary.count}</span>
-        <InsightHideButton
-          label="Brain dumps"
-          shown={shown}
-          disabled={alone}
-          onClick={onToggle}
-        />
-      </h3>
+      <InsightHeading
+        label="Brain dumps"
+        icon={icon}
+        shown={shown}
+        alone={alone}
+        onToggle={onToggle}
+        onOpen={onOpen}
+      />
       {shown ? (
         summary.count === 0 ? (
           <p className="insight-quiet">No brain dumps in this period.</p>
@@ -96,20 +126,12 @@ export function InsightBrainDumps({
 }
 
 /** Outcome counts and Worked time stay visible together. */
-export function InsightLedger({
-  groups,
-  onOpenTasks,
-}: {
-  groups: InsightOutcomeGroup[];
-  onOpenTasks: () => void;
-}) {
+export function InsightLedger({ groups }: { groups: InsightOutcomeGroup[] }) {
   return (
     <div className="insight-ledger">
       {groups.map((group) => (
         <div className="insight-outcome__row" key={group.outcome}>
-          <button type="button" className="insight-title-link" onClick={onOpenTasks}>
-            {INSIGHT_OUTCOME_LABEL[group.outcome]}
-          </button>
+          <span className="insight-row__name">{INSIGHT_OUTCOME_LABEL[group.outcome]}</span>
           <span className="insight-row__count">{group.rows.length}</span>
         </div>
       ))}
@@ -117,13 +139,7 @@ export function InsightLedger({
   );
 }
 
-export function InsightCheckIns({
-  groups,
-  onOpenMetrics,
-}: {
-  groups: InsightPulseGroup[];
-  onOpenMetrics: () => void;
-}) {
+export function InsightCheckIns({ groups }: { groups: InsightPulseGroup[] }) {
   return (
     <aside className="insight-pulses" aria-label="Metric check-ins">
       {groups.length === 0 ? (
@@ -131,9 +147,7 @@ export function InsightCheckIns({
       ) : (
         groups.map((group) => (
           <div className="insight-pulse__row" key={group.pulseId ?? "none"}>
-            <button type="button" className="insight-title-link" onClick={onOpenMetrics}>
-              {group.name}
-            </button>
+            <span className="insight-row__name">{group.name}</span>
             <span className="insight-row__count">{group.checkInCount}</span>
           </div>
         ))

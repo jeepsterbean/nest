@@ -38,17 +38,17 @@ describe("InsightLedger", () => {
     { outcome: "cancelled", rows: rows(2, () => 0), seconds: 0 },
     { outcome: "incomplete", rows: [], seconds: 0 },
   ];
-  const html = renderToStaticMarkup(createElement(InsightLedger, { groups, onOpenTasks: () => {} }));
+  const html = renderToStaticMarkup(createElement(InsightLedger, { groups }));
 
   it("shows each outcome title followed by its count", () => {
-    expect(html).toMatch(/>Completed<\/button><span class="insight-row__count">7<\/span>/);
-    expect(html).toMatch(/>Cancelled<\/button><span class="insight-row__count">2<\/span>/);
-    expect(html).toMatch(/>Incomplete<\/button><span class="insight-row__count">0<\/span>/);
+    expect(html).toMatch(/>Completed<\/span><span class="insight-row__count">7<\/span>/);
+    expect(html).toMatch(/>Cancelled<\/span><span class="insight-row__count">2<\/span>/);
+    expect(html).toMatch(/>Incomplete<\/span><span class="insight-row__count">0<\/span>/);
     expect(html).not.toContain("no time");
   });
 
-  it("makes only the outcome title clickable and removes expansion details", () => {
-    expect(html.match(/<button /g)).toHaveLength(3);
+  it("keeps outcome rows as summaries without clickable titles or expansion", () => {
+    expect(html).not.toContain("<button");
     expect(html).not.toContain("aria-expanded");
     expect(html).not.toContain("chevron");
     expect(html).not.toContain("Task 7");

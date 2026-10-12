@@ -29,8 +29,8 @@ no earliest day and fetch older days on demand.
 
 ## Logs kinds
 
-Insights, Timeline, and Calendar's Logs figure share four kinds: Phases,
-Brain dumps, Tasks, and Metrics. All four are shown by default. Each Insights
+Insights, Timeline, and Calendar's Logs figure share four kinds: Brain dumps,
+Tasks, Metrics, and Phases. All four are shown by default. Each Insights
 heading has a hide control. Hiding a kind removes that section's body and
 that kind from Logs and Timeline. The heading stays, so the kind can be shown
 again, and the last shown kind stays shown. The choice is remembered in

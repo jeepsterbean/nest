@@ -21,7 +21,7 @@ current dashboard session; app restarts open on today.
 
 The Section sidebar holds the presentation switch and an always-visible
 Monday-first month calendar. Calendar's Day / Week control sits to the right
-of its date navigation. The calendar's highlight is
+of its date navigation and names the current range; a click switches to the other. The calendar's highlight is
 the range, so the sidebar shows no range title text. Dates outside the loaded
 history and future dates are disabled. In a narrow window, the sidebar
 moves above the content. The month calendar has one Tab stop; arrow keys move
@@ -42,7 +42,7 @@ and last day. Left / Right arrows page that range and `t` returns to Today
 while focus is outside interactive controls. The sidebar month calendar and
 this toolbar select the same range.
 
-A control beside Day / Week chooses the figure on Calendar, remembered in
+The figure control sits beside Day / Week and names Work stretch or Logs; a click switches to the other, remembered in
 `nest:calendar-figure` (Work stretch on first visit). Work stretch is the
 timetable of recorded work. Logs places history on that same Calendar.
 [Logs kinds](time-surfaces.md#logs-kinds) are chosen from Insights and shared
@@ -89,31 +89,31 @@ reachable.
 
 ## Insights
 
-Insights sits beside Calendar and beside Timeline. It shows Phases, Brain dumps,
-Tasks, and Metrics, in that order. Each heading hides that kind; the heading
-stays so it can be shown again. The last shown kind stays shown. That choice
-is the [Logs kinds](time-surfaces.md#logs-kinds) selection.
+Insights sits beside Calendar and beside Timeline. It shows Brain dumps, Tasks,
+Metrics, and Phases, in that order, matching Core. Each heading shows that
+kind's Core icon beside the title; the title opens that kind in Core. Each
+heading has a hide control; the heading stays so the kind can be shown again.
+The last shown kind stays shown. That choice is the
+[Logs kinds](time-surfaces.md#logs-kinds) selection.
 
 Range membership, Tag counts, Phase totals, and Task outcomes follow
 [History domain](../domain/history.md#range-summaries). Untagged leads the
 Brain dumps list, including at 0; Tags follow in frequency then name order.
 The Brain dumps summary initially shows Untagged and the three most frequent
 Tags. Show more reveals the remaining Tags; Show less returns to that compact
-list. An empty range shows 0 and a quiet empty message. Every range opens on the
-Phase mix, with a row for each live Phase (0m included), then the Task ledger.
+list. An empty range shows a quiet empty message. The Phases section is
+the mix, with a row for each live Phase (0m included).
 
 The ledger's three outcome groups (Completed, Cancelled, Incomplete) always
 show, in that order, even when empty. Each row shows the outcome title and
-its Task count at the right edge. Only the outcome title is
-clickable: it opens Tasks in Core on today, without filtering the outcome.
+its Task count at the right edge.
 Rows show summaries without expanding into individual Tasks.
 
 Metric check-ins are grouped by Pulse, with counts from
 [Metric summaries](../domain/history.md#metric-summaries). Every Pulse is
 listed, including one with no check-ins in the range. A range with no Pulses
-and no check-ins stays quiet. Each row shows the clickable Pulse title and
-its check-in count at the right edge. Only the Pulse title
-is clickable: it opens Metrics in Core on today, without selecting a Pulse.
+and no check-ins stays quiet. Each row shows the Pulse title and
+its check-in count at the right edge.
 Rows show summaries without expanding into individual Metric ratings.
 The summary clips at live now, so a just-saved rating appears as soon as data
 reloads.

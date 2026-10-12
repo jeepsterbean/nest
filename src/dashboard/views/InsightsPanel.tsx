@@ -5,10 +5,11 @@ import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
   InsightBrainDumps,
-  InsightHideButton,
+  InsightHeading,
   InsightLedger,
 } from "../components/InsightBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { useTileIcons } from "../hooks/useTileIcons";
 import { rangeInsight } from "../lib/insights";
 import type { LogKindKey } from "../lib/logs";
 
@@ -44,8 +45,9 @@ export function InsightsColumn({
   );
 }
 
-/** The review of a range: Phases, Brain dumps, Tasks, and Metrics, stacked in
- * the side column. Each heading hides that kind for Insights, Logs, and Timeline. */
+/** The review of a range: Brain dumps, Tasks, Metrics, and Phases, stacked in
+ * Core order. Each heading shows that kind's Core icon; the title opens that
+ * kind in Core. Each heading hides that kind for Insights, Logs, and Timeline. */
 export function InsightsPanel({
   from,
   to,
@@ -74,6 +76,7 @@ export function InsightsPanel({
     phases,
     brainDumps,
   } = useDashboardData();
+  const icons = useTileIcons();
 
   const insight = useMemo(
     () =>
@@ -114,20 +117,43 @@ export function InsightsPanel({
 
   return (
     <div className="insights-body">
-      <InsightSection label="Phases" shown={shown("phases")} alone={alone("phases")} onToggle={() => onToggleKind("phases")}>
-        <PhaseMix sessions={insight.sessions} phases={phases} />
-      </InsightSection>
       <InsightBrainDumps
         summary={insight.brainDumps}
+        icon={icons.brainDump}
         shown={shown("dumps")}
         alone={alone("dumps")}
         onToggle={() => onToggleKind("dumps")}
+        onOpen={() => onOpenCorePane("brainDump")}
       />
-      <InsightSection label="Tasks" shown={shown("tasks")} alone={alone("tasks")} onToggle={() => onToggleKind("tasks")}>
-        <InsightLedger groups={insight.taskGroups} onOpenTasks={() => onOpenCorePane("tasks")} />
+      <InsightSection
+        label="Tasks"
+        icon={icons.tasks}
+        shown={shown("tasks")}
+        alone={alone("tasks")}
+        onToggle={() => onToggleKind("tasks")}
+        onOpen={() => onOpenCorePane("tasks")}
+      >
+        <InsightLedger groups={insight.taskGroups} />
       </InsightSection>
-      <InsightSection label="Metrics" shown={shown("metrics")} alone={alone("metrics")} onToggle={() => onToggleKind("metrics")}>
-        <InsightCheckIns groups={insight.checkIns} onOpenMetrics={() => onOpenCorePane("metrics")} />
+      <InsightSection
+        label="Metrics"
+        icon={icons.metrics}
+        shown={shown("metrics")}
+        alone={alone("metrics")}
+        onToggle={() => onToggleKind("metrics")}
+        onOpen={() => onOpenCorePane("metrics")}
+      >
+        <InsightCheckIns groups={insight.checkIns} />
+      </InsightSection>
+      <InsightSection
+        label="Phases"
+        icon={icons.phases}
+        shown={shown("phases")}
+        alone={alone("phases")}
+        onToggle={() => onToggleKind("phases")}
+        onOpen={() => onOpenCorePane("phases")}
+      >
+        <PhaseMix sessions={insight.sessions} phases={phases} />
       </InsightSection>
     </div>
   );
@@ -135,23 +161,31 @@ export function InsightsPanel({
 
 function InsightSection({
   label,
+  icon,
   shown,
   alone,
   onToggle,
+  onOpen,
   children,
 }: {
   label: string;
+  icon: string;
   shown: boolean;
   alone: boolean;
   onToggle: () => void;
+  onOpen: () => void;
   children: ReactNode;
 }) {
   return (
     <section className="insight-list" aria-label={label}>
-      <h3>
-        {label}
-        <InsightHideButton label={label} shown={shown} disabled={alone} onClick={onToggle} />
-      </h3>
+      <InsightHeading
+        label={label}
+        icon={icon}
+        shown={shown}
+        alone={alone}
+        onToggle={onToggle}
+        onOpen={onOpen}
+      />
       {shown ? children : null}
     </section>
   );

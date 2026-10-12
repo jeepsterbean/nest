@@ -3,7 +3,6 @@ import type { CorePane } from "../lib/corePane";
 import { useEffect, useMemo, useState } from "react";
 import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
-import { ViewToggle } from "../components/ViewToggle";
 import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
@@ -41,6 +40,32 @@ import { logHours } from "../lib/logHours";
 import { dayLabel, historyStartSec } from "../lib/time";
 import { InsightsColumn } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
+
+function CycleChoice<T extends string>({
+  value,
+  options,
+  label,
+  onChange,
+}: {
+  value: T;
+  options: readonly { key: T; label: string }[];
+  label: string;
+  onChange: (key: T) => void;
+}) {
+  const selected = options.find((option) => option.key === value) ?? options[0];
+  const next = options.find((option) => option.key !== selected.key) ?? selected;
+  return (
+    <button
+      type="button"
+      className="calendar-panel-controls__choice"
+      aria-label={`${label}, ${selected.label}. Switch to ${next.label}`}
+      title={`Switch to ${next.label}`}
+      onClick={() => onChange(next.key)}
+    >
+      {selected.label}
+    </button>
+  );
+}
 
 export function CalendarView({
   sidebarTarget,
@@ -178,7 +203,7 @@ export function CalendarView({
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
         onPick={range.goToDay} />
-      <div className="dash-toolbar calendar-panel-controls">
+      <div className="dash-toolbar recap-toolbar calendar-panel-controls">
         <DateNavigation
           label={range.mode === "day" ? dayLabel(range.from, range.nowMs) : range.title}
           unit={range.mode}
@@ -189,13 +214,13 @@ export function CalendarView({
           onToday={range.goToday}
         />
         <div className="calendar-panel-controls__display">
-          <ViewToggle
+          <CycleChoice
             value={range.mode}
             options={RANGE_MODES}
             label="Calendar date range"
             onChange={range.selectMode}
           />
-          <ViewToggle
+          <CycleChoice
             value={figure}
             options={CALENDAR_FIGURES}
             label="Calendar figure"

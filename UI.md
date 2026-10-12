@@ -74,10 +74,11 @@ portaled menu has to be scoped from a dashboard-level class, as
   class `.dashboard--section-sidebar`), between the Sidebar and
   `.dashboard__inner`. Rows are `.section-nav__button` icon-and-label buttons
   on tiles tinted with `--pane-tone`; selecting the selected row again opens
-  its icon picker when Settings allows icon selection. Below 861px the rail
+  its icon picker when Settings allows icon selection. Below 601px the Core rail
   keeps only the tiles, with accessible names and tooltips. Recap's version
   is `.range-sidebar`
-  (`.dashboard--range-sidebar`).
+  (`.dashboard--range-sidebar`); its rows are Calendar and Timeline, with
+  fixed icons and no icon picker, and they keep their labels at every width.
 - Core panes are Brain dump / Tasks / Metrics / Phases, toned with their Logs
   kind colors (`--dump`, `--doing`, `--accent`, `--phase`). The last pane is
   stored in `nest:core-pane` (Brain dump when unset), and `.dashboard__inner`

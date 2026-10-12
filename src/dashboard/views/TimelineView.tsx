@@ -164,7 +164,7 @@ export function TimelineView({
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
         markedDays={markedDays} onPick={range.goToDay} />
-      <div className="dash-toolbar logs-toolbar">
+      <div className="dash-toolbar recap-toolbar logs-toolbar">
         <div className="logs-toolbar__row">
           <DateNavigation
             label={dayLabel(selectedDayMs / 1000, nowMs)}
