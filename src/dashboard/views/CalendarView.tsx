@@ -1,9 +1,7 @@
 // Behavior and invariants: docs/interface/calendar.md
 import { useMemo, useState } from "react";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
-import { LogKindToggle } from "../components/logs/LogKindToggle";
 import { ViewToggle } from "../components/ViewToggle";
-import { PanelRight } from "lucide-react";
 import { useCalendarRange } from "../hooks/useCalendarRange";
 import {
   TimelineGrid,
@@ -33,12 +31,13 @@ import { layoutWorkBlocks } from "../lib/workTimeline";
 import {
   buildLogsEvents,
   readLogsPreferences,
+  toggleLogKind,
   writeLogsPreferences,
   type LogKindKey,
 } from "../lib/logs";
 import { logHours } from "../lib/logHours";
 import { historyStartSec } from "../lib/time";
-import { InsightsPanel } from "./InsightsPanel";
+import { InsightsColumn, InsightsToggle } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
 
 export function CalendarView({
@@ -161,9 +160,9 @@ export function CalendarView({
     setSelected(null);
   };
 
-  const updateKinds = (nextKinds: LogKindKey[]) => {
-    const next = { ...readLogsPreferences(), kinds: nextKinds };
-    writeLogsPreferences(next);
+  const updateKinds = (key: LogKindKey) => {
+    const nextKinds = toggleLogKind(kinds, key);
+    writeLogsPreferences({ ...readLogsPreferences(), kinds: nextKinds });
     setKinds(nextKinds);
   };
 
@@ -180,15 +179,13 @@ export function CalendarView({
           label="Calendar figure"
           onChange={selectFigure}
         />
-        {figure === "logs" ? (
-          <LogKindToggle kinds={kinds} label="Logs filter" onChange={updateKinds} />
-        ) : null}
-        <button type="button" className="calendar-insights-toggle"
-          aria-pressed={showInsights} aria-controls="calendar-panel-insights"
-          onClick={() => {
+        <InsightsToggle
+          shown={showInsights}
+          onToggle={() => {
             setShowInsights(!showInsights);
             writeCalendarInsightsShown(!showInsights);
-          }}><PanelRight aria-hidden="true" /><span>Insights</span></button>
+          }}
+        />
       </div>
       <div className={`dash-section__body calendar-body${showInsights ? " calendar-body--both" : ""}`}>
         {!loaded ? null : (
@@ -197,8 +194,7 @@ export function CalendarView({
               {figure === "logs" ? (
                 <LogsHours
                   columns={logsGrid.columns}
-                  mode={range.gridMode}
-                  span={range.span}
+                  mode={range.mode}
                   phases={phases}
                   metrics={metrics}
                   pulses={pulses}
@@ -217,8 +213,7 @@ export function CalendarView({
                   <TimelineGrid
                     columns={grid.columns}
                     phases={phases}
-                    mode={range.gridMode}
-                    span={range.span}
+                    mode={range.mode}
                     scrollPct={grid.scrollPct}
                     nowSec={range.nowSec}
                     selected={selected}
@@ -243,15 +238,17 @@ export function CalendarView({
               )}
             </div>
             {showInsights ? (
-              <div id="calendar-panel-insights" className="calendar-body__insights" aria-label="Insights" role="region">
-                <InsightsPanel
-                  from={range.from}
-                  to={range.to}
-                  live={range.live}
-                  nowMs={range.nowMs}
-                  nowSec={range.nowSec}
-                />
-              </div>
+              <InsightsColumn
+                from={range.insight.from}
+                to={range.insight.to}
+                live={range.insight.live}
+                nowMs={range.nowMs}
+                nowSec={range.nowSec}
+                kinds={kinds}
+                onToggleKind={updateKinds}
+                lastHour={range.lastHour}
+                onLastHour={range.selectLastHour}
+              />
             ) : null}
           </>
         )}

@@ -1,14 +1,15 @@
 // Behavior and invariants: docs/interface/calendar.md#range-sidebar
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  insightColumns,
   lastHourPeriod,
-  lastHourSpanLabel,
   readCalendarRangeMode,
+  readInsightLastHour,
   writeCalendarRangeMode,
-  type CalendarRangeMode,
+  writeInsightLastHour,
   type CalendarRangeStore,
+  type RangeModeKey,
 } from "../lib/insights";
+import { startOfDayMs } from "../lib/time";
 import { useDateRange } from "./useDateRange";
 
 const calendarRangeStore: CalendarRangeStore = {
@@ -16,66 +17,95 @@ const calendarRangeStore: CalendarRangeStore = {
   write: (mode) => writeCalendarRangeMode(mode),
 };
 
-/** Calendar's Day / Week paging plus the rolling Last hour. `columns` is what
- * the grid draws; `from` / `to` is what Insights summarizes. Last hour draws
- * today's Day and marks its trailing hour as `span`. */
+/** Day / Week for the whole Calendar section. Calendar and Timeline share the
+ * selected day. Last hour is an Insights window on today: choosing it lands
+ * on today in Day, and leaving that day or opening Week drops it so the grid
+ * and the panel stay on the same range. */
 export function useCalendarRange(
   store: CalendarRangeStore = calendarRangeStore,
 ) {
-  const [mode, setMode] = useState<CalendarRangeMode>(store.read);
-  const dates = useDateRange(mode === "lastHour" ? "day" : mode);
-  const liveColumns = useMemo(
-    () => insightColumns("day", dates.nowMs, dates.nowMs),
-    [dates.nowMs],
+  const [lastHour, setLastHour] = useState(readInsightLastHour);
+  const [mode, setMode] = useState<RangeModeKey>(() =>
+    readInsightLastHour() ? "day" : store.read(),
+  );
+  const dates = useDateRange(mode);
+  const lastHourRef = useRef(lastHour);
+  lastHourRef.current = lastHour;
+  const nowMsRef = useRef(dates.nowMs);
+  nowMsRef.current = dates.nowMs;
+
+  // A stored Week must not reopen under Last hour, which is always today.
+  useEffect(() => {
+    if (readInsightLastHour()) store.write("day");
+  }, [store]);
+
+  const selectMode = useCallback(
+    (key: RangeModeKey) => {
+      if (key === "week" && lastHourRef.current) {
+        setLastHour(false);
+        writeInsightLastHour(false);
+      }
+      setMode(key);
+      store.write(key);
+    },
+    [store],
   );
 
-  const selectMode = (key: CalendarRangeMode) => {
-    setMode(key);
-    store.write(key);
-    if (key === "lastHour" || mode === "lastHour") dates.goToday();
-  };
+  const goToDay = useCallback(
+    (dayMs: number) => {
+      const today = startOfDayMs(nowMsRef.current / 1000);
+      if (lastHourRef.current && startOfDayMs(dayMs / 1000) !== today) {
+        setLastHour(false);
+        writeInsightLastHour(false);
+      }
+      dates.goToDay(dayMs);
+    },
+    [dates.goToDay],
+  );
 
-  const goToDay = (dayMs: number) => {
-    if (mode === "lastHour") selectMode("day");
-    dates.goToDay(dayMs);
-  };
+  const step = useCallback(
+    (direction: number) => {
+      if (lastHourRef.current) {
+        setLastHour(false);
+        writeInsightLastHour(false);
+      }
+      dates.step(direction);
+    },
+    [dates.step],
+  );
 
-  const shared = {
-    mode,
-    gridMode: mode === "week" ? ("week" as const) : ("day" as const),
-    nowMs: dates.nowMs,
-    nowSec: dates.nowSec,
-    earliestSec: dates.earliestSec,
-    selectMode,
-    step: dates.step,
-    goToday: dates.goToday,
-    goToDay,
-  };
+  const selectLastHour = useCallback(
+    (on: boolean) => {
+      setLastHour(on);
+      writeInsightLastHour(on);
+      if (!on) return;
+      setMode("day");
+      store.write("day");
+      dates.goToday();
+    },
+    [store, dates.goToday],
+  );
 
-  if (mode === "lastHour") {
-    const period = lastHourPeriod(dates.nowSec);
-    return {
-      ...shared,
-      columns: liveColumns,
-      from: period.from,
-      to: period.to,
-      span: period,
-      canGoBack: false,
-      isNow: true,
-      title: lastHourSpanLabel(dates.nowSec),
-      live: true,
-    };
-  }
+  const insight = lastHour
+    ? { ...lastHourPeriod(dates.nowSec), live: true }
+    : { from: dates.from, to: dates.to, live: false };
 
   return {
-    ...shared,
+    mode,
     columns: dates.columns,
     from: dates.from,
     to: dates.to,
-    span: null,
+    nowMs: dates.nowMs,
+    nowSec: dates.nowSec,
+    earliestSec: dates.earliestSec,
     canGoBack: dates.canGoBack,
     isNow: dates.isNow,
-    title: dates.title,
-    live: false,
+    lastHour,
+    insight,
+    selectMode,
+    selectLastHour,
+    step,
+    goToday: dates.goToday,
+    goToDay,
   };
 }

@@ -15,7 +15,7 @@ The dashboard loads a 30-day history window. Day and Week are anchored to real
 dates rather than measured back from now. Today follows the clock across
 midnight; historical dates stay fixed.
 
-Day navigation (Brain dump, Tasks Day, Timeline, Metrics) and Calendar's month
+Day navigation (Brain dump, Tasks Day, Timeline, Metrics, Phases Day) and Calendar's month
 pager share one arrow control. Every surface opens on today when the app
 launches, pages one local day (or month) at a time, and never moves past Today; shared navigation logic
 enforces that limit as well as the controls. Day navigation also returns to
@@ -23,28 +23,31 @@ Today from any historical day; the month pager does not.
 
 The earliest day depends on the surface. Calendar and its sidebar, Tasks Day,
 and Timeline stop at loaded history: direct selections clamp to it, and paging
-stops before a page starts outside it. Brain dump and Metrics have no earliest
-day and fetch older days on demand.
+stops before a page starts outside it. Brain dump, Metrics, and Phases Day have
+no earliest day and fetch older days on demand.
 
 ## Last hour
 
-Last hour is a rolling 60 minutes from now. Calendar, Phase mix, and the
-Insights task ledger advance that window on one shared minute clock.
-Insights brain dumps and Metric check-ins use wall-clock now instead, so a
-just-saved item shows immediately. Calendar's Last hour range and Insights
-share the window; the two clocks are described under
+Last hour is a rolling 60 minutes from now, chosen on Insights. Choosing it
+moves the Calendar section to today and to Day. The grid and Timeline keep
+that full day, and Insights summarizes the hour. Leaving that day, or choosing
+Week, leaves Last hour. Phase mix and the task ledger advance the hour on the
+shared minute clock. Brain dumps and Metric check-ins use wall-clock now, so a
+just-saved item shows immediately. Just after midnight the hour still includes
+the end of the previous day. The two clocks are described under
 [Insights](calendar.md#insights).
 
 ## Logs kinds
 
-Timeline and Calendar's Logs figure filter
-history by four kinds: Brain dumps, Phases, Metrics, and Tasks. All four are
-on by default. A click toggles one kind, and the last kind on stays on. A
-double click keeps only that kind, and double clicking the kind already alone
-turns all four back on. Timeline and Calendar Logs share one selection in
-`nest:logs-preferences`.
+Insights, Timeline, and Calendar's Logs figure share four kinds: Phases,
+Brain dumps, Tasks, and Metrics. All four are shown by default. Each Insights
+heading has a hide control. Hiding a kind removes that section's body and
+that kind from Logs and Timeline. The heading stays, so the kind can be shown
+again, and the last shown kind stays shown. The choice is remembered in
+`nest:logs-preferences` and still applies while Insights is closed. Work
+stretch keeps its full timetable.
 
-With Phases alone, an eye button swaps the settled Phase rows for every Phase
+With Phases alone, an eye button on Timeline swaps the settled Phase rows for every Phase
 checkpoint in the window; it starts off whenever Phases becomes the only kind
 again and is not stored. Settled Phase rows and the day export use the
 [Phase history interpretation](../domain/history.md#phase-history).

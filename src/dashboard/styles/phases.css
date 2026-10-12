@@ -9,15 +9,90 @@
 .dash-section--phases {
   display: grid;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   padding: 0;
 }
 
+.dash-section--phases > .dash-section__head {
+  position: relative;
+  z-index: 20;
+  align-items: center;
+  margin: 0;
+  padding: 22px 24px 16px;
+}
+
+/* Guide has no day navigation, so the toggle holds its corner by itself. */
+.dash-section--phases > .dash-section__head > .view-toggle {
+  margin-left: auto;
+}
+
 .dash-section--phases > .dash-section__body {
   overflow: auto;
-  padding: 22px 24px 24px;
+  padding: 0 24px 24px;
 }
+
+/* ---------- Day ---------- */
+
+/* The axis and track come from the Metrics day board, which sizes them from
+   these two properties, so both boards keep one midnight-to-midnight scale. */
+.phase-day {
+  --metric-columns: minmax(110px, 190px) minmax(0, 1fr) 64px;
+  --metric-row-inset: 12px;
+  display: grid;
+  max-width: 1080px;
+}
+
+.phase-day > .metric-axis {
+  margin-bottom: 0;
+}
+
+.phase-day-row {
+  display: grid;
+  min-height: 46px;
+  grid-template-columns: var(--metric-columns);
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--metric-row-inset);
+  border-bottom: 1px solid var(--border);
+}
+
+.phase-day-row:last-child {
+  border-bottom: 0;
+}
+
+.phase-day-row__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.phase-day-row__session {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  height: 12px;
+  /* A session of a minute or two would otherwise round to nothing. */
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--phase-color, var(--muted));
+  transform: translateY(-50%);
+}
+
+.phase-day-row__total {
+  color: var(--ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.phase-day-row__total[data-empty] {
+  color: var(--muted);
+}
+
+/* ---------- Guide ---------- */
 
 .phase-guide {
   display: grid;
@@ -72,7 +147,8 @@
   stroke-width: 1.8;
 }
 
-.phase-row[data-current="true"] .phase-row__icon {
+.phase-row[data-current="true"] .phase-row__icon,
+.phase-day-row[data-current="true"] .phase-row__icon {
   animation: phase-current-breathe 3.2s ease-in-out infinite;
 }
 

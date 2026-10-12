@@ -15,9 +15,9 @@ import {
   LOG_EVENT_BATCH_SIZE,
   MIXED_LOG_EMPTY_COPY,
   readLogsPreferences,
+  toggleLogKind,
   writeLogsPreferences,
   type LogKindKey,
-  type LogsPreferences,
 } from "../lib/logs";
 import {
   HISTORY_WINDOW_DAYS,
@@ -25,11 +25,16 @@ import {
 } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useCalendarRange } from "../hooks/useCalendarRange";
-import type { CalendarPresentation } from "../lib/insights";
+import {
+  readCalendarInsightsShown,
+  writeCalendarInsightsShown,
+  type CalendarPresentation,
+} from "../lib/insights";
 import { dayLabel, historyStartSec } from "../lib/time";
 import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
-import { LogKindToggle, LogsRawToggle } from "../components/logs/LogKindToggle";
+import { LogsRawToggle } from "../components/logs/LogKindToggle";
+import { InsightsColumn, InsightsToggle } from "./InsightsPanel";
 import { TimelineList } from "./TimelineList";
 
 export function TimelineView({
@@ -58,7 +63,8 @@ export function TimelineView({
     loaded,
     mutate,
   } = useDashboardData();
-  const [preferences, setPreferences] = useState(readLogsPreferences);
+  const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
+  const [showInsights, setShowInsights] = useState(readCalendarInsightsShown);
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
@@ -67,7 +73,6 @@ export function TimelineView({
   );
   // Not stored: returning to Phases alone always starts on the settled rows.
   const [everyPhaseCheckpoint, setEveryPhaseCheckpoint] = useState(false);
-  const { kinds } = preferences;
   const phasesOnly = kinds.length === 1 && kinds[0] === "phases";
   const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
   const nowMs = useCurrentTime();
@@ -133,31 +138,27 @@ export function TimelineView({
 
   const selectedDayMs = range.columns[0].from * 1000;
   const markedDays = useMemo(() => new Set(logDayKeys(exportEvents)), [exportEvents]);
-  const batchRangeFrom = range.live ? null : range.from;
-  useEffect(() => { setVisibleEventCount(LOG_EVENT_BATCH_SIZE); }, [range.mode, batchRangeFrom]);
-  const { live, canGoBack, isNow, step, goToday } = range;
+  useEffect(() => { setVisibleEventCount(LOG_EVENT_BATCH_SIZE); }, [range.from]);
+  const { canGoBack, isNow, step, goToday } = range;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.isContentEditable || target?.closest("input, textarea, select, button, [role='dialog']")) return;
-      if (event.key === "ArrowLeft" && !live && canGoBack) step(-1);
-      else if (event.key === "ArrowRight" && !live && !isNow) step(1);
+      if (event.key === "ArrowLeft" && canGoBack) step(-1);
+      else if (event.key === "ArrowRight" && !isNow) step(1);
       else if (event.key === "t") goToday();
       else return;
       event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [live, canGoBack, isNow, step, goToday]);
+  }, [canGoBack, isNow, step, goToday]);
 
-  const savePreferences = (next: LogsPreferences) => {
-    writeLogsPreferences(next);
-    setPreferences(next);
-  };
-
-  const updateKinds = (nextKinds: LogKindKey[]) => {
-    savePreferences({ ...preferences, kinds: nextKinds });
+  const updateKinds = (key: LogKindKey) => {
+    const nextKinds = toggleLogKind(kinds, key);
+    writeLogsPreferences({ kinds: nextKinds });
+    setKinds(nextKinds);
     setEveryPhaseCheckpoint(false);
     setVisibleEventCount(LOG_EVENT_BATCH_SIZE);
   };
@@ -208,59 +209,76 @@ export function TimelineView({
             onNext={() => step(1)}
             onToday={goToday}
           />
-        </div>
-        <div className="logs-toolbar__row">
-          <LogKindToggle kinds={kinds} label="Timeline filter" onChange={updateKinds} />
           {phasesOnly ? (
             <LogsRawToggle
               active={everyPhaseCheckpoint}
               onClick={toggleEveryPhaseCheckpoint}
             />
           ) : null}
+          <InsightsToggle
+            shown={showInsights}
+            onToggle={() => {
+              setShowInsights(!showInsights);
+              writeCalendarInsightsShown(!showInsights);
+            }}
+          />
         </div>
       </div>
-      <div
-        className="dash-section__body"
-      >
-        {!loaded ? null : eventCount === 0 ? (
-          <div className="dash-empty">
-            <strong>{empty.title}</strong>
-            <span>{empty.body}</span>
-          </div>
-        ) : null}
-        {loaded && (eventCount > 0 || range.isNow) ? (
-          <TimelineList
-            showCurrentTime={range.isNow}
-            events={visibleEvents}
-            phaseCheckIns={phaseCheckIns}
-            phases={phases}
-            metrics={metrics}
-            pulses={pulses}
-            tasks={tasks}
-            expandedDumpIds={expandedDumpIds}
-            onDeleteCheckIn={onDeleteCheckIn}
-            onToggleDump={toggleDumpExpanded}
-            onExportDay={exportDay}
-            onOpenDay={onOpenDayInCalendarLogs}
-            nowMs={nowMs}
-            colorsTimeColumn={kinds.includes("phases")}
+      <div className={`dash-section__body calendar-body${showInsights ? " calendar-body--both" : ""}`}>
+        <div className="calendar-body__grid">
+          {!loaded ? null : eventCount === 0 ? (
+            <div className="dash-empty">
+              <strong>{empty.title}</strong>
+              <span>{empty.body}</span>
+            </div>
+          ) : null}
+          {loaded && (eventCount > 0 || range.isNow) ? (
+            <TimelineList
+              showCurrentTime={range.isNow}
+              events={visibleEvents}
+              phaseCheckIns={phaseCheckIns}
+              phases={phases}
+              metrics={metrics}
+              pulses={pulses}
+              tasks={tasks}
+              expandedDumpIds={expandedDumpIds}
+              onDeleteCheckIn={onDeleteCheckIn}
+              onToggleDump={toggleDumpExpanded}
+              onExportDay={exportDay}
+              onOpenDay={onOpenDayInCalendarLogs}
+              nowMs={nowMs}
+              colorsTimeColumn={kinds.includes("phases")}
+            />
+          ) : null}
+          {loaded && remainingEventCount > 0 ? (
+            <div className="logs-load-older">
+              <button
+                type="button"
+                className="btn-accent"
+                onClick={() =>
+                  setVisibleEventCount((count) => count + LOG_EVENT_BATCH_SIZE)
+                }
+              >
+                Load {nextBatchSize} older
+              </button>
+              <span>
+                Showing {Math.min(visibleEventCount, eventCount)} of {eventCount}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        {showInsights ? (
+          <InsightsColumn
+            from={range.insight.from}
+            to={range.insight.to}
+            live={range.insight.live}
+            nowMs={range.nowMs}
+            nowSec={range.nowSec}
+            kinds={kinds}
+            onToggleKind={updateKinds}
+            lastHour={range.lastHour}
+            onLastHour={range.selectLastHour}
           />
-        ) : null}
-        {loaded && remainingEventCount > 0 ? (
-          <div className="logs-load-older">
-            <button
-              type="button"
-              className="btn-accent"
-              onClick={() =>
-                setVisibleEventCount((count) => count + LOG_EVENT_BATCH_SIZE)
-              }
-            >
-              Load {nextBatchSize} older
-            </button>
-            <span>
-              Showing {Math.min(visibleEventCount, eventCount)} of {eventCount}
-            </span>
-          </div>
         ) : null}
       </div>
     </section>

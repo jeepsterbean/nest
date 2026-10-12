@@ -26,7 +26,6 @@ import {
   type CalendarPresentation,
 } from "./lib/insights";
 import { useCalendarRange } from "./hooks/useCalendarRange";
-import { LOGS_CALENDAR_RANGE_STORE } from "./lib/logs";
 import { phaseName, phaseTone } from "./lib/period";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
@@ -36,7 +35,6 @@ function DashboardInner() {
   const [calendarPresentation, setCalendarPresentation] =
     useState<CalendarPresentation>(readCalendarPresentation);
   const calendarRange = useCalendarRange();
-  const timelineRange = useCalendarRange(LOGS_CALENDAR_RANGE_STORE);
   const [corePane, setCorePane] = useState<CorePane>(readCorePane);
   const selectCorePane = useCallback((pane: CorePane) => {
     writeCorePane(pane);
@@ -59,7 +57,13 @@ function DashboardInner() {
     ? phaseTone(currentPhaseName) === "doing"
     : false;
   // Core panes reuse the layout rules written for their former Sections.
-  const surface = view === "core" ? corePane : calendarPresentation;
+  // Week has no Timeline, so a remembered Timeline presentation shows Calendar
+  // until Day is chosen again.
+  const showTimeline =
+    view === "calendar" &&
+    calendarPresentation === "timeline" &&
+    calendarRange.mode === "day";
+  const surface = view === "core" ? corePane : showTimeline ? "timeline" : "calendar";
   const hasRangeSidebar = view === "calendar";
   const hasSectionSidebar = view === "core" || hasRangeSidebar;
   const [rangeSidebarTarget, setRangeSidebarTarget] = useState<HTMLElement | null>(null);
@@ -111,7 +115,7 @@ function DashboardInner() {
         >
           <ErrorBanner />
 
-          {view === "calendar" && calendarPresentation === "calendar" && (
+          {view === "calendar" && !showTimeline && (
             <CalendarView
               sidebarTarget={rangeSidebarTarget}
               presentation={calendarPresentation}
@@ -119,9 +123,9 @@ function DashboardInner() {
               range={calendarRange}
             />
           )}
-          {view === "calendar" && calendarPresentation === "timeline" && (
+          {showTimeline && (
             <TimelineView
-              range={timelineRange}
+              range={calendarRange}
               sidebarTarget={rangeSidebarTarget}
               presentation={calendarPresentation}
               onPresentation={selectCalendarPresentation}

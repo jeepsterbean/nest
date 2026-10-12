@@ -8,7 +8,7 @@ then only the surface document it routes for the task.
 - Dashboard code is grouped into `views/`, `task/`, `context/`, `lib/`,
   `components/`, `hooks/`, and `styles/`.
 - Sections are Calendar and Core. Calendar switches between Calendar and
-  Timeline and can show Insights. Core contains Brain dump, Tasks, Metrics,
+  Timeline. Insights can sit beside either. Core contains Brain dump, Tasks, Metrics,
   and Phases. The Sidebar's Settings button opens the Settings overlay.
 - Keep view files focused on composition. Load and mutate shared application
   data through `DashboardDataContext`.

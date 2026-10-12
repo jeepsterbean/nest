@@ -23,9 +23,6 @@ export type FrameColumn = {
   sessions: PhaseSession[];
 };
 
-/** A stretch of time the grid marks across its lanes, e.g. Last hour. */
-export type TimeSpan = { from: number; to: number };
-
 export const pxOf = (sizePct: number) => (sizePct / 100) * DAY_PX;
 
 /** Sessions with their column placement and display name — the rail and the
@@ -53,7 +50,6 @@ export function TimelineFrame<C extends FrameColumn>({
   columns,
   phases,
   mode,
-  span = null,
   scrollPct,
   nowSec,
   colsRef,
@@ -62,7 +58,6 @@ export function TimelineFrame<C extends FrameColumn>({
   columns: C[];
   phases: Phase[];
   mode: "day" | "week";
-  span?: TimeSpan | null;
   scrollPct: number | null;
   nowSec: number;
   colsRef?: RefObject<HTMLDivElement | null>;
@@ -106,11 +101,6 @@ export function TimelineFrame<C extends FrameColumn>({
     }
     // `columns` is read once per range, like `target`; scrollKey names the range.
   }, [scrollKey]);
-
-  const spanMark =
-    span && columns[0]
-      ? placeOnWindow(span.from, span.to, columns[0].from, columns[0].to)
-      : null;
 
   return (
     <div className={`tl tl--${mode}`} style={{ "--tl-hour": `${HOUR_PX}px` } as CSSProperties}>
@@ -159,13 +149,6 @@ export function TimelineFrame<C extends FrameColumn>({
               {formatHourTick((columns[0]?.from ?? 0) + hour * 3600)}
             </span>
           ))}
-          {spanMark && spanMark.sizePct > 0 ? (
-            <span
-              className="tl__span-mark"
-              aria-hidden="true"
-              style={{ top: `${spanMark.startPct}%`, height: `${spanMark.sizePct}%` }}
-            />
-          ) : null}
         </div>
         <div className="tl__cols" ref={colsRef}>
           {HOURS.map((hour) => (
@@ -173,9 +156,6 @@ export function TimelineFrame<C extends FrameColumn>({
           ))}
           {columns.map((column) => {
             const now = placeOnWindow(nowSec, nowSec, column.from, column.to);
-            const spanOnColumn = span
-              ? placeOnWindow(span.from, span.to, column.from, column.to)
-              : null;
             return (
               <div key={column.from} className="tl__lane">
                 {placeSessions(column, phases).map(
@@ -196,16 +176,6 @@ export function TimelineFrame<C extends FrameColumn>({
                     />
                   ),
                 )}
-                {spanOnColumn && spanOnColumn.sizePct > 0 ? (
-                  <div
-                    className="tl__span"
-                    aria-hidden="true"
-                    style={{
-                      top: `${spanOnColumn.startPct}%`,
-                      height: `${spanOnColumn.sizePct}%`,
-                    }}
-                  />
-                ) : null}
                 {renderLane(column)}
                 {nowSec >= column.from && nowSec < column.to ? (
                   <div className="tl__now" style={{ top: `${now.startPct}%` }} />

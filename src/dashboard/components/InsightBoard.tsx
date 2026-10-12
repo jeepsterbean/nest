@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type CSSProperties } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, EyeOff } from "lucide-react";
 import type { Task } from "../../lib/types";
 import {
   INSIGHT_OUTCOME_LABEL,
@@ -13,29 +13,75 @@ import { formatCompactDuration } from "../lib/time";
 import { useScrollOverflow } from "../hooks/useScrollOverflow";
 import { NestIcon } from "./PulseIcon";
 
-export function InsightBrainDumps({ summary }: { summary: InsightBrainDumpSummary }) {
+/** Hide control for one Insights kind. Pressed while that kind is hidden.
+ * Disabled on the last kind still shown, which stays visible. */
+export function InsightHideButton({
+  label,
+  shown,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  shown: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="insight-list__hide"
+      aria-pressed={!shown}
+      aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+      title={disabled ? "At least one stays shown" : undefined}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <EyeOff aria-hidden="true" />
+    </button>
+  );
+}
+
+export function InsightBrainDumps({
+  summary,
+  shown,
+  alone,
+  onToggle,
+}: {
+  summary: InsightBrainDumpSummary;
+  shown: boolean;
+  alone: boolean;
+  onToggle: () => void;
+}) {
   return (
     <section className="insight-list insight-brain-dumps" aria-label="Brain dumps">
       <h3>
         Brain dumps
         <span className="insight-list__count">{summary.count}</span>
+        <InsightHideButton
+          label="Brain dumps"
+          shown={shown}
+          disabled={alone}
+          onClick={onToggle}
+        />
       </h3>
-      {summary.count === 0 ? (
-        <p className="insight-quiet">No brain dumps in this period.</p>
-      ) : (
-        <ul className="insight-brain-dumps__tags" aria-label="Tags">
-          <li>
-            <span className="insight-quiet">Untagged</span>
-            <span className="insight-list__count">{summary.untaggedCount}</span>
-          </li>
-          {summary.tags.map((tag) => (
-            <li key={tag.id}>
-              <span className="brain-dump-tag" title={tag.name}>{tag.name}</span>
-              <span className="insight-list__count">{tag.count}</span>
+      {shown ? (
+        summary.count === 0 ? (
+          <p className="insight-quiet">No brain dumps in this period.</p>
+        ) : (
+          <ul className="insight-brain-dumps__tags" aria-label="Tags">
+            <li>
+              <span className="insight-quiet">Untagged</span>
+              <span className="insight-list__count">{summary.untaggedCount}</span>
             </li>
-          ))}
-        </ul>
-      )}
+            {summary.tags.map((tag) => (
+              <li key={tag.id}>
+                <span className="brain-dump-tag" title={tag.name}>{tag.name}</span>
+                <span className="insight-list__count">{tag.count}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
     </section>
   );
 }

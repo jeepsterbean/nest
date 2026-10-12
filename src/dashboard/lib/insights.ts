@@ -69,22 +69,13 @@ export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
 export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
 
-export const CALENDAR_RANGE_MODES = [
-  { key: "lastHour", label: "Last hour" },
-  ...RANGE_MODES,
-] as const;
-
-export type CalendarRangeMode = (typeof CALENDAR_RANGE_MODES)[number]["key"];
 export type CalendarRangeStore = {
-  read: () => CalendarRangeMode;
-  write: (mode: CalendarRangeMode) => void;
+  read: () => RangeModeKey;
+  write: (mode: RangeModeKey) => void;
 };
 
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
-const CALENDAR_MODE_KEYS = new Set<string>(
-  CALENDAR_RANGE_MODES.map((item) => item.key),
-);
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -111,25 +102,39 @@ export const writeCalendarPresentation = (
   storage.setItem(CALENDAR_PRESENTATION_KEY, presentation);
 };
 
+/** Day unless Week is stored. A retired Last hour value reads as Day; Last hour
+ * now lives on Insights (`nest:insight-last-hour`). */
 export const readCalendarRangeMode = (
   storage: RangeStorage = localStorage,
-): CalendarRangeMode => {
+): RangeModeKey => {
   const stored =
     storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
-  return CALENDAR_MODE_KEYS.has(stored ?? "")
-    ? (stored as CalendarRangeMode)
-    : "day";
+  return stored === "week" ? "week" : "day";
 };
 
 export const writeCalendarRangeMode = (
-  key: CalendarRangeMode,
+  key: RangeModeKey,
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(RANGE_MODE_KEY, key);
 };
 
-/** Whether Insights sits beside the Calendar grid. The grid itself is always
- * shown, so the stored value is a single on/off. */
+const INSIGHT_LAST_HOUR_KEY = "nest:insight-last-hour";
+
+/** Insights summarizes the rolling hour instead of the Day or Week on screen. */
+export const readInsightLastHour = (
+  storage: Pick<Storage, "getItem"> = localStorage,
+): boolean => storage.getItem(INSIGHT_LAST_HOUR_KEY) === "on";
+
+export const writeInsightLastHour = (
+  on: boolean,
+  storage: RangeStorage = localStorage,
+) => {
+  storage.setItem(INSIGHT_LAST_HOUR_KEY, on ? "on" : "off");
+};
+
+/** Whether Insights sits beside Calendar or Timeline. The figure itself is
+ * always shown, so the stored value is a single on/off. */
 const CALENDAR_INSIGHTS_KEY = "nest:calendar-display";
 
 /** A missing or retired value (including the old Insights-only "insights")

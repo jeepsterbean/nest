@@ -1,7 +1,7 @@
 # History domain
 
-Rules for interpreting records across Calendar, Insights, Timeline, and Tasks
-Day. Navigation, clocks, filters, and presentation live in
+Rules for interpreting records across Calendar, Insights, Timeline, Tasks Day,
+and Phases Day. Navigation, clocks, filters, and presentation live in
 [Calendar interface](../interface/calendar.md) and
 [Time surfaces interface](../interface/time-surfaces.md).
 

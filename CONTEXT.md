@@ -48,7 +48,7 @@ Surface behavior: [Metrics interface](docs/interface/metrics.md),
   these names in chrome, accessible names, and class names; reserve check-in
   for Metric scoring records.
 - **Section** names Calendar or Core. Calendar contains Calendar and Timeline
-  presentations, with Insights beside Calendar. Core contains Brain dump,
+  presentations, with Insights beside either. Core contains Brain dump,
   Tasks, Metrics, and Phases panes.
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.
 - **Settings** names the overlay the Sidebar opens for Background, Map, and

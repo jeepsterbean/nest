@@ -5,7 +5,6 @@ import {
   logDayKeys,
   logDayMarkdown,
   readLogsPreferences,
-  soloLogKind,
   toggleLogKind,
   writeLogsPreferences,
 } from "../../../src/dashboard/lib/logs";
@@ -96,16 +95,8 @@ describe("Logs kind selection", () => {
     expect(toggleLogKind(["dumps", "tasks"], "dumps")).toEqual(["tasks"]);
   });
 
-  it("keeps the last selected kind on", () => {
+  it("keeps the last shown kind on", () => {
     expect(toggleLogKind(["phases"], "phases")).toEqual(["phases"]);
-  });
-
-  it("isolates a kind, and restores every kind when it is already alone", () => {
-    expect(soloLogKind(["dumps", "phases", "metrics"], "metrics")).toEqual([
-      "metrics",
-    ]);
-    expect(soloLogKind(["dumps"], "metrics")).toEqual(["metrics"]);
-    expect(soloLogKind(["metrics"], "metrics")).toEqual(ALL_KINDS);
   });
 });
 

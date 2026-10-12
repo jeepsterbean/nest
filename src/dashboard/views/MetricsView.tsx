@@ -18,6 +18,7 @@ import { resolveMetricColorFromList } from "../../lib/metricColors";
 import { readHiddenPulseIds, setPulseVisible } from "../../lib/pulseVisibility";
 import type { Metric, MetricCheckInWithRatings, Pulse } from "../../lib/types";
 import { DateNavigation } from "../components/DateNavigation";
+import { DayAxis, DayTrack } from "../components/DayStrip";
 import { MenuSelect } from "../components/MenuSelect";
 import { gripIcon } from "../components/icons";
 import { IconPickerButton, NestIcon, nestIconLabel } from "../components/PulseIcon";
@@ -35,7 +36,7 @@ import {
   type MetricDayPoint,
   type MetricDayTick,
 } from "../lib/metricDay";
-import { dayLabel, formatHourTick, formatTime, shiftDayMs, startOfDayMs } from "../lib/time";
+import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "../lib/time";
 
 // Dragging a Pulse starts from its heading; its Metric rows sort on their own.
 const PULSE_SORT_IGNORE = `${LIST_SORT_IGNORE}, .metric-group__rows, .rename-input, .metric-group__name`;
@@ -71,18 +72,7 @@ function MetricDayStrip({
   const stacked = points.some((point) => point.lane > 0);
   return (
     <div className="metric-day" data-stacked={stacked || undefined} role="img" aria-label={label}>
-      <div className="metric-day__track">
-        {ticks.map((tick) => (
-          <span
-            key={tick.offset}
-            className="metric-day__tick"
-            data-major={tick.labelAt !== null || undefined}
-            style={{ left: `${tick.offset * 100}%` }}
-          />
-        ))}
-        {nowOffset < 1 ? (
-          <span className="metric-day__later" style={{ left: `${nowOffset * 100}%` }} />
-        ) : null}
+      <DayTrack ticks={ticks} nowOffset={nowOffset}>
         {points.map((point) => (
           <span
             key={point.checkInId}
@@ -94,25 +84,7 @@ function MetricDayStrip({
             {point.value}
           </span>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function MetricDayAxis({ ticks }: { ticks: MetricDayTick[] }) {
-  return (
-    <div className="metric-axis" aria-hidden="true">
-      <div className="metric-day__track">
-        {ticks.flatMap((tick) =>
-          tick.labelAt === null
-            ? []
-            : [
-                <span key={tick.offset} style={{ left: `${tick.offset * 100}%` }}>
-                  {formatHourTick(tick.labelAt)}
-                </span>,
-              ],
-        )}
-      </div>
+      </DayTrack>
     </div>
   );
 }
@@ -617,7 +589,7 @@ export function MetricsView() {
           </div>
         ) : (
           <>
-            {editing ? null : <MetricDayAxis ticks={day.ticks} />}
+            {editing ? null : <DayAxis ticks={day.ticks} />}
             {pulses.map((pulse) => (
               <PulseGroup
                 key={pulse.id}

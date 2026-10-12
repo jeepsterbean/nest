@@ -27,7 +27,6 @@ import {
   pxOf,
   TimelineFrame,
   type FrameColumn,
-  type TimeSpan,
 } from "./TimelineFrame";
 
 /** A block this tall fits its title; twice that also fits its start–end line. */
@@ -131,7 +130,6 @@ export function TimelineGrid({
   columns,
   phases,
   mode,
-  span,
   scrollPct,
   nowSec,
   selected,
@@ -142,7 +140,6 @@ export function TimelineGrid({
   columns: GridColumn[];
   phases: Phase[];
   mode: "day" | "week";
-  span?: TimeSpan | null;
   scrollPct: number | null;
   nowSec: number;
   selected: StretchEdit | null;
@@ -321,7 +318,6 @@ export function TimelineGrid({
       columns={columns}
       phases={phases}
       mode={mode}
-      span={span}
       scrollPct={scrollPct}
       nowSec={nowSec}
       colsRef={colsRef}

@@ -1,28 +1,99 @@
 // Behavior and invariants: docs/interface/calendar.md#insights
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import { PanelRight } from "lucide-react";
 import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
   InsightBrainDumps,
+  InsightHideButton,
   InsightLedger,
 } from "../components/InsightBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { rangeInsight } from "../lib/insights";
+import { lastHourSpanLabel, rangeInsight } from "../lib/insights";
+import type { LogKindKey } from "../lib/logs";
 
-/** The review of a range: Phases, Brain dumps, Tasks, and Metrics, stacked in
- * Calendar's side column. */
-export function InsightsPanel({
+/** Opens or closes the Insights column. The same choice on Calendar and Timeline. */
+export function InsightsToggle({
+  shown,
+  onToggle,
+}: {
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="calendar-insights-toggle"
+      aria-pressed={shown}
+      aria-controls="calendar-panel-insights"
+      onClick={onToggle}
+    >
+      <PanelRight aria-hidden="true" />
+      <span>Insights</span>
+    </button>
+  );
+}
+
+export function InsightsColumn({
   from,
   to,
   live,
   nowMs,
   nowSec,
+  kinds,
+  onToggleKind,
+  lastHour,
+  onLastHour,
 }: {
   from: number;
   to: number;
   live: boolean;
   nowMs: number;
   nowSec: number;
+  kinds: LogKindKey[];
+  onToggleKind: (key: LogKindKey) => void;
+  lastHour: boolean;
+  onLastHour: (on: boolean) => void;
+}) {
+  return (
+    <div id="calendar-panel-insights" className="calendar-body__insights" aria-label="Insights" role="region">
+      <InsightsPanel
+        from={from}
+        to={to}
+        live={live}
+        nowMs={nowMs}
+        nowSec={nowSec}
+        kinds={kinds}
+        onToggleKind={onToggleKind}
+        lastHour={lastHour}
+        onLastHour={onLastHour}
+      />
+    </div>
+  );
+}
+
+/** The review of a range: Phases, Brain dumps, Tasks, and Metrics, stacked in
+ * the side column. Each heading hides that kind for Insights, Logs, and Timeline. */
+export function InsightsPanel({
+  from,
+  to,
+  live,
+  nowMs,
+  nowSec,
+  kinds,
+  onToggleKind,
+  lastHour,
+  onLastHour,
+}: {
+  from: number;
+  to: number;
+  live: boolean;
+  nowMs: number;
+  nowSec: number;
+  kinds: LogKindKey[];
+  onToggleKind: (key: LogKindKey) => void;
+  lastHour: boolean;
+  onLastHour: (on: boolean) => void;
 }) {
   const {
     tasks,
@@ -71,21 +142,63 @@ export function InsightsPanel({
     ],
   );
 
+  const shown = (key: LogKindKey) => kinds.includes(key);
+  const alone = (key: LogKindKey) => shown(key) && kinds.length === 1;
+
   return (
     <div className="insights-body">
-      <section className="insight-list" aria-label="Phases">
-        <h3>Phases</h3>
+      <div className="insights-window">
+        <button
+          type="button"
+          className="insights-window__last-hour"
+          aria-pressed={lastHour}
+          onClick={() => onLastHour(!lastHour)}
+        >
+          Last hour
+        </button>
+        {lastHour ? (
+          <span className="insights-window__span">{lastHourSpanLabel(nowSec)}</span>
+        ) : null}
+      </div>
+      <InsightSection label="Phases" shown={shown("phases")} alone={alone("phases")} onToggle={() => onToggleKind("phases")}>
         <PhaseMix sessions={insight.sessions} phases={phases} />
-      </section>
-      <InsightBrainDumps summary={insight.brainDumps} />
-      <section className="insight-list" aria-label="Tasks">
-        <h3>Tasks</h3>
+      </InsightSection>
+      <InsightBrainDumps
+        summary={insight.brainDumps}
+        shown={shown("dumps")}
+        alone={alone("dumps")}
+        onToggle={() => onToggleKind("dumps")}
+      />
+      <InsightSection label="Tasks" shown={shown("tasks")} alone={alone("tasks")} onToggle={() => onToggleKind("tasks")}>
         <InsightLedger groups={insight.taskGroups} />
-      </section>
-      <section className="insight-list" aria-label="Metrics">
-        <h3>Metrics</h3>
+      </InsightSection>
+      <InsightSection label="Metrics" shown={shown("metrics")} alone={alone("metrics")} onToggle={() => onToggleKind("metrics")}>
         <InsightCheckIns groups={insight.checkIns} />
-      </section>
+      </InsightSection>
     </div>
+  );
+}
+
+function InsightSection({
+  label,
+  shown,
+  alone,
+  onToggle,
+  children,
+}: {
+  label: string;
+  shown: boolean;
+  alone: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="insight-list" aria-label={label}>
+      <h3>
+        {label}
+        <InsightHideButton label={label} shown={shown} disabled={alone} onClick={onToggle} />
+      </h3>
+      {shown ? children : null}
+    </section>
   );
 }

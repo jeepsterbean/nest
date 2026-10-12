@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import type { Metric, Phase, Pulse, Task } from "../../lib/types";
 import { brainDumpSummary } from "../../lib/brainDumpRichText";
-import { TimelineFrame, type FrameColumn, type TimeSpan } from "../components/TimelineFrame";
+import { TimelineFrame, type FrameColumn } from "../components/TimelineFrame";
 import { LogEventIcon, logEventLabel, TaskLogIcon } from "../components/logs/LogEventMark";
 import { MetricCheckInDetail } from "../components/logs/MetricCheckInDetail";
 import { SavedBrainDump } from "../components/SavedBrainDump";
@@ -46,7 +46,6 @@ const markLabel = (mark: HourMark, { phases, pulses, tasks }: MarkContext) =>
 export function LogsHours({
   columns,
   mode,
-  span,
   phases,
   metrics,
   pulses,
@@ -57,7 +56,6 @@ export function LogsHours({
 }: {
   columns: LogsHoursColumn[];
   mode: "day" | "week";
-  span: TimeSpan | null;
   phases: Phase[];
   metrics: Metric[];
   pulses: Pulse[];
@@ -93,7 +91,6 @@ export function LogsHours({
         columns={columns}
         phases={phases}
         mode={mode}
-        span={span}
         scrollPct={scrollPct}
         nowSec={nowSec}
         renderLane={(lane) =>

@@ -14,7 +14,6 @@ import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { TASK_STATUS_LABEL } from "./tasks";
 import { phaseName } from "./period";
 import { formatTime, startOfDayMs, toDateInput } from "./time";
-import type { CalendarRangeStore } from "./insights";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -57,11 +56,6 @@ export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }>
     },
   };
 
-export const LOGS_CALENDAR_RANGE_STORE: CalendarRangeStore = {
-  read: () => "day",
-  write: () => {},
-};
-
 /** Distinct local day starts of a newest-first event list, newest first. */
 export const logDayKeys = (events: readonly { at: number }[]): number[] => {
   const keys: number[] = [];
@@ -72,8 +66,8 @@ export const logDayKeys = (events: readonly { at: number }[]): number[] => {
   return keys;
 };
 
-/** Selected kinds, kept non-empty and in LOG_KINDS order. Shared by Timeline
- * and Calendar's Logs figure. */
+/** Selected kinds, kept non-empty and in LOG_KINDS order. Shared by Insights,
+ * Timeline, and Calendar's Logs figure. */
 export type LogsPreferences = {
   kinds: LogKindKey[];
 };
@@ -90,21 +84,13 @@ type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 const inKindOrder = (kinds: readonly unknown[]): LogKindKey[] =>
   ALL_LOG_KINDS.filter((key) => kinds.includes(key));
 
-/** Single click. The last selected kind stays on so the history filter always includes a kind. */
+/** Show or hide one kind. The last shown kind stays on so the history filter always includes a kind. */
 export function toggleLogKind(
   kinds: LogKindKey[],
   key: LogKindKey,
 ): LogKindKey[] {
   if (!kinds.includes(key)) return inKindOrder([...kinds, key]);
   return kinds.length === 1 ? kinds : kinds.filter((kind) => kind !== key);
-}
-
-/** Double click isolates a kind; isolating the one already alone restores all. */
-export function soloLogKind(
-  kinds: LogKindKey[],
-  key: LogKindKey,
-): LogKindKey[] {
-  return kinds.length === 1 && kinds[0] === key ? ALL_LOG_KINDS : [key];
 }
 
 /** Storage from before multi-select (`view` + `layout`) falls back to all kinds.

@@ -7,7 +7,7 @@ light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
 [`docs/interface/tasks.md`](docs/interface/tasks.md); Calendar, Insights, and Timeline in
-[`docs/interface/calendar.md`](docs/interface/calendar.md), with the Phases guide in
+[`docs/interface/calendar.md`](docs/interface/calendar.md), with the Phases pane in
 [Phases interface](docs/interface/phases.md) and rules shared by time surfaces in
 [`docs/interface/time-surfaces.md`](docs/interface/time-surfaces.md); Metrics in
 [`docs/interface/metrics.md`](docs/interface/metrics.md); Timer in

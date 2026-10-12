@@ -12,6 +12,7 @@ import {
   readCalendarInsightsShown,
   readCalendarPresentation,
   readCalendarRangeMode,
+  readInsightLastHour,
   lastHourPeriod,
   lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
@@ -20,6 +21,7 @@ import {
   type InsightData,
   writeCalendarInsightsShown,
   writeCalendarRangeMode,
+  writeInsightLastHour,
 } from "../../../src/dashboard/lib/insights";
 
 describe("insightBrainDumps", () => {
@@ -299,10 +301,19 @@ describe("insight range memory", () => {
     expect(readCalendarRangeMode(storage)).toBe("week");
   });
 
-  it("restores Last hour as the persisted range mode", () => {
+  it("reads a stored Last hour range as Day", () => {
     const storage = memory();
-    writeCalendarRangeMode("lastHour", storage);
-    expect(readCalendarRangeMode(storage)).toBe("lastHour");
+    storage.setItem("nest:date-range", "lastHour");
+    expect(readCalendarRangeMode(storage)).toBe("day");
+  });
+
+  it("remembers Last hour on Insights until it is turned off", () => {
+    const storage = memory();
+    expect(readInsightLastHour(storage)).toBe(false);
+    writeInsightLastHour(true, storage);
+    expect(readInsightLastHour(storage)).toBe(true);
+    writeInsightLastHour(false, storage);
+    expect(readInsightLastHour(storage)).toBe(false);
   });
 
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
