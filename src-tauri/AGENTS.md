@@ -26,9 +26,10 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
 - Persistence is local SQLite through rusqlite.
 - Apply schema changes as new forward migrations in `src/migrations.rs`.
   Never rewrite a migration that may have run on a real database.
-- Overview, Assistant, Settings, and Reminders are retired. Their SQLite
-  tables and migrations stay so existing databases keep opening. Do not add
-  commands against those tables.
+- Overview, Assistant, the SQLite-backed Settings, and Reminders are retired.
+  Their SQLite tables and migrations stay so existing databases keep opening.
+  Do not add commands against those tables. The dashboard's Settings overlay
+  keeps its choices in `localStorage`.
 - Validate user-provided values at Tauri command boundaries and preserve
   relational integrity with foreign keys, status checks, and graph cycle
   checks.

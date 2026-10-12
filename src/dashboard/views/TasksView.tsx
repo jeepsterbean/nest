@@ -18,6 +18,7 @@ import {
 } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
 import type { CorePaneControls } from "../lib/corePane";
@@ -27,12 +28,13 @@ import {
 } from "../lib/dateNavigation";
 import { scopeMatches } from "../lib/scope";
 import {
+  availableTaskViews,
   canHideTaskTableColumn,
   HIDDEN_COLUMN_NAMES_LIMIT,
   hiddenColumnsLabel,
   readTaskView,
   sameHiddenTaskTableColumns,
-  TASK_VIEWS,
+  visibleTaskViewFor,
   writeTaskView,
   type TaskTableColumn,
 } from "../lib/taskTable";
@@ -81,6 +83,9 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     setError,
   } = useDashboardData();
   const [taskView, setTaskView] = useState(readTaskView);
+  const showTaskMap = useAppSettings().showTaskMap;
+  const visibleTaskView = visibleTaskViewFor(taskView, showTaskMap);
+  const taskViewOptions = availableTaskViews(showTaskMap);
   const [dayAnchorMs, setDayAnchorMs] = useState<number | null>(null);
   const taskTableViews = useTaskTableViews();
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
@@ -105,7 +110,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const setWorkedTimeFilter = (workedTime: TaskWorkedTimeFilter) => setTableQuery(q => ({ ...q, workedTime }));
   const setTableSort = (sort: TaskColumnSort[]) => setTableQuery(q => ({ ...q, sort }));
   // One table clock keeps displayed, filtered, and sorted live totals aligned.
-  const tickWorkedTime = taskView === "table" && (
+  const tickWorkedTime = visibleTaskView === "table" && (
     tasks.some(task => task.workingNow)
     || workedTimeFilter !== null
     || tableSort.some(rule => rule.column === "workedTime")
@@ -163,13 +168,20 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     }
   }, [taskGraph, selectedTaskId]);
 
+  // Hiding Map from Settings lands on Day, where a kept selection would open
+  // the modal Task detail behind the Settings overlay.
+  const mapHidden = taskView === "map" && !showTaskMap;
+  useEffect(() => {
+    if (mapHidden) setSelectedTaskId(null);
+  }, [mapHidden]);
+
   // Escape closes the detail panel, but only once open menus and in-place
   // editors have had their turn at the key. Core keeps this pane mounted while
   // hidden, so the handler must not fire from another pane.
   const tasksPaneVisible = pane === "tasks";
   useEffect(() => {
-    if (!tasksPaneVisible || taskView !== "table") setOpenHeaderMenu(null);
-  }, [tasksPaneVisible, taskView]);
+    if (!tasksPaneVisible || visibleTaskView !== "table") setOpenHeaderMenu(null);
+  }, [tasksPaneVisible, visibleTaskView]);
   useEffect(() => {
     if (selectedTaskId === null || !tasksPaneVisible) return;
     const onKey = (e: KeyboardEvent) => {
@@ -187,8 +199,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   }, [selectedTaskId, tasksPaneVisible, statusMenu, scopeMenu, creatingTask, closeDetail]);
 
   useEffect(() => {
-    if (!tasksPaneVisible || taskView !== "table") setCreatingTask(false);
-  }, [tasksPaneVisible, taskView]);
+    if (!tasksPaneVisible || visibleTaskView !== "table") setCreatingTask(false);
+  }, [tasksPaneVisible, visibleTaskView]);
 
   const openTaskCreate = () => {
     // An untouched draft picks up the table's Scope, and its Status when the
@@ -286,21 +298,21 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     selectedTaskId === null
       ? null
       : taskGraph.byId.get(selectedTaskId) ?? null;
-  const overlayDetailOpen = selectedTask !== null && taskView !== "map";
+  const overlayDetailOpen = selectedTask !== null && visibleTaskView !== "map";
 
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
       <header className="dash-section__head task-header">
         <ViewToggle
-          value={taskView}
-          options={TASK_VIEWS}
+          value={visibleTaskView}
+          options={taskViewOptions}
           label="Task view"
           onChange={(key) => {
             writeTaskView(key);
             setTaskView(key);
           }}
         />
-        {loaded && taskView === "table" && (
+        {loaded && visibleTaskView === "table" && (
           <button
             ref={newTaskButtonRef}
             type="button"
@@ -319,10 +331,10 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
         <div className="task-board__loading">Laying out the board…</div>
       ) : (
         <div
-          className={`task-workspace${selectedTask && taskView === "map" ? " task-workspace--detail" : ""}${taskView === "map" ? " task-workspace--map" : ""}${overlayDetailOpen ? " task-workspace--overlay" : ""}`}
+          className={`task-workspace${selectedTask && visibleTaskView === "map" ? " task-workspace--detail" : ""}${visibleTaskView === "map" ? " task-workspace--map" : ""}${overlayDetailOpen ? " task-workspace--overlay" : ""}`}
         >
           <div className="task-workspace__main" inert={overlayDetailOpen}>
-            {taskView === "day" && (
+            {visibleTaskView === "day" && (
               <TaskDay
                 selectedDayMs={selectedTaskDayMs}
                 nowMs={dateNowMs}
@@ -346,7 +358,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 onSelectTask={selectTask}
               />
             )}
-            {taskView === "map" && (
+            {visibleTaskView === "map" && (
               <TaskMap
                 tasks={tasks}
                 selectedTaskId={selectedTaskId}
@@ -354,7 +366,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 onSelect={selectTask}
               />
             )}
-            {taskView === "table" && (
+            {visibleTaskView === "table" && (
               <>
                 <div className="task-table-toolbar">
                   <div className="task-table-toolbar__query">
@@ -446,7 +458,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
               }}
             />
           )}
-          {selectedTask && taskView === "map" && (
+          {selectedTask && visibleTaskView === "map" && (
             <TaskDetailPanel
               key={selectedTask.id}
               task={selectedTask}

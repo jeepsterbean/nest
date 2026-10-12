@@ -124,24 +124,6 @@
 }
 
 /* Pinned to the bottom of the rail so Sections stay grouped at the top. */
-.dash-background {
-  position: relative;
+.dash-settings {
   margin-top: auto;
-}
-
-/* Opens beside the rail and grows upward from the button, so it stays in the
-   window however short it is. Above the nav labels (z-index 40). */
-.dash-background__panel {
-  position: absolute;
-  z-index: 50;
-  bottom: 0;
-  left: calc(100% + 12px);
-  width: min(340px, calc(100vw - 96px));
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
 }

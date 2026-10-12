@@ -57,6 +57,15 @@ export const writeTaskView = (
   storage.setItem(TASK_VIEW_KEY, key);
 };
 
+export const availableTaskViews = (showTaskMap: boolean) =>
+  showTaskMap ? TASK_VIEWS : TASK_VIEWS.filter((view) => view.key !== "map");
+
+/** A remembered Map choice shows Day while Map is hidden. */
+export const visibleTaskViewFor = (
+  taskView: TaskViewKey,
+  showTaskMap: boolean,
+): TaskViewKey => (taskView === "map" && !showTaskMap ? "day" : taskView);
+
 /** Drop unknown ids, append any new columns, and clamp widths to each min. */
 export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => {
   const record =

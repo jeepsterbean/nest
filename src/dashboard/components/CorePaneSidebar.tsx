@@ -1,4 +1,5 @@
 import { CORE_PANES, type CorePane, type CorePaneControls } from "../lib/corePane";
+import { useAppSettings } from "../hooks/useAppSettings";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { writeTileIcon } from "../lib/tileIcons";
 import { IconPickerButton, NestIcon } from "./PulseIcon";
@@ -13,6 +14,7 @@ const PANE_TONE_CLASS: Record<CorePane, string> = {
 
 export function CorePaneSidebar({ pane, onSelectPane }: CorePaneControls) {
   const icons = useTileIcons();
+  const chooseIcons = useAppSettings().iconSelection;
 
   return (
     <aside className="section-sidebar">
@@ -23,7 +25,7 @@ export function CorePaneSidebar({ pane, onSelectPane }: CorePaneControls) {
         {CORE_PANES.map((item) => {
           const buttonClass = `section-nav__button ${PANE_TONE_CLASS[item.key]}`;
           const label = <span className="section-nav__label">{item.label}</span>;
-          if (pane === item.key) {
+          if (pane === item.key && chooseIcons) {
             return (
               <IconPickerButton
                 key={item.key}
@@ -44,8 +46,9 @@ export function CorePaneSidebar({ pane, onSelectPane }: CorePaneControls) {
             <button
               key={item.key}
               type="button"
-              className={buttonClass}
+              className={`${buttonClass}${pane === item.key ? " section-nav__button--active" : ""}`}
               aria-label={item.label}
+              aria-current={pane === item.key ? "page" : undefined}
               title={item.label}
               onClick={() => onSelectPane(item.key)}
             >

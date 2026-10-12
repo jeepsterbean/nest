@@ -195,6 +195,7 @@ const LUCIDE_NEST_ICONS = [
 
 // Nest's own marks, offered in the same picker as every other icon. Chat and
 // Settings outlived their Sections because Pulses and Phases may store them.
+// Settings also marks the Sidebar's Settings button.
 export const NEST_ICONS = [
   ...LUCIDE_NEST_ICONS,
   { key: "date" as const, label: "Calendar", Icon: CalendarIcon },

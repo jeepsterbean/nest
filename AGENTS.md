@@ -31,7 +31,7 @@ reference by default.
 | Brain dump records or Tag rules | `docs/domain/brain-dump.md` |
 | Brain dump capture, browsing, Note Board, or stickies | `docs/interface/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
-| Sidebar or Background panel | `CONTEXT.md`, `UI.md` |
+| Sidebar or Settings | `CONTEXT.md`, `UI.md` |
 | Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 

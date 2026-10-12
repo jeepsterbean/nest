@@ -1,0 +1,168 @@
+/* Covers the dashboard, including stickies (z-index 201). Tokens resolve
+   because the overlay is portaled into .dashboard. */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.settings-dialog {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  width: min(880px, 100%);
+  height: min(640px, calc(100vh - 56px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow:
+    0 24px 80px -32px rgba(40, 32, 20, 0.55),
+    0 2px 8px rgba(40, 32, 20, 0.08);
+  outline: none;
+}
+
+.settings-nav {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 10px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 80%, var(--surface));
+}
+
+.settings-nav__title {
+  margin: 0 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.settings-nav__item {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav__item:hover,
+.settings-nav__item:focus-visible {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--ink);
+  outline: none;
+}
+
+.settings-nav__item:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.settings-nav__item[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.settings-dialog__main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.settings-dialog__bar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding: 10px 10px 0;
+}
+
+.settings-dialog__close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.settings-dialog__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-dialog__close:hover,
+.settings-dialog__close:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+  outline: none;
+}
+
+.settings-dialog__close:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.settings-dialog__page {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 28px 28px;
+}
+
+.settings-dialog__heading {
+  margin: 0 0 16px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.settings-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-choice__label {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .settings-overlay {
+    padding: 12px;
+  }
+
+  .settings-dialog {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: min(100%, calc(100vh - 24px));
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-nav__title {
+    flex: 1 0 100%;
+    margin: 0 4px 6px;
+  }
+}

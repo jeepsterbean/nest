@@ -16,7 +16,6 @@ APIs, schema, or code structure.
 ## Task section
 - P3: add task time feature
 - P2: user never ever states the value and effort. need to think about how to encourage user to use it more
-- remove map view
 
 ## Phases
 - add activity tracking

@@ -9,7 +9,7 @@ then only the surface document it routes for the task.
   `components/`, `hooks/`, and `styles/`.
 - Sections are Calendar and Core. Calendar switches between Calendar and
   Timeline and can show Insights. Core contains Brain dump, Tasks, Metrics,
-  and Phases. The Sidebar's Background button opens the Background panel.
+  and Phases. The Sidebar's Settings button opens the Settings overlay.
 - Keep view files focused on composition. Load and mutate shared application
   data through `DashboardDataContext`.
 - Put pure derivations in `lib/` and reusable stateful behavior in `hooks/`.

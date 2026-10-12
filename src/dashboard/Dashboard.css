@@ -1,9 +1,11 @@
 @import "./styles/shell.css";
 @import "./styles/sidebar.css";
+@import "./styles/settings.css";
 @import "./styles/surfaces.css";
 @import "./styles/sections.css";
 @import "./styles/shared-controls.css";
 @import "./styles/tasks.css";
+@import "./styles/task-card.css";
 @import "./styles/task-map.css";
 @import "./styles/task-detail-table.css";
 @import "./styles/pickers.css";

@@ -24,7 +24,7 @@ and layout constraints are commented beside their rules in
   place. Core and Calendar also have a title in their Section sidebar.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs,
-  Section, Sidebar, and Background.
+  Section, Sidebar, and Settings.
 
 ## Shared controls
 
@@ -58,21 +58,25 @@ portaled menu has to be scoped from a dashboard-level class, as
   opens on Calendar. Section icons are `NestIcon`s stored in
   `nest:overview-tile-icons`, a key kept from the retired Overview so saved
   choices carry over. Clicking an icon selects its Section; clicking the
-  selected one opens its `IconPickerButton`. The Timer interval lives on the
-  Popup; the macOS menu bar is a read-only Phase and countdown readout.
-- The Background button sits at the foot of the Sidebar (`.dash-background`)
-  and opens `BackgroundView` in a non-modal panel beside the rail
-  (`.dash-background__panel`, `role="dialog"`). The panel follows the button in
-  DOM order so Tab reaches its controls; `useDismiss` closes it on an outside
-  press or Escape, and Escape returns focus to the button. Changes preview live
-  and apply with Set background. Style persists in `nest:background-style`,
-  speed and intensity in `nest:background-tuning`.
+  selected one opens its `IconPickerButton` when Settings allows icon
+  selection. The Timer interval lives on the Popup; the macOS menu bar is a
+  read-only Phase and countdown readout.
+- The Settings button sits at the foot of the Sidebar (`.dash-settings`) and
+  opens an overlay (`.settings-overlay` scrim around `.settings-dialog`,
+  `role="dialog"`). The overlay lists Background, Map, and Icons. Background
+  previews live and applies with Set background; style persists in `nest:background-style`, speed and intensity in
+  `nest:background-tuning`. Map and icon selection persist in `nest:settings`.
+  Map is hidden until shown. Icon selection starts on; while it is off, a
+  selected Sidebar or Core icon does not open the picker. A click on the
+  scrim or Escape closes the overlay, and closing returns focus to the
+  button. The rest of the dashboard is inert while the overlay is open.
 - Core and Calendar add a Section sidebar, `.section-sidebar` (grid
   class `.dashboard--section-sidebar`), between the Sidebar and
   `.dashboard__inner`. Rows are `.section-nav__button` icon-and-label buttons
   on tiles tinted with `--pane-tone`; selecting the selected row again opens
-  its icon picker. Below 861px the rail keeps only the tiles, with accessible
-  names and tooltips. Calendar's version is `.range-sidebar`
+  its icon picker when Settings allows icon selection. Below 861px the rail
+  keeps only the tiles, with accessible names and tooltips. Calendar's version
+  is `.range-sidebar`
   (`.dashboard--range-sidebar`).
 - Core panes are Brain dump / Tasks / Metrics / Phases, toned with their Logs
   kind colors (`--dump`, `--doing`, `--accent`, `--phase`). The last pane is
@@ -93,5 +97,6 @@ portaled menu has to be scoped from a dashboard-level class, as
 ## Tasks implementation
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
-edges for Table, Map, and Task details. The Map draws connectors as an SVG
-overlay. Task surface behavior lives in [`docs/interface/tasks.md`](docs/interface/tasks.md).
+edges for Day, Table, Map, and Task details. The Map draws connectors as an SVG
+overlay. Task surface behavior lives in
+[`docs/interface/tasks.md`](docs/interface/tasks.md).

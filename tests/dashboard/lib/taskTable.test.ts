@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  availableTaskViews,
   fitTaskTableColumns,
   hiddenColumnsLabel,
   moveTaskTableColumn,
@@ -13,6 +14,7 @@ import {
   splitTaskTableColumn,
   TASK_TABLE_COLUMNS,
   TASK_VIEWS,
+  visibleTaskViewFor,
   writeTaskView,
   type TaskTableColumn,
 } from "../../../src/dashboard/lib/taskTable";
@@ -44,6 +46,17 @@ describe("task view", () => {
     const storage = memory();
     storage.setItem("nest:task-view", "kanban");
     expect(readTaskView(storage)).toBe("day");
+  });
+
+  it("offers Map only while Settings shows it", () => {
+    expect(availableTaskViews(false).map((view) => view.key)).toEqual(["day", "table"]);
+    expect(availableTaskViews(true)).toBe(TASK_VIEWS);
+  });
+
+  it("shows Day for a remembered Map choice while Map is hidden", () => {
+    expect(visibleTaskViewFor("map", false)).toBe("day");
+    expect(visibleTaskViewFor("map", true)).toBe("map");
+    expect(visibleTaskViewFor("table", false)).toBe("table");
   });
 });
 

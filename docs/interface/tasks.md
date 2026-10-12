@@ -10,8 +10,9 @@ in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
 
 ## Day
 
-Day is the default Tasks layout (Table and Map are the others). It is a
-task-focused daily report over the same 30-day history window as Calendar,
+Day is the default Tasks layout; Table is the other. Map is a third layout,
+hidden until Settings shows it. Day is a task-focused daily report over the
+same 30-day history window as Calendar,
 paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
 
 The summary shows Tasks created; Tasks ending the day Completed, Cancelled, or
@@ -35,7 +36,8 @@ row opens its detail panel.
 
 ## Table
 
-The last Day / Table / Map choice is remembered (`nest:task-view`). The table
+The last Day / Table / Map choice is remembered (`nest:task-view`). While Map
+is hidden, a remembered Map choice shows Day and stays saved. The table
 filters by any set of [Task statuses](../domain/tasks.md#fields-and-status)
 with Open / Closed / All presets; first visit is the Raw saved view. There is
 no scope sidebar; Scope is a column filter.
@@ -180,7 +182,8 @@ next open; adding clears the draft and opens the new Task's detail panel.
 
 ## Map
 
-Map is a free-form canvas the user arranges by hand. Each placed Task is an
+Map stays out of the Tasks layout toggle until Settings shows it. It is a
+free-form canvas the user arranges by hand. Each placed Task is an
 **entity box** showing its title and attributes (status, scope, value / effort,
 and parent, children or blocked by when they apply). The canvas is far larger
 than the screen and is panned by dragging bare canvas, zoomed with the wheel
