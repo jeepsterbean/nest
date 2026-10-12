@@ -9,19 +9,12 @@ import {
   stepColumns,
   rangeInsight,
   readCalendarFigure,
-  readRecapInsightsShown,
   readRecapPresentation,
   readRecapDateRangeMode,
-  readInsightLastHour,
-  lastHourPeriod,
-  lastHourSpanLabel,
-  LAST_HOUR_WINDOW_SECONDS,
   writeCalendarFigure,
   writeRecapPresentation,
   type InsightData,
-  writeRecapInsightsShown,
   writeRecapDateRangeMode,
-  writeInsightLastHour,
 } from "../../../src/dashboard/lib/insights";
 
 describe("insightBrainDumps", () => {
@@ -48,7 +41,6 @@ describe("insightBrainDumps", () => {
   });
 });
 import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
-import { formatTime } from "../../../src/dashboard/lib/time";
 import type {
   Metric,
   MetricCheckInWithRatings,
@@ -77,14 +69,6 @@ const phaseCheckIn = (
   phaseLabel: null,
 });
 
-describe("last hour window", () => {
-  it("is the rolling hour ending at now", () => {
-    expect(lastHourPeriod(10_000)).toEqual({
-      from: 10_000 - LAST_HOUR_WINDOW_SECONDS,
-      to: 10_000,
-    });
-  });
-});
 describe("rangeInsight", () => {
   const empty: InsightData = {
     tasks: [],
@@ -106,7 +90,7 @@ describe("rangeInsight", () => {
   it("keeps quiet time in the Phase mix, so it reads as a linear clock", () => {
     const insight = rangeInsight(
       { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1), phaseCheckIn(2, 80, 2)] },
-      { from: 0, to: 200, live: false },
+      { from: 0, to: 200 },
       clockAt(500),
     );
     expect(insight.sessions).toEqual([
@@ -118,7 +102,7 @@ describe("rangeInsight", () => {
   it("stops the Phase mix at now inside a range still running", () => {
     const insight = rangeInsight(
       { ...empty, phaseCheckIns: [phaseCheckIn(1, 0, 1)] },
-      { from: 0, to: 200, live: false },
+      { from: 0, to: 200 },
       clockAt(120),
     );
     expect(insight.sessions).toEqual([{ phaseId: 1, from: 0, to: 120 }]);
@@ -127,31 +111,12 @@ describe("rangeInsight", () => {
   it("returns every section for a quiet range", () => {
     const insight = rangeInsight(
       empty,
-      { ...lastHourPeriod(10_000), live: true },
+      { from: 6_400, to: 10_000 },
       clockAt(10_000),
     );
     expect(insight.brainDumps).toEqual({ count: 0, tags: [], untaggedCount: 0 });
     expect(insight.taskGroups.map((group) => group.rows.length)).toEqual([0, 0, 0]);
     expect(insight.checkIns).toEqual([]);
-  });
-
-  it("lets a live range show a check-in and dump saved after its clock end", () => {
-    const savedAt = 10_030;
-    const data: InsightData = {
-      ...empty,
-      checkIns: [
-        { id: 1, createdAt: savedAt, pulseId: null, pulseName: "Daily", ratings: [] },
-      ],
-      brainDumps: [{ id: 1, createdAt: savedAt, text: "Thought", tags: [] }],
-    };
-    const range = lastHourPeriod(10_000);
-    const live = rangeInsight(data, { ...range, live: true }, clockAt(10_000, savedAt));
-    expect(live.checkIns.map((group) => group.checkInCount)).toEqual([1]);
-    expect(live.brainDumps.count).toBe(1);
-
-    const closed = rangeInsight(data, { ...range, live: false }, clockAt(10_000, savedAt));
-    expect(closed.checkIns).toEqual([]);
-    expect(closed.brainDumps.count).toBe(0);
   });
 
   it("ledgers Worked time from the range's Work stretches", () => {
@@ -161,7 +126,7 @@ describe("rangeInsight", () => {
         tasks: [task(1, "Write")],
         taskWorkStretches: [stretch(1, 1, 100, 400)],
       },
-      { from: 0, to: 1_000, live: false },
+      { from: 0, to: 1_000 },
       clockAt(2_000),
     );
     expect(
@@ -301,21 +266,6 @@ describe("insight range memory", () => {
     expect(readRecapDateRangeMode(storage)).toBe("week");
   });
 
-  it("reads a stored Last hour range as Day", () => {
-    const storage = memory();
-    storage.setItem("nest:date-range", "lastHour");
-    expect(readRecapDateRangeMode(storage)).toBe("day");
-  });
-
-  it("remembers Last hour on Insights until it is turned off", () => {
-    const storage = memory();
-    expect(readInsightLastHour(storage)).toBe(false);
-    writeInsightLastHour(true, storage);
-    expect(readInsightLastHour(storage)).toBe(true);
-    writeInsightLastHour(false, storage);
-    expect(readInsightLastHour(storage)).toBe(false);
-  });
-
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
@@ -358,37 +308,12 @@ describe("insight range memory", () => {
   it("carries over choices saved when the Recap Section was named Calendar", () => {
     const storage = memory();
     storage.setItem("nest:calendar-presentation", "timeline");
-    storage.setItem("nest:calendar-display", "calendar");
     expect(readRecapPresentation(storage)).toBe("timeline");
-    expect(readRecapInsightsShown(storage)).toBe(false);
 
     writeRecapPresentation("calendar", storage);
-    writeRecapInsightsShown(true, storage);
     expect(readRecapPresentation(storage)).toBe("calendar");
-    expect(readRecapInsightsShown(storage)).toBe(true);
   });
 
-  it("shows Insights beside the grid until it is hidden", () => {
-    const storage = memory();
-    expect(readRecapInsightsShown(storage)).toBe(true);
-    writeRecapInsightsShown(false, storage);
-    expect(readRecapInsightsShown(storage)).toBe(false);
-    writeRecapInsightsShown(true, storage);
-    expect(readRecapInsightsShown(storage)).toBe(true);
-  });
-
-  it("reads the retired Insights-only display as Insights shown", () => {
-    const storage = memory();
-    storage.setItem("nest:calendar-display", "insights");
-    expect(readRecapInsightsShown(storage)).toBe(true);
-  });
-
-  it("labels Last hour with the clock span it covers", () => {
-    const now = new Date(2026, 8, 29, 15, 4).getTime() / 1000;
-    expect(lastHourSpanLabel(now)).toBe(
-      `${formatTime(now - 3600)} – ${formatTime(now)}`,
-    );
-  });
 });
 
 const task = (
@@ -812,21 +737,5 @@ describe("insightCheckIns", () => {
 
   it("does not open a past range past its end", () => {
     expect(insightCheckInClosedTo(20, 50_000)).toBe(20);
-  });
-
-  it("does not clamp Last hour to the stale minute-clock end", () => {
-    const staleNowSec = 100;
-    const createdAt = 130;
-    const liveTo = insightCheckInClosedTo(staleNowSec, createdAt * 1000, true);
-    expect(liveTo).toBe(createdAt + 1);
-    expect(insightCheckInClosedTo(staleNowSec, createdAt * 1000)).toBe(staleNowSec);
-    expect(
-      insightCheckIns(
-        [checkIn(1, createdAt, 1, [{ metricId: 1, value: 4 }])],
-        [metric(1, "Energy")],
-        [pulse(1, "Body", [1])],
-        { from: staleNowSec - 3600, to: liveTo },
-      ),
-    ).toHaveLength(1);
   });
 });

@@ -556,13 +556,3 @@ export function setContentEditableCaretToEnd(element: HTMLElement | null) {
   selection.removeAllRanges();
   selection.addRange(range);
 }
-
-export function brainDumpPlainTextLines(value: string) {
-  return brainDumpHtmlToPlainText(value)
-    .split("\n")
-    .map((line: string) => line.trimEnd())
-    .filter(
-      (line: string, index: number, lines: string[]) =>
-        line.length > 0 || (lines[index - 1] && lines[index - 1].length > 0),
-    );
-}

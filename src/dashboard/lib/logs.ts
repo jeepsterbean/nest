@@ -1,19 +1,14 @@
 // Behavior and invariants: docs/interface/time-surfaces.md#logs-kinds
 import type {
   BrainDump,
-  Metric,
   MetricCheckInWithRatings,
-  Phase,
   PhaseCheckIn,
-  Pulse,
   Task,
   TaskWorkStretch,
   TaskStatusEvent,
 } from "../../lib/types";
-import { brainDumpPlainTextLines } from "../../lib/brainDumpRichText";
 import { TASK_STATUS_LABEL } from "./tasks";
-import { phaseName } from "./period";
-import { formatTime, startOfDayMs, toDateInput } from "./time";
+import { startOfDayMs } from "./time";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -149,8 +144,9 @@ export function buildLogsEvents(
   );
 }
 
-/** Day export feed: happenings plus settled Phase changes. */
-export function buildLogExportEvents(
+/** Every kind with settled Phase changes, whatever the kind filter: the days
+ * the Recap sidebar marks as holding history. */
+export function buildLogDayMarkerEvents(
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
   brainDumps: BrainDump[],
@@ -169,13 +165,6 @@ export function buildLogExportEvents(
     taskStatusEvents,
   );
 }
-
-type LogExportContext = {
-  phases: Phase[];
-  metrics: Metric[];
-  pulses: Pulse[];
-  tasks: Task[];
-};
 
 export const taskTitle = (tasks: Task[], taskId: number) =>
   tasks.find((task) => task.id === taskId)?.title ?? `Task ${taskId}`;
@@ -211,80 +200,4 @@ export function taskChangeLabel(event: TaskChangeEvent): string {
     case "work-stop":
       return "Paused";
   }
-}
-
-function eventMarkdown(event: RawLogEvent, context: LogExportContext) {
-  const time = formatTime(event.at);
-  switch (event.kind) {
-    case "phase":
-      return `- ${time} — Phase — ${phaseName(event.checkIn.phaseId, context.phases, event.checkIn.phaseLabel)}`;
-    case "metrics": {
-      const pulse =
-        event.checkIn.pulseId === null
-          ? undefined
-          : context.pulses.find(
-              (item) => item.id === event.checkIn.pulseId,
-            );
-      const pulseLabel =
-        pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
-      const ratings = event.checkIn.ratings
-        .map((rating) => {
-          const metric = context.metrics.find(
-            (item) => item.id === rating.metricId,
-          );
-          return `${metric?.name ?? `Metric ${rating.metricId}`} ${rating.value}`;
-        })
-        .join(", ");
-      return `- ${time} — Metric check-in — ${pulseLabel}${ratings ? `: ${ratings}` : ""}`;
-    }
-    case "dump": {
-      const tags = event.dump.tags.map((tag) => tag.name).join(", ");
-      const detail = tags ? `Tags: ${tags}` : "";
-      const body = brainDumpPlainTextLines(event.dump.text)
-        .map((line: string) => `  > ${line}`)
-        .join("\n");
-      return `- ${time} — Brain dump${detail ? ` — ${detail}` : ""}\n${body}`;
-    }
-    case "task-status":
-    case "work-start":
-    case "work-stop":
-      return `- ${time} — ${taskChangeLabel(event)} — ${taskTitle(context.tasks, taskChangeTaskId(event))}`;
-  }
-}
-
-export function logDayMarkdown(
-  dayKey: number,
-  events: RawLogEvent[],
-  context: LogExportContext,
-) {
-  const date = new Date(dayKey).toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const timeline = [...events]
-    .sort((a, b) => a.at - b.at ||
-      (a.kind === "task-status" && b.kind === "task-status"
-        ? a.statusEvent.id - b.statusEvent.id : 0))
-    .map((event) => eventMarkdown(event, context))
-    .join("\n");
-  return `# Nest Timeline — ${date}\n\n${timeline || "_No settled happenings._"}\n`;
-}
-
-export function downloadLogDay(
-  dayKey: number,
-  events: RawLogEvent[],
-  context: LogExportContext,
-) {
-  const url = URL.createObjectURL(
-    new Blob([logDayMarkdown(dayKey, events, context)], {
-      type: "text/markdown;charset=utf-8",
-    }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `nest-timeline-${toDateInput(dayKey / 1000)}.md`;
-  link.click();
-  URL.revokeObjectURL(url);
 }

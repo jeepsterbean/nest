@@ -12,14 +12,14 @@ events, and Work stretch boundaries. Calendar and Timeline present these
 records. Task history follows [Tasks domain](tasks.md#history-and-deletion).
 
 Day runs between local midnights; Week starts Monday. Ranges include their
-start and exclude their end. Last hour spans a rolling 60 minutes. Worked time
+start and exclude their end. Worked time
 is clipped to the range, with an open stretch ending at now.
 
 ## Phase history
 
 Settled Phase history uses a 60-second collapse: a burst of checkpoints lands
 on the Phase it settled on; if that equals the Phase before the burst, it is
-omitted. Settled rows, day exports, and Phase sessions use this interpretation.
+omitted. Settled rows and Phase sessions use this interpretation.
 The underlying checkpoints remain available for inspection.
 
 Historical checkpoints with no Phase count as Offline in summaries. Live

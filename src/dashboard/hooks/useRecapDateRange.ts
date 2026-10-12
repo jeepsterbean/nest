@@ -1,16 +1,12 @@
 // Behavior and invariants: docs/interface/calendar.md#range-sidebar
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  lastHourPeriod,
   readRecapDateRangeMode,
-  readInsightLastHour,
   writeRecapDateRangeMode,
-  writeInsightLastHour,
   type RecapDateRangeStore,
   type RecapPresentation,
   type RangeModeKey,
 } from "../lib/insights";
-import { startOfDayMs } from "../lib/time";
 import { useDateRange } from "./useDateRange";
 
 const recapDateRangeStore: RecapDateRangeStore = {
@@ -20,80 +16,22 @@ const recapDateRangeStore: RecapDateRangeStore = {
 
 /** The Recap Section's date range. Day / Week belongs to Calendar; Timeline
  * always reads the selected day and leaves Calendar's choice stored, so
- * returning to Calendar reopens the week that contains that day. Last hour is
- * an Insights window on today: choosing it lands on today in Day, and leaving
- * that day or opening Week drops it so the grid and the panel stay on the
- * same range. */
+ * returning to Calendar reopens the week that contains that day. */
 export function useRecapDateRange(
   presentation: RecapPresentation,
   store: RecapDateRangeStore = recapDateRangeStore,
 ) {
-  const [lastHour, setLastHour] = useState(readInsightLastHour);
-  const [calendarMode, setMode] = useState<RangeModeKey>(() =>
-    readInsightLastHour() ? "day" : store.read(),
-  );
+  const [calendarMode, setMode] = useState<RangeModeKey>(() => store.read());
   const mode = presentation === "timeline" ? "day" : calendarMode;
   const dates = useDateRange(mode);
-  const lastHourRef = useRef(lastHour);
-  lastHourRef.current = lastHour;
-  const nowMsRef = useRef(dates.nowMs);
-  nowMsRef.current = dates.nowMs;
-
-  // A stored Week must not reopen under Last hour, which is always today.
-  useEffect(() => {
-    if (readInsightLastHour()) store.write("day");
-  }, [store]);
 
   const selectMode = useCallback(
     (key: RangeModeKey) => {
-      if (key === "week" && lastHourRef.current) {
-        setLastHour(false);
-        writeInsightLastHour(false);
-      }
       setMode(key);
       store.write(key);
     },
     [store],
   );
-
-  const goToDay = useCallback(
-    (dayMs: number) => {
-      const today = startOfDayMs(nowMsRef.current / 1000);
-      if (lastHourRef.current && startOfDayMs(dayMs / 1000) !== today) {
-        setLastHour(false);
-        writeInsightLastHour(false);
-      }
-      dates.goToDay(dayMs);
-    },
-    [dates.goToDay],
-  );
-
-  const step = useCallback(
-    (direction: number) => {
-      if (lastHourRef.current) {
-        setLastHour(false);
-        writeInsightLastHour(false);
-      }
-      dates.step(direction);
-    },
-    [dates.step],
-  );
-
-  const selectLastHour = useCallback(
-    (on: boolean) => {
-      setLastHour(on);
-      writeInsightLastHour(on);
-      if (!on) return;
-      setMode("day");
-      store.write("day");
-      dates.goToday();
-    },
-    [store, dates.goToday],
-  );
-
-  const insight = lastHour
-    ? { ...lastHourPeriod(dates.nowSec), live: true }
-    : { from: dates.from, to: dates.to, live: false };
 
   return {
     mode,
@@ -106,12 +44,9 @@ export function useRecapDateRange(
     canGoBack: dates.canGoBack,
     isNow: dates.isNow,
     title: dates.title,
-    lastHour,
-    insight,
     selectMode,
-    selectLastHour,
-    step,
+    step: dates.step,
     goToday: dates.goToday,
-    goToDay,
+    goToDay: dates.goToDay,
   };
 }

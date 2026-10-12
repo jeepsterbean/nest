@@ -20,11 +20,10 @@ import {
 } from "../../lib/commands";
 import {
   CALENDAR_FIGURES,
+  RANGE_MODES,
   openAtPct,
   readCalendarFigure,
-  readRecapInsightsShown,
   writeCalendarFigure,
-  writeRecapInsightsShown,
   type CalendarFigure,
   type RecapPresentation,
 } from "../lib/insights";
@@ -40,7 +39,7 @@ import {
 } from "../lib/logs";
 import { logHours } from "../lib/logHours";
 import { dayLabel, historyStartSec } from "../lib/time";
-import { InsightsColumn, InsightsToggle } from "./InsightsPanel";
+import { InsightsColumn } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
 
 export function CalendarView({
@@ -69,7 +68,6 @@ export function CalendarView({
     loaded,
     mutate,
   } = useDashboardData();
-  const [showInsights, setShowInsights] = useState(readRecapInsightsShown);
   const [figure, setFigure] = useState(readCalendarFigure);
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
   const [selected, setSelected] = useState<StretchEdit | null>(null);
@@ -179,7 +177,7 @@ export function CalendarView({
     <section className="dash-section dash-section--calendar">
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
-        onMode={range.selectMode} onPick={range.goToDay} />
+        onPick={range.goToDay} />
       <div className="dash-toolbar calendar-panel-controls">
         <DateNavigation
           label={range.mode === "day" ? dayLabel(range.from, range.nowMs) : range.title}
@@ -192,21 +190,20 @@ export function CalendarView({
         />
         <div className="calendar-panel-controls__display">
           <ViewToggle
+            value={range.mode}
+            options={RANGE_MODES}
+            label="Calendar date range"
+            onChange={range.selectMode}
+          />
+          <ViewToggle
             value={figure}
             options={CALENDAR_FIGURES}
             label="Calendar figure"
             onChange={selectFigure}
           />
-          <InsightsToggle
-            shown={showInsights}
-            onToggle={() => {
-              setShowInsights(!showInsights);
-              writeRecapInsightsShown(!showInsights);
-            }}
-          />
         </div>
       </div>
-      <div className={`dash-section__body recap-body${showInsights ? " recap-body--both" : ""}`}>
+      <div className="dash-section__body recap-body">
         {!loaded ? null : (
           <>
             <div className="recap-body__grid">
@@ -256,20 +253,15 @@ export function CalendarView({
                 </>
               )}
             </div>
-            {showInsights ? (
-              <InsightsColumn
-                onOpenCorePane={onOpenCorePane}
-                from={range.insight.from}
-                to={range.insight.to}
-                live={range.insight.live}
-                nowMs={range.nowMs}
-                nowSec={range.nowSec}
-                kinds={kinds}
-                onToggleKind={updateKinds}
-                lastHour={range.lastHour}
-                onLastHour={range.selectLastHour}
-              />
-            ) : null}
+            <InsightsColumn
+              onOpenCorePane={onOpenCorePane}
+              from={range.from}
+              to={range.to}
+              nowMs={range.nowMs}
+              nowSec={range.nowSec}
+              kinds={kinds}
+              onToggleKind={updateKinds}
+            />
           </>
         )}
       </div>

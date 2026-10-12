@@ -23,7 +23,7 @@ import {
   phaseSessionsInWindow,
   type PhaseSession,
 } from "./timeline";
-import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
+import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
 import {
   layoutWorkBlocks,
   workTotalsInSpan,
@@ -67,8 +67,6 @@ export const RANGE_MODES = [
 
 export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
-export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
-
 export type RecapDateRangeStore = {
   read: () => RangeModeKey;
   write: (mode: RangeModeKey) => void;
@@ -90,7 +88,6 @@ const RECAP_PRESENTATION_KEY = "nest:recap-presentation";
 // Keys from when the Recap Section was named Calendar; read so saved choices
 // carry over.
 const LEGACY_RECAP_PRESENTATION_KEY = "nest:calendar-presentation";
-const LEGACY_RECAP_INSIGHTS_KEY = "nest:calendar-display";
 
 export const readRecapPresentation = (
   storage: Pick<Storage, "getItem"> = localStorage,
@@ -108,8 +105,7 @@ export const writeRecapPresentation = (
   storage.setItem(RECAP_PRESENTATION_KEY, presentation);
 };
 
-/** Day unless Week is stored. A retired Last hour value reads as Day; Last hour
- * now lives on Insights (`nest:insight-last-hour`). */
+/** Day unless Week is stored. */
 export const readRecapDateRangeMode = (
   storage: RangeStorage = localStorage,
 ): RangeModeKey => {
@@ -123,42 +119,6 @@ export const writeRecapDateRangeMode = (
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(RANGE_MODE_KEY, key);
-};
-
-const INSIGHT_LAST_HOUR_KEY = "nest:insight-last-hour";
-
-/** Insights summarizes the rolling hour instead of the Day or Week on screen. */
-export const readInsightLastHour = (
-  storage: Pick<Storage, "getItem"> = localStorage,
-): boolean => storage.getItem(INSIGHT_LAST_HOUR_KEY) === "on";
-
-export const writeInsightLastHour = (
-  on: boolean,
-  storage: RangeStorage = localStorage,
-) => {
-  storage.setItem(INSIGHT_LAST_HOUR_KEY, on ? "on" : "off");
-};
-
-/** Whether Insights sits beside Calendar or Timeline. The figure itself is
- * always shown, so the stored value is a single on/off. */
-const RECAP_INSIGHTS_KEY = "nest:recap-insights";
-
-/** A missing or retired value (including the old Insights-only "insights")
- * reads as shown, so nobody lands with the summary unexpectedly hidden. The
- * legacy key stored "calendar" for hidden. */
-export const readRecapInsightsShown = (
-  storage: Pick<Storage, "getItem"> = localStorage,
-): boolean => {
-  const stored = storage.getItem(RECAP_INSIGHTS_KEY);
-  if (stored !== null) return stored !== "off";
-  return storage.getItem(LEGACY_RECAP_INSIGHTS_KEY) !== "calendar";
-};
-
-export const writeRecapInsightsShown = (
-  shown: boolean,
-  storage: RangeStorage = localStorage,
-) => {
-  storage.setItem(RECAP_INSIGHTS_KEY, shown ? "on" : "off");
 };
 
 /** Which figure the Calendar grid draws. Work stretch is the timetable of
@@ -183,21 +143,9 @@ export const writeCalendarFigure = (
   storage.setItem(CALENDAR_FIGURE_KEY, figure);
 };
 
-/** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
-export const lastHourPeriod = (nowSec: number): Period => ({
-  from: nowSec - LAST_HOUR_WINDOW_SECONDS,
-  to: nowSec,
-});
-
 /** One calendar day of the grid: real local midnight to real local midnight,
  * so a DST day is 23 or 25 hours long and blocks still land correctly. */
 export type InsightColumn = { from: number; to: number; label: string };
-
-/** The clock span Last hour covers, e.g. "2:04 PM – 3:04 PM". */
-export const lastHourSpanLabel = (nowSec: number) => {
-  const { from, to } = lastHourPeriod(nowSec);
-  return `${formatTime(from)} – ${formatTime(to)}`;
-};
 
 /** Monday-first start of the week holding `dayMs`. */
 const startOfWeekMs = (dayMs: number) =>
@@ -408,16 +356,9 @@ const average = (values: number[]) =>
 
 /** Exclusive end for Insights check-ins. Live now + 1 matches dashboard reload
  * (`to = now + 1`) against `createdAt < to`, so a just-saved rating is not held
- * by the minute clock. Last hour's range end *is* that clock, so `live` must
- * not clamp to it. A past range stays closed at its own end. */
-export const insightCheckInClosedTo = (
-  rangeTo: number,
-  nowMs: number,
-  live = false,
-) => {
-  const liveTo = Math.floor(nowMs / 1000) + 1;
-  return live ? liveTo : Math.min(rangeTo, liveTo);
-};
+ * by the minute clock. A past range stays closed at its own end. */
+export const insightCheckInClosedTo = (rangeTo: number, nowMs: number) =>
+  Math.min(rangeTo, Math.floor(nowMs / 1000) + 1);
 
 /** Metric check-ins in the range, grouped by Pulse, ratings in time order.
  * Every current Pulse is listed, including one with no check-ins in the range. */
@@ -501,8 +442,6 @@ export type InsightData = {
   brainDumps: BrainDump[];
 };
 
-export type InsightRange = Period & { live: boolean };
-
 /** `nowMs` / `nowSec` are the clock Phase mix and the ledger stop at;
  * `checkInNowMs` is the wall clock check-ins and brain dumps stop at, so a
  * just-saved one shows without waiting on that clock. */
@@ -522,10 +461,10 @@ export type RangeInsight = {
 /** Everything Insights shows for one range. */
 export const rangeInsight = (
   data: InsightData,
-  { from, to, live }: InsightRange,
+  { from, to }: Period,
   { nowMs, nowSec, checkInNowMs }: InsightClock,
 ): RangeInsight => {
-  const checkInTo = insightCheckInClosedTo(to, checkInNowMs, live);
+  const checkInTo = insightCheckInClosedTo(to, checkInNowMs);
   const blocks = layoutWorkBlocks(
     data.taskWorkStretches,
     data.tasks,

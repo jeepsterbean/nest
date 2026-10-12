@@ -3,9 +3,7 @@ import { DayCalendar, type DayPickerProps } from "./DayPicker";
 import { ViewToggle } from "./ViewToggle";
 import {
   RECAP_PRESENTATIONS,
-  RANGE_MODES,
   type RecapPresentation,
-  type RangeModeKey,
 } from "../lib/insights";
 
 export function DateRangeSidebar({
@@ -13,13 +11,11 @@ export function DateRangeSidebar({
   range,
   presentation,
   onPresentation,
-  onMode,
   onPick,
   markedDays,
 }: {
   target: HTMLElement | null;
   range: {
-    mode: RangeModeKey;
     from: number;
     to: number;
     earliestSec: number;
@@ -27,28 +23,19 @@ export function DateRangeSidebar({
   };
   presentation: RecapPresentation;
   onPresentation: (presentation: RecapPresentation) => void;
-  onMode: (mode: RangeModeKey) => void;
   onPick: DayPickerProps["onPick"];
   markedDays?: ReadonlySet<number>;
 }) {
   if (!target) return null;
   return createPortal(<>
     <h2 className="section-sidebar__title">Recap</h2>
-    <div className="range-sidebar__modes">
+    <div className="range-sidebar__presentation">
       <ViewToggle
         value={presentation}
         options={RECAP_PRESENTATIONS}
         label="Recap presentation"
         onChange={onPresentation}
       />
-      {presentation === "calendar" && (
-        <ViewToggle
-          value={range.mode}
-          options={RANGE_MODES}
-          label="Calendar date range"
-          onChange={onMode}
-        />
-      )}
     </div>
     <div className="range-sidebar__dates">
       <div className="range-sidebar__month">

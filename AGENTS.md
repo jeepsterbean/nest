@@ -22,7 +22,7 @@ reference by default.
 | Phases pane interactions | `docs/interface/phases.md` |
 | Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
 | Tasks Day, Table, Map, or detail interactions | `docs/interface/tasks.md` |
-| Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
+| Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date and Logs kind rules |
 | Pulse membership or Metric check-in records | `CONTEXT.md`, `docs/domain/metrics.md` |
 | Metrics pane interactions | `docs/interface/metrics.md` |
 | Timer countdown, interval, or due state | `docs/domain/timer.md` |
@@ -46,7 +46,7 @@ reference by default.
 | Tasks dashboard interactions | `docs/interface/tasks.md` |
 | History ranges, Phase settling, range summary calculations | `docs/domain/history.md` |
 | Calendar, Insights, Timeline interactions | `docs/interface/calendar.md` |
-| Rules shared across time surfaces (navigation, Last hour, Logs kinds, Phase appearance) | `docs/interface/time-surfaces.md` |
+| Rules shared across time surfaces (navigation, Logs kinds, Phase appearance) | `docs/interface/time-surfaces.md` |
 | Metric records and Pulse membership | `docs/domain/metrics.md` |
 | Metrics pane behavior | `docs/interface/metrics.md` |
 | Timer state and cadence | `docs/domain/timer.md` |

@@ -6,12 +6,10 @@ import {
   useState,
 } from "react";
 import { deleteMetricCheckIn } from "../../lib/commands";
-import { groupByDay } from "../lib/timeline";
 import {
-  buildLogExportEvents,
+  buildLogDayMarkerEvents,
   buildLogsEvents,
   logDayKeys,
-  downloadLogDay,
   LOG_EMPTY_COPY,
   LOG_EVENT_BATCH_SIZE,
   MIXED_LOG_EMPTY_COPY,
@@ -27,16 +25,12 @@ import {
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
-import {
-  readRecapInsightsShown,
-  writeRecapInsightsShown,
-  type RecapPresentation,
-} from "../lib/insights";
+import type { RecapPresentation } from "../lib/insights";
 import { dayLabel, historyStartSec } from "../lib/time";
 import { DateNavigation } from "../components/DateNavigation";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { LogsRawToggle } from "../components/logs/LogKindToggle";
-import { InsightsColumn, InsightsToggle } from "./InsightsPanel";
+import { InsightsColumn } from "./InsightsPanel";
 import { TimelineList } from "./TimelineList";
 
 export function TimelineView({
@@ -66,7 +60,6 @@ export function TimelineView({
     mutate,
   } = useDashboardData();
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
-  const [showInsights, setShowInsights] = useState(readRecapInsightsShown);
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
@@ -79,9 +72,9 @@ export function TimelineView({
   const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
   const nowMs = useCurrentTime();
   const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
-  const exportEvents = useMemo(
+  const dayMarkerEvents = useMemo(
     () =>
-      buildLogExportEvents(
+      buildLogDayMarkerEvents(
         checkIns,
         phaseCheckIns,
         brainDumps,
@@ -97,14 +90,6 @@ export function TimelineView({
       taskWorkStretches,
       taskStatusEvents,
     ],
-  );
-
-  const exportEventsByDay = useMemo(
-    () =>
-      new Map(
-        groupByDay(exportEvents, nowMs).map((day) => [day.key, day.events]),
-      ),
-    [nowMs, exportEvents],
   );
 
   const listEvents = useMemo(
@@ -139,7 +124,7 @@ export function TimelineView({
   );
 
   const selectedDayMs = range.columns[0].from * 1000;
-  const markedDays = useMemo(() => new Set(logDayKeys(exportEvents)), [exportEvents]);
+  const markedDays = useMemo(() => new Set(logDayKeys(dayMarkerEvents)), [dayMarkerEvents]);
   useEffect(() => { setVisibleEventCount(LOG_EVENT_BATCH_SIZE); }, [range.from]);
   const { canGoBack, isNow, step, goToday } = range;
   useDatePagingKeys(range);
@@ -169,14 +154,6 @@ export function TimelineView({
     });
   };
 
-  const exportDay = (dayKey: number) =>
-    downloadLogDay(dayKey, exportEventsByDay.get(dayKey) ?? [], {
-      phases,
-      metrics,
-      pulses,
-      tasks,
-    });
-
   const empty = kinds.length === 1 ? LOG_EMPTY_COPY[kinds[0]] : MIXED_LOG_EMPTY_COPY;
   const eventCount = listEvents.length;
   const remainingEventCount = Math.max(0, eventCount - visibleEventCount);
@@ -186,7 +163,7 @@ export function TimelineView({
     <section className="dash-section dash-section--timeline">
       <DateRangeSidebar target={sidebarTarget} range={range}
         presentation={presentation} onPresentation={onPresentation}
-        markedDays={markedDays} onMode={range.selectMode} onPick={range.goToDay} />
+        markedDays={markedDays} onPick={range.goToDay} />
       <div className="dash-toolbar logs-toolbar">
         <div className="logs-toolbar__row">
           <DateNavigation
@@ -204,16 +181,9 @@ export function TimelineView({
               onClick={toggleEveryPhaseCheckpoint}
             />
           ) : null}
-          <InsightsToggle
-            shown={showInsights}
-            onToggle={() => {
-              setShowInsights(!showInsights);
-              writeRecapInsightsShown(!showInsights);
-            }}
-          />
         </div>
       </div>
-      <div className={`dash-section__body recap-body${showInsights ? " recap-body--both" : ""}`}>
+      <div className="dash-section__body recap-body">
         <div className="recap-body__grid">
           {!loaded ? null : eventCount === 0 ? (
             <div className="dash-empty">
@@ -233,7 +203,6 @@ export function TimelineView({
               expandedDumpIds={expandedDumpIds}
               onDeleteCheckIn={onDeleteCheckIn}
               onToggleDump={toggleDumpExpanded}
-              onExportDay={exportDay}
               nowMs={nowMs}
               colorsTimeColumn={kinds.includes("phases")}
             />
@@ -255,20 +224,15 @@ export function TimelineView({
             </div>
           ) : null}
         </div>
-        {showInsights ? (
-          <InsightsColumn
-                onOpenCorePane={onOpenCorePane}
-            from={range.insight.from}
-            to={range.insight.to}
-            live={range.insight.live}
-            nowMs={range.nowMs}
-            nowSec={range.nowSec}
-            kinds={kinds}
-            onToggleKind={updateKinds}
-            lastHour={range.lastHour}
-            onLastHour={range.selectLastHour}
-          />
-        ) : null}
+        <InsightsColumn
+          onOpenCorePane={onOpenCorePane}
+          from={range.from}
+          to={range.to}
+          nowMs={range.nowMs}
+          nowSec={range.nowSec}
+          kinds={kinds}
+          onToggleKind={updateKinds}
+        />
       </div>
     </section>
   );

@@ -2,7 +2,7 @@
 
 The Recap Section (Calendar and Timeline presentations, with Insights
 beside either) and its history review surfaces. The Core guide lives in
-[Phases interface](phases.md). Shared date, Last hour, Logs
+[Phases interface](phases.md). Shared date, Logs
 kind, and Phase appearance rules live in
 [`docs/interface/time-surfaces.md`](time-surfaces.md). Domain words live in [`CONTEXT.md`](../../CONTEXT.md); Phase derivation lives in
 [Phases](../domain/phases.md). Shared dashboard controls
@@ -10,31 +10,28 @@ live in [`UI.md`](../../UI.md).
 
 ## Range sidebar
 
-The Recap Section's first choice is its presentation, Calendar or Timeline,
-remembered in `nest:recap-presentation` (Calendar when unset). Calendar then
-offers Day and Week, remembered in `nest:date-range` (first visit is Day; a
-stored Last hour opens as Day). Timeline has no Week: it always shows the
+The Recap sidebar switches between Calendar and Timeline, remembered in
+`nest:recap-presentation` (Calendar when unset). Calendar then
+offers Day and Week, remembered in `nest:date-range` (first visit is Day).
+Timeline has no Week: it always shows the
 selected day and leaves Calendar's Day / Week choice stored, so returning to
 Calendar on Week opens the week that contains that day. Calendar and Timeline
 share the selected day. These anchors survive Section navigation during the
 current dashboard session; app restarts open on today.
 
-These selections live in a Section sidebar matching Core: the Calendar /
-Timeline segmented control, Calendar's Day / Week control under it, and an
-always-visible Monday-first month calendar. The calendar's highlight is
+The Section sidebar holds the presentation switch and an always-visible
+Monday-first month calendar. Calendar's Day / Week control sits to the right
+of its date navigation. The calendar's highlight is
 the range, so the sidebar shows no range title text. Dates outside the loaded
-history and future dates are disabled. In a narrow window, the range controls
-move above the content. The month calendar has one Tab stop; arrow keys move
+history and future dates are disabled. In a narrow window, the sidebar
+moves above the content. The month calendar has one Tab stop; arrow keys move
 focus by a day or week, Home / End move to the week edges, and Enter / Space
 selects the focused date. On Timeline the mini calendar dots dates with
 recorded entries.
 
-Calendar, Timeline, and Insights share that one day or week. An Insights
-toggle (pressed while shown) opens or closes Insights as a column beside the
-figure, each scrolling on its own. The choice is remembered in
-`nest:recap-insights` (shown on first visit) and is the same on Calendar and
-Timeline. When the Section is too narrow for both columns, Insights moves
-under the figure instead of hiding.
+Calendar, Timeline, and Insights share that one day or week. Insights always
+sits beside the figure, each scrolling on its own. When the Section is too
+narrow for both columns, Insights moves under the figure.
 
 ## Calendar
 
@@ -45,7 +42,7 @@ and last day. Left / Right arrows page that range and `t` returns to Today
 while focus is outside interactive controls. The sidebar month calendar and
 this toolbar select the same range.
 
-A control beside the Insights toggle chooses the figure on Calendar, remembered in
+A control beside Day / Week chooses the figure on Calendar, remembered in
 `nest:calendar-figure` (Work stretch on first visit). Work stretch is the
 timetable of recorded work. Logs places history on that same Calendar.
 [Logs kinds](time-surfaces.md#logs-kinds) are chosen from Insights and shared
@@ -97,14 +94,6 @@ Tasks, and Metrics, in that order. Each heading hides that kind; the heading
 stays so it can be shown again. The last shown kind stays shown. That choice
 is the [Logs kinds](time-surfaces.md#logs-kinds) selection.
 
-A Last hour control on the panel summarizes the rolling 60 minutes. Choosing
-it moves the section to today and to Day. The grid and Timeline keep that full
-day; Insights reads the hour. Turning Last hour off, leaving today, or choosing
-Week returns Insights to the day or week on screen. The choice is remembered
-in `nest:insight-last-hour`. Just after midnight the hour still includes the
-end of the previous day. Dumps and Metric check-ins use wall-clock now; Phase
-mix and the task ledger stay on the shared minute clock.
-
 Range membership, Tag counts, Phase totals, and Task outcomes follow
 [History domain](../domain/history.md#range-summaries). Untagged leads the
 Brain dumps list, including at 0; Tags follow in frequency then name order.
@@ -142,16 +131,13 @@ The toolbar shows the selected
 day with the [shared day navigation](time-surfaces.md#dates-and-ranges),
 then the Phases-only eye when Phases is the only kind shown. The sidebar month calendar
 and this toolbar both stay: month jump and day-step select the same day. The list
-does not repeat that day. Each day's entries retain their own Export.
-Files use the Nest Timeline heading and `nest-timeline-*` name.
+does not repeat that day.
 Left / Right arrows page the selected day and `t` returns to Today
 while focus is outside interactive controls.
 
 The list is one day-grouped layout whatever the filter. Phases on adds settled Phase rows and
 colors the time column by the Phase in force; everything else stays the same.
-Timeline shows no Phase totals. Each visible day
-has an Export control that downloads a chronological Markdown timeline of every
-event type for that calendar day, regardless of the active kind filter.
+Timeline shows no Phase totals.
 
 When the selected range includes now, today opens with the current time and an
 empty event cell, including when today has no visible entries. Timeline does

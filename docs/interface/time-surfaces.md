@@ -27,17 +27,6 @@ and Timeline stop at loaded history: direct selections clamp to it, and paging
 stops before a page starts outside it. Brain dump, Metrics, and Phases Day have
 no earliest day and fetch older days on demand.
 
-## Last hour
-
-Last hour is a rolling 60 minutes from now, chosen on Insights. Choosing it
-moves the Recap Section to today and to Day. The grid and Timeline keep
-that full day, and Insights summarizes the hour. Leaving that day, or choosing
-Week on Calendar, leaves Last hour. Phase mix and the task ledger advance the hour on the
-shared minute clock. Brain dumps and Metric check-ins use wall-clock now, so a
-just-saved item shows immediately. Just after midnight the hour still includes
-the end of the previous day. The two clocks are described under
-[Insights](calendar.md#insights).
-
 ## Logs kinds
 
 Insights, Timeline, and Calendar's Logs figure share four kinds: Phases,
@@ -50,7 +39,7 @@ stretch keeps its full timetable.
 
 With Phases alone, an eye button on Timeline swaps the settled Phase rows for every Phase
 checkpoint in the window; it starts off whenever Phases becomes the only kind
-again and is not stored. Settled Phase rows and the day export use the
+again and is not stored. Settled Phase rows use the
 [Phase history interpretation](../domain/history.md#phase-history).
 
 Task activity covers creation, status changes (including completion,

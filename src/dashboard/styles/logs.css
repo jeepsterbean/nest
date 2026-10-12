@@ -1,6 +1,6 @@
 /* ---------- Logs toolbar ---------- */
 
-/* Day navigation, the Phases eye when it is the only kind shown, and Insights. */
+/* Day navigation and the Phases eye when it is the only kind shown. */
 .logs-toolbar {
   flex-direction: column;
   align-items: stretch;
