@@ -24,16 +24,16 @@ beforeEach(() => {
   vi.stubGlobal("localStorage", memoryStorage());
 });
 
-const renderSidebar = (view: "calendar" | "core") =>
+const renderSidebar = (view: "recap" | "core") =>
   renderToStaticMarkup(
     createElement(DashboardSidebar, { view, onSelectView: vi.fn() }),
   );
 
 describe("DashboardSidebar", () => {
-  it("offers Calendar and Core as the only Sections", () => {
-    const html = renderSidebar("calendar");
+  it("offers Recap and Core as the only Sections", () => {
+    const html = renderSidebar("recap");
 
-    expect(html).toContain('aria-label="Calendar, choose icon"');
+    expect(html).toContain('aria-label="Recap, choose icon"');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Core"');
     for (const retired of ["Overview", "Assistant"]) {
@@ -45,7 +45,7 @@ describe("DashboardSidebar", () => {
     const html = renderSidebar("core");
 
     expect(html).toContain('aria-label="Core, choose icon"');
-    expect(html).toContain('aria-label="Calendar"');
+    expect(html).toContain('aria-label="Recap"');
   });
 
   it("leaves the selected Section on its icon when icon selection is off", () => {
@@ -53,15 +53,15 @@ describe("DashboardSidebar", () => {
       "nest:settings",
       JSON.stringify({ showTaskMap: false, iconSelection: false }),
     );
-    const html = renderSidebar("calendar");
+    const html = renderSidebar("recap");
 
-    expect(html).toContain('aria-label="Calendar"');
+    expect(html).toContain('aria-label="Recap"');
     expect(html).toContain('aria-current="page"');
     expect(html).not.toContain("choose icon");
   });
 
   it("keeps Settings closed at the foot of the Sidebar", () => {
-    const html = renderSidebar("calendar");
+    const html = renderSidebar("recap");
     const nav = html.indexOf('aria-label="Dashboard sections"');
     const settings = html.indexOf('aria-label="Settings"');
 

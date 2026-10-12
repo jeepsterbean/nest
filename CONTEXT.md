@@ -47,7 +47,7 @@ Surface behavior: [Metrics interface](docs/interface/metrics.md),
 - **Timer** names the countdown; **Popup** names the window it opens. Use
   these names in chrome, accessible names, and class names; reserve check-in
   for Metric scoring records.
-- **Section** names Calendar or Core. Calendar contains Calendar and Timeline
+- **Section** names Recap or Core. Recap contains Calendar and Timeline
   presentations, with Insights beside either. Core contains Brain dump,
   Tasks, Metrics, and Phases panes.
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.

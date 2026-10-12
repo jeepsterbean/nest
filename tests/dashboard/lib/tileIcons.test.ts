@@ -60,10 +60,22 @@ describe("tile icons", () => {
 
   it("writes a Section icon and keeps the others", () => {
     const storage = memory();
-    writeTileIcon("calendar", "sun", storage);
+    writeTileIcon("recap", "sun", storage);
     expect(readTileIcons(storage)).toEqual({
       ...DEFAULT_TILE_ICONS,
-      calendar: "sun",
+      recap: "sun",
     });
+  });
+
+  it("carries over the Recap icon saved when the Section was named Calendar", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:overview-tile-icons",
+      JSON.stringify({ calendar: "sun" }),
+    );
+    expect(readTileIcons(storage).recap).toBe("sun");
+
+    writeTileIcon("recap", "moon", storage);
+    expect(readTileIcons(storage).recap).toBe("moon");
   });
 });

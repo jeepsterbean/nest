@@ -2,9 +2,9 @@ import { createPortal } from "react-dom";
 import { DayCalendar, type DayPickerProps } from "./DayPicker";
 import { ViewToggle } from "./ViewToggle";
 import {
-  CALENDAR_PRESENTATIONS,
+  RECAP_PRESENTATIONS,
   RANGE_MODES,
-  type CalendarPresentation,
+  type RecapPresentation,
   type RangeModeKey,
 } from "../lib/insights";
 
@@ -25,27 +25,27 @@ export function DateRangeSidebar({
     earliestSec: number;
     nowMs: number;
   };
-  presentation: CalendarPresentation;
-  onPresentation: (presentation: CalendarPresentation) => void;
+  presentation: RecapPresentation;
+  onPresentation: (presentation: RecapPresentation) => void;
   onMode: (mode: RangeModeKey) => void;
   onPick: DayPickerProps["onPick"];
   markedDays?: ReadonlySet<number>;
 }) {
   if (!target) return null;
   return createPortal(<>
-    <h2 className="section-sidebar__title">Calendar</h2>
+    <h2 className="section-sidebar__title">Recap</h2>
     <div className="range-sidebar__modes">
       <ViewToggle
         value={range.mode}
         options={RANGE_MODES}
-        label="Calendar range"
+        label="Recap date range"
         onChange={onMode}
       />
       {range.mode === "day" && (
         <ViewToggle
           value={presentation}
-          options={CALENDAR_PRESENTATIONS}
-          label="Calendar presentation"
+          options={RECAP_PRESENTATIONS}
+          label="Recap presentation"
           onChange={onPresentation}
         />
       )}

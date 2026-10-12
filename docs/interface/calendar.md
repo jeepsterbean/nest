@@ -1,6 +1,6 @@
 # Calendar interface
 
-The Calendar Section (Calendar and Timeline presentations, with Insights
+The Recap Section (Calendar and Timeline presentations, with Insights
 beside either) and its history review surfaces. The Core guide lives in
 [Phases interface](phases.md). Shared date, Last hour, Logs
 kind, and Phase appearance rules live in
@@ -10,7 +10,7 @@ live in [`UI.md`](../../UI.md).
 
 ## Range sidebar
 
-The Calendar Section offers Day and Week, remembered in `nest:date-range`
+The Recap Section offers Day and Week, remembered in `nest:date-range`
 (first visit is Day; a stored Last hour opens as Day). Day is the default.
 Calendar and Timeline share the selected day, and Week is the week that
 contains it. These anchors survive Section navigation during the current
@@ -19,7 +19,7 @@ dashboard session; app restarts open on today.
 The range selection lives in a Section sidebar matching Core: a Day / Week
 segmented control over an always-visible Monday-first month calendar. On Day,
 a Calendar / Timeline selector sits with it. The presentation is remembered
-in `nest:calendar-presentation` (Calendar when unset). Week has no Timeline:
+in `nest:recap-presentation` (Calendar when unset). Week has no Timeline:
 choosing Week while Timeline is showing opens that week's Calendar, and
 choosing Day returns to Timeline on the same day. The calendar's highlight is
 the range, so the sidebar shows no range title text. Dates outside the loaded
@@ -32,10 +32,9 @@ recorded entries.
 Calendar, Timeline, and Insights share that one day or week. An Insights
 toggle (pressed while shown) opens or closes Insights as a column beside the
 figure, each scrolling on its own. The choice is remembered in
-`nest:calendar-display` (shown on first visit, and for the retired
-Insights-only value) and is the same on Calendar and Timeline. When the
-Section is too narrow for both columns, Insights moves under the figure
-instead of hiding.
+`nest:recap-insights` (shown on first visit) and is the same on Calendar and
+Timeline. When the Section is too narrow for both columns, Insights moves
+under the figure instead of hiding.
 
 ## Calendar
 
@@ -127,7 +126,7 @@ rating appears as soon as data reloads.
 
 ## Timeline
 
-The history presentation inside Calendar, available on Day. Not a stored record: Metric check-ins, brain dumps, and
+The history presentation inside Recap, available on Day. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. Its [Logs kinds](time-surfaces.md#logs-kinds)
 are the same selection Calendar's Logs figure and Insights use. Insights
 sits beside the list, on the same day.
@@ -141,7 +140,7 @@ and this toolbar both stay: month jump and day-step select the same day. Each
 day's entries retain their own Export.
 Files use the Nest Timeline heading and `nest-timeline-*` name.
 A day label switches to the Calendar presentation, opens that day on its Logs
-figure, and switches Calendar's range to Day.
+figure, and switches Recap's date range to Day.
 Left / Right arrows page the selected day and `t` returns to Today
 while focus is outside interactive controls.
 

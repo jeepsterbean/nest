@@ -5,7 +5,7 @@ export const TILE_ICONS_KEY = "nest:overview-tile-icons";
 
 /** Section and Core pane icons a person can change. */
 const CONFIGURABLE_ICON_IDS = [
-  "calendar",
+  "recap",
   "core",
   "tasks",
   "brainDump",
@@ -17,7 +17,7 @@ export type ConfigurableIcon = (typeof CONFIGURABLE_ICON_IDS)[number];
 export type TileIcons = Record<ConfigurableIcon, string>;
 
 export const DEFAULT_TILE_ICONS: TileIcons = {
-  calendar: "date",
+  recap: "date",
   core: "core",
   tasks: "check",
   brainDump: "brain",
@@ -48,6 +48,10 @@ export function readTileIcons(
     if (!isTileIconsRecord(parsed)) return { ...DEFAULT_TILE_ICONS };
 
     const icons = { ...DEFAULT_TILE_ICONS };
+    // The Recap Section was named Calendar, and its choice was saved under
+    // that id.
+    const legacyRecapIcon = (parsed as { calendar?: unknown }).calendar;
+    if (isNestIconKey(legacyRecapIcon)) icons.recap = legacyRecapIcon;
     for (const id of CONFIGURABLE_ICON_IDS) {
       const icon = parsed[id];
       if (isNestIconKey(icon)) icons[id] = icon;

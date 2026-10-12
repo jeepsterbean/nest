@@ -23,9 +23,9 @@ export function InsightsToggle({
   return (
     <button
       type="button"
-      className="calendar-insights-toggle"
+      className="recap-insights-toggle"
       aria-pressed={shown}
-      aria-controls="calendar-panel-insights"
+      aria-controls="recap-insights"
       onClick={onToggle}
     >
       <PanelRight aria-hidden="true" />
@@ -56,7 +56,7 @@ export function InsightsColumn({
   onLastHour: (on: boolean) => void;
 }) {
   return (
-    <div id="calendar-panel-insights" className="calendar-body__insights" aria-label="Insights" role="region">
+    <div id="recap-insights" className="recap-body__insights" aria-label="Insights" role="region">
       <InsightsPanel
         from={from}
         to={to}

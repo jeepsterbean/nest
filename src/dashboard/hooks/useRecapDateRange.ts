@@ -2,27 +2,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   lastHourPeriod,
-  readCalendarRangeMode,
+  readRecapDateRangeMode,
   readInsightLastHour,
-  writeCalendarRangeMode,
+  writeRecapDateRangeMode,
   writeInsightLastHour,
-  type CalendarRangeStore,
+  type RecapDateRangeStore,
   type RangeModeKey,
 } from "../lib/insights";
 import { startOfDayMs } from "../lib/time";
 import { useDateRange } from "./useDateRange";
 
-const calendarRangeStore: CalendarRangeStore = {
-  read: () => readCalendarRangeMode(),
-  write: (mode) => writeCalendarRangeMode(mode),
+const recapDateRangeStore: RecapDateRangeStore = {
+  read: () => readRecapDateRangeMode(),
+  write: (mode) => writeRecapDateRangeMode(mode),
 };
 
-/** Day / Week for the whole Calendar section. Calendar and Timeline share the
+/** Day / Week for the whole Recap Section. Calendar and Timeline share the
  * selected day. Last hour is an Insights window on today: choosing it lands
  * on today in Day, and leaving that day or opening Week drops it so the grid
  * and the panel stay on the same range. */
-export function useCalendarRange(
-  store: CalendarRangeStore = calendarRangeStore,
+export function useRecapDateRange(
+  store: RecapDateRangeStore = recapDateRangeStore,
 ) {
   const [lastHour, setLastHour] = useState(readInsightLastHour);
   const [mode, setMode] = useState<RangeModeKey>(() =>

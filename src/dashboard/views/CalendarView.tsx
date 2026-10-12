@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { ViewToggle } from "../components/ViewToggle";
-import { useCalendarRange } from "../hooks/useCalendarRange";
+import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
   TimelineGrid,
   type GridColumn,
@@ -19,11 +19,11 @@ import {
   CALENDAR_FIGURES,
   openAtPct,
   readCalendarFigure,
-  readCalendarInsightsShown,
+  readRecapInsightsShown,
   writeCalendarFigure,
-  writeCalendarInsightsShown,
+  writeRecapInsightsShown,
   type CalendarFigure,
-  type CalendarPresentation,
+  type RecapPresentation,
 } from "../lib/insights";
 import { isQuietPhase } from "../lib/period";
 import { columnPhaseSessions } from "../lib/timeline";
@@ -47,9 +47,9 @@ export function CalendarView({
   range,
 }: {
   sidebarTarget: HTMLElement | null;
-  presentation: CalendarPresentation;
-  onPresentation: (presentation: CalendarPresentation) => void;
-  range: ReturnType<typeof useCalendarRange>;
+  presentation: RecapPresentation;
+  onPresentation: (presentation: RecapPresentation) => void;
+  range: ReturnType<typeof useRecapDateRange>;
 }) {
   const {
     tasks,
@@ -64,7 +64,7 @@ export function CalendarView({
     loaded,
     mutate,
   } = useDashboardData();
-  const [showInsights, setShowInsights] = useState(readCalendarInsightsShown);
+  const [showInsights, setShowInsights] = useState(readRecapInsightsShown);
   const [figure, setFigure] = useState(readCalendarFigure);
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
   const [selected, setSelected] = useState<StretchEdit | null>(null);
@@ -183,14 +183,14 @@ export function CalendarView({
           shown={showInsights}
           onToggle={() => {
             setShowInsights(!showInsights);
-            writeCalendarInsightsShown(!showInsights);
+            writeRecapInsightsShown(!showInsights);
           }}
         />
       </div>
-      <div className={`dash-section__body calendar-body${showInsights ? " calendar-body--both" : ""}`}>
+      <div className={`dash-section__body recap-body${showInsights ? " recap-body--both" : ""}`}>
         {!loaded ? null : (
           <>
-            <div className="calendar-body__grid">
+            <div className="recap-body__grid">
               {figure === "logs" ? (
                 <LogsHours
                   columns={logsGrid.columns}

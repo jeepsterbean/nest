@@ -9,18 +9,18 @@ import {
   stepColumns,
   rangeInsight,
   readCalendarFigure,
-  readCalendarInsightsShown,
-  readCalendarPresentation,
-  readCalendarRangeMode,
+  readRecapInsightsShown,
+  readRecapPresentation,
+  readRecapDateRangeMode,
   readInsightLastHour,
   lastHourPeriod,
   lastHourSpanLabel,
   LAST_HOUR_WINDOW_SECONDS,
   writeCalendarFigure,
-  writeCalendarPresentation,
+  writeRecapPresentation,
   type InsightData,
-  writeCalendarInsightsShown,
-  writeCalendarRangeMode,
+  writeRecapInsightsShown,
+  writeRecapDateRangeMode,
   writeInsightLastHour,
 } from "../../../src/dashboard/lib/insights";
 
@@ -296,15 +296,15 @@ describe("insight range memory", () => {
 
   it("defaults to Day and restores the last saved mode", () => {
     const storage = memory();
-    expect(readCalendarRangeMode(storage)).toBe("day");
-    writeCalendarRangeMode("week", storage);
-    expect(readCalendarRangeMode(storage)).toBe("week");
+    expect(readRecapDateRangeMode(storage)).toBe("day");
+    writeRecapDateRangeMode("week", storage);
+    expect(readRecapDateRangeMode(storage)).toBe("week");
   });
 
   it("reads a stored Last hour range as Day", () => {
     const storage = memory();
     storage.setItem("nest:date-range", "lastHour");
-    expect(readCalendarRangeMode(storage)).toBe("day");
+    expect(readRecapDateRangeMode(storage)).toBe("day");
   });
 
   it("remembers Last hour on Insights until it is turned off", () => {
@@ -319,16 +319,16 @@ describe("insight range memory", () => {
   it("falls back to Day for a mode it no longer has, so a stored 24h migrates", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "24h");
-    expect(readCalendarRangeMode(storage)).toBe("day");
+    expect(readRecapDateRangeMode(storage)).toBe("day");
   });
 
   it("reads the legacy storage key until the new key is set", () => {
     const storage = memory();
     storage.setItem("nest:insights-range", "week");
-    expect(readCalendarRangeMode(storage)).toBe("week");
-    writeCalendarRangeMode("day", storage);
+    expect(readRecapDateRangeMode(storage)).toBe("week");
+    writeRecapDateRangeMode("day", storage);
     expect(storage.getItem("nest:date-range")).toBe("day");
-    expect(readCalendarRangeMode(storage)).toBe("day");
+    expect(readRecapDateRangeMode(storage)).toBe("day");
   });
 
   it("draws Work stretch until Logs is chosen", () => {
@@ -342,32 +342,45 @@ describe("insight range memory", () => {
 
   it("defaults to Calendar and restores the last presentation", () => {
     const storage = memory();
-    expect(readCalendarPresentation(storage)).toBe("calendar");
-    writeCalendarPresentation("timeline", storage);
-    expect(readCalendarPresentation(storage)).toBe("timeline");
-    writeCalendarPresentation("calendar", storage);
-    expect(readCalendarPresentation(storage)).toBe("calendar");
+    expect(readRecapPresentation(storage)).toBe("calendar");
+    writeRecapPresentation("timeline", storage);
+    expect(readRecapPresentation(storage)).toBe("timeline");
+    writeRecapPresentation("calendar", storage);
+    expect(readRecapPresentation(storage)).toBe("calendar");
   });
 
   it("falls back to Calendar for an unknown presentation", () => {
     const storage = memory();
-    storage.setItem("nest:calendar-presentation", "agenda");
-    expect(readCalendarPresentation(storage)).toBe("calendar");
+    storage.setItem("nest:recap-presentation", "agenda");
+    expect(readRecapPresentation(storage)).toBe("calendar");
+  });
+
+  it("carries over choices saved when the Recap Section was named Calendar", () => {
+    const storage = memory();
+    storage.setItem("nest:calendar-presentation", "timeline");
+    storage.setItem("nest:calendar-display", "calendar");
+    expect(readRecapPresentation(storage)).toBe("timeline");
+    expect(readRecapInsightsShown(storage)).toBe(false);
+
+    writeRecapPresentation("calendar", storage);
+    writeRecapInsightsShown(true, storage);
+    expect(readRecapPresentation(storage)).toBe("calendar");
+    expect(readRecapInsightsShown(storage)).toBe(true);
   });
 
   it("shows Insights beside the grid until it is hidden", () => {
     const storage = memory();
-    expect(readCalendarInsightsShown(storage)).toBe(true);
-    writeCalendarInsightsShown(false, storage);
-    expect(readCalendarInsightsShown(storage)).toBe(false);
-    writeCalendarInsightsShown(true, storage);
-    expect(readCalendarInsightsShown(storage)).toBe(true);
+    expect(readRecapInsightsShown(storage)).toBe(true);
+    writeRecapInsightsShown(false, storage);
+    expect(readRecapInsightsShown(storage)).toBe(false);
+    writeRecapInsightsShown(true, storage);
+    expect(readRecapInsightsShown(storage)).toBe(true);
   });
 
   it("reads the retired Insights-only display as Insights shown", () => {
     const storage = memory();
     storage.setItem("nest:calendar-display", "insights");
-    expect(readCalendarInsightsShown(storage)).toBe(true);
+    expect(readRecapInsightsShown(storage)).toBe(true);
   });
 
   it("labels Last hour with the clock span it covers", () => {

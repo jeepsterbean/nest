@@ -20,30 +20,30 @@ import { TimelineView } from "./views/TimelineView";
 import { CoreView } from "./views/CoreView";
 import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
 import {
-  readCalendarPresentation,
+  readRecapPresentation,
   writeCalendarFigure,
-  writeCalendarPresentation,
-  type CalendarPresentation,
+  writeRecapPresentation,
+  type RecapPresentation,
 } from "./lib/insights";
-import { useCalendarRange } from "./hooks/useCalendarRange";
+import { useRecapDateRange } from "./hooks/useRecapDateRange";
 import { phaseName, phaseTone } from "./lib/period";
 import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
-  const [view, setView] = useState<DashboardView>("calendar");
-  const [calendarPresentation, setCalendarPresentation] =
-    useState<CalendarPresentation>(readCalendarPresentation);
-  const calendarRange = useCalendarRange();
+  const [view, setView] = useState<DashboardView>("recap");
+  const [recapPresentation, setRecapPresentation] =
+    useState<RecapPresentation>(readRecapPresentation);
+  const recapDateRange = useRecapDateRange();
   const [corePane, setCorePane] = useState<CorePane>(readCorePane);
   const selectCorePane = useCallback((pane: CorePane) => {
     writeCorePane(pane);
     setCorePane(pane);
   }, []);
-  const selectCalendarPresentation = useCallback(
-    (presentation: CalendarPresentation) => {
-      writeCalendarPresentation(presentation);
-      setCalendarPresentation(presentation);
+  const selectRecapPresentation = useCallback(
+    (presentation: RecapPresentation) => {
+      writeRecapPresentation(presentation);
+      setRecapPresentation(presentation);
     },
     [],
   );
@@ -60,11 +60,11 @@ function DashboardInner() {
   // Week has no Timeline, so a remembered Timeline presentation shows Calendar
   // until Day is chosen again.
   const showTimeline =
-    view === "calendar" &&
-    calendarPresentation === "timeline" &&
-    calendarRange.mode === "day";
+    view === "recap" &&
+    recapPresentation === "timeline" &&
+    recapDateRange.mode === "day";
   const surface = view === "core" ? corePane : showTimeline ? "timeline" : "calendar";
-  const hasRangeSidebar = view === "calendar";
+  const hasRangeSidebar = view === "recap";
   const hasSectionSidebar = view === "core" || hasRangeSidebar;
   const [rangeSidebarTarget, setRangeSidebarTarget] = useState<HTMLElement | null>(null);
 
@@ -115,25 +115,25 @@ function DashboardInner() {
         >
           <ErrorBanner />
 
-          {view === "calendar" && !showTimeline && (
+          {view === "recap" && !showTimeline && (
             <CalendarView
               sidebarTarget={rangeSidebarTarget}
-              presentation={calendarPresentation}
-              onPresentation={selectCalendarPresentation}
-              range={calendarRange}
+              presentation={recapPresentation}
+              onPresentation={selectRecapPresentation}
+              range={recapDateRange}
             />
           )}
           {showTimeline && (
             <TimelineView
-              range={calendarRange}
+              range={recapDateRange}
               sidebarTarget={rangeSidebarTarget}
-              presentation={calendarPresentation}
-              onPresentation={selectCalendarPresentation}
+              presentation={recapPresentation}
+              onPresentation={selectRecapPresentation}
               onOpenDayInCalendarLogs={(dayMs) => {
-                calendarRange.selectMode("day");
+                recapDateRange.selectMode("day");
                 writeCalendarFigure("logs");
-                calendarRange.goToDay(dayMs);
-                selectCalendarPresentation("calendar");
+                recapDateRange.goToDay(dayMs);
+                selectRecapPresentation("calendar");
               }}
             />
           )}

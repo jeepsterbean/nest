@@ -24,11 +24,11 @@ import {
   useDashboardData,
 } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
-import { useCalendarRange } from "../hooks/useCalendarRange";
+import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
-  readCalendarInsightsShown,
-  writeCalendarInsightsShown,
-  type CalendarPresentation,
+  readRecapInsightsShown,
+  writeRecapInsightsShown,
+  type RecapPresentation,
 } from "../lib/insights";
 import { dayLabel, historyStartSec } from "../lib/time";
 import { DateNavigation } from "../components/DateNavigation";
@@ -44,10 +44,10 @@ export function TimelineView({
   onPresentation,
   onOpenDayInCalendarLogs,
 }: {
-  range: ReturnType<typeof useCalendarRange>;
+  range: ReturnType<typeof useRecapDateRange>;
   sidebarTarget: HTMLElement | null;
-  presentation: CalendarPresentation;
-  onPresentation: (presentation: CalendarPresentation) => void;
+  presentation: RecapPresentation;
+  onPresentation: (presentation: RecapPresentation) => void;
   onOpenDayInCalendarLogs: (dayMs: number) => void;
 }) {
   const {
@@ -64,7 +64,7 @@ export function TimelineView({
     mutate,
   } = useDashboardData();
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
-  const [showInsights, setShowInsights] = useState(readCalendarInsightsShown);
+  const [showInsights, setShowInsights] = useState(readRecapInsightsShown);
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
@@ -219,13 +219,13 @@ export function TimelineView({
             shown={showInsights}
             onToggle={() => {
               setShowInsights(!showInsights);
-              writeCalendarInsightsShown(!showInsights);
+              writeRecapInsightsShown(!showInsights);
             }}
           />
         </div>
       </div>
-      <div className={`dash-section__body calendar-body${showInsights ? " calendar-body--both" : ""}`}>
-        <div className="calendar-body__grid">
+      <div className={`dash-section__body recap-body${showInsights ? " recap-body--both" : ""}`}>
+        <div className="recap-body__grid">
           {!loaded ? null : eventCount === 0 ? (
             <div className="dash-empty">
               <strong>{empty.title}</strong>

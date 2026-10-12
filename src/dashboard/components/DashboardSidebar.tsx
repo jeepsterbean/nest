@@ -4,14 +4,14 @@ import { writeTileIcon, type ConfigurableIcon } from "../lib/tileIcons";
 import { IconPickerButton, NestIcon } from "./PulseIcon";
 import { SettingsControl } from "./SettingsOverlay";
 
-export type DashboardView = "calendar" | "core";
+export type DashboardView = "recap" | "core";
 
 const VIEWS: {
   key: DashboardView;
   label: string;
   icon: ConfigurableIcon;
 }[] = [
-  { key: "calendar", label: "Calendar", icon: "calendar" },
+  { key: "recap", label: "Recap", icon: "recap" },
   { key: "core", label: "Core", icon: "core" },
 ];
 

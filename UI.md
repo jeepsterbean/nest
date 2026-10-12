@@ -21,7 +21,7 @@ and layout constraints are commented beside their rules in
 
 - Section main content has no title and starts with its controls, in
   `.dash-section__head` or a sibling toolbar; the Sidebar names the current
-  place. Core and Calendar also have a title in their Section sidebar.
+  place. Core and Recap also have a title in their Section sidebar.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs,
   Section, Sidebar, and Settings.
@@ -54,8 +54,8 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 - Dashboard CSS enters through `src/dashboard/Dashboard.css`, whose ordered
   imports from `src/dashboard/styles/` define the cascade.
-- `DashboardSidebar` holds the two Sections, Calendar and Core; the dashboard
-  opens on Calendar. Section icons are `NestIcon`s stored in
+- `DashboardSidebar` holds the two Sections, Recap and Core; the dashboard
+  opens on Recap. Section icons are `NestIcon`s stored in
   `nest:overview-tile-icons`, a key kept from the retired Overview so saved
   choices carry over. Clicking an icon selects its Section; clicking the
   selected one opens its `IconPickerButton` when Settings allows icon
@@ -70,12 +70,12 @@ portaled menu has to be scoped from a dashboard-level class, as
   selected Sidebar or Core icon does not open the picker. A click on the
   scrim or Escape closes the overlay, and closing returns focus to the
   button. The rest of the dashboard is inert while the overlay is open.
-- Core and Calendar add a Section sidebar, `.section-sidebar` (grid
+- Core and Recap add a Section sidebar, `.section-sidebar` (grid
   class `.dashboard--section-sidebar`), between the Sidebar and
   `.dashboard__inner`. Rows are `.section-nav__button` icon-and-label buttons
   on tiles tinted with `--pane-tone`; selecting the selected row again opens
   its icon picker when Settings allows icon selection. Below 861px the rail
-  keeps only the tiles, with accessible names and tooltips. Calendar's version
+  keeps only the tiles, with accessible names and tooltips. Recap's version
   is `.range-sidebar`
   (`.dashboard--range-sidebar`).
 - Core panes are Brain dump / Tasks / Metrics / Phases, toned with their Logs

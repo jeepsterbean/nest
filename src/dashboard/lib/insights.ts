@@ -69,7 +69,7 @@ export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
 export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
 
-export type CalendarRangeStore = {
+export type RecapDateRangeStore = {
   read: () => RangeModeKey;
   write: (mode: RangeModeKey) => void;
 };
@@ -79,32 +79,38 @@ const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const CALENDAR_PRESENTATIONS = [
+export const RECAP_PRESENTATIONS = [
   { key: "calendar", label: "Calendar" },
   { key: "timeline", label: "Timeline" },
 ] as const;
-export type CalendarPresentation =
-  (typeof CALENDAR_PRESENTATIONS)[number]["key"];
+export type RecapPresentation =
+  (typeof RECAP_PRESENTATIONS)[number]["key"];
 
-const CALENDAR_PRESENTATION_KEY = "nest:calendar-presentation";
+const RECAP_PRESENTATION_KEY = "nest:recap-presentation";
+// Keys from when the Recap Section was named Calendar; read so saved choices
+// carry over.
+const LEGACY_RECAP_PRESENTATION_KEY = "nest:calendar-presentation";
+const LEGACY_RECAP_INSIGHTS_KEY = "nest:calendar-display";
 
-export const readCalendarPresentation = (
+export const readRecapPresentation = (
   storage: Pick<Storage, "getItem"> = localStorage,
-): CalendarPresentation =>
-  storage.getItem(CALENDAR_PRESENTATION_KEY) === "timeline"
-    ? "timeline"
-    : "calendar";
+): RecapPresentation => {
+  const stored =
+    storage.getItem(RECAP_PRESENTATION_KEY) ??
+    storage.getItem(LEGACY_RECAP_PRESENTATION_KEY);
+  return stored === "timeline" ? "timeline" : "calendar";
+};
 
-export const writeCalendarPresentation = (
-  presentation: CalendarPresentation,
+export const writeRecapPresentation = (
+  presentation: RecapPresentation,
   storage: RangeStorage = localStorage,
 ) => {
-  storage.setItem(CALENDAR_PRESENTATION_KEY, presentation);
+  storage.setItem(RECAP_PRESENTATION_KEY, presentation);
 };
 
 /** Day unless Week is stored. A retired Last hour value reads as Day; Last hour
  * now lives on Insights (`nest:insight-last-hour`). */
-export const readCalendarRangeMode = (
+export const readRecapDateRangeMode = (
   storage: RangeStorage = localStorage,
 ): RangeModeKey => {
   const stored =
@@ -112,7 +118,7 @@ export const readCalendarRangeMode = (
   return stored === "week" ? "week" : "day";
 };
 
-export const writeCalendarRangeMode = (
+export const writeRecapDateRangeMode = (
   key: RangeModeKey,
   storage: RangeStorage = localStorage,
 ) => {
@@ -135,19 +141,24 @@ export const writeInsightLastHour = (
 
 /** Whether Insights sits beside Calendar or Timeline. The figure itself is
  * always shown, so the stored value is a single on/off. */
-const CALENDAR_INSIGHTS_KEY = "nest:calendar-display";
+const RECAP_INSIGHTS_KEY = "nest:recap-insights";
 
 /** A missing or retired value (including the old Insights-only "insights")
- * reads as shown, so nobody lands with the summary unexpectedly hidden. */
-export const readCalendarInsightsShown = (
+ * reads as shown, so nobody lands with the summary unexpectedly hidden. The
+ * legacy key stored "calendar" for hidden. */
+export const readRecapInsightsShown = (
   storage: Pick<Storage, "getItem"> = localStorage,
-): boolean => storage.getItem(CALENDAR_INSIGHTS_KEY) !== "calendar";
+): boolean => {
+  const stored = storage.getItem(RECAP_INSIGHTS_KEY);
+  if (stored !== null) return stored !== "off";
+  return storage.getItem(LEGACY_RECAP_INSIGHTS_KEY) !== "calendar";
+};
 
-export const writeCalendarInsightsShown = (
+export const writeRecapInsightsShown = (
   shown: boolean,
   storage: RangeStorage = localStorage,
 ) => {
-  storage.setItem(CALENDAR_INSIGHTS_KEY, shown ? "both" : "calendar");
+  storage.setItem(RECAP_INSIGHTS_KEY, shown ? "on" : "off");
 };
 
 /** Which figure the Calendar grid draws. Work stretch is the timetable of

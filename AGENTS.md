@@ -111,7 +111,7 @@ Follow the table above when editing a Nest doc.
 
 ## Repository-wide invariants
 
-- The dashboard has two Sections, Calendar and Core, and starts on Calendar.
+- The dashboard has two Sections, Recap and Core, and starts on Recap.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
