@@ -1,8 +1,15 @@
 import { useId, useState } from "react";
 import type { Task, TaskStatusEvent, TaskWorkStretch } from "../../lib/types";
 import { DateNavigation } from "../components/DateNavigation";
-import { buildTaskDay } from "../lib/taskDay";
-import { dayLabel, formatCompactDuration, formatTime } from "../lib/time";
+import { buildOpenTaskGroups, buildTaskDay } from "../lib/taskDay";
+import type { TaskGraphProjection } from "../lib/taskGraph";
+import {
+  dayLabel,
+  formatCompactDuration,
+  formatTime,
+  startOfDayMs,
+} from "../lib/time";
+import { TaskDayOpen } from "./TaskDayOpen";
 
 type TaskDayStatKey =
   | "created"
@@ -25,6 +32,7 @@ export function TaskDay({
   canGoPrevious,
   canGoNext,
   tasks,
+  taskGraph,
   statusEvents,
   workStretches,
   onPreviousDay,
@@ -37,6 +45,7 @@ export function TaskDay({
   canGoPrevious: boolean;
   canGoNext: boolean;
   tasks: Task[];
+  taskGraph: TaskGraphProjection;
   statusEvents: TaskStatusEvent[];
   workStretches: TaskWorkStretch[];
   onPreviousDay: () => void;
@@ -105,6 +114,8 @@ export function TaskDay({
       rows: workedRows,
     },
   ];
+  // Open Tasks are a present-tense list; a past day's leftovers already show as Incomplete.
+  const isToday = selectedDayMs === startOfDayMs(nowMs / 1000);
   const openMeasure = measures.find(
     (measure) => measure.key === selectedStat && measure.rows.length > 0,
   );
@@ -175,6 +186,12 @@ export function TaskDay({
             ))}
           </ul>
         </section>
+      )}
+      {isToday && (
+        <TaskDayOpen
+          groups={buildOpenTaskGroups(taskGraph, day.worked)}
+          onSelectTask={onSelectTask}
+        />
       )}
     </div>
   );

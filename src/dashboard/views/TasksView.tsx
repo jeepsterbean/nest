@@ -329,6 +329,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 canGoPrevious={selectedTaskDayMs > earliestTaskDayMs}
                 canGoNext={selectedTaskDayMs < todayMs}
                 tasks={tasks}
+                taskGraph={taskGraph}
                 statusEvents={taskStatusEvents}
                 workStretches={taskWorkStretches}
                 onPreviousDay={() =>

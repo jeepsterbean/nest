@@ -26,6 +26,13 @@ detail panel. A Task is counted once in each lifecycle stat even if it reaches
 that outcome more than once that day. Available history follows the
 [Task history rules](../domain/tasks.md#history-and-deletion).
 
+On today only, Open lists every open Task in Active, Up next, and Backlog
+groups; a past day's leftovers already show as Incomplete. Within a group,
+Working now Tasks lead and [Blocked](../domain/tasks.md#relationships-and-readiness)
+Tasks follow the Ready ones, muted and showing how many unresolved Blockers they
+have. Other rows show the Task's Worked time today when it has any. Selecting a
+row opens its detail panel.
+
 ## Table
 
 The last Day / Table / Map choice is remembered (`nest:task-view`). The table

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type {
+  Task,
   TaskStatus,
   TaskStatusEvent,
   TaskWorkStretch,
 } from "../../../src/lib/types";
-import { buildTaskDay } from "../../../src/dashboard/lib/taskDay";
+import {
+  buildOpenTaskGroups,
+  buildTaskDay,
+} from "../../../src/dashboard/lib/taskDay";
+import { buildTaskGraph } from "../../../src/dashboard/lib/taskGraph";
 
 const at = (day: number, hour: number, minute = 0) =>
   Math.floor(new Date(2026, 0, day, hour, minute).getTime() / 1000);
@@ -126,5 +131,65 @@ describe("task day", () => {
     expect(result.incomplete).toEqual([
       { taskId: 1, seconds: 60 * 60 },
     ]);
+  });
+});
+
+describe("open task groups", () => {
+  const openTask = (
+    id: number,
+    status: TaskStatus,
+    overrides: Partial<Task> = {},
+  ): Task => ({
+    id,
+    title: `Task ${id}`,
+    description: "",
+    status,
+    workingNow: false,
+    workedSeconds: 0,
+    workStartedAt: null,
+    scope: null,
+    value: null,
+    effort: null,
+    parentTaskId: null,
+    createdAt: 0,
+    updatedAt: id,
+    ...overrides,
+  });
+
+  it("groups open Tasks by status with Working now first and Blocked last", () => {
+    const tasks = [
+      openTask(1, "active"),
+      openTask(2, "active", { workingNow: true, updatedAt: 0 }),
+      openTask(3, "active", { updatedAt: 99 }),
+      openTask(4, "up_next"),
+      openTask(5, "completed"),
+      openTask(6, "backlog"),
+    ];
+    const graph = buildTaskGraph(tasks, [
+      { blockerTaskId: 6, blockedTaskId: 3, createdAt: 0 },
+      { blockerTaskId: 5, blockedTaskId: 4, createdAt: 0 },
+    ]);
+
+    const groups = buildOpenTaskGroups(graph, [{ taskId: 1, seconds: 600 }]);
+
+    expect(groups.map((group) => group.status)).toEqual([
+      "active",
+      "up_next",
+      "backlog",
+    ]);
+    expect(
+      groups[0].rows.map((row) => [
+        row.task.id,
+        row.unresolvedBlockerCount,
+        row.workedTodaySeconds,
+      ]),
+    ).toEqual([
+      [2, 0, 0],
+      [1, 0, 600],
+      [3, 1, 0],
+    ]);
+    expect(groups[1].rows[0].unresolvedBlockerCount).toBe(0);
+    expect(groups.flatMap((group) => group.rows).map((row) => row.task.id))
+      .not.toContain(5);
   });
 });

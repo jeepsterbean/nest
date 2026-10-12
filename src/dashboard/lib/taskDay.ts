@@ -1,9 +1,11 @@
 import type {
+  Task,
   TaskStatus,
   TaskStatusEvent,
   TaskWorkStretch,
 } from "../../lib/types";
 import { taskStatusAt } from "./period";
+import { type TaskGraphProjection, unresolvedBlockers } from "./taskGraph";
 import { shiftDayMs } from "./time";
 
 export type TaskDaySummary = {
@@ -119,4 +121,50 @@ export function buildTaskDay(
       workedSeconds,
     },
   };
+}
+
+export type OpenTaskRow = {
+  task: Task;
+  unresolvedBlockerCount: number;
+  workedTodaySeconds: number;
+};
+
+export type OpenTaskGroup = {
+  status: TaskStatus;
+  rows: OpenTaskRow[];
+};
+
+// Active leads because that is where work happens; Backlog trails as the reservoir.
+const OPEN_TASK_GROUP_ORDER: TaskStatus[] = ["active", "up_next", "backlog"];
+
+/**
+ * Open Tasks grouped by status for today's Day. Within a group, Working now
+ * comes first and Blocked Tasks sink below Ready ones, so what can move now
+ * leads each column.
+ */
+export function buildOpenTaskGroups(
+  graph: TaskGraphProjection,
+  worked: TaskDayWorkedRow[],
+): OpenTaskGroup[] {
+  const workedTodayByTask = new Map(
+    worked.map((row) => [row.taskId, row.seconds]),
+  );
+  return OPEN_TASK_GROUP_ORDER.map((status) => ({
+    status,
+    rows: [...graph.byId.values()]
+      .filter((task) => task.status === status)
+      .map((task) => ({
+        task,
+        unresolvedBlockerCount: unresolvedBlockers(graph, task.id).length,
+        workedTodaySeconds: workedTodayByTask.get(task.id) ?? 0,
+      }))
+      .sort(
+        (a, b) =>
+          Number(b.task.workingNow) - Number(a.task.workingNow) ||
+          Number(a.unresolvedBlockerCount > 0) -
+            Number(b.unresolvedBlockerCount > 0) ||
+          b.task.updatedAt - a.task.updatedAt ||
+          b.task.id - a.task.id,
+      ),
+  }));
 }
