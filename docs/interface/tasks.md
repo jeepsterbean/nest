@@ -15,14 +15,18 @@ hidden until Settings shows it. Day is a task-focused daily report over the
 same 30-day history window as Calendar,
 paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
 
-The summary shows Tasks created; Tasks ending the day Completed, Cancelled, or
-Incomplete; distinct Tasks worked on; and Worked time clipped to that day.
+The summary has two groups, each read from one history so its stats compare.
+Changes counts Tasks Created, Completed, and Cancelled that day, from status
+history; a Task closed with no work that day still counts. Work counts distinct
+Tasks Worked on, from Work stretches, and Incomplete as the part of Worked on
+still open when the day ended, shown as "N of" the Worked on count.
+Worked time is shown per Task and not totalled across Tasks.
 Outcomes and clipping follow the
 [range summary rules](../domain/history.md#range-summaries) for a one-day range.
 
 Selecting any non-empty stat reveals the Tasks that contributed to it. Created,
-Completed, and Cancelled show the recorded time; Incomplete, Worked on, and
-Worked time show each Task's Worked time for the day. Selecting a Task opens its
+Completed, and Cancelled show the recorded time; Incomplete and Worked on
+show each Task's Worked time for the day. Selecting a Task opens its
 detail panel. A Task is counted once in each lifecycle stat even if it reaches
 that outcome more than once that day. Available history follows the
 [Task history rules](../domain/tasks.md#history-and-deletion).
@@ -35,7 +39,7 @@ that day, so Day and Table agree row for row:
 | Created | Created on the day |
 | Completed | Status Completed, Closed on the day |
 | Cancelled | Status Cancelled, Closed on the day |
-| Worked on, Worked time | Worked on the day |
+| Worked on | Worked on the day |
 | Incomplete | Worked on the day, leaving out Tasks Closed on or before it |
 
 The [lock](../domain/tasks.md#closing-and-the-lock) fixes a closed Task's
@@ -207,6 +211,8 @@ the closed status with its closing date and one action, "Create follow-up".
 The lock is checked when the control opens, so a dashboard left open past
 midnight shows it.
 
+Details show when the Task was created and last updated, and a closed Task
+also shows the date and time it was Completed or Cancelled.
 Details show status, Working now, and Worked time across every day, labelled
 “all time” independently of the table’s Worked on filter. Table rows
 also indicate Working now. Work controls live in the [Popup's Tasks and metrics

@@ -15,7 +15,6 @@ export type TaskDaySummary = {
   cancelled: number;
   incomplete: number;
   workedOn: number;
-  workedSeconds: number;
 };
 
 export type TaskDayStatusRow = {
@@ -102,7 +101,6 @@ export function buildTaskDay(
     tableRows(filters.closedByDayEnd).map((task) => task.id),
   );
   const incomplete = worked.filter((row) => !closedByDayEnd.has(row.taskId));
-  const workedSeconds = worked.reduce((total, row) => total + row.seconds, 0);
 
   return {
     created,
@@ -116,7 +114,6 @@ export function buildTaskDay(
       cancelled: cancelled.length,
       incomplete: incomplete.length,
       workedOn: worked.length,
-      workedSeconds,
     },
   };
 }

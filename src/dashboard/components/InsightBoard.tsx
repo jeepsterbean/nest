@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import {
-  INSIGHT_OUTCOME_LABEL,
+  INSIGHT_TASK_CHANGE_LABEL,
   type InsightBrainDumpSummary,
-  type InsightOutcomeGroup,
+  type InsightTaskCount,
   type InsightPulseGroup,
 } from "../lib/insights";
 import { NestIcon } from "./PulseIcon";
@@ -125,14 +125,13 @@ export function InsightBrainDumps({
   );
 }
 
-/** Outcome counts and Worked time stay visible together. */
-export function InsightLedger({ groups }: { groups: InsightOutcomeGroup[] }) {
+export function InsightLedger({ counts }: { counts: InsightTaskCount[] }) {
   return (
     <div className="insight-ledger">
-      {groups.map((group) => (
-        <div className="insight-outcome__row" key={group.outcome}>
-          <span className="insight-row__name">{INSIGHT_OUTCOME_LABEL[group.outcome]}</span>
-          <span className="insight-row__count">{group.rows.length}</span>
+      {counts.map(({ change, count }) => (
+        <div className="insight-outcome__row" key={change}>
+          <span className="insight-row__name">{INSIGHT_TASK_CHANGE_LABEL[change]}</span>
+          <span className="insight-row__count">{count}</span>
         </div>
       ))}
     </div>

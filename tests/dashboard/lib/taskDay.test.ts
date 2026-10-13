@@ -64,7 +64,6 @@ describe("task day", () => {
       cancelled: 0,
       incomplete: 1,
       workedOn: 2,
-      workedSeconds: 45 * 60,
     });
     expect(result.created).toEqual([{ taskId: 1, at: at(8, 9) }]);
     expect(result.completed).toEqual([{ taskId: 1, at: at(8, 11) }]);
@@ -94,7 +93,6 @@ describe("task day", () => {
     );
 
     expect(result.summary.workedOn).toBe(1);
-    expect(result.summary.workedSeconds).toBe(3 * 60 * 60);
     expect(result.worked).toEqual([
       { taskId: 1, seconds: 3 * 60 * 60 },
     ]);

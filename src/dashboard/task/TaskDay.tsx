@@ -16,14 +16,20 @@ type TaskDayStatKey =
   | "completed"
   | "cancelled"
   | "incomplete"
-  | "workedOn"
-  | "workedTime";
+  | "workedOn";
 
 type TaskDayMeasure = {
   key: TaskDayStatKey;
   label: string;
-  value: number | string;
+  value: number;
+  /** The stat this one is a part of, shown as "of N" beside its value. */
+  outOf?: number;
   rows: { taskId: number; meta: string }[];
+};
+
+type TaskDayMeasureGroup = {
+  label: string;
+  measures: TaskDayMeasure[];
 };
 
 export function TaskDay({
@@ -70,7 +76,10 @@ export function TaskDay({
     taskId: row.taskId,
     meta: formatCompactDuration(row.seconds),
   }));
-  const measures: TaskDayMeasure[] = [
+  // Each group reads from one history, so its stats can be compared: Changes
+  // from status events, Work from Work stretches. Incomplete is the part of
+  // Worked on still open when the day ended.
+  const changes: TaskDayMeasure[] = [
     {
       key: "created",
       label: "Created",
@@ -89,15 +98,8 @@ export function TaskDay({
       value: day.summary.cancelled,
       rows: statusRows(day.cancelled),
     },
-    {
-      key: "incomplete",
-      label: "Incomplete",
-      value: day.summary.incomplete,
-      rows: day.incomplete.map((row) => ({
-        taskId: row.taskId,
-        meta: formatCompactDuration(row.seconds),
-      })),
-    },
+  ];
+  const work: TaskDayMeasure[] = [
     {
       key: "workedOn",
       label: "Worked on",
@@ -105,15 +107,23 @@ export function TaskDay({
       rows: workedRows,
     },
     {
-      key: "workedTime",
-      label: "Worked time",
-      value: formatCompactDuration(day.summary.workedSeconds),
-      rows: workedRows,
+      key: "incomplete",
+      label: "Incomplete",
+      value: day.summary.incomplete,
+      outOf: day.summary.workedOn,
+      rows: day.incomplete.map((row) => ({
+        taskId: row.taskId,
+        meta: formatCompactDuration(row.seconds),
+      })),
     },
+  ];
+  const groups: TaskDayMeasureGroup[] = [
+    { label: "Changes", measures: changes },
+    { label: "Work", measures: work },
   ];
   // Open Tasks are a present-tense list; a past day's leftovers already show as Incomplete.
   const isToday = selectedDayMs === startOfDayMs(nowMs / 1000);
-  const openMeasure = measures.find(
+  const openMeasure = [...changes, ...work].find(
     (measure) => measure.key === selectedStat && measure.rows.length > 0,
   );
 
@@ -128,37 +138,55 @@ export function TaskDay({
         onNext={onNextDay}
         onToday={onToday}
       />
-      <ul className="task-day__summary" aria-label={`${label} task summary`}>
-        {measures.map((measure) => (
-          <li key={measure.key}>
-            <button
-              type="button"
-              className={`task-day__measure${
-                openMeasure?.key === measure.key ? " is-open" : ""
-              }`}
-              aria-expanded={
-                measure.rows.length > 0
-                  ? openMeasure?.key === measure.key
-                  : undefined
-              }
-              aria-controls={
-                measure.rows.length > 0 ? detailId : undefined
-              }
-              disabled={measure.rows.length === 0}
-              onClick={() =>
-                setSelectedStat((current) =>
-                  current === measure.key
-                    ? null
-                    : measure.key,
-                )
-              }
-            >
-              <span>{measure.label}</span>
-              <strong>{measure.value}</strong>
-            </button>
-          </li>
+      <div
+        className="task-day__summary"
+        role="group"
+        aria-label={`${label} task summary`}
+      >
+        {groups.map((group) => (
+          <section
+            key={group.label}
+            className="task-day__group"
+            aria-label={group.label}
+          >
+            <h3>{group.label}</h3>
+            <ul>
+              {group.measures.map((measure) => (
+                <li key={measure.key}>
+                  <button
+                    type="button"
+                    className={`task-day__measure${
+                      openMeasure?.key === measure.key ? " is-open" : ""
+                    }`}
+                    aria-expanded={
+                      measure.rows.length > 0
+                        ? openMeasure?.key === measure.key
+                        : undefined
+                    }
+                    aria-controls={
+                      measure.rows.length > 0 ? detailId : undefined
+                    }
+                    disabled={measure.rows.length === 0}
+                    onClick={() =>
+                      setSelectedStat((current) =>
+                        current === measure.key ? null : measure.key,
+                      )
+                    }
+                  >
+                    <span>{measure.label}</span>
+                    <strong>
+                      {measure.value}
+                      {measure.outOf !== undefined && measure.outOf > 0 && (
+                        <small> of {measure.outOf}</small>
+                      )}
+                    </strong>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
       {openMeasure && (
         <section
           id={detailId}

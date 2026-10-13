@@ -1,87 +1,9 @@
-import type {
-  Phase,
-  RecordedTaskStatus,
-  Task,
-  TaskStatus,
-  TaskStatusEvent,
-} from "../../lib/types";
+import type { Phase } from "../../lib/types";
 import type { PhaseTotal } from "./timeline";
 
 export const LIVE_PHASE_NAMES = ["Doing", "Scoping", "Resting", "Offline"] as const;
 
 export type Period = { from: number; to: number };
-
-const inPeriod = (at: number, period: Period) =>
-  at >= period.from && at < period.to;
-
-const asLiveStatus = (
-  status: RecordedTaskStatus | null,
-  fallback: TaskStatus,
-): TaskStatus => status === "paused" ? "active" : status ?? fallback;
-
-/** Status at `at`. A later change must not rewrite an earlier day. */
-export function taskStatusAt(
-  task: { id: number; status: TaskStatus },
-  events: TaskStatusEvent[],
-  at: number,
-): TaskStatus {
-  const mine = events
-    .filter((event) => event.taskId === task.id)
-    .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
-  for (const event of mine) {
-    if (event.createdAt >= at) {
-      return asLiveStatus(event.fromStatus, task.status);
-    }
-  }
-  const last = mine[mine.length - 1];
-  return last ? asLiveStatus(last.toStatus, task.status) : task.status;
-}
-
-/** Tasks moved to `toStatus` inside the window, in first-move order. */
-export function tasksMovedToInPeriod(
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  period: Period,
-  toStatus: Task["status"],
-): Task[] {
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
-  const seen = new Set<number>();
-  const moved: Task[] = [];
-  const ordered = [...events].sort(
-    (a, b) => a.createdAt - b.createdAt || a.id - b.id,
-  );
-  for (const event of ordered) {
-    if (event.toStatus !== toStatus || !inPeriod(event.createdAt, period)) {
-      continue;
-    }
-    if (seen.has(event.taskId)) continue;
-    seen.add(event.taskId);
-    const task = taskById.get(event.taskId);
-    if (task) moved.push(task);
-  }
-  return moved;
-}
-
-/**
- * Tasks with a completion event inside the window, in first-completion order.
- * A Task completed and later reopened still belongs to the window it was
- * completed; completing it twice in one window still yields it once.
- */
-export function completedInPeriod(
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  period: Period,
-): Task[] {
-  return tasksMovedToInPeriod(tasks, events, period, "completed");
-}
-
-export function cancelledInPeriod(
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  period: Period,
-): Task[] {
-  return tasksMovedToInPeriod(tasks, events, period, "cancelled");
-}
 
 export const phaseName = (
   phaseId: number | null,

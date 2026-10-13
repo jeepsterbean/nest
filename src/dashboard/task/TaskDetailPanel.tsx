@@ -3,7 +3,7 @@ import { deleteTask } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { trashIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { formatDate } from "../lib/time";
+import { formatDate, formatTime } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
 import { TaskDescription } from "./TaskDescription";
 import { TaskRelations } from "./TaskRelations";
@@ -91,6 +91,15 @@ export function TaskDetailPanel({
           <span>Created {formatDate(task.createdAt)}</span>
           <span className="task-detail__date-divider" aria-hidden="true" />
           <span>Updated {formatDate(task.updatedAt)}</span>
+          {task.closedAt !== null && (
+            <>
+              <span className="task-detail__date-divider" aria-hidden="true" />
+              <span>
+                {task.status === "cancelled" ? "Cancelled" : "Completed"}{" "}
+                {formatDate(task.closedAt)}, {formatTime(task.closedAt)}
+              </span>
+            </>
+          )}
         </div>
         {confirmingDelete ? (
           <div className="task-detail__confirm">

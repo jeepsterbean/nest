@@ -4,7 +4,7 @@ import {
   insightCheckInClosedTo,
   insightCheckIns,
   insightColumns,
-  insightTaskGroups,
+  insightTaskCounts,
   openAtPct,
   stepColumns,
   rangeInsight,
@@ -40,7 +40,6 @@ describe("insightBrainDumps", () => {
     });
   });
 });
-import { layoutWorkBlocks } from "../../../src/dashboard/lib/workTimeline";
 import type {
   Metric,
   MetricCheckInWithRatings,
@@ -49,8 +48,6 @@ import type {
   Pulse,
   Task,
   TaskStatus,
-  TaskStatusEvent,
-  TaskWorkStretch,
 } from "../../../src/lib/types";
 
 const phases: Phase[] = [
@@ -72,8 +69,6 @@ const phaseCheckIn = (
 describe("rangeInsight", () => {
   const empty: InsightData = {
     tasks: [],
-    taskStatusEvents: [],
-    taskWorkStretches: [],
     metrics: [],
     pulses: [],
     checkIns: [],
@@ -82,7 +77,6 @@ describe("rangeInsight", () => {
     brainDumps: [],
   };
   const clockAt = (nowSec: number, checkInNowSec = nowSec) => ({
-    nowMs: nowSec * 1000,
     nowSec,
     checkInNowMs: checkInNowSec * 1000,
   });
@@ -115,30 +109,8 @@ describe("rangeInsight", () => {
       clockAt(10_000),
     );
     expect(insight.brainDumps).toEqual({ count: 0, tags: [], untaggedCount: 0 });
-    expect(insight.taskGroups.map((group) => group.rows.length)).toEqual([0, 0, 0]);
+    expect(insight.taskCounts.map(({ count }) => count)).toEqual([0, 0, 0]);
     expect(insight.checkIns).toEqual([]);
-  });
-
-  it("ledgers Worked time from the range's Work stretches", () => {
-    const insight = rangeInsight(
-      {
-        ...empty,
-        tasks: [task(1, "Write")],
-        taskWorkStretches: [stretch(1, 1, 100, 400)],
-      },
-      { from: 0, to: 1_000 },
-      clockAt(2_000),
-    );
-    expect(
-      insight.taskGroups.map((group) => [
-        group.outcome,
-        group.rows.map((row) => [row.task.title, row.seconds]),
-      ]),
-    ).toEqual([
-      ["completed", []],
-      ["cancelled", []],
-      ["incomplete", [["Write", 300]]],
-    ]);
   });
 });
 describe("insightColumns", () => {
@@ -338,300 +310,37 @@ const task = (
   updatedAt: 0,
 });
 
-const stretch = (
-  id: number,
-  taskId: number,
-  startedAt: number,
-  endedAt: number | null,
-): TaskWorkStretch => ({ id, taskId, startedAt, endedAt });
+describe("insightTaskCounts", () => {
+  const range = { from: 100, to: 200 };
+  const closed = (id: number, status: TaskStatus, closedAt: number | null, createdAt = 0): Task => ({
+    ...task(id, `Task ${id}`, status),
+    closedAt,
+    createdAt,
+  });
+  const counts = (tasks: Task[]) =>
+    insightTaskCounts(tasks, range).map(({ change, count }) => [change, count]);
 
-describe("insightTaskGroups", () => {
-  const monday = new Date(2026, 7, 17).getTime() / 1000;
-  const tuesday = new Date(2026, 7, 18).getTime() / 1000;
-  const wednesday = new Date(2026, 7, 19).getTime() / 1000;
-  const mondayOnly = { from: monday, to: tuesday };
-  const twoDays = { from: monday, to: wednesday };
-  const summarize = (groups: ReturnType<typeof insightTaskGroups>) =>
-    nonEmpty(groups).map((group) => [
-      group.outcome,
-      group.rows.map((row) => [row.task.title, row.seconds]),
-    ]);
-  const nonEmpty = (groups: ReturnType<typeof insightTaskGroups>) =>
-    groups.filter((group) => group.rows.length > 0);
-  const statusEvent = (
-    id: number,
-    fromStatus: TaskStatus,
-    toStatus: TaskStatus,
-    createdAt: number,
-  ): TaskStatusEvent => ({ id, taskId: 1, fromStatus, toStatus, createdAt });
-
-  it("groups Worked time by outcome: Completed, Cancelled, then Incomplete", () => {
-    const tasks = [
-      task(1, "Write", "active"),
-      task(2, "Review", "completed"),
-      task(3, "Drop", "cancelled"),
-    ];
-    const blocks = layoutWorkBlocks(
-      [
-        stretch(1, 1, monday + 3600, monday + 7200),
-        stretch(2, 3, monday + 8000, monday + 8600),
-        stretch(3, 2, tuesday + 1800, tuesday + 3600),
-      ],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      summarize(insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday)),
-    ).toEqual([
-      ["cancelled", [["Drop", 600]]],
-      ["incomplete", [["Write", 3600]]],
-    ]);
+  it("always returns Created, Completed, then Cancelled", () => {
+    expect(counts([])).toEqual([["created", 0], ["completed", 0], ["cancelled", 0]]);
   });
 
-  it("totals each group's Worked time, 0 for an empty group", () => {
-    const tasks = [
-      task(1, "Write", "active"),
-      task(2, "Edit", "active"),
-    ];
-    const blocks = layoutWorkBlocks(
-      [
-        stretch(1, 1, monday + 3600, monday + 7200),
-        stretch(2, 2, monday + 8000, monday + 8600),
-      ],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
+  it("counts a Task by when it was created and when it closed, start in and end out", () => {
     expect(
-      insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday).map(
-        (group) => [group.outcome, group.seconds],
-      ),
-    ).toEqual([
-      ["completed", 0],
-      ["cancelled", 0],
-      ["incomplete", 4200],
-    ]);
+      counts([
+        closed(1, "active", null, 100),
+        closed(2, "active", null, 200),
+        closed(3, "completed", 100),
+        closed(4, "completed", 199),
+        closed(5, "completed", 200),
+        closed(6, "cancelled", 150),
+        closed(7, "cancelled", 99),
+      ]),
+    ).toEqual([["created", 1], ["completed", 2], ["cancelled", 1]]);
   });
 
-  it("sums a Task's Worked time across every day of a longer range", () => {
-    const tasks = [task(1, "Write", "active")];
-    const blocks = layoutWorkBlocks(
-      [
-        stretch(1, 1, monday + 3600, monday + 7200),
-        stretch(2, 1, tuesday + 1800, tuesday + 3600),
-      ],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      summarize(insightTaskGroups(twoDays, blocks, tasks, [], wednesday)),
-    ).toEqual([["incomplete", [["Write", 5400]]]]);
-  });
-
-  it("files a Task under its status at the range's end, once", () => {
-    const tasks = [task(1, "Write", "completed")];
-    const events: TaskStatusEvent[] = [
-      {
-        id: 1,
-        taskId: 1,
-        fromStatus: "active",
-        toStatus: "completed",
-        createdAt: tuesday + 100,
-      },
-    ];
-    const blocks = layoutWorkBlocks(
-      [stretch(1, 1, monday + 3600, monday + 7200)],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      summarize(insightTaskGroups(twoDays, blocks, tasks, events, wednesday)),
-    ).toEqual([["completed", [["Write", 3600]]]]);
-    expect(
-      nonEmpty(
-        insightTaskGroups(mondayOnly, blocks, tasks, events, wednesday),
-      ).map((group) => group.outcome),
-    ).toEqual(["incomplete"]);
-  });
-
-  it("uses the last closed status when events arrive out of order", () => {
-    const tasks = [task(1, "Write", "cancelled")];
-    const events: TaskStatusEvent[] = [
-      {
-        id: 2,
-        taskId: 1,
-        fromStatus: "completed",
-        toStatus: "cancelled",
-        createdAt: monday + 2000,
-      },
-      {
-        id: 1,
-        taskId: 1,
-        fromStatus: "active",
-        toStatus: "completed",
-        createdAt: monday + 1000,
-      },
-    ];
-    const groups = insightTaskGroups(
-      mondayOnly,
-      layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
-      tasks,
-      events,
-      wednesday,
-    );
-    expect(nonEmpty(groups).map((group) => group.outcome)).toEqual([
-      "cancelled",
-    ]);
-  });
-
-  it("lists Completions and Cancellations with no Worked time in the range", () => {
-    const tasks = [
-      task(1, "Ship", "completed"),
-      task(2, "Drop", "cancelled"),
-    ];
-    const events: TaskStatusEvent[] = [
-      {
-        id: 1,
-        taskId: 1,
-        fromStatus: "active",
-        toStatus: "completed",
-        createdAt: monday + 1000,
-      },
-      {
-        id: 2,
-        taskId: 2,
-        fromStatus: "active",
-        toStatus: "cancelled",
-        createdAt: tuesday + 2000,
-      },
-    ];
-    const groups = insightTaskGroups(
-      twoDays,
-      layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
-      tasks,
-      events,
-      wednesday,
-    );
-    expect(summarize(groups)).toEqual([
-      ["completed", [["Ship", 0]]],
-      ["cancelled", [["Drop", 0]]],
-    ]);
-  });
-
-  it("calls worked Tasks moved back to Up next or Backlog Incomplete", () => {
-    const tasks = [task(1, "Write", "up_next"), task(2, "Plan", "backlog")];
-    const blocks = layoutWorkBlocks(
-      [
-        stretch(1, 1, monday + 3600, monday + 7200),
-        stretch(2, 2, monday + 8000, monday + 8600),
-      ],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      summarize(insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday)),
-    ).toEqual([["incomplete", [["Write", 3600], ["Plan", 600]]]]);
-  });
-
-  it("calls a worked completion reopened in the range Incomplete", () => {
-    const tasks = [task(1, "Write", "active")];
-    const events = [
-      statusEvent(1, "active", "completed", monday + 7300),
-      statusEvent(2, "completed", "active", monday + 8000),
-    ];
-    const blocks = layoutWorkBlocks(
-      [stretch(1, 1, monday + 3600, monday + 7200)],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      summarize(insightTaskGroups(mondayOnly, blocks, tasks, events, wednesday)),
-    ).toEqual([["incomplete", [["Write", 3600]]]]);
-  });
-
-  it("leaves out a completion reopened in the range with no Worked time", () => {
-    const tasks = [task(1, "Write", "active")];
-    const events = [
-      statusEvent(1, "active", "completed", monday + 1000),
-      statusEvent(2, "completed", "active", monday + 2000),
-    ];
-    expect(
-      summarize(
-        insightTaskGroups(
-          mondayOnly,
-          layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
-          tasks,
-          events,
-          wednesday,
-        ),
-      ),
-    ).toEqual([]);
-  });
-
-  it("files a completion later cancelled in the range under Cancelled", () => {
-    const tasks = [task(1, "Write", "cancelled")];
-    const events = [
-      statusEvent(1, "active", "completed", monday + 1000),
-      statusEvent(2, "completed", "cancelled", monday + 2000),
-    ];
-    expect(
-      summarize(
-        insightTaskGroups(
-          mondayOnly,
-          layoutWorkBlocks([], tasks, monday, wednesday, wednesday * 1000),
-          tasks,
-          events,
-          wednesday,
-        ),
-      ),
-    ).toEqual([["cancelled", [["Write", 0]]]]);
-  });
-
-  it("returns every outcome in order, even when the range is quiet", () => {
-    const tasks = [task(1, "Write", "active")];
-    const blocks = layoutWorkBlocks(
-      [stretch(1, 1, monday + 3600, monday + 7200)],
-      tasks,
-      monday,
-      wednesday,
-      wednesday * 1000,
-    );
-    expect(
-      insightTaskGroups(mondayOnly, blocks, tasks, [], wednesday).map(
-        (group) => [group.outcome, group.rows.length],
-      ),
-    ).toEqual([
-      ["completed", 0],
-      ["cancelled", 0],
-      ["incomplete", 1],
-    ]);
-  });
-
-  it("returns three empty groups for a range that has not started", () => {
-    const noonMonday = monday + 12 * 3600;
-    expect(
-      insightTaskGroups(
-        { from: tuesday, to: wednesday },
-        layoutWorkBlocks([], [task(1)], monday, wednesday, noonMonday * 1000),
-        [task(1)],
-        [],
-        noonMonday,
-      ),
-    ).toEqual([
-      { outcome: "completed", rows: [], seconds: 0 },
-      { outcome: "cancelled", rows: [], seconds: 0 },
-      { outcome: "incomplete", rows: [], seconds: 0 },
+  it("counts one Task as both created and closed in the range", () => {
+    expect(counts([closed(1, "completed", 180, 120)])).toEqual([
+      ["created", 1], ["completed", 1], ["cancelled", 0],
     ]);
   });
 });

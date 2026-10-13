@@ -41,9 +41,9 @@ different outcome on each day. Outcomes use status at the range's end:
 The three groups are exclusive. Reopening is limited to the closing day by the
 [lock](tasks.md#closing-and-the-lock), so a finished day's outcomes stay as
 they were. A closure reopened within the range contributes
-no closure outcome; an open Task with zero Worked time is omitted. Week sums
-each Task across its days. Deleted Tasks and their deleted history disappear
-from summaries.
+no closure outcome; an open Task with zero Worked time is omitted. Created
+counts Tasks by creation time, independently of outcome. Deleted Tasks and
+their deleted history disappear from summaries.
 
 ## Metric summaries
 

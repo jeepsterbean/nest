@@ -282,7 +282,6 @@ export function CalendarView({
               onOpenCorePane={onOpenCorePane}
               from={range.from}
               to={range.to}
-              nowMs={range.nowMs}
               nowSec={range.nowSec}
               kinds={kinds}
               onToggleKind={updateKinds}

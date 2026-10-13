@@ -96,7 +96,7 @@ heading has a hide control; the heading stays so the kind can be shown again.
 The last shown kind stays shown. That choice is the
 [Logs kinds](time-surfaces.md#logs-kinds) selection.
 
-Range membership, Tag counts, Phase totals, and Task outcomes follow
+Range membership, Tag counts, Phase totals, and Task counts follow
 [History domain](../domain/history.md#range-summaries). Untagged leads the
 Brain dumps list, including at 0; Tags follow in frequency then name order.
 The Brain dumps summary initially shows Untagged and the three most frequent
@@ -104,10 +104,11 @@ Tags. Show more reveals the remaining Tags; Show less returns to that compact
 list. An empty range shows a quiet empty message. The Phases section is
 the mix, with a row for each live Phase (0m included).
 
-The ledger's three outcome groups (Completed, Cancelled, Incomplete) always
-show, in that order, even when empty. Each row shows the outcome title and
-its Task count at the right edge.
-Rows show summaries without expanding into individual Tasks.
+The Tasks ledger counts Created, Completed, and Cancelled, always in that
+order, even at 0. All three read from status history; Insights uses no Work
+stretches, so Incomplete and Worked time appear only in
+[Tasks Day](tasks.md#day). Each row shows the title and its Task count at the
+right edge. Rows show summaries without expanding into individual Tasks.
 
 Metric check-ins are grouped by Pulse, with counts from
 [Metric summaries](../domain/history.md#metric-summaries). Every Pulse is

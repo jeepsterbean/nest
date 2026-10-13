@@ -16,7 +16,6 @@ import type { LogKindKey } from "../lib/logs";
 export function InsightsColumn({
   from,
   to,
-  nowMs,
   nowSec,
   kinds,
   onToggleKind,
@@ -24,7 +23,6 @@ export function InsightsColumn({
 }: {
   from: number;
   to: number;
-  nowMs: number;
   nowSec: number;
   kinds: LogKindKey[];
   onToggleKind: (key: LogKindKey) => void;
@@ -35,7 +33,6 @@ export function InsightsColumn({
       <InsightsPanel
         from={from}
         to={to}
-        nowMs={nowMs}
         nowSec={nowSec}
         kinds={kinds}
         onToggleKind={onToggleKind}
@@ -51,7 +48,6 @@ export function InsightsColumn({
 export function InsightsPanel({
   from,
   to,
-  nowMs,
   nowSec,
   kinds,
   onToggleKind,
@@ -59,7 +55,6 @@ export function InsightsPanel({
 }: {
   from: number;
   to: number;
-  nowMs: number;
   nowSec: number;
   kinds: LogKindKey[];
   onToggleKind: (key: LogKindKey) => void;
@@ -67,8 +62,6 @@ export function InsightsPanel({
 }) {
   const {
     tasks,
-    taskStatusEvents,
-    taskWorkStretches,
     metrics,
     pulses,
     checkIns,
@@ -83,8 +76,6 @@ export function InsightsPanel({
       rangeInsight(
         {
           tasks,
-          taskStatusEvents,
-          taskWorkStretches,
           metrics,
           pulses,
           checkIns,
@@ -93,13 +84,11 @@ export function InsightsPanel({
           brainDumps,
         },
         { from, to },
-        { nowMs, nowSec, checkInNowMs: Date.now() },
+        { nowSec, checkInNowMs: Date.now() },
       ),
     [
       brainDumps,
       tasks,
-      taskStatusEvents,
-      taskWorkStretches,
       metrics,
       pulses,
       checkIns,
@@ -107,7 +96,6 @@ export function InsightsPanel({
       phases,
       from,
       to,
-      nowMs,
       nowSec,
     ],
   );
@@ -133,7 +121,7 @@ export function InsightsPanel({
         onToggle={() => onToggleKind("tasks")}
         onOpen={() => onOpenCorePane("tasks")}
       >
-        <InsightLedger groups={insight.taskGroups} />
+        <InsightLedger counts={insight.taskCounts} />
       </InsightSection>
       <InsightSection
         label="Metrics"
