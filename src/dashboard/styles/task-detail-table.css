@@ -921,7 +921,8 @@
 
 .task-table__col--workedTime,
 .task-table__col--created,
-.task-table__col--updated {
+.task-table__col--updated,
+.task-table__col--closed {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

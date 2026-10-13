@@ -115,6 +115,7 @@ describe("task table layout", () => {
       "workedTime",
       "created",
       "updated",
+      "closed",
     ]);
   });
 
@@ -144,8 +145,8 @@ describe("task table layout", () => {
   it("names up to two hidden columns and counts more", () => {
     const columns = normalizeTaskTableLayout(null);
     expect(hiddenColumnsLabel(columns.slice(7, 8))).toBe("Created");
-    expect(hiddenColumnsLabel(columns.slice(7))).toBe("Created, Updated");
-    expect(hiddenColumnsLabel(columns.slice(6))).toBe("3 hidden");
+    expect(hiddenColumnsLabel(columns.slice(7, 9))).toBe("Created, Updated");
+    expect(hiddenColumnsLabel(columns.slice(6))).toBe("4 hidden");
   });
 
   it("compares layouts by order, width, and hidden, and hidden columns as a set", () => {
@@ -245,6 +246,6 @@ describe("task table neighbor split", () => {
 
   it("does nothing on the last visible column", () => {
     const columns = normalizeTaskTableLayout(null);
-    expect(splitTaskTableColumn(columns, "updated", 20)).toBe(columns);
+    expect(splitTaskTableColumn(columns, "closed", 20)).toBe(columns);
   });
 });

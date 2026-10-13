@@ -2,36 +2,46 @@ import { describe, expect, it } from "vitest";
 import type {
   Task,
   TaskStatus,
-  TaskStatusEvent,
   TaskWorkStretch,
 } from "../../../src/lib/types";
 import {
   buildOpenTaskGroups,
   buildTaskDay,
+  taskDayTableFilters,
 } from "../../../src/dashboard/lib/taskDay";
 import { buildTaskGraph } from "../../../src/dashboard/lib/taskGraph";
+import { taskMatchesTableRowFilters } from "../../../src/dashboard/lib/taskTableFilter";
+import { taskWorkedSecondsInRange } from "../../../src/dashboard/lib/taskWorkedOn";
 
 const at = (day: number, hour: number, minute = 0) =>
   Math.floor(new Date(2026, 0, day, hour, minute).getTime() / 1000);
 
-const statusEvent = (
+const task = (
   id: number,
-  taskId: number,
-  fromStatus: TaskStatusEvent["fromStatus"],
-  toStatus: TaskStatusEvent["toStatus"],
-  createdAt: number,
-): TaskStatusEvent => ({ id, taskId, fromStatus, toStatus, createdAt });
-
-const task = (id: number, status: TaskStatus) => ({ id, status });
+  status: TaskStatus,
+  overrides: Partial<Task> = {},
+): Task => ({
+  id,
+  title: `Task ${id}`,
+  description: "",
+  status,
+  workingNow: false,
+  workedSeconds: 0,
+  workStartedAt: null,
+  scope: null,
+  value: null,
+  effort: null,
+  parentTaskId: null,
+  closedAt: null,
+  followsTaskId: null,
+  createdAt: at(1, 9),
+  updatedAt: at(1, 9),
+  ...overrides,
+});
 
 describe("task day", () => {
   it("groups the Tasks behind each lifecycle stat", () => {
     const dayMs = at(8, 0) * 1000;
-    const events = [
-      statusEvent(1, 1, null, "backlog", at(8, 9)),
-      statusEvent(2, 1, "backlog", "completed", at(8, 11)),
-      statusEvent(3, 3, "active", "cancelled", at(7, 16)),
-    ];
     const stretches: TaskWorkStretch[] = [
       { id: 1, taskId: 1, startedAt: at(8, 9, 30), endedAt: at(8, 10) },
       { id: 2, taskId: 2, startedAt: at(8, 12), endedAt: at(8, 12, 15) },
@@ -40,8 +50,11 @@ describe("task day", () => {
     const result = buildTaskDay(
       dayMs,
       at(8, 18) * 1000,
-      [task(1, "completed"), task(2, "active"), task(3, "cancelled")],
-      events,
+      [
+        task(1, "completed", { createdAt: at(8, 9), closedAt: at(8, 11) }),
+        task(2, "active"),
+        task(3, "cancelled", { closedAt: at(7, 16) }),
+      ],
       stretches,
     );
 
@@ -77,7 +90,6 @@ describe("task day", () => {
       dayMs,
       at(8, 12) * 1000,
       [task(1, "active"), task(2, "active")],
-      [],
       stretches,
     );
 
@@ -89,32 +101,24 @@ describe("task day", () => {
     expect(result.incomplete).toEqual(result.worked);
   });
 
-  it("counts a Task once when it reaches the same outcome more than once", () => {
-    const dayMs = at(8, 0) * 1000;
-    const events = [
-      statusEvent(1, 1, "active", "completed", at(8, 9)),
-      statusEvent(2, 1, "completed", "active", at(8, 10)),
-      statusEvent(3, 1, "active", "completed", at(8, 11)),
+  it("gives a worked Task one outcome per day: Incomplete until its closing day", () => {
+    const stretches: TaskWorkStretch[] = [
+      { id: 1, taskId: 1, startedAt: at(7, 8), endedAt: at(7, 9) },
+      { id: 2, taskId: 1, startedAt: at(8, 8), endedAt: at(8, 9) },
+      { id: 3, taskId: 1, startedAt: at(9, 8), endedAt: at(9, 9) },
     ];
+    const tasks = [task(1, "completed", { closedAt: at(8, 11) })];
+    const dayAt = (day: number) =>
+      buildTaskDay(at(day, 0) * 1000, at(10, 12) * 1000, tasks, stretches).summary;
 
-    const result = buildTaskDay(
-      dayMs,
-      at(8, 18) * 1000,
-      [task(1, "completed")],
-      events,
-      [],
-    );
-
-    expect(result.summary.completed).toBe(1);
-    expect(result.completed).toEqual([{ taskId: 1, at: at(8, 11) }]);
+    expect(dayAt(7)).toMatchObject({ completed: 0, incomplete: 1 });
+    expect(dayAt(8)).toMatchObject({ completed: 1, incomplete: 0 });
+    // Work corrected onto a later day is still Worked on, with no new outcome.
+    expect(dayAt(9)).toMatchObject({ completed: 0, incomplete: 0, workedOn: 1 });
   });
 
   it("treats worked Tasks reopened before day end as incomplete", () => {
     const dayMs = at(8, 0) * 1000;
-    const events = [
-      statusEvent(1, 1, "active", "completed", at(8, 9)),
-      statusEvent(2, 1, "completed", "active", at(8, 10)),
-    ];
     const stretches: TaskWorkStretch[] = [
       { id: 1, taskId: 1, startedAt: at(8, 8), endedAt: at(8, 9) },
     ];
@@ -123,7 +127,6 @@ describe("task day", () => {
       dayMs,
       at(8, 18) * 1000,
       [task(1, "active")],
-      events,
       stretches,
     );
 
@@ -132,6 +135,53 @@ describe("task day", () => {
       { taskId: 1, seconds: 60 * 60 },
     ]);
   });
+
+  it("lists for each stat the rows its table filters select", () => {
+    const dayMs = at(8, 0) * 1000;
+    const nowMs = at(9, 12) * 1000;
+    const tasks = [
+      task(1, "completed", { createdAt: at(8, 9), closedAt: at(8, 11) }),
+      task(2, "cancelled", { closedAt: at(8, 15) }),
+      task(3, "active", { createdAt: at(8, 10) }),
+      task(4, "completed", { closedAt: at(9, 10) }),
+    ];
+    const stretches: TaskWorkStretch[] = [
+      { id: 1, taskId: 3, startedAt: at(8, 13), endedAt: at(8, 14) },
+      { id: 2, taskId: 4, startedAt: at(8, 14), endedAt: at(8, 15) },
+    ];
+    const filters = taskDayTableFilters(dayMs);
+    const workedTaskIds = new Set(
+      taskWorkedSecondsInRange(
+        stretches,
+        { fromSec: at(8, 0), toSec: at(9, 0) },
+        nowMs,
+      ).keys(),
+    );
+    const tableRowIds = (stat: "created" | "completed" | "cancelled" | "workedOn") =>
+      tasks
+        .filter((row) =>
+          taskMatchesTableRowFilters(
+            row,
+            filters[stat],
+            stat === "workedOn" ? workedTaskIds : null,
+            nowMs,
+          ),
+        )
+        .map((row) => row.id)
+        .sort();
+
+    const day = buildTaskDay(dayMs, nowMs, tasks, stretches);
+    const ids = (rows: { taskId: number }[]) => rows.map((row) => row.taskId).sort();
+
+    expect(ids(day.created)).toEqual(tableRowIds("created"));
+    expect(ids(day.completed)).toEqual(tableRowIds("completed"));
+    expect(ids(day.cancelled)).toEqual(tableRowIds("cancelled"));
+    expect(ids(day.worked)).toEqual(tableRowIds("workedOn"));
+    expect(ids(day.created)).toEqual([1, 3]);
+    expect(ids(day.completed)).toEqual([1]);
+    expect(ids(day.cancelled)).toEqual([2]);
+    expect(ids(day.incomplete)).toEqual([3, 4]);
+  });
 });
 
 describe("open task groups", () => {
@@ -139,24 +189,7 @@ describe("open task groups", () => {
     id: number,
     status: TaskStatus,
     overrides: Partial<Task> = {},
-  ): Task => ({
-    id,
-    title: `Task ${id}`,
-    description: "",
-    status,
-    workingNow: false,
-    workedSeconds: 0,
-    workStartedAt: null,
-    scope: null,
-    value: null,
-    effort: null,
-    parentTaskId: null,
-    closedAt: null,
-    followsTaskId: null,
-    createdAt: 0,
-    updatedAt: id,
-    ...overrides,
-  });
+  ): Task => task(id, status, { createdAt: 0, updatedAt: id, ...overrides });
 
   it("groups open Tasks by status with Working now first and Blocked last", () => {
     const tasks = [

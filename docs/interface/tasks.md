@@ -27,6 +27,22 @@ detail panel. A Task is counted once in each lifecycle stat even if it reaches
 that outcome more than once that day. Available history follows the
 [Task history rules](../domain/tasks.md#history-and-deletion).
 
+Each stat lists the Tasks one set of [table filters](#filters) would show for
+that day, so Day and Table agree row for row:
+
+| Day stat | Table filters |
+|---|---|
+| Created | Created on the day |
+| Completed | Status Completed, Closed on the day |
+| Cancelled | Status Cancelled, Closed on the day |
+| Worked on, Worked time | Worked on the day |
+| Incomplete | Worked on the day, leaving out Tasks Closed on or before it |
+
+The [lock](../domain/tasks.md#closing-and-the-lock) fixes a closed Task's
+status after its closing day, which is why its status and Closed date now
+give its outcome on that day. Incomplete has no single table query: the
+table cannot select Tasks that were still open when a past day ended.
+
 On today only, Open lists every open Task in Active, Up next, and Backlog
 groups; a past day's leftovers already show as Incomplete. Within a group,
 Working now Tasks lead and [Blocked](../domain/tasks.md#relationships-and-readiness)
@@ -45,7 +61,7 @@ no scope sidebar; Scope is a column filter.
 ### Saved views
 
 A **saved view** names one table query: the status set, Scope, Parent, Created,
-Updated, Worked on, Value, Effort, Worked time, the ordered sort rules, and the
+Updated, Closed, Worked on, Value, Effort, Worked time, the ordered sort rules, and the
 columns: their order, widths, and which are hidden. Up to five views, including Raw, are
 kept, in the order they were made; names are unique ignoring case. The built-in
 Raw view (every status, no filters, no sort, default columns) cannot be renamed,
@@ -73,12 +89,12 @@ is never filtered.
 
 Each column header opens a menu, and only one menu opens at a time. The menu
 offers Reset when that column is filtered or sorted. Columns with more than one
-action offer Sort, Filter (Status, Scope, Parent, Created, Updated, Value,
-Effort, Worked time), and Hide column (every column but Title); hovering or
+action offer Sort, Filter (Status, Scope, Parent, Created, Updated, Closed,
+Value, Effort, Worked time), and Hide column (every column but Title); hovering or
 clicking Sort or Filter opens its options. Title has only Sort, so its menu
 shows the sort options directly. Menus dismiss on outside pointer press
 (including another column trigger), Escape, or scrolling outside the menu.
-Status, Created, Updated, Value, Effort, and Worked time keep their
+Status, Created, Updated, Closed, Value, Effort, and Worked time keep their
 menu open while choosing; Scope, Parent, and sort selections close their menu. Headers
 indicate sort direction and highlight only when that column's filter or sort
 differs from the saved view.
@@ -89,8 +105,8 @@ Every column sorts ascending or descending with empty values last: Title,
 Scope, and Parent (by the parent's title) sort A to Z or Z to A; Status sorts
 in lifecycle order; Value, Effort, and Worked time sort lowest or highest first
 (Worked time uses the displayed time for the active Worked on range, or the
-all-time total when unset, including an open stretch); Created and Updated
-sort oldest or newest first. Choosing a new column appends a sort rule;
+all-time total when unset, including an open stretch); Created, Updated, and
+Closed sort oldest or newest first, with open Tasks last under Closed. Choosing a new column appends a sort rule;
 changing its direction keeps its priority. Choosing the active direction again
 removes only that rule. Rules apply in order to break ties, with empty values
 last at each level. Sorting starts unset; removing it restores the incoming
@@ -101,17 +117,19 @@ order.
 Filters combine. Status offers Open / Closed / All and individual statuses;
 Scope offers All scopes and scope paths, including descendants. Parent offers
 All parents, No parent, and Tasks with direct children, with a search field
-once the list passes eight options. Created and Updated offer a dropdown of Any
+once the list passes eight options. Created, Updated, and Closed offer a dropdown of Any
 date, Today, This week (Monday–Sunday, matching Calendar), This month, Last 7
 days, and Last 30 days, plus From and To calendar days chosen with the in-app
 date picker; either bound may be left empty. Picking a day writes the active
-bound (From first, then To). Value and Effort offer All, None (unscored), and
+bound (From first, then To). Closed shows and filters by
+[closed at](../domain/tasks.md#closing-and-the-lock); an open Task has no
+Closed date, so any Closed filter leaves it out. Value and Effort offer All, None (unscored), and
 scores 1–5; All shows every Task and ticks every score, None only unscored, and
 the numbers are a set of scored values.
 
 The table toolbar offers a standalone **Worked on** date control beside the
 saved-view picker. It defaults to All dates and uses the same date presets and
-From / To calendar days as Created and Updated. The control stays open while
+From / To calendar days as the date columns. The control stays open while
 choosing dates and closes on an outside press, Escape, or outside scrolling.
 A Task matches
 when it has positive Worked time overlapping any part of the selected range;
@@ -128,7 +146,7 @@ following [history range rules](../domain/history.md#records-and-ranges).
 Reset in the Worked on control, choosing All dates, or removing its query pill
 clears the date filter and restores all-time Worked time. The Worked time
 column menu resets its duration filter and sort independently.
-Created and Updated only select rows and leave the Worked time period unchanged. Saved views keep
+Created, Updated, and Closed only select rows and leave the Worked time period unchanged. Saved views keep
 Worked on: presets such as This week move with the calendar, while explicit
 dates stay fixed. Older saved views load with Worked on unset.
 

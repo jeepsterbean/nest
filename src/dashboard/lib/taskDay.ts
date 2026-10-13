@@ -1,12 +1,13 @@
-import type {
-  Task,
-  TaskStatus,
-  TaskStatusEvent,
-  TaskWorkStretch,
-} from "../../lib/types";
-import { taskStatusAt } from "./period";
+import type { Task, TaskStatus, TaskWorkStretch } from "../../lib/types";
+import { resolveTaskDateFilter, type TaskDateFilter } from "./taskDateFilter";
 import { type TaskGraphProjection, unresolvedBlockers } from "./taskGraph";
-import { shiftDayMs } from "./time";
+import {
+  DEFAULT_TASK_TABLE_ROW_FILTERS,
+  taskMatchesTableRowFilters,
+  type TaskTableRowFilters,
+} from "./taskTableFilter";
+import { taskWorkedSecondsInRange } from "./taskWorkedOn";
+import { toDateInput } from "./time";
 
 export type TaskDaySummary = {
   created: number;
@@ -36,74 +37,71 @@ export type TaskDay = {
   worked: TaskDayWorkedRow[];
 };
 
-const latestTaskRows = (
-  events: TaskStatusEvent[],
-  matches: (event: TaskStatusEvent) => boolean,
-): TaskDayStatusRow[] => {
-  const taskIds = new Set<number>();
-  return [...events]
-    .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
-    .filter((event) => {
-      if (!matches(event) || taskIds.has(event.taskId)) return false;
-      taskIds.add(event.taskId);
-      return true;
-    })
-    .map((event) => ({ taskId: event.taskId, at: event.createdAt }));
-};
+/**
+ * Day is the table read one day at a time: each stat lists the rows of one of
+ * these table filters. The closing-day lock is what lets current status and
+ * Closed stand in for status at the end of a past day.
+ */
+export function taskDayTableFilters(dayMs: number) {
+  const dayInput = toDateInput(dayMs / 1000);
+  const day: TaskDateFilter = { kind: "range", fromDay: dayInput, toDay: dayInput };
+  const everyTask = DEFAULT_TASK_TABLE_ROW_FILTERS;
+  return {
+    created: { ...everyTask, created: day },
+    completed: { ...everyTask, statuses: ["completed"], closed: day },
+    cancelled: { ...everyTask, statuses: ["cancelled"], closed: day },
+    workedOn: { ...everyTask, workedOn: day },
+    // Incomplete is Worked on without these rows; the table has no filter for
+    // "still open when the day ended", so Day takes the complement.
+    closedByDayEnd: {
+      ...everyTask,
+      closed: { kind: "range", fromDay: null, toDay: dayInput },
+    },
+  } satisfies Record<string, TaskTableRowFilters>;
+}
+
+const latestFirst = (rows: TaskDayStatusRow[]) =>
+  rows.sort((a, b) => b.at - a.at || b.taskId - a.taskId);
 
 export function buildTaskDay(
   dayMs: number,
   nowMs: number,
-  tasks: readonly { id: number; status: TaskStatus }[],
-  statusEvents: TaskStatusEvent[],
+  tasks: readonly Task[],
   workStretches: TaskWorkStretch[],
 ): TaskDay {
-  const from = Math.floor(dayMs / 1000);
-  const to = Math.min(
-    Math.floor(shiftDayMs(dayMs, 1) / 1000),
-    Math.floor(nowMs / 1000),
-  );
-  const dayStatusEvents = statusEvents.filter(
-    (event) => event.createdAt >= from && event.createdAt < to,
-  );
-  const overlappingStretches = workStretches.filter((stretch) => {
-    const end = stretch.endedAt ?? to;
-    return stretch.startedAt < to && end > from;
-  });
-  const created = latestTaskRows(
-    dayStatusEvents,
-    (event) => event.fromStatus === null,
-  );
-  const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const taskStatusAtEnd = (taskId: number): TaskStatus | null => {
-    const task = tasksById.get(taskId);
-    return task ? taskStatusAt(task, statusEvents, to) : null;
-  };
-  const completed = latestTaskRows(
-    dayStatusEvents,
-    (event) => event.toStatus === "completed",
-  ).filter((row) => taskStatusAtEnd(row.taskId) === "completed");
-  const cancelled = latestTaskRows(
-    dayStatusEvents,
-    (event) => event.toStatus === "cancelled",
-  ).filter((row) => taskStatusAtEnd(row.taskId) === "cancelled");
-  const workedSecondsByTask = new Map<number, number>();
-  for (const stretch of overlappingStretches) {
-    const startedAt = Math.max(stretch.startedAt, from);
-    const endedAt = Math.min(stretch.endedAt ?? to, to);
-    workedSecondsByTask.set(
-      stretch.taskId,
-      (workedSecondsByTask.get(stretch.taskId) ?? 0) +
-        Math.max(0, endedAt - startedAt),
+  const filters = taskDayTableFilters(dayMs);
+  const dayWindow = resolveTaskDateFilter(filters.workedOn.workedOn, nowMs);
+  const workedSecondsByTask = dayWindow
+    ? taskWorkedSecondsInRange(workStretches, dayWindow, nowMs)
+    : new Map<number, number>();
+  const workedTaskIds = new Set(workedSecondsByTask.keys());
+  const tableRows = (rowFilters: TaskTableRowFilters) =>
+    tasks.filter((task) =>
+      taskMatchesTableRowFilters(
+        task,
+        rowFilters,
+        rowFilters.workedOn === null ? null : workedTaskIds,
+        nowMs,
+      ),
     );
-  }
-  const worked = [...workedSecondsByTask]
-    .map(([taskId, seconds]) => ({ taskId, seconds }))
+  // Completed and Cancelled rows match a Closed filter, so closedAt is set.
+  const closedRows = (rowFilters: TaskTableRowFilters) =>
+    latestFirst(
+      tableRows(rowFilters).map((task) => ({ taskId: task.id, at: task.closedAt! })),
+    );
+
+  const created = latestFirst(
+    tableRows(filters.created).map((task) => ({ taskId: task.id, at: task.createdAt })),
+  );
+  const completed = closedRows(filters.completed);
+  const cancelled = closedRows(filters.cancelled);
+  const worked = tableRows(filters.workedOn)
+    .map((task) => ({ taskId: task.id, seconds: workedSecondsByTask.get(task.id) ?? 0 }))
     .sort((a, b) => b.seconds - a.seconds || a.taskId - b.taskId);
-  const incomplete = worked.filter((row) => {
-    const status = taskStatusAtEnd(row.taskId);
-    return status !== null && status !== "completed" && status !== "cancelled";
-  });
+  const closedByDayEnd = new Set(
+    tableRows(filters.closedByDayEnd).map((task) => task.id),
+  );
+  const incomplete = worked.filter((row) => !closedByDayEnd.has(row.taskId));
   const workedSeconds = worked.reduce((total, row) => total + row.seconds, 0);
 
   return {

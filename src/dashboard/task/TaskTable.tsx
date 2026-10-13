@@ -94,6 +94,12 @@ function TaskTableCell({
           {formatDate(task.updatedAt)}
         </td>
       );
+    case "closed":
+      return (
+        <td className="task-table__col task-table__col--closed">
+          {task.closedAt !== null && formatDate(task.closedAt)}
+        </td>
+      );
   }
 }
 

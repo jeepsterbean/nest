@@ -45,8 +45,9 @@ import {
   taskStatusFilterLabel,
 } from "../lib/tasks";
 import { TaskTableHeaderMenu } from "../task/TaskTableHeaderMenu";
-import { taskDateFilterLabel, taskMatchesDateFilter, type TaskDateFilter } from "../lib/taskDateFilter";
-import { taskScoreFilterLabel, taskMatchesScoreFilter, type TaskScoreFilter } from "../lib/taskScoreFilter";
+import { taskDateFilterLabel, type TaskDateFilter } from "../lib/taskDateFilter";
+import { taskScoreFilterLabel, type TaskScoreFilter } from "../lib/taskScoreFilter";
+import { taskMatchesTableRowFilters } from "../lib/taskTableFilter";
 import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
 import { changedTaskTableQueryFields, taskTableColumnQueryEdited, taskTableFiltersEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
 import { taskMatchesWorkedTimeFilter, taskWorkedTimeFilterLabel, type TaskWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
@@ -76,7 +77,6 @@ const optionalPill = (field: TableQueryPill["field"], name: string, value: strin
 export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const {
     tasks,
-    taskStatusEvents,
     taskWorkStretches,
     scopeTree,
     taskGraph,
@@ -97,6 +97,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     parent: selectedParent,
     created: createdFilter,
     updated: updatedFilter,
+    closed: closedFilter,
     workedOn: workedOnFilter,
     value: valueFilter,
     effort: effortFilter,
@@ -108,6 +109,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const setSelectedParent = (parent: TaskParentFilter) => setTableQuery(q => ({ ...q, parent }));
   const setCreatedFilter = (created: TaskDateFilter) => setTableQuery(q => ({ ...q, created }));
   const setUpdatedFilter = (updated: TaskDateFilter) => setTableQuery(q => ({ ...q, updated }));
+  const setClosedFilter = (closed: TaskDateFilter) => setTableQuery(q => ({ ...q, closed }));
   const setWorkedOnFilter = (workedOn: TaskDateFilter) => setTableQuery(q => ({ ...q, workedOn }));
   const setValueFilter = (value: TaskScoreFilter) => setTableQuery(q => ({ ...q, value }));
   const setEffortFilter = (effort: TaskScoreFilter) => setTableQuery(q => ({ ...q, effort }));
@@ -233,8 +235,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     [tasks, selectedTaskScope],
   );
   const tableTasksWithoutWorkedTime = useMemo(
-    () => scopedTasks.filter((task) => (workedTaskIds === null || workedTaskIds.has(task.id)) && tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent)) && taskMatchesDateFilter(task.createdAt, createdFilter, dateNowMs) && taskMatchesDateFilter(task.updatedAt, updatedFilter, dateNowMs) && taskMatchesScoreFilter(task.value, valueFilter) && taskMatchesScoreFilter(task.effort, effortFilter)),
-    [scopedTasks, tableStatuses, selectedParent, createdFilter, updatedFilter, valueFilter, effortFilter, dateNowMs, workedTaskIds],
+    () => tasks.filter((task) => taskMatchesTableRowFilters(task, tableQuery, workedTaskIds, dateNowMs)),
+    [tasks, tableQuery, workedTaskIds, dateNowMs],
   );
   const tableTasks = useMemo(
     () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs, workedSecondsByTask?.get(task.id))),
@@ -278,6 +280,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     ...optionalPill("parent", "Parent", selectedParent === null ? null : selectedParent === "none" ? "No parent" : taskGraph.byId.get(selectedParent)?.title ?? "Parent", () => setSelectedParent(null)),
     ...optionalPill("created", "Created", taskDateFilterLabel(createdFilter, dateNowMs), () => setCreatedFilter(null)),
     ...optionalPill("updated", "Updated", taskDateFilterLabel(updatedFilter, dateNowMs), () => setUpdatedFilter(null)),
+    ...optionalPill("closed", "Closed", taskDateFilterLabel(closedFilter, dateNowMs), () => setClosedFilter(null)),
     ...optionalPill("value", "Value", taskScoreFilterLabel(valueFilter), () => setValueFilter(null)),
     ...optionalPill("effort", "Effort", taskScoreFilterLabel(effortFilter), () => setEffortFilter(null)),
     ...optionalPill("workedOn", "Worked on", taskDateFilterLabel(workedOnFilter, dateNowMs), () => setWorkedOnFilter(null)),
@@ -350,7 +353,6 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 canGoNext={selectedTaskDayMs < todayMs}
                 tasks={tasks}
                 taskGraph={taskGraph}
-                statusEvents={taskStatusEvents}
                 workStretches={taskWorkStretches}
                 onPreviousDay={() =>
                   setDayAnchorMs(
@@ -432,6 +434,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                     onCreatedFilterChange={setCreatedFilter}
                     updatedFilter={updatedFilter}
                     onUpdatedFilterChange={setUpdatedFilter}
+                    closedFilter={closedFilter}
+                    onClosedFilterChange={setClosedFilter}
                     valueFilter={valueFilter}
                     onValueFilterChange={setValueFilter}
                     effortFilter={effortFilter}

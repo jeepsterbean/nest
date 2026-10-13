@@ -18,6 +18,7 @@ export const TASK_TABLE_COLUMNS = [
   { id: "workedTime", label: "Worked time", width: 100, minWidth: 72 },
   { id: "created", label: "Created", width: 100, minWidth: 72 },
   { id: "updated", label: "Updated", width: 100, minWidth: 72 },
+  { id: "closed", label: "Closed", width: 100, minWidth: 72 },
 ] as const;
 
 export type TaskTableColumnId = (typeof TASK_TABLE_COLUMNS)[number]["id"];

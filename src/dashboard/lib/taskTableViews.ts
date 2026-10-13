@@ -22,6 +22,7 @@ export type TaskTableQuery = {
   parent: TaskParentFilter;
   created: TaskDateFilter;
   updated: TaskDateFilter;
+  closed: TaskDateFilter;
   workedOn: TaskDateFilter;
   value: TaskScoreFilter;
   effort: TaskScoreFilter;
@@ -62,6 +63,7 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   parent: null,
   created: null,
   updated: null,
+  closed: null,
   workedOn: null,
   value: null,
   effort: null,
@@ -86,6 +88,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
   parent: (a, b) => a === b,
   created: sameDateFilter,
   updated: sameDateFilter,
+  closed: sameDateFilter,
   workedOn: sameDateFilter,
   value: sameScoreFilter,
   effort: sameScoreFilter,
@@ -106,6 +109,7 @@ const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuer
   parent: "parent",
   created: "created",
   updated: "updated",
+  closed: "closed",
   value: "value",
   effort: "effort",
   workedTime: "workedTime",
@@ -242,6 +246,7 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
     parent: parent === "none" || (typeof parent === "number" && Number.isInteger(parent)) ? parent : null,
     created: normalizeDateFilter(value.created),
     updated: normalizeDateFilter(value.updated),
+    closed: normalizeDateFilter(value.closed),
     workedOn: normalizeDateFilter(value.workedOn),
     value: normalizeScoreFilter(value.value),
     effort: normalizeScoreFilter(value.effort),

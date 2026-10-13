@@ -50,8 +50,8 @@ const PARENT_SEARCH_THRESHOLD = 8;
 // keeps that crossing from swapping the flyout out from under the pointer.
 const SUBMENU_SWITCH_DELAY_MS = 140;
 const FIRST_FOCUSABLE = ".task-column-menu__search, .task-column-menu__preset-trigger, .task-column-menu__date, .task-column-menu__range input, .task-column-menu__presets button, .menu-select__option";
-// Created/Updated reuse Calendar's DayPicker, which blocks future days. Unix 0
-// is the lower bound so any past Created or Updated day stays pickable.
+// Date columns reuse Calendar's DayPicker, which blocks future days. Unix 0
+// is the lower bound so any past Created, Updated, or Closed day stays pickable.
 const DATE_FILTER_EARLIEST_SEC = 0;
 
 function MenuOption({ selected, marker, wrap, onClick, children }: {
@@ -224,7 +224,7 @@ function TaskWorkedTimeFilterFields({ filter, onChange, candidates, workedSecond
   </div>;
 }
 
-export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStatusesChange, scope, onScopeChange, parent, onParentChange, createdFilter, onCreatedFilterChange, updatedFilter, onUpdatedFilterChange, valueFilter, onValueFilterChange, effortFilter, onEffortFilterChange, workedTimeFilter, onWorkedTimeFilterChange, workedTimeCandidates, workedSecondsByTask, workHistoryStatus, sort, onSortChange, onHide, open, onOpenChange, edited }: {
+export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStatusesChange, scope, onScopeChange, parent, onParentChange, createdFilter, onCreatedFilterChange, updatedFilter, onUpdatedFilterChange, closedFilter, onClosedFilterChange, valueFilter, onValueFilterChange, effortFilter, onEffortFilterChange, workedTimeFilter, onWorkedTimeFilterChange, workedTimeCandidates, workedSecondsByTask, workHistoryStatus, sort, onSortChange, onHide, open, onOpenChange, edited }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   edited: boolean;
@@ -241,6 +241,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   onCreatedFilterChange: (filter: TaskDateFilter) => void;
   updatedFilter: TaskDateFilter;
   onUpdatedFilterChange: (filter: TaskDateFilter) => void;
+  closedFilter: TaskDateFilter;
+  onClosedFilterChange: (filter: TaskDateFilter) => void;
   valueFilter: TaskScoreFilter;
   onValueFilterChange: (filter: TaskScoreFilter) => void;
   effortFilter: TaskScoreFilter;
@@ -269,17 +271,17 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   const focusSubmenuOnOpen = useRef(false);
   const columnSort = sort.find(rule => rule.column === column.id);
   const sorted = columnSort !== undefined;
-  const dateFilter = column.id === "created" ? createdFilter : column.id === "updated" ? updatedFilter : null;
-  const onDateFilterChange = column.id === "created" ? onCreatedFilterChange : column.id === "updated" ? onUpdatedFilterChange : null;
+  const dateFilter = column.id === "created" ? createdFilter : column.id === "updated" ? updatedFilter : column.id === "closed" ? closedFilter : null;
+  const onDateFilterChange = column.id === "created" ? onCreatedFilterChange : column.id === "updated" ? onUpdatedFilterChange : column.id === "closed" ? onClosedFilterChange : null;
   const scoreFilter = column.id === "value" ? valueFilter : column.id === "effort" ? effortFilter : null;
   const onScoreFilterChange = column.id === "value" ? onValueFilterChange : column.id === "effort" ? onEffortFilterChange : null;
-  const filterable = column.id === "status" || column.id === "scope" || column.id === "parent" || column.id === "created" || column.id === "updated" || column.id === "value" || column.id === "effort" || column.id === "workedTime";
+  const filterable = column.id === "status" || column.id === "scope" || column.id === "parent" || onDateFilterChange !== null || column.id === "value" || column.id === "effort" || column.id === "workedTime";
   // Columns with a single action skip the row level and show their options directly.
   const nested = filterable || Boolean(onHide);
   const preset = matchingTaskStatusPreset(statuses);
-  const dateFilterLabel = column.id === "created" || column.id === "updated" ? taskDateFilterLabel(dateFilter) : null;
+  const dateFilterLabel = taskDateFilterLabel(dateFilter);
   const filterLabel = column.id === "status" ? preset === "all" ? null : taskStatusFilterLabel(statuses) : column.id === "scope" ? scope : column.id === "parent" && parent !== null ? parent === "none" ? "No parent" : tasks.find(task => task.id === parent)?.title ?? "Parent" : column.id === "value" || column.id === "effort" ? taskScoreFilterLabel(scoreFilter) : column.id === "workedTime" ? taskWorkedTimeFilterLabel(workedTimeFilter) : dateFilterLabel;
-  const wideFilter = column.id === "parent" || column.id === "created" || column.id === "updated" || column.id === "workedTime";
+  const wideFilter = column.id === "parent" || onDateFilterChange !== null || column.id === "workedTime";
   const submenuWidth = wideFilter && submenu === "filter" ? PARENT_MENU_MIN_WIDTH : MENU_MIN_WIDTH;
   const close = () => { onOpenChange(false); triggerRef.current?.focus(); };
   const closeSubmenu = (returnFocus: boolean) => {
@@ -301,8 +303,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     if (column.id === "status") onStatusesChange([...TASK_STATUSES]);
     if (column.id === "scope") onScopeChange(null);
     if (column.id === "parent") onParentChange(null);
-    if (column.id === "created") onCreatedFilterChange(null);
-    if (column.id === "updated") onUpdatedFilterChange(null);
+    onDateFilterChange?.(null);
     if (column.id === "value") onValueFilterChange(null);
     if (column.id === "effort") onEffortFilterChange(null);
     if (column.id === "workedTime") onWorkedTimeFilterChange(null);

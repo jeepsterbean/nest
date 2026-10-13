@@ -18,6 +18,7 @@ const DIRECTION_LABELS: Record<TaskTableColumnId, { ascending: string; descendin
   workedTime: { ascending: "Lowest first", descending: "Highest first" },
   created: { ascending: "Oldest first", descending: "Newest first" },
   updated: { ascending: "Oldest first", descending: "Newest first" },
+  closed: { ascending: "Oldest first", descending: "Newest first" },
 };
 
 export const taskSortDirectionLabel = (sort: TaskColumnSort) =>
@@ -38,6 +39,7 @@ export function sortTasksByColumn(tasks: Task[], sort: TaskColumnSort | TaskColu
       case "workedTime": return workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : taskDisplayedWorkedSeconds(task, nowMs);
       case "created": return task.createdAt;
       case "updated": return task.updatedAt;
+      case "closed": return task.closedAt;
     }
   };
   return [...tasks].sort((a, b) => {

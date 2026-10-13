@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { Task, TaskStatusEvent, TaskWorkStretch } from "../../lib/types";
+import type { Task, TaskWorkStretch } from "../../lib/types";
 import { DateNavigation } from "../components/DateNavigation";
 import { buildOpenTaskGroups, buildTaskDay } from "../lib/taskDay";
 import type { TaskGraphProjection } from "../lib/taskGraph";
@@ -33,7 +33,6 @@ export function TaskDay({
   canGoNext,
   tasks,
   taskGraph,
-  statusEvents,
   workStretches,
   onPreviousDay,
   onNextDay,
@@ -46,7 +45,6 @@ export function TaskDay({
   canGoNext: boolean;
   tasks: Task[];
   taskGraph: TaskGraphProjection;
-  statusEvents: TaskStatusEvent[];
   workStretches: TaskWorkStretch[];
   onPreviousDay: () => void;
   onNextDay: () => void;
@@ -60,7 +58,6 @@ export function TaskDay({
     selectedDayMs,
     nowMs,
     tasks,
-    statusEvents,
     workStretches,
   );
   const taskTitles = new Map(tasks.map((task) => [task.id, task.title]));

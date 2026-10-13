@@ -145,7 +145,7 @@ describe("saved task views", () => {
     expect(state.views[1]!.query).toEqual({
       statuses: ["active"], scope: null, parent: null, created: null,
       updated: { kind: "range", fromDay: "2026-01-01", toDay: null },
-      value: null, effort: null, workedOn: null, workedTime: null, sort: [],
+      closed: null, value: null, effort: null, workedOn: null, workedTime: null, sort: [],
       columns: DEFAULT_TASK_TABLE_QUERY.columns,
     });
   });
