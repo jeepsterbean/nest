@@ -42,7 +42,7 @@ const placeSessions = (column: FrameColumn, phases: Phase[]) =>
 /** Vertical day grid shared by Calendar's Work stretch and Logs figures: hours down
  * the gutter, one column per day. Phase is the ground — a continuous wash
  * behind the column, keyed by icon on the rail left of the hours; each caller
- * draws its own figure on top through `renderLane`. Every span is placed by
+ * draws its own figure on top through `renderDayColumn`. Every span is placed by
  * percentage of its own column, so wash and figure always agree — a DST day's
  * 23 or 25 hours are squeezed into the same pixel height, off by ~4% twice a
  * year. */
@@ -53,7 +53,7 @@ export function TimelineFrame<C extends FrameColumn>({
   scrollPct,
   nowSec,
   colsRef,
-  renderLane,
+  renderDayColumn,
 }: {
   columns: C[];
   phases: Phase[];
@@ -61,7 +61,7 @@ export function TimelineFrame<C extends FrameColumn>({
   scrollPct: number | null;
   nowSec: number;
   colsRef?: RefObject<HTMLDivElement | null>;
-  renderLane: (column: C) => ReactNode;
+  renderDayColumn: (column: C) => ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const target = useRef(scrollPct);
@@ -87,17 +87,17 @@ export function TimelineFrame<C extends FrameColumn>({
     const liveIndex = columns.findIndex(
       (column) => nowRef.current >= column.from && nowRef.current < column.to,
     );
-    const lane = el.querySelectorAll<HTMLElement>(".tl__lane")[liveIndex];
+    const dayColumn = el.querySelectorAll<HTMLElement>(".tl__day-column")[liveIndex];
     const gutter = el.querySelector<HTMLElement>(".tl__gutter");
-    if (!lane || !gutter) {
+    if (!dayColumn || !gutter) {
       el.scrollLeft = 0;
       return;
     }
-    const laneRect = lane.getBoundingClientRect();
+    const dayColumnRect = dayColumn.getBoundingClientRect();
     const viewLeft = gutter.getBoundingClientRect().right;
     const viewRight = el.getBoundingClientRect().right;
-    if (laneRect.right > viewRight || laneRect.left < viewLeft) {
-      el.scrollLeft += laneRect.left - viewLeft;
+    if (dayColumnRect.right > viewRight || dayColumnRect.left < viewLeft) {
+      el.scrollLeft += dayColumnRect.left - viewLeft;
     }
     // `columns` is read once per range, like `target`; scrollKey names the range.
   }, [scrollKey]);
@@ -157,7 +157,7 @@ export function TimelineFrame<C extends FrameColumn>({
           {columns.map((column) => {
             const now = placeOnWindow(nowSec, nowSec, column.from, column.to);
             return (
-              <div key={column.from} className="tl__lane">
+              <div key={column.from} className="tl__day-column">
                 {placeSessions(column, phases).map(
                   ({ session, name, color, startPct, sizePct }) => (
                     <div
@@ -176,7 +176,7 @@ export function TimelineFrame<C extends FrameColumn>({
                     />
                   ),
                 )}
-                {renderLane(column)}
+                {renderDayColumn(column)}
                 {nowSec >= column.from && nowSec < column.to ? (
                   <div className="tl__now" style={{ top: `${now.startPct}%` }} />
                 ) : null}

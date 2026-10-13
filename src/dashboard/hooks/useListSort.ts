@@ -27,8 +27,8 @@ export type SortRowProps = {
 export function useListSort(
   kind: string,
   ids: number[],
-  // targetId is the row the drag landed on, so a list spanning several lanes
-  // can tell which lane took the drop. Negative ids are lane placeholders.
+  // targetId is the row the drag landed on, so a list spanning several groups
+  // can tell which group took the drop. Negative ids are group placeholders.
   onReorder: (ids: number[], draggedId: number, targetId: number) => void,
   /** Rows whose controls must stay clickable pass their own selector. */
   ignore: string = LIST_SORT_IGNORE,

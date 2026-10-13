@@ -26,12 +26,12 @@ const checkpoint = (
   phaseId: number | null,
 ): PhaseCheckIn => ({ id, createdAt, phaseId, phaseLabel: null });
 
-const lane = (lanes: ReturnType<typeof buildPhaseDay>, name: string) =>
-  lanes.find((row) => row.name === name)!;
+const phaseRow = (rows: ReturnType<typeof buildPhaseDay>, name: string) =>
+  rows.find((row) => row.name === name)!;
 
 describe("buildPhaseDay", () => {
-  it("gives every live Phase a lane, with overnight Offline at full width", () => {
-    const lanes = buildPhaseDay(
+  it("gives every live Phase a row, with overnight Offline at full width", () => {
+    const rows = buildPhaseDay(
       [
         checkpoint(1, -HOUR, 4),
         checkpoint(2, 7 * HOUR, 1),
@@ -44,25 +44,25 @@ describe("buildPhaseDay", () => {
       2 * DAY,
     );
 
-    expect(lanes.map((row) => row.name)).toEqual([
+    expect(rows.map((row) => row.name)).toEqual([
       "Doing",
       "Scoping",
       "Resting",
       "Offline",
     ]);
-    expect(lane(lanes, "Offline").sessions).toEqual([
+    expect(phaseRow(rows, "Offline").sessions).toEqual([
       { from: 0, to: 7 * HOUR, startOffset: 0, endOffset: 7 / 24 },
     ]);
-    expect(lane(lanes, "Doing").sessions.map((s) => [s.from, s.to])).toEqual([
+    expect(phaseRow(rows, "Doing").sessions.map((s) => [s.from, s.to])).toEqual([
       [7 * HOUR, 9 * HOUR],
       [10 * HOUR, DAY],
     ]);
-    expect(lane(lanes, "Doing").seconds).toBe(16 * HOUR);
-    expect(lane(lanes, "Scoping")).toMatchObject({ seconds: 0, sessions: [] });
+    expect(phaseRow(rows, "Doing").seconds).toBe(16 * HOUR);
+    expect(phaseRow(rows, "Scoping")).toMatchObject({ seconds: 0, sessions: [] });
   });
 
   it("stops today's sessions at now", () => {
-    const lanes = buildPhaseDay(
+    const rows = buildPhaseDay(
       [checkpoint(1, 8 * HOUR, 1)],
       phases,
       0,
@@ -70,13 +70,13 @@ describe("buildPhaseDay", () => {
       12 * HOUR,
     );
 
-    expect(lane(lanes, "Doing").sessions).toEqual([
+    expect(phaseRow(rows, "Doing").sessions).toEqual([
       { from: 8 * HOUR, to: 12 * HOUR, startOffset: 8 / 24, endOffset: 0.5 },
     ]);
   });
 
   it("counts a checkpoint with no Phase as Offline", () => {
-    const lanes = buildPhaseDay(
+    const rows = buildPhaseDay(
       [checkpoint(1, 0, 1), checkpoint(2, 6 * HOUR, null)],
       phases,
       0,
@@ -84,11 +84,11 @@ describe("buildPhaseDay", () => {
       2 * DAY,
     );
 
-    expect(lane(lanes, "Offline").seconds).toBe(18 * HOUR);
+    expect(phaseRow(rows, "Offline").seconds).toBe(18 * HOUR);
   });
 
   it("drops a burst that settles back on the Phase before it", () => {
-    const lanes = buildPhaseDay(
+    const rows = buildPhaseDay(
       [
         checkpoint(1, 0, 1),
         checkpoint(2, 5 * HOUR, 2),
@@ -100,8 +100,8 @@ describe("buildPhaseDay", () => {
       2 * DAY,
     );
 
-    expect(lane(lanes, "Scoping").sessions).toEqual([]);
-    expect(lane(lanes, "Doing").seconds).toBe(DAY);
+    expect(phaseRow(rows, "Scoping").sessions).toEqual([]);
+    expect(phaseRow(rows, "Doing").seconds).toBe(DAY);
   });
 });
 

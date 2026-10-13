@@ -641,6 +641,21 @@
   color: var(--accent);
 }
 
+.task-status-menu__locked {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 7px 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The action row has no dot or check, so it drops the option's three columns. */
+.task-status-menu__option--action {
+  display: block;
+}
+
 .task-status-menu__text {
   overflow: hidden;
   text-overflow: ellipsis;

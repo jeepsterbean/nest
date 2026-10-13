@@ -6,6 +6,8 @@ const task = (id: number, fields: Partial<Task>): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds: 0, workStartedAt: null, scope: null, value: null, effort: null,
   parentTaskId: null, createdAt: id, updatedAt: id, ...fields,
+  closedAt: null,
+  followsTaskId: null,
 });
 
 describe("column sorting", () => {

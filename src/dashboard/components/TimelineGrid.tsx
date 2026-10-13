@@ -44,7 +44,7 @@ export type StretchEdit = {
   id: number;
   startedAt: number;
   endedAt: number;
-  /** The day column that was clicked, so the editor sits beside that lane. */
+  /** The day column that was clicked, so the editor sits beside that column. */
   columnFrom: number;
   /** Still Working now: the editor opens, but start and end stay locked. */
   open: boolean;
@@ -58,12 +58,12 @@ const locateTime = (
   clientX: number,
   clientY: number,
 ) => {
-  const lanes = colsEl?.querySelectorAll<HTMLElement>(".tl__lane");
-  if (!lanes?.length) return null;
+  const dayColumns = colsEl?.querySelectorAll<HTMLElement>(".tl__day-column");
+  if (!dayColumns?.length) return null;
   let index = 0;
   let best = Infinity;
-  lanes.forEach((lane, i) => {
-    const rect = lane.getBoundingClientRect();
+  dayColumns.forEach((dayColumn, i) => {
+    const rect = dayColumn.getBoundingClientRect();
     const dist =
       clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
     if (dist < best) {
@@ -73,7 +73,7 @@ const locateTime = (
   });
   const column = columns[index];
   if (!column) return null;
-  const rect = lanes[index].getBoundingClientRect();
+  const rect = dayColumns[index].getBoundingClientRect();
   const yPct = rect.height <= 0 ? 0 : (clientY - rect.top) / rect.height;
   return timeOnColumn(column.from, column.to, yPct);
 };
@@ -321,8 +321,8 @@ export function TimelineGrid({
       scrollPct={scrollPct}
       nowSec={nowSec}
       colsRef={colsRef}
-      renderLane={(column) => (
-        <WorkLane
+      renderDayColumn={(column) => (
+        <WorkDayColumn
           column={column}
           nowSec={nowSec}
           selected={selected?.columnFrom === column.from ? selected : null}
@@ -339,7 +339,7 @@ export function TimelineGrid({
   );
 }
 
-function WorkLane({
+function WorkDayColumn({
   column,
   nowSec,
   selected,

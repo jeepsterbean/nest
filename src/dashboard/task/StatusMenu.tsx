@@ -1,10 +1,12 @@
 import { pulseActivity } from "../../lib/activityPulse";
-import { setTaskStatus } from "../../lib/commands";
+import { createFollowUpTask, setTaskStatus } from "../../lib/commands";
+import { isTaskLocked } from "../../lib/taskLock";
 import type { TaskStatus } from "../../lib/types";
 import { checkIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
+import { formatDate } from "../lib/time";
 
 // Fixed-position overlay rendered once at the dashboard root. Its open state and
 // position come from TaskMenuContext; any task card or table row can trigger it.
@@ -14,6 +16,46 @@ export function StatusMenu() {
   if (!statusMenu) return null;
   const task = tasks.find((t) => t.id === statusMenu.taskId);
   if (!task) return null;
+  // Asked when the menu opens, so a dashboard left open past midnight still
+  // shows the lock.
+  if (isTaskLocked(task, Date.now())) {
+    return (
+      <>
+        <div className="task-status-backdrop" onClick={() => closeStatusMenu()} />
+        <div
+          className={`task-status-menu${
+            statusMenu.up ? " task-status-menu--up" : ""
+          }`}
+          role="menu"
+          aria-label={`Status for ${task.title}`}
+          style={{ left: statusMenu.left, top: statusMenu.top }}
+        >
+          <p className="task-status-menu__locked">
+            <span
+              className={`status-dot status-dot--${task.status}`}
+              aria-hidden="true"
+            />
+            <span>
+              {TASK_STATUS_LABEL[task.status]}
+              {task.closedAt !== null && ` ${formatDate(task.closedAt)}`}
+            </span>
+          </p>
+          <button
+            type="button"
+            role="menuitem"
+            autoFocus
+            className="task-status-menu__option task-status-menu__option--action"
+            onClick={() => {
+              void mutate(() => createFollowUpTask(task));
+              closeStatusMenu();
+            }}
+          >
+            Create follow-up
+          </button>
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <div className="task-status-backdrop" onClick={() => closeStatusMenu()} />
@@ -53,7 +95,7 @@ export function StatusMenu() {
               }`}
               onClick={() => {
                 if (status !== task.status) {
-                  void mutate(() => setTaskStatus(task.id, status as TaskStatus));
+                  void mutate(() => setTaskStatus(task, status as TaskStatus));
                   if (status === "completed") pulseActivity();
                 }
                 closeStatusMenu();

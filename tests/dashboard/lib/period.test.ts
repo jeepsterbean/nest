@@ -20,6 +20,8 @@ const task = (id: number, status: Task["status"]): Task => ({
   value: 2,
   effort: 1,
   parentTaskId: null,
+  closedAt: null,
+  followsTaskId: null,
   createdAt: 10,
   updatedAt: 100,
 });

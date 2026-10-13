@@ -160,6 +160,12 @@ panel's close control dismisses it. The Map shares the pane with the detail
 panel. Opening details focuses the panel; closing returns focus to the
 originating control when it is still available.
 
+The status control lists every status for an open Task and for one closed
+today. On a [locked](../domain/tasks.md#closing-and-the-lock) Task it shows
+the closed status with its closing date and one action, "Create follow-up".
+The lock is checked when the control opens, so a dashboard left open past
+midnight shows it.
+
 Details show status, Working now, and Worked time across every day. Table rows
 also indicate Working now. Work controls live in the [Popup's Tasks and metrics
 panel](popup.md). Scope, Value, and Effort can be edited in details. The

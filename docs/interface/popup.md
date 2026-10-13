@@ -6,7 +6,7 @@ The Popup is a compact window for quick actions. Timer behavior lives in
 ## Window lifecycle
 
 The Popup can be summoned with ⌘⇧E, by the Timer becoming due, or when input
-resumes after an idle stretch spent Resting. Each trigger opens the same
+resumes after a period of Resting. Each trigger opens the same
 window and restores the same panel selection.
 
 The Popup is fixed and non-resizable; its size lives in
@@ -23,7 +23,8 @@ its panel, so any combination can be visible, including none.
 Tasks and metrics holds Metric scoring and the Active / Up next task list;
 extra tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
 above Active. The list opens on Active, and scrolling up reveals those Tasks so
-they can be returned to Active.
+they can be returned to Active. A Task that closed before today's midnight is
+[locked](../domain/tasks.md#closing-and-the-lock) and offers no return.
 
 Active rows start or stop Working now with their leading control. While
 working, a row shows the Task's total Worked time, including the open stretch.

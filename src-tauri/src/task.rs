@@ -8,7 +8,9 @@ use crate::models::Task;
 
 /// Working now, Worked time and the live start are derived from
 /// task_work_stretches rather than stored, so a corrected stretch moves the
-/// total. Selects using this must alias the tasks table as `t`. Correlated
+/// total. Closed at is derived the same way from task_status_events: the latest
+/// move into the closed status the Task holds now, so an earlier closure that
+/// was reopened never counts. Selects using this must alias the tasks table as `t`. Correlated
 /// subqueries are illegal in RETURNING, so it cannot be used there.
 pub(crate) const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
     EXISTS(SELECT 1 FROM task_work_stretches s \
@@ -17,7 +19,11 @@ pub(crate) const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
               WHERE s.task_id = t.id AND s.ended_at IS NOT NULL), 0), \
     (SELECT s.started_at FROM task_work_stretches s \
      WHERE s.task_id = t.id AND s.ended_at IS NULL), \
-    t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at";
+    t.scope, t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at, \
+    (SELECT MAX(e.created_at) FROM task_status_events e \
+     WHERE e.task_id = t.id AND e.to_status = t.status \
+       AND t.status IN ('completed', 'cancelled')), \
+    t.follows_task_id";
 
 pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
     Ok(Task {
@@ -34,6 +40,8 @@ pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         parent_task_id: row.get(10)?,
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
+        closed_at: row.get(13)?,
+        follows_task_id: row.get(14)?,
     })
 }
 

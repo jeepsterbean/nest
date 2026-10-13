@@ -418,7 +418,7 @@
   list-style: none;
 }
 
-/* Idle rows stay flat by default — the boxed "card" look is reserved for
+/* Rows that are not working stay flat by default — the boxed "card" look is reserved for
    the hero above, so it isn't fighting these for attention. A box only
    shows up here on hover/focus/drag, i.e. while the row is actually in
    play. */
@@ -485,7 +485,7 @@
   background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
 }
 
-/* Empty lanes stay droppable: their placeholder is the lane's drop target. */
+/* Empty status groups stay droppable: their placeholder is the drop target. */
 .now-card__empty.is-drop-target {
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent-soft) 42%, transparent);

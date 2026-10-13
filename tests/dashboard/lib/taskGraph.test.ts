@@ -24,6 +24,8 @@ const task = (
   value: null,
   effort: null,
   parentTaskId,
+  closedAt: null,
+  followsTaskId: null,
   createdAt: id,
   updatedAt: id,
 });

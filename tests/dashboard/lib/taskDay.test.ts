@@ -151,6 +151,8 @@ describe("open task groups", () => {
     value: null,
     effort: null,
     parentTaskId: null,
+    closedAt: null,
+    followsTaskId: null,
     createdAt: 0,
     updatedAt: id,
     ...overrides,

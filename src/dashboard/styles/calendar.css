@@ -11,7 +11,7 @@
 }
 
 /* Week's day heads and the hour gutter stay pinned while the grid scrolls on
-   either axis. Lanes slide under them, so both carry the surface color and
+   either axis. Day columns slide under them, so both carry the surface color and
    sit above blocks (selected and dragging blocks reach z-index 3). */
 .tl__heads {
   position: sticky;
@@ -130,7 +130,7 @@
   display: grid;
   grid-auto-rows: var(--tl-hour);
   background: var(--surface);
-  /* Covers the column gap so lanes scrolled under the gutter stay hidden. */
+  /* Covers the column gap so day columns scrolled under the gutter stay hidden. */
   box-shadow: 6px 0 0 var(--surface);
 }
 
@@ -172,7 +172,7 @@
   pointer-events: none;
 }
 
-.tl__lane {
+.tl__day-column {
   position: relative;
   min-width: 0;
 }

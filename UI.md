@@ -91,7 +91,7 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 - `TimelineFrame.tsx` owns the Calendar chrome: gutter, rules, Phase rail and
   wash, now line, and scroll-to-now. Work stretch (`TimelineGrid`) and Logs
-  (`LogsHours`) draw their figure through `renderLane`.
+  (`LogsHours`) draw their figure through `renderDayColumn`.
 - The `logs-` CSS prefix covers both the Timeline presentation and Calendar's
   Logs figure.
 

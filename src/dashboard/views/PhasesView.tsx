@@ -16,7 +16,7 @@ import {
   PHASE_VIEWS,
   readPhaseView,
   writePhaseView,
-  type PhaseDayLane,
+  type PhaseDayRow,
 } from "../lib/phaseDay";
 import { phaseMeaning, phasesInGuideOrder } from "../lib/phaseGuide";
 import {
@@ -30,37 +30,37 @@ import {
 const phaseColorStyle = (color: string | null | undefined) =>
   color ? ({ "--phase-color": color } as CSSProperties) : undefined;
 
-function PhaseDayLaneRow({
-  lane,
+function PhaseDayRowView({
+  row,
   ticks,
   nowOffset,
   current,
 }: {
-  lane: PhaseDayLane;
+  row: PhaseDayRow;
   ticks: MetricDayTick[];
   nowOffset: number;
   current: boolean;
 }) {
-  const sessionSpan = (session: PhaseDayLane["sessions"][number]) =>
+  const sessionSpan = (session: PhaseDayRow["sessions"][number]) =>
     `${formatTime(session.from)} – ${formatTime(session.to)}`;
-  const label = lane.sessions.length
-    ? `${lane.name}: ${lane.sessions.map(sessionSpan).join(", ")}`
-    : `${lane.name}: no time`;
+  const label = row.sessions.length
+    ? `${row.name}: ${row.sessions.map(sessionSpan).join(", ")}`
+    : `${row.name}: no time`;
   return (
     <li
       className="phase-day-row"
       data-current={current ? "true" : undefined}
-      style={phaseColorStyle(lane.phase?.color)}
+      style={phaseColorStyle(row.phase?.color)}
     >
       <div className="phase-day-row__identity">
         <span className="phase-row__icon">
-          <NestIcon name={lane.phase?.icon || phaseIconName(lane.name)} />
+          <NestIcon name={row.phase?.icon || phaseIconName(row.name)} />
         </span>
-        <span className="phase-row__name">{lane.name}</span>
+        <span className="phase-row__name">{row.name}</span>
       </div>
       <div className="metric-day phase-day-row__strip" role="img" aria-label={label}>
         <DayTrack ticks={ticks} nowOffset={nowOffset}>
-          {lane.sessions.map((session) => (
+          {row.sessions.map((session) => (
             <span
               key={session.from}
               className="phase-day-row__session"
@@ -73,8 +73,8 @@ function PhaseDayLaneRow({
           ))}
         </DayTrack>
       </div>
-      <span className="phase-day-row__total" data-empty={lane.seconds > 0 ? undefined : true}>
-        {formatCompactDuration(lane.seconds)}
+      <span className="phase-day-row__total" data-empty={row.seconds > 0 ? undefined : true}>
+        {formatCompactDuration(row.seconds)}
       </span>
     </li>
   );
@@ -90,7 +90,7 @@ function PhaseDay({ dayStartMs, nowMs }: { dayStartMs: number; nowMs: number }) 
     listPhaseCheckIns,
   );
   const ticks = useMemo(() => metricDayTicks(dayStartMs, dayEndMs), [dayStartMs, dayEndMs]);
-  const lanes = useMemo(
+  const rows = useMemo(
     () => buildPhaseDay(records, phases, dayStartMs / 1000, dayEndMs / 1000, nowMs / 1000),
     [records, phases, dayStartMs, dayEndMs, nowMs],
   );
@@ -109,13 +109,13 @@ function PhaseDay({ dayStartMs, nowMs }: { dayStartMs: number; nowMs: number }) 
     <div className="phase-day">
       <DayAxis ticks={ticks} />
       <ol className="phase-list">
-        {lanes.map((lane) => (
-          <PhaseDayLaneRow
-            key={lane.name}
-            lane={lane}
+        {rows.map((row) => (
+          <PhaseDayRowView
+            key={row.name}
+            row={row}
             ticks={ticks}
             nowOffset={nowOffset}
-            current={lane.phase !== null && lane.phase.id === currentPhaseId}
+            current={row.phase !== null && row.phase.id === currentPhaseId}
           />
         ))}
       </ol>

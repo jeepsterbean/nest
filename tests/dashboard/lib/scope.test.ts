@@ -19,6 +19,8 @@ const task = (id: number, scope: string | null): Task => ({
   value: null,
   effort: null,
   parentTaskId: null,
+  closedAt: null,
+  followsTaskId: null,
   createdAt: id,
   updatedAt: id,
 });

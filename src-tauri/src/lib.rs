@@ -1324,6 +1324,7 @@ pub fn run() {
             commands::task::list_task_dependencies,
             commands::task::list_task_status_events,
             commands::task::create_task,
+            commands::task::create_follow_up_task,
             commands::task::rename_task,
             commands::task::set_task_description,
             commands::task::set_task_scope,

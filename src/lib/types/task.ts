@@ -24,6 +24,10 @@ export type Task = {
   parentTaskId: number | null;
   createdAt: number;
   updatedAt: number;
+  /** When the Task entered the closed status it holds now; null while open. */
+  closedAt: number | null;
+  /** The closed Task this one was created as a follow-up to. */
+  followsTaskId: number | null;
 };
 
 /** One recorded stretch of Working now. Open (still running) while endedAt is null. */

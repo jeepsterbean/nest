@@ -13,6 +13,15 @@ persisted status.
 
 **Scope** categorizes Tasks by path.
 
+A closed Task is **locked** once the local day it closed has ended; its status
+is then fixed. A **Follow-up** is a new Task created from a locked one. It is a
+record of origin, separate from Parent / Child and Blocker / Dependent.
+
+An **outcome** is what a Task came to within a date range: Completed,
+Cancelled, or Incomplete. It is derived from history and is never a persisted
+status; Incomplete exists only as an outcome. Rules:
+[History domain](docs/domain/history.md#range-summaries).
+
 **Working now** marks an Active Task as being worked on. A **Work stretch**
 records one span of Working now, and **Worked time** totals a Task's Work
 stretches.

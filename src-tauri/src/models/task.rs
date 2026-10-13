@@ -16,6 +16,10 @@ pub struct Task {
     pub parent_task_id: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
+    /// None while the Task is open.
+    pub closed_at: Option<i64>,
+    /// The closed Task this one was created as a follow-up to.
+    pub follows_task_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

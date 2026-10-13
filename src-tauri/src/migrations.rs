@@ -1067,6 +1067,12 @@ UPDATE phases SET
 "#,
         ),
         M::up("DROP TABLE metric_check_in_schedule;"),
+        // A follow-up Task points back at the closed Task it continues.
+        // Deleting the original leaves the follow-up standing on its own.
+        M::up(
+            "ALTER TABLE tasks ADD COLUMN follows_task_id INTEGER \
+             REFERENCES tasks(id) ON DELETE SET NULL;",
+        ),
     ])
 }
 
@@ -1079,6 +1085,30 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn existing_tasks_follow_no_task() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 54).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Closed earlier', 'completed', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let follows_task_id: Option<i64> = conn
+            .query_row(
+                "SELECT follows_task_id FROM tasks WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(follows_task_id, None);
+    }
 
     #[test]
     fn removing_metric_schedule_preserves_ratings_and_timer() {

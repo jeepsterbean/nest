@@ -22,6 +22,7 @@ export function MenuSelect({
   placeholder,
   ariaLabel,
   className = "",
+  menuMinWidth,
   onChange,
 }: {
   value: string;
@@ -29,6 +30,7 @@ export function MenuSelect({
   placeholder: string;
   ariaLabel: string;
   className?: string;
+  menuMinWidth?: number;
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -45,9 +47,10 @@ export function MenuSelect({
         trigger.getBoundingClientRect(),
         { width: window.innerWidth, height: window.innerHeight },
         options.length,
+        menuMinWidth === undefined ? undefined : { minWidth: menuMinWidth },
       ),
     );
-  }, [options.length]);
+  }, [menuMinWidth, options.length]);
 
   useLayoutEffect(() => {
     if (!open) {

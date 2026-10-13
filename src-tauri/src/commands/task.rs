@@ -1,7 +1,7 @@
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
 use super::shared::with_phase_tx;
 use crate::error::{AppError, Result};
@@ -41,6 +41,14 @@ pub(crate) fn validate_task_score(score: Option<i64>, label: &str) -> Result<Opt
             "task {label} must be between 1 and 5, got {n}"
         ))),
     }
+}
+
+/// Each window renders its own copy of the Tasks, so every command that
+/// changes one announces it here. Announcing from the write, as the Tag
+/// commands do, keeps a caller from forgetting and leaving the other window on
+/// a stale copy.
+fn announce_task_change(app: &AppHandle) {
+    let _ = app.emit("data-changed", ());
 }
 
 #[tauri::command]
@@ -90,6 +98,7 @@ pub fn list_task_status_events(
 
 #[tauri::command]
 pub fn create_task(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     title: String,
     description: String,
@@ -131,11 +140,69 @@ pub fn create_task(
         params![id, status, now],
     )?;
     tx.commit()?;
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
 #[tauri::command]
-pub fn rename_task(state: State<'_, Mutex<Connection>>, id: i64, title: String) -> Result<Task> {
+pub fn create_follow_up_task(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+) -> Result<Task> {
+    let mut conn = state.lock().unwrap();
+    let tx = conn.transaction()?;
+    let follow_up_id = insert_follow_up_task(&tx, id, now_unix_secs())?;
+    tx.commit()?;
+    announce_task_change(&app);
+    fetch_task(&conn, follow_up_id)
+}
+
+/// A follow-up restates the work of a closed Task as a new Backlog Task. It
+/// copies what describes the work and none of the relationships, Worked time,
+/// or history, which stay with the original.
+///
+/// Only the frontend knows the local day, so it decides when the original is
+/// locked; this seam checks the part that needs no clock.
+pub(crate) fn insert_follow_up_task(conn: &Connection, original_id: i64, now: i64) -> Result<i64> {
+    let original_status: String = conn
+        .query_row(
+            "SELECT status FROM tasks WHERE id = ?1",
+            params![original_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("task {original_id}")))?;
+    if !matches!(original_status.as_str(), "completed" | "cancelled") {
+        return Err(AppError::InvalidInput(
+            "only a closed task can have a follow-up".into(),
+        ));
+    }
+    conn.execute(
+        "INSERT INTO tasks \
+         (title, description, status, scope, value, effort, follows_task_id, \
+          created_at, updated_at, sort_order) \
+         SELECT title, description, 'backlog', scope, value, effort, id, ?2, ?2, \
+           COALESCE((SELECT MIN(sort_order) FROM tasks), 0) - 1 \
+         FROM tasks WHERE id = ?1",
+        params![original_id, now],
+    )?;
+    let follow_up_id = conn.last_insert_rowid();
+    conn.execute(
+        "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+         VALUES (?1, NULL, 'backlog', ?2)",
+        params![follow_up_id, now],
+    )?;
+    Ok(follow_up_id)
+}
+
+#[tauri::command]
+pub fn rename_task(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    title: String,
+) -> Result<Task> {
     let title = title.trim().to_string();
     if title.is_empty() {
         return Err(AppError::InvalidInput("task title cannot be empty".into()));
@@ -148,11 +215,13 @@ pub fn rename_task(state: State<'_, Mutex<Connection>>, id: i64, title: String) 
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
     }
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
 #[tauri::command]
 pub fn set_task_description(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     description: String,
@@ -166,11 +235,13 @@ pub fn set_task_description(
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
     }
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
 #[tauri::command]
 pub fn set_task_scope(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     scope: Option<String>,
@@ -184,43 +255,54 @@ pub fn set_task_scope(
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
     }
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
 #[tauri::command]
 pub fn set_task_parent(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     parent_task_id: Option<i64>,
 ) -> Result<Task> {
     let mut conn = state.lock().unwrap();
     TaskGraph::set_parent(&mut conn, id, parent_task_id)?;
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
 #[tauri::command]
 pub fn add_task_dependency(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     blocker_task_id: i64,
     blocked_task_id: i64,
 ) -> Result<()> {
     let mut conn = state.lock().unwrap();
-    TaskGraph::add_dependency(&mut conn, blocker_task_id, blocked_task_id)
+    TaskGraph::add_dependency(&mut conn, blocker_task_id, blocked_task_id)?;
+    announce_task_change(&app);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn remove_task_dependency(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     blocker_task_id: i64,
     blocked_task_id: i64,
 ) -> Result<()> {
     let mut conn = state.lock().unwrap();
-    TaskGraph::remove_dependency(&mut conn, blocker_task_id, blocked_task_id)
+    TaskGraph::remove_dependency(&mut conn, blocker_task_id, blocked_task_id)?;
+    announce_task_change(&app);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn delete_task(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) -> Result<()> {
-    with_phase_tx(&app, &state, |tx| TaskGraph::delete_task_in(tx, id))
+    with_phase_tx(&app, &state, |tx| TaskGraph::delete_task_in(tx, id))?;
+    announce_task_change(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -229,12 +311,55 @@ pub fn set_task_status(
     state: State<'_, Mutex<Connection>>,
     id: i64,
     status: String,
+    day_started_at: i64,
 ) -> Result<Task> {
     let status = validate_task_status(status.as_str())?;
-    with_phase_tx(&app, &state, |tx| {
+    let task = with_phase_tx(&app, &state, |tx| {
+        require_status_unlocked(tx, id, day_started_at, now_unix_secs())?;
         change_task_status(tx, id, status)?;
         fetch_task(tx, id)
-    })
+    })?;
+    announce_task_change(&app);
+    Ok(task)
+}
+
+/// No local day is longer than a daylight-saving 25 hours.
+const LONGEST_LOCAL_DAY_SECONDS: i64 = 25 * 60 * 60;
+
+/// A closed Task's status changes only on the local day it closed. The caller
+/// decided that from its own copy of the Task, which another window may have
+/// left a day stale, so the rule is held here against the stored row.
+///
+/// Only the frontend knows the local day, so it sends where today began. A
+/// start outside the last day is refused: a zero would otherwise switch the
+/// lock off.
+pub(crate) fn require_status_unlocked(
+    conn: &Connection,
+    id: i64,
+    day_started_at: i64,
+    now: i64,
+) -> Result<()> {
+    if day_started_at > now || now - day_started_at > LONGEST_LOCAL_DAY_SECONDS {
+        return Err(AppError::InvalidInput(
+            "day start must fall within the last day".into(),
+        ));
+    }
+    let task = match fetch_task(conn, id) {
+        Err(AppError::Sqlite(rusqlite::Error::QueryReturnedNoRows)) => {
+            return Err(AppError::NotFound(format!("task {id}")));
+        }
+        task => task?,
+    };
+    let closed = matches!(task.status.as_str(), "completed" | "cancelled");
+    // A closure with no recorded time predates status history, so it cannot
+    // be today's.
+    let closed_before_today = task.closed_at.is_none_or(|at| at < day_started_at);
+    if closed && closed_before_today {
+        return Err(AppError::InvalidInput(
+            "this task closed on an earlier day, so its status is fixed".into(),
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn change_task_status(conn: &Connection, id: i64, status: &str) -> Result<()> {
@@ -274,7 +399,9 @@ pub fn set_task_working(
     id: i64,
     working: bool,
 ) -> Result<Task> {
-    with_phase_tx(&app, &state, |tx| change_task_working(tx, id, working))
+    let task = with_phase_tx(&app, &state, |tx| change_task_working(tx, id, working))?;
+    announce_task_change(&app);
+    Ok(task)
 }
 
 pub(crate) fn change_task_working(conn: &Connection, id: i64, working: bool) -> Result<Task> {
@@ -332,7 +459,9 @@ pub fn stop_all_working_now(
     app: AppHandle,
     state: State<'_, Mutex<Connection>>,
 ) -> Result<Vec<Task>> {
-    with_phase_tx(&app, &state, |tx| bank_all_working_now(tx, now_unix_secs()))
+    let stopped = with_phase_tx(&app, &state, |tx| bank_all_working_now(tx, now_unix_secs()))?;
+    announce_task_change(&app);
+    Ok(stopped)
 }
 
 /// Far past any real timestamp, standing in for an open stretch's end so the
@@ -372,9 +501,11 @@ pub fn update_task_work_stretch(
     started_at: i64,
     ended_at: Option<i64>,
 ) -> Result<Task> {
-    with_phase_tx(&app, &state, |tx| {
+    let task = with_phase_tx(&app, &state, |tx| {
         change_task_work_stretch(tx, id, started_at, ended_at, now_unix_secs())
-    })
+    })?;
+    announce_task_change(&app);
+    Ok(task)
 }
 
 pub(crate) fn change_task_work_stretch(
@@ -452,7 +583,7 @@ pub fn delete_task_work_stretch(
     state: State<'_, Mutex<Connection>>,
     id: i64,
 ) -> Result<Task> {
-    with_phase_tx(&app, &state, |tx| {
+    let task = with_phase_tx(&app, &state, |tx| {
         let now = now_unix_secs();
         // The owning task has to be read before the row goes away.
         let task_id: i64 = tx
@@ -466,11 +597,14 @@ pub fn delete_task_work_stretch(
         tx.execute("DELETE FROM task_work_stretches WHERE id = ?1", params![id])?;
         touch_task(tx, task_id, now)?;
         fetch_task(tx, task_id)
-    })
+    })?;
+    announce_task_change(&app);
+    Ok(task)
 }
 
 #[tauri::command]
 pub fn set_task_score(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     value: Option<i64>,
@@ -486,6 +620,7 @@ pub fn set_task_score(
     if updated == 0 {
         return Err(AppError::NotFound(format!("task {id}")));
     }
+    announce_task_change(&app);
     fetch_task(&conn, id)
 }
 
@@ -514,16 +649,19 @@ pub(crate) fn update_task_score_field(
 
 #[tauri::command]
 pub fn set_task_score_field(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
     field: String,
     score: Option<i64>,
 ) -> Result<Task> {
     let conn = state.lock().unwrap();
-    update_task_score_field(&conn, id, &field, score)
+    let task = update_task_score_field(&conn, id, &field, score)?;
+    announce_task_change(&app);
+    Ok(task)
 }
 
-/// Reorders one lane of the board: the listed tasks take over the sort_order
+/// Reorders one status group: the listed tasks take over the sort_order
 /// slots they already occupy, in the new order, leaving every other task put.
 pub(crate) fn set_task_order(conn: &Connection, ids: &[i64]) -> Result<()> {
     let unique: HashSet<_> = ids.iter().copied().collect();
@@ -572,9 +710,15 @@ pub(crate) fn set_task_order(conn: &Connection, ids: &[i64]) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn reorder_tasks(state: State<'_, Mutex<Connection>>, ids: Vec<i64>) -> Result<()> {
+pub fn reorder_tasks(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    ids: Vec<i64>,
+) -> Result<()> {
     let conn = state.lock().unwrap();
-    set_task_order(&conn, &ids)
+    set_task_order(&conn, &ids)?;
+    announce_task_change(&app);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -591,6 +735,143 @@ pub(crate) mod tests {
         );
         assert_eq!(normalize_task_scope(Some(" /// ".into())), None);
         assert_eq!(normalize_task_scope(None), None);
+    }
+
+    #[test]
+    fn closed_at_is_the_latest_move_into_the_closed_status_held_now() {
+        let conn = task_database();
+        assert_eq!(fetch_task(&conn, 1).unwrap().closed_at, None);
+
+        let record = |from: &str, to: &str, at: i64| {
+            conn.execute("UPDATE tasks SET status = ?1 WHERE id = 1", params![to])
+                .unwrap();
+            conn.execute(
+                "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+                 VALUES (1, ?1, ?2, ?3)",
+                params![from, to, at],
+            )
+            .unwrap();
+        };
+
+        record("active", "completed", 100);
+        assert_eq!(fetch_task(&conn, 1).unwrap().closed_at, Some(100));
+
+        // An earlier closure that was reopened says nothing about a Task that
+        // is open now.
+        record("completed", "active", 200);
+        assert_eq!(fetch_task(&conn, 1).unwrap().closed_at, None);
+
+        // Closed as Cancelled now, so the earlier completion is not its closure.
+        record("active", "cancelled", 300);
+        assert_eq!(fetch_task(&conn, 1).unwrap().closed_at, Some(300));
+    }
+
+    #[test]
+    fn the_stored_task_holds_the_lock_whatever_copy_the_caller_had() {
+        let conn = task_database();
+        let day = 86_400;
+        let (today, now) = (10 * day, 10 * day + 3_600);
+        let close_at = |status: &str, at: i64| {
+            conn.execute("UPDATE tasks SET status = ?1 WHERE id = 1", params![status])
+                .unwrap();
+            conn.execute(
+                "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
+                 VALUES (1, 'active', ?1, ?2)",
+                params![status, at],
+            )
+            .unwrap();
+        };
+
+        // Open, then closed earlier today: both may still change.
+        assert!(require_status_unlocked(&conn, 1, today, now).is_ok());
+        close_at("completed", today + 60);
+        assert!(require_status_unlocked(&conn, 1, today, now).is_ok());
+
+        // The same closure is locked once the next day has begun.
+        assert!(require_status_unlocked(&conn, 1, today + day, now + day).is_err());
+
+        // A closed Task with no recorded closure cannot have closed today.
+        conn.execute("DELETE FROM task_status_events WHERE task_id = 1", [])
+            .unwrap();
+        assert!(require_status_unlocked(&conn, 1, today, now).is_err());
+
+        // A day start that could not be today's would switch the lock off.
+        close_at("cancelled", today - 5 * day);
+        assert!(require_status_unlocked(&conn, 1, 0, now).is_err());
+        assert!(require_status_unlocked(&conn, 1, now + 1, now).is_err());
+
+        assert!(matches!(
+            require_status_unlocked(&conn, 99, today, now),
+            Err(AppError::NotFound(_))
+        ));
+    }
+
+    #[test]
+    fn a_follow_up_copies_the_work_and_none_of_its_ties() {
+        let conn = task_database();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (2, 'Parent', 'active', 1, 1), (3, 'Dependent', 'backlog', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE tasks SET description = 'Notes', scope = 'Code / Nest', value = 4, \
+             effort = 2, parent_task_id = 2 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_dependencies (blocker_task_id, blocked_task_id, created_at) \
+             VALUES (1, 3, 1)",
+            [],
+        )
+        .unwrap();
+        seed_work(&conn, 1, 600, None);
+
+        // An open Task can still change status, so it has nothing to follow up.
+        assert!(insert_follow_up_task(&conn, 1, 500).is_err());
+        assert!(insert_follow_up_task(&conn, 99, 500).is_err());
+
+        change_task_status(&conn, 1, "cancelled").unwrap();
+        let follow_up_id = insert_follow_up_task(&conn, 1, 500).unwrap();
+        let follow_up = fetch_task(&conn, follow_up_id).unwrap();
+
+        assert_eq!(follow_up.title, "Active");
+        assert_eq!(follow_up.description, "Notes");
+        assert_eq!(follow_up.status, "backlog");
+        assert_eq!(follow_up.scope.as_deref(), Some("Code / Nest"));
+        assert_eq!((follow_up.value, follow_up.effort), (Some(4), Some(2)));
+        assert_eq!(follow_up.follows_task_id, Some(1));
+        assert_eq!(follow_up.parent_task_id, None);
+        assert_eq!(follow_up.worked_seconds, 0);
+        assert_eq!(follow_up.created_at, 500);
+
+        let inherited_dependencies: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_dependencies \
+                 WHERE blocker_task_id = ?1 OR blocked_task_id = ?1",
+                params![follow_up_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(inherited_dependencies, 0);
+
+        let creation_events: Vec<(Option<String>, String)> = conn
+            .prepare("SELECT from_status, to_status FROM task_status_events WHERE task_id = ?1")
+            .unwrap()
+            .query_map(params![follow_up_id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(creation_events, vec![(None, "backlog".to_string())]);
+
+        // Deleting the original leaves the follow-up standing on its own.
+        conn.execute("DELETE FROM tasks WHERE id = 1", []).unwrap();
+        assert_eq!(
+            fetch_task(&conn, follow_up_id).unwrap().follows_task_id,
+            None
+        );
     }
 
     #[test]
@@ -743,7 +1024,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn reordering_one_lane_leaves_the_other_lanes_put() {
+    fn reordering_one_status_group_leaves_the_others_put() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut conn).unwrap();
         conn.execute_batch(
@@ -755,7 +1036,7 @@ pub(crate) mod tests {
         )
         .unwrap();
 
-        // Active lane holds slots 0, 2, 3 — reversing it reuses those slots.
+        // Active holds slots 0, 2, 3 — reversing it reuses those slots.
         set_task_order(&conn, &[4, 3, 1]).unwrap();
         let order: Vec<i64> = conn
             .prepare("SELECT id FROM tasks ORDER BY sort_order ASC, id ASC")

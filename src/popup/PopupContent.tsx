@@ -57,6 +57,7 @@ import {
 } from "../lib/brainDumpDraft";
 import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
+import { isTaskLocked } from "../lib/taskLock";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
 import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
@@ -65,6 +66,11 @@ import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
 import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
 import { shouldDismissOnPointerDown } from "./overlay";
 import { PopupTimerBar } from "./PopupTimerBar";
+import {
+  appendTaskOnce,
+  placeChildAfterParent,
+  replaceTask,
+} from "./taskReconciliation";
 import { isPopupWindowDragTarget, startPopupWindowDrag } from "./windowDrag";
 import "./PopupContent.css";
 import "../dashboard/styles/shared-controls.css";
@@ -72,7 +78,7 @@ import "../dashboard/styles/shared-controls.css";
 /** Stable identity so the composer's tag memo holds before tags load. */
 const EMPTY_TAGS: Tag[] = [];
 
-// Drop targets for a lane with no tasks in it. Negative so they can never
+// Drop targets for a status group with no tasks in it. Negative so they can never
 // collide with a task id.
 const EMPTY_ACTIVE_ROW = -1;
 const EMPTY_UP_NEXT_ROW = -2;
@@ -478,6 +484,9 @@ function PopupContent({
   const taskScrollThumbRef = useRef<HTMLDivElement | null>(null);
   const liveTasksRef = useRef<HTMLDivElement | null>(null);
   const stickToLiveRef = useRef(true);
+  const actionInProgressRef = useRef(false);
+  const refreshHeldRef = useRef(false);
+  const refreshRequest = useRef(0);
 
   useEffect(() => {
     const togglePanelFromKeyboard = (event: KeyboardEvent) => {
@@ -515,28 +524,28 @@ function PopupContent({
   const activeTasks = tasksByStatus.active;
   const upNextTasks = tasksByStatus.up_next;
   // Working tasks lead the popup as hero rows; everything else recedes into
-  // the plain lane lists below, so the popup answers "what am I doing" at a
+  // the plain status groups below, so the popup answers "what am I doing" at a
   // glance instead of making that item look like every other row.
   const workingTasks = activeTasks.filter((task) => task.workingNow);
-  const idleActiveTasks = activeTasks.filter((task) => !task.workingNow);
+  const notWorkingActiveTasks = activeTasks.filter((task) => !task.workingNow);
   // Nobody's working: nudge the row that would start one, active first.
   const nudgeTaskId =
     workingTasks.length === 0
-      ? ((idleActiveTasks[0] ?? upNextTasks[0])?.id ?? null)
+      ? ((notWorkingActiveTasks[0] ?? upNextTasks[0])?.id ?? null)
       : null;
   const recentClosed = recentlyClosedTasks(loaded?.tasks ?? [], nowMs);
   const recentClosedKey = recentClosed.map((task) => task.id).join(",");
-  // One drag list spanning both lanes: dropping on a row of the other lane is
-  // what moves a task between Active and Up next. An empty lane still offers
-  // its placeholder as a drop target.
-  // Hero rows (working tasks) aren't a drag source or target, so once idle
-  // active rows run out, the lane still needs a rendered placeholder id —
+  // One drag list spanning both status groups: dropping on a row of the
+  // other is what moves a task between Active and Up next. An empty group
+  // still offers its placeholder as a drop target.
+  // Hero rows (working tasks) aren't a drag source or target, so once the
+  // other active rows run out, Active still needs a rendered placeholder id —
   // otherwise nothing in the DOM carries EMPTY_ACTIVE_ROW to drop onto.
-  const activeLaneIds = idleActiveTasks.length
+  const activeGroupIds = notWorkingActiveTasks.length
     ? activeTasks.map((task) => task.id)
     : [...workingTasks.map((task) => task.id), EMPTY_ACTIVE_ROW];
   const boardRowIds = [
-    ...activeLaneIds,
+    ...activeGroupIds,
     ...(upNextTasks.length
       ? upNextTasks.map((task) => task.id)
       : [EMPTY_UP_NEXT_ROW]),
@@ -590,26 +599,49 @@ function PopupContent({
     };
   }, []);
 
+  /**
+   * Every task command announces its own change, and popup actions chain
+   * several commands. Refreshing between them would paint the half-finished
+   * order or status, so a refresh waits until the action ends, and a snapshot
+   * read before or during an action is never applied over its result.
+   */
+  const refreshLive = useCallback(() => {
+    if (actionInProgressRef.current) {
+      refreshHeldRef.current = true;
+      return;
+    }
+    refreshHeldRef.current = false;
+    const request = ++refreshRequest.current;
+    void Promise.all([
+      listTasks(),
+      getTimerState(),
+      listTags(),
+      latestPhaseCheckIn(),
+    ]).then(([tasks, timer, tags, latestPhase]) => {
+      if (request !== refreshRequest.current) return;
+      if (actionInProgressRef.current) {
+        refreshHeldRef.current = true;
+        return;
+      }
+      setLoaded((current) =>
+        current
+          ? { ...current, tasks, timer, tags, latestPhase }
+          : current,
+      );
+    });
+  }, []);
+
   useEffect(() => {
-    const refreshLive = () => {
-      void Promise.all([
-        listTasks(),
-        getTimerState(),
-        listTags(),
-        latestPhaseCheckIn(),
-      ]).then(([tasks, timer, tags, latestPhase]) => {
-        setLoaded((current) =>
-          current
-            ? { ...current, tasks, timer, tags, latestPhase }
-            : current,
-        );
-      });
-    };
+    actionInProgressRef.current = submitting;
+    if (!submitting && refreshHeldRef.current) refreshLive();
+  }, [submitting, refreshLive]);
+
+  useEffect(() => {
     const stops = ["phase-changed", "data-changed"].map((event) =>
       subscribeTauriEvent(event, refreshLive),
     );
     return () => stops.forEach((stop) => stop());
-  }, []);
+  }, [refreshLive]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1_000);
@@ -706,13 +738,13 @@ function PopupContent({
     setSubmitting(true);
     setError(null);
     try {
-      const updated = await setTaskStatus(task.id, status);
-      setLoaded({
-        ...loaded,
-        tasks: loaded.tasks.map((t) => (t.id === task.id ? updated : t)),
-      });
+      const updated = await setTaskStatus(task, status);
+      setLoaded((current) =>
+        current
+          ? { ...current, tasks: replaceTask(current.tasks, updated) }
+          : current,
+      );
       if (status === "completed") pulseActivity();
-      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -726,13 +758,11 @@ function PopupContent({
     setError(null);
     try {
       const updated = await setTaskWorking(task.id, working);
-      setLoaded({
-        ...loaded,
-        tasks: loaded.tasks.map((candidate) =>
-          candidate.id === task.id ? updated : candidate,
-        ),
-      });
-      await emit("data-changed");
+      setLoaded((current) =>
+        current
+          ? { ...current, tasks: replaceTask(current.tasks, updated) }
+          : current,
+      );
     } catch (e) {
       setError(String(e));
     } finally {
@@ -746,7 +776,7 @@ function PopupContent({
     setSubmitting(true);
     setError(null);
     try {
-      await setTaskStatus(task.id, "active");
+      await setTaskStatus(task, "active");
       const updated = await setTaskWorking(task.id, true);
       setLoaded((current) =>
         current
@@ -758,7 +788,6 @@ function PopupContent({
             }
           : current,
       );
-      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -790,7 +819,7 @@ function PopupContent({
       const moved =
         targetStatus === dragged.status
           ? null
-          : await setTaskStatus(draggedId, targetStatus);
+          : await setTaskStatus(dragged, targetStatus);
       await reorderTasks(
         pinnedIdOrder(
           ids,
@@ -803,7 +832,6 @@ function PopupContent({
       setLoaded((current) =>
         current ? { ...current, tasks } : current,
       );
-      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -819,11 +847,14 @@ function PopupContent({
     try {
       const updates = await stopAllWorkingNow();
       const byId = new Map(updates.map((task) => [task.id, task]));
-      setLoaded({
-        ...loaded,
-        tasks: loaded.tasks.map((task) => byId.get(task.id) ?? task),
-      });
-      await emit("data-changed");
+      setLoaded((current) =>
+        current
+          ? {
+              ...current,
+              tasks: current.tasks.map((task) => byId.get(task.id) ?? task),
+            }
+          : current,
+      );
     } catch (e) {
       setError(String(e));
     } finally {
@@ -841,7 +872,9 @@ function PopupContent({
       // Reconcile as soon as create commits so a later start/stretch failure
       // cannot hide the row and leave a retryable draft (duplicate tasks).
       setLoaded((current) =>
-        current ? { ...current, tasks: [...current.tasks, task] } : current,
+        current
+          ? { ...current, tasks: appendTaskOnce(current.tasks, task) }
+          : current,
       );
       setTaskTitle("");
       setAddingTask(false);
@@ -863,8 +896,6 @@ function PopupContent({
           setError(String(e));
         }
       }
-
-      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -902,16 +933,21 @@ function PopupContent({
         parent.scope,
         parent.id,
       );
-      // Lanes render in array order, so splicing after the Parent shows the
+      // Status groups render in array order, so splicing after the Parent shows the
       // child directly below it before the order is persisted.
-      const tasks = loaded.tasks.flatMap((task) =>
-        task.id === parent.id ? [task, child] : [task],
+      setLoaded((current) =>
+        current
+          ? {
+              ...current,
+              tasks: placeChildAfterParent(current.tasks, parent.id, child),
+            }
+          : current,
       );
-      setLoaded((current) => (current ? { ...current, tasks } : current));
       closeChildComposer();
 
-      // Done orders by close time, so only the live lanes keep a manual order.
+      // Done orders by close time, so only Active and Up next keep a manual order.
       if (parent.status === "active" || parent.status === "up_next") {
+        const tasks = placeChildAfterParent(await listTasks(), parent.id, child);
         await reorderTasks(
           groupTasksByStatus(tasks)[parent.status].map((task) => task.id),
         );
@@ -930,8 +966,6 @@ function PopupContent({
             : current,
         );
       }
-
-      await emit("data-changed");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -1066,7 +1100,7 @@ function PopupContent({
       {renderChildComposer(task)}
     </li>
   );
-  // Idle lanes share a row: lead play control, title, trailing status
+  // Rows outside the hero list share one layout: lead play control, title, trailing status
   // actions. Closed history is a quieter restore row, not in the drag list.
   const renderTaskRow = (task: Task) => (
     <li
@@ -1142,16 +1176,20 @@ function PopupContent({
       </div>
       <span className="now-task__title">{task.title}</span>
       <div className="now-task__actions">
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Return ${task.title} to Active`}
-          title="Return to Active"
-          onClick={() => updateTaskStatus(task, "active")}
-          disabled={submitting}
-        >
-          <RestoreIcon />
-        </button>
+        {/* The last hour reaches back across midnight, where a Done row can
+            already be locked. */}
+        {!isTaskLocked(task, nowMs) && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={`Return ${task.title} to Active`}
+            title="Return to Active"
+            onClick={() => updateTaskStatus(task, "active")}
+            disabled={submitting}
+          >
+            <RestoreIcon />
+          </button>
+        )}
       </div>
       {renderChildComposer(task)}
     </li>
@@ -1267,7 +1305,7 @@ function PopupContent({
                   </button>
                 </div>
               )}
-              {idleActiveTasks.length === 0 ? (
+              {notWorkingActiveTasks.length === 0 ? (
                 <p
                   className={`now-card__empty${
                     boardSort.overId === EMPTY_ACTIVE_ROW
@@ -1282,7 +1320,7 @@ function PopupContent({
                 </p>
               ) : (
                 <ul className="now-list">
-                  {idleActiveTasks.map(renderTaskRow)}
+                  {notWorkingActiveTasks.map(renderTaskRow)}
                 </ul>
               )}
             </section>

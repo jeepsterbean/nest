@@ -93,13 +93,13 @@ export function LogsHours({
         mode={mode}
         scrollPct={scrollPct}
         nowSec={nowSec}
-        renderLane={(lane) =>
-          lane.hours.map((hour) => {
+        renderDayColumn={(column) =>
+          column.hours.map((hour) => {
             const { startPct, sizePct } = placeOnWindow(
               hour.from,
               hour.to,
-              lane.from,
-              lane.to,
+              column.from,
+              column.to,
             );
             return (
               <div

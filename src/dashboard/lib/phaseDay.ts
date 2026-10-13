@@ -12,7 +12,7 @@ export type PhaseDaySession = {
   endOffset: number;
 };
 
-export type PhaseDayLane = {
+export type PhaseDayRow = {
   name: (typeof LIVE_PHASE_NAMES)[number];
   phase: Phase | null;
   seconds: number;
@@ -41,7 +41,7 @@ export const writePhaseView = (
   storage.setItem(PHASE_VIEW_KEY, view);
 };
 
-/** One lane per live Phase, 0m included, holding its settled sessions for the
+/** One row per live Phase, 0m included, holding its settled sessions for the
  * day. Sessions stop at now, since the last checkpoint would otherwise claim
  * the rest of today, and Idle counts as Offline like every other summary. */
 export const buildPhaseDay = (
@@ -50,7 +50,7 @@ export const buildPhaseDay = (
   dayStartSec: number,
   dayEndSec: number,
   nowSec: number,
-): PhaseDayLane[] => {
+): PhaseDayRow[] => {
   const sessions = windowPhaseSessions(
     phaseCheckIns,
     phases,
@@ -58,7 +58,7 @@ export const buildPhaseDay = (
     Math.min(dayEndSec, nowSec),
   );
   return LIVE_PHASE_NAMES.map((name) => {
-    const laneSessions = sessions
+    const rowSessions = sessions
       .filter((session) => {
         const sessionName = phaseName(session.phaseId, phases);
         return (sessionName === "Idle" ? "Offline" : sessionName) === name;
@@ -72,11 +72,11 @@ export const buildPhaseDay = (
     return {
       name,
       phase: phases.find((phase) => phase.name === name) ?? null,
-      seconds: laneSessions.reduce(
+      seconds: rowSessions.reduce(
         (total, session) => total + (session.to - session.from),
         0,
       ),
-      sessions: laneSessions,
+      sessions: rowSessions,
     };
   });
 };

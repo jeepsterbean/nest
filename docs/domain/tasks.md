@@ -13,6 +13,22 @@ Task statuses are Backlog, Up next, Active, Completed, and Cancelled.
 Completed and Cancelled are closed; the others are open.
 Readiness is separate from status.
 
+## Closing and the lock
+
+A closed Task's status can change only on the local day it closed. From the
+next midnight it is locked: its status is fixed, while edits, relationships,
+Work stretches, and deletion stay available.
+
+Closed at is the time of a Task's latest closure, so a Task reopened and closed
+again takes the later time; an open Task has none. Locked is derived from
+closed at and the clock and is never stored.
+
+A locked Task offers a Follow-up: a new Backlog Task copying its title,
+description, Scope, Value, and Effort and recording which Task it follows. It
+takes no relationships, Worked time, or history from the original, and stays
+when the original is deleted. A locked Cancelled Blocker keeps blocking until
+that relationship is removed.
+
 ## Relationships and readiness
 
 Parent / Child describes work breakdown. A Task has at most one Parent and

@@ -7,6 +7,7 @@ import type {
   TaskStatusEvent,
   TaskWorkStretch,
 } from "../types";
+import { isTaskLocked, localDayStartSec } from "../taskLock";
 
 export function listTasks(): Promise<Task[]> {
   return invoke("list_tasks");
@@ -79,8 +80,37 @@ export function deleteTask(id: number): Promise<void> {
   return invoke("delete_task", { id });
 }
 
-export function setTaskStatus(id: number, status: TaskStatus): Promise<Task> {
-  return invoke("set_task_status", { id, status });
+/** The one way a status changes, so the lock holds for every caller. This
+ * check spares a call on a Task already known to be locked; the backend
+ * repeats it against the stored Task, since this copy can be stale. The
+ * backend keeps no local day, so it is sent where today began. */
+export function setTaskStatus(
+  task: Pick<Task, "id" | "status" | "closedAt">,
+  status: TaskStatus,
+): Promise<Task> {
+  const nowMs = Date.now();
+  if (isTaskLocked(task, nowMs)) {
+    return Promise.reject(
+      new Error("This task closed on an earlier day, so its status is fixed."),
+    );
+  }
+  return invoke("set_task_status", {
+    id: task.id,
+    status,
+    dayStartedAt: localDayStartSec(nowMs),
+  });
+}
+
+/** Offered once reopening is over: a Task closed today is reopened instead. */
+export function createFollowUpTask(
+  task: Pick<Task, "id" | "status" | "closedAt">,
+): Promise<Task> {
+  if (!isTaskLocked(task, Date.now())) {
+    return Promise.reject(
+      new Error("A follow-up is for a task closed on an earlier day."),
+    );
+  }
+  return invoke("create_follow_up_task", { id: task.id });
 }
 
 export function setTaskWorking(id: number, working: boolean): Promise<Task> {

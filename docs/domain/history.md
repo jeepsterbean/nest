@@ -31,13 +31,16 @@ Saved brain dumps count by their recorded time. A dump carrying several Tags
 contributes to each Tag count and once to the total; untagged dumps have their
 own count. Phase totals sum settled sessions clipped to the range and live end.
 
-Task outcomes use status at the range's end:
+An outcome is what a Task came to within a range, so one Task can have a
+different outcome on each day. Outcomes use status at the range's end:
 
 - Completed / Cancelled: a closure inside the range that remains that outcome
   at its end, including Tasks with zero Worked time.
 - Incomplete: other Tasks with Worked time in the range that end it open.
 
-The three groups are exclusive. A closure reopened within the range contributes
+The three groups are exclusive. Reopening is limited to the closing day by the
+[lock](tasks.md#closing-and-the-lock), so a finished day's outcomes stay as
+they were. A closure reopened within the range contributes
 no closure outcome; an open Task with zero Worked time is omitted. Week sums
 each Task across its days. Deleted Tasks and their deleted history disappear
 from summaries.
