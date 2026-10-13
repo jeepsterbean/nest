@@ -15,9 +15,11 @@ npm run demo
 ```
 
 This runs Nest as `com.huwenjie.nest.demo`, with its own database and WebView
-storage, and rebuilds the database on every launch with about ten days of
-sample Tasks, Work stretches, Phases, Metric check-ins, and Brain dumps, all
-leading up to today (`src-tauri/src/demo.rs`). Quit the
+storage, and rebuilds the database on every launch with ten days of sample
+Tasks, Work stretches, Phases, Metric check-ins, and Brain dumps leading up to
+today. The Task story includes today's open work and status changes, older
+closed Tasks, Blockers, and a Follow-up; events scheduled later today appear
+only after their time has passed (`src-tauri/src/demo.rs`). Quit the
 regular Nest first so ⌘⇧E and the menu bar belong to the demo. The demo's
 windows live in `src-tauri/tauri.demo.conf.json`; keep them in step with
 `tauri.conf.json`.

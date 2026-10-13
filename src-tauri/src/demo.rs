@@ -74,8 +74,7 @@ pub fn seed(conn: &mut Connection, now: i64) -> Result<()> {
             .unwrap_or(today_start - days_ago * 86_400)
     };
 
-    style_phases(&tx)?;
-    let tasks = seed_tasks(&tx, &day_start)?;
+    let tasks = seed_tasks(&tx, &day_start, cutoff)?;
     seed_days(&tx, &days, cutoff, &tasks)?;
     let metrics = seed_metrics_and_pulses(&tx)?;
     seed_metric_check_ins(&tx, &days, cutoff, &metrics)?;
@@ -105,21 +104,6 @@ fn noise(seed: u64) -> u64 {
 
 const fn hm(hours: i64, minutes: i64) -> i64 {
     hours * 60 + minutes
-}
-
-fn style_phases(tx: &Transaction) -> Result<()> {
-    for (name, icon, color) in [
-        ("Doing", "target", "#35764e"),
-        ("Scoping", "compass", "#c47a3a"),
-        ("Resting", "sofa", "#5f8fb8"),
-        ("Offline", "moon", "#6872bd"),
-    ] {
-        tx.execute(
-            "UPDATE phases SET icon = ?1, color = ?2 WHERE name = ?3",
-            params![icon, color, name],
-        )?;
-    }
-    Ok(())
 }
 
 struct TaskSeed {
@@ -194,7 +178,7 @@ const TASKS: &[TaskSeed] = &[
         value: Some(3),
         effort: Some(2),
         parent: None,
-        history: &[(9, hm(9, 0), "active")],
+        history: &[(9, hm(9, 0), "active"), (0, hm(12, 15), "completed")],
     },
     TaskSeed {
         key: "spanish",
@@ -296,23 +280,69 @@ const TASKS: &[TaskSeed] = &[
         parent: None,
         history: &[(6, hm(12, 30), "backlog"), (2, hm(12, 20), "cancelled")],
     },
+    TaskSeed {
+        key: "library_follow_up",
+        title: "Return library books",
+        description: "Take back the book I picked up on the last visit.",
+        scope: Some("Errands"),
+        value: Some(2),
+        effort: Some(1),
+        parent: None,
+        history: &[(1, hm(14, 10), "backlog"), (0, hm(9, 30), "up_next")],
+    },
+    TaskSeed {
+        key: "basil",
+        title: "Water the basil",
+        description: "The kitchen pot dries out quickly.",
+        scope: Some("Home / Garden"),
+        value: Some(2),
+        effort: Some(1),
+        parent: None,
+        history: &[(1, hm(18, 30), "up_next"), (0, hm(9, 40), "completed")],
+    },
+    TaskSeed {
+        key: "case_study_photos",
+        title: "Pick photos for the case study",
+        description: "Choose a few images that show the field work clearly.",
+        scope: Some("Work / Portfolio"),
+        value: Some(4),
+        effort: Some(2),
+        parent: Some("portfolio"),
+        history: &[(0, hm(9, 15), "up_next")],
+    },
+    TaskSeed {
+        key: "notebook",
+        title: "Replace the field notebook",
+        description: "The current one still has plenty of pages.",
+        scope: Some("Errands"),
+        value: Some(1),
+        effort: Some(1),
+        parent: None,
+        history: &[(1, hm(16, 20), "backlog"), (0, hm(10, 10), "cancelled")],
+    },
 ];
 
 /// (Blocker, Dependent)
 const BLOCKERS: &[(&str, &str)] = &[("case_study", "publish"), ("photos", "passport")];
+/// (Original, Follow-up)
+const FOLLOW_UPS: &[(&str, &str)] = &[("library", "library_follow_up")];
 
 /// Status changes resolved to timestamps, used to decide which Tasks could be
 /// Working now during a seeded Doing block.
 type StatusTimelines = HashMap<&'static str, (i64, Vec<(i64, &'static str)>)>;
 
-fn seed_tasks(tx: &Transaction, day_start: &dyn Fn(i64) -> i64) -> Result<StatusTimelines> {
+fn seed_tasks(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i64) -> Result<StatusTimelines> {
     let mut timelines: StatusTimelines = HashMap::new();
     for (sort_order, task) in TASKS.iter().enumerate() {
         let events: Vec<(i64, &str)> = task
             .history
             .iter()
             .map(|&(days_ago, minute, status)| (day_start(days_ago) + minute * 60, status))
+            .filter(|(at, _)| *at < cutoff)
             .collect();
+        if events.is_empty() {
+            continue;
+        }
         let (created_at, _) = events[0];
         let (updated_at, status) = *events.last().unwrap();
         let parent_id = task.parent.map(|key| timelines[key].0);
@@ -345,6 +375,12 @@ fn seed_tasks(tx: &Transaction, day_start: &dyn Fn(i64) -> i64) -> Result<Status
             from_status = Some(to_status);
         }
         timelines.insert(task.key, (id, events));
+    }
+    for &(original, follow_up) in FOLLOW_UPS {
+        tx.execute(
+            "UPDATE tasks SET follows_task_id = ?1 WHERE id = ?2",
+            params![timelines[original].0, timelines[follow_up].0],
+        )?;
     }
     for &(blocker, dependent) in BLOCKERS {
         let created_at = timelines[dependent].1[0].0;
@@ -686,12 +722,16 @@ mod tests {
 
     const NOW: i64 = 1_791_385_200;
 
-    fn seeded() -> Connection {
+    fn seeded_at(now: i64) -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations().to_latest(&mut conn).unwrap();
-        seed(&mut conn, NOW).unwrap();
+        seed(&mut conn, now).unwrap();
         conn
+    }
+
+    fn seeded() -> Connection {
+        seeded_at(NOW)
     }
 
     fn count(conn: &Connection, sql: &str) -> i64 {
@@ -701,7 +741,7 @@ mod tests {
     #[test]
     fn seeds_every_surface_without_breaking_constraints() {
         let conn = seeded();
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM tasks"), TASKS.len() as i64);
+        assert!(count(&conn, "SELECT COUNT(*) FROM tasks") >= TASKS.len() as i64 - 1);
         assert!(count(&conn, "SELECT COUNT(*) FROM task_work_stretches") > 20);
         assert!(count(&conn, "SELECT COUNT(*) FROM phase_check_ins") > 50);
         assert!(count(&conn, "SELECT COUNT(*) FROM metric_check_ins") > 30);
@@ -729,6 +769,7 @@ mod tests {
             "SELECT MAX(created_at) FROM metric_check_ins",
             "SELECT MAX(created_at) FROM brain_dumps",
             "SELECT MAX(created_at) FROM task_status_events",
+            "SELECT MAX(created_at) FROM tasks",
         ] {
             assert!(count(&conn, sql) <= NOW, "{sql}");
         }
@@ -775,6 +816,78 @@ mod tests {
         assert!(!case_study.working_now);
         let headshot = tasks.iter().find(|t| t.title == "Update headshot").unwrap();
         assert_eq!(headshot.worked_seconds, 0);
+    }
+
+    #[test]
+    fn recent_task_history_shows_day_outcomes_and_a_follow_up() {
+        let clock = Connection::open_in_memory().unwrap();
+        let today = local_day_start(&clock, NOW).unwrap();
+        let conn = seeded_at(today + 12 * 3600);
+        for status in ["completed", "cancelled"] {
+            assert!(count(
+                &conn,
+                &format!(
+                    "SELECT COUNT(*) FROM task_status_events WHERE to_status = '{status}' AND created_at >= {today}"
+                ),
+            ) > 0);
+        }
+        assert!(
+            count(
+                &conn,
+                &format!("SELECT COUNT(*) FROM tasks WHERE created_at >= {today}"),
+            ) > 0
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM tasks follow_up \
+                 JOIN tasks original ON original.id = follow_up.follows_task_id \
+                 WHERE follow_up.title = original.title \
+                   AND follow_up.status IN ('backlog', 'up_next', 'active') \
+                   AND original.status = 'completed'"
+            ),
+            1
+        );
+    }
+
+    #[test]
+    fn early_launch_keeps_today_events_in_the_past() {
+        let clock = Connection::open_in_memory().unwrap();
+        let now = local_day_start(&clock, NOW).unwrap() + 3600;
+        let conn = seeded_at(now);
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM tasks WHERE title = 'Pick photos for the case study'"
+            ),
+            0
+        );
+        assert!(count(&conn, "SELECT MAX(created_at) FROM task_status_events") <= now);
+        assert!(count(&conn, "SELECT MAX(created_at) FROM tasks") <= now);
+    }
+
+    #[test]
+    fn phase_appearance_matches_the_fixed_guide() {
+        let conn = seeded();
+        let appearance: Vec<(String, String, String)> = conn
+            .prepare(
+                "SELECT name, icon, color FROM phases WHERE inactive_since IS NULL ORDER BY name",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            appearance,
+            [
+                ("Doing", "target", "#5f8fb8"),
+                ("Offline", "moon", "#8a8580"),
+                ("Resting", "coffee", "#35764e"),
+                ("Scoping", "idea", "#c18e43"),
+            ]
+            .map(|(name, icon, color)| (name.into(), icon.into(), color.into()))
+        );
     }
 
     #[test]
