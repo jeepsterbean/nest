@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   addMetricToPulse,
   createMetric,
-  createPulse,
+  createPulseWithMetrics,
   deletePulse,
   listMetricCheckIns,
   removeMetricFromPulse,
@@ -564,8 +564,7 @@ export function MetricsView({ sectionSidebar, visible }: { sectionSidebar: HTMLE
     event.preventDefault();
     const name = newPulseName.trim();
     if (!name || creatingPulse) return;
-    // Metric names are unique in SQLite. Catching a clash here keeps a doomed
-    // save from first storing the Metrics listed ahead of it.
+    // Rust rejects a name clash too; this message names the Metric plainly.
     const draftMetricIds = new Set(newPulseMetrics.map((metric) => metric.id));
     const takenNames = new Set(metrics.filter((metric) => !draftMetricIds.has(metric.id)).map((metric) => metric.name));
     const clashingMetric = newPulseMetrics.find((metric) => {
@@ -579,39 +578,30 @@ export function MetricsView({ sectionSidebar, visible }: { sectionSidebar: HTMLE
     }
     setCreatingPulse(true);
     try {
-      const created = await mutate(async () => {
-        const pulse = await createPulse(name);
-        try {
-          await setPulseIcon(pulse.id, newPulseIcon);
-          for (const metric of newPulseMetrics) {
-            const saved = metric.id < 0 ? await createMetric(metric.name) : metric;
-            if (metric.id < 0) {
-              // Keep newly saved Metrics in the draft so a retry reuses them.
-              setNewPulseMetrics((items) => items.map((item) => item.id === metric.id ? { ...item, id: saved.id, createdAt: saved.createdAt } : item));
-            }
-            if (metric.id > 0 && metricsById.get(metric.id)?.name !== metric.name) await renameMetric(saved.id, metric.name);
-            await setMetricIcon(saved.id, metric.icon);
-            await setMetricColor(saved.id, metric.color);
-            await addMetricToPulse(pulse.id, saved.id);
-          }
-        } catch (error) {
-          // A failed setup must leave creation retryable instead of a partial Pulse.
-          // The setup error is the one to report, even when cleanup fails too.
-          await deletePulse(pulse.id).catch(() => undefined);
-          throw error;
-        }
-        setHiddenPulseIds(setPulseVisible(pulse.id, newPulseVisible));
-        setSelectedPulseId(pulse.id);
-      });
-      if (created) {
-        resetPulseDraft();
-        setAddingPulse(false);
-        setEditing(true);
-      } else {
-        // Metrics saved before the failure stay in the draft for a retry, so
-        // the loaded list must show them too, including after Cancel.
-        await reload();
+      let pulse: Pulse;
+      try {
+        pulse = await createPulseWithMetrics(name, newPulseIcon, newPulseMetrics.map((metric) => {
+          const { id, icon, color } = metric;
+          return id < 0
+            ? { kind: "new", name: metric.name, icon, color }
+            : { kind: "existing", id, name: metric.name, icon, color };
+        }));
+      } catch (error) {
+        setError(String(error));
+        return;
       }
+      await reload();
+      // Show in popup lives in localStorage, outside the saved Pulse. A failed
+      // write there must not report the stored Pulse as a failed creation.
+      try {
+        setHiddenPulseIds(setPulseVisible(pulse.id, newPulseVisible));
+      } catch {
+        setError(`${pulse.name} was created, but its Show in popup choice could not be saved.`);
+      }
+      setSelectedPulseId(pulse.id);
+      resetPulseDraft();
+      setAddingPulse(false);
+      setEditing(true);
     } finally {
       setCreatingPulse(false);
     }

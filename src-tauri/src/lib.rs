@@ -1347,6 +1347,7 @@ pub fn run() {
             commands::metric::set_metric_color,
             commands::metric::list_pulses,
             commands::metric::create_pulse,
+            commands::metric::create_pulse_with_metrics,
             commands::metric::rename_pulse,
             commands::metric::set_pulse_icon,
             commands::metric::delete_pulse,

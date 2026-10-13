@@ -5,6 +5,7 @@ import type {
   MetricCheckInWithRatings,
   MetricRatingInput,
   Pulse,
+  PulseMetricEntry,
 } from "../types";
 
 export function listMetrics(): Promise<Metric[]> {
@@ -33,6 +34,15 @@ export function listPulses(): Promise<Pulse[]> {
 
 export function createPulse(name: string): Promise<Pulse> {
   return invoke("create_pulse", { name });
+}
+
+/** Stores the Pulse, its Metrics, and their memberships together or not at all. */
+export function createPulseWithMetrics(
+  name: string,
+  icon: string,
+  metrics: PulseMetricEntry[],
+): Promise<Pulse> {
+  return invoke("create_pulse_with_metrics", { name, icon, metrics });
 }
 
 export function renamePulse(id: number, name: string): Promise<Pulse> {

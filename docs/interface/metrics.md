@@ -44,8 +44,12 @@ can be added, and new Metrics can be composed, renamed, styled, removed, and
 reordered in the draft. Changes save with `Create pulse` or Enter from the name field; Cancel
 clears the draft and returns to the previous group. Switching to another
 sidebar entry keeps the creation draft for the next visit. Saving disables
-submission and navigation; a failed save keeps the draft available for retry.
-A draft Metric whose name matches another Metric blocks saving with an error.
+submission and navigation. The Pulse, its Metrics, and their memberships save
+together: a failed save stores none of them, undoes draft edits to existing
+Metrics, and keeps the draft available for retry. A draft Metric whose name
+matches another Metric blocks saving with an error. `Show in popup` is a local
+preference written after that save; if writing it fails, the Pulse stays
+created and an error says the choice was not saved.
 Creating a Pulse selects it in Edit. Selecting another entry closes open composers
 and cancels inline renaming. Leaving Edit drops open composers. Pulses hidden
 from the Popup persist in `nest:hidden-pulse-ids`.
