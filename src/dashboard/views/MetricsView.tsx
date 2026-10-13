@@ -477,7 +477,7 @@ export function MetricsView({ sectionSidebar, visible }: { sectionSidebar: HTMLE
   const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
   const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
   const [selectedPulseId, setSelectedPulseId] = useState<number | "unpulsed" | null>(null);
-  const { metrics, pulses, checkIns, mutate } = useDashboardData();
+  const { metrics, pulses, checkIns, mutate, reload, setError } = useDashboardData();
   const [anchorMs, setAnchorMs] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [addingPulse, setAddingPulse] = useState(false);
@@ -564,9 +564,22 @@ export function MetricsView({ sectionSidebar, visible }: { sectionSidebar: HTMLE
     event.preventDefault();
     const name = newPulseName.trim();
     if (!name || creatingPulse) return;
+    // Metric names are unique in SQLite. Catching a clash here keeps a doomed
+    // save from first storing the Metrics listed ahead of it.
+    const draftMetricIds = new Set(newPulseMetrics.map((metric) => metric.id));
+    const takenNames = new Set(metrics.filter((metric) => !draftMetricIds.has(metric.id)).map((metric) => metric.name));
+    const clashingMetric = newPulseMetrics.find((metric) => {
+      if (takenNames.has(metric.name)) return true;
+      takenNames.add(metric.name);
+      return false;
+    });
+    if (clashingMetric) {
+      setError(`A Metric named “${clashingMetric.name}” already exists.`);
+      return;
+    }
     setCreatingPulse(true);
     try {
-      if (await mutate(async () => {
+      const created = await mutate(async () => {
         const pulse = await createPulse(name);
         try {
           await setPulseIcon(pulse.id, newPulseIcon);
@@ -583,15 +596,21 @@ export function MetricsView({ sectionSidebar, visible }: { sectionSidebar: HTMLE
           }
         } catch (error) {
           // A failed setup must leave creation retryable instead of a partial Pulse.
-          await deletePulse(pulse.id);
+          // The setup error is the one to report, even when cleanup fails too.
+          await deletePulse(pulse.id).catch(() => undefined);
           throw error;
         }
         setHiddenPulseIds(setPulseVisible(pulse.id, newPulseVisible));
         setSelectedPulseId(pulse.id);
-      })) {
+      });
+      if (created) {
         resetPulseDraft();
         setAddingPulse(false);
         setEditing(true);
+      } else {
+        // Metrics saved before the failure stay in the draft for a retry, so
+        // the loaded list must show them too, including after Cancel.
+        await reload();
       }
     } finally {
       setCreatingPulse(false);

@@ -89,8 +89,8 @@ portaled menu has to be scoped from a dashboard-level class, as
   `--timeline`).
 - Away from Recap, Brain dump, Tasks, Metrics, and Phases all stay mounted
   (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
-  selection, and drafts survive switches between them. Opening Recap unmounts
-  them.
+  selection, and drafts survive switches between them. Tasks alone returns to
+  Day and closes its Task detail on leaving. Opening Recap unmounts them.
 
 ## Shared surfaces
 

@@ -1,5 +1,5 @@
-import { COLLAPSED_SECTION_SIDEBAR, type Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md#insights
+import { COLLAPSED_SECTION_SIDEBAR, type Section } from "../lib/sections";
 import { useMemo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { PhaseMix } from "../components/DayReflection";
@@ -14,9 +14,6 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { rangeInsight } from "../lib/insights";
 import type { LogKindKey } from "../lib/logs";
-
-// Matches the width in shell.css where the Section sidebar collapses to a
-// strip too thin to hold Insights.
 
 /** Insights for the Recap range. It lives in the Section sidebar, and moves
  * under the figure while that sidebar is collapsed. */
@@ -38,8 +35,6 @@ export function RecapInsights({
   onOpenSection: (section: Section) => void;
 }) {
   const underFigure = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
-  if (!underFigure && !sectionSidebar) return null;
-
   const insights = (
     <div id="recap-insights" className="recap-insights" aria-label="Insights" role="region">
       <InsightsPanel
@@ -52,9 +47,8 @@ export function RecapInsights({
       />
     </div>
   );
-  return underFigure || !sectionSidebar
-    ? insights
-    : createPortal(insights, sectionSidebar);
+  if (underFigure) return insights;
+  return sectionSidebar ? createPortal(insights, sectionSidebar) : null;
 }
 
 /** The review of a range: Brain dumps, Tasks, Metrics, and Phases, stacked in

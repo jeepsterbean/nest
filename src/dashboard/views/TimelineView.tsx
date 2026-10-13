@@ -1,5 +1,5 @@
-import type { Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md#timeline
+import type { Section } from "../lib/sections";
 import {
   useEffect,
   useMemo,

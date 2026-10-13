@@ -1,5 +1,5 @@
-import type { Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md
+import type { Section } from "../lib/sections";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DateNavigation } from "../components/DateNavigation";
 import { useAppSettings } from "../hooks/useAppSettings";

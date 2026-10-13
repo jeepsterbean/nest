@@ -45,6 +45,7 @@ reordered in the draft. Changes save with `Create pulse` or Enter from the name 
 clears the draft and returns to the previous group. Switching to another
 sidebar entry keeps the creation draft for the next visit. Saving disables
 submission and navigation; a failed save keeps the draft available for retry.
+A draft Metric whose name matches another Metric blocks saving with an error.
 Creating a Pulse selects it in Edit. Selecting another entry closes open composers
 and cancels inline renaming. Leaving Edit drops open composers. Pulses hidden
 from the Popup persist in `nest:hidden-pulse-ids`.

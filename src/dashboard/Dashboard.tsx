@@ -137,7 +137,8 @@ function DashboardInner() {
             />
           )}
           {/* Away from Recap, these four stay mounted so filters, selection,
-              and unsent names survive switches between them. */}
+              and unsent names survive switches between them. Tasks alone
+              returns to Day and closes its Task detail on leaving. */}
           {!onRecap && (
             <>
               <div className="section-slot" hidden={section !== "brainDump"}>
