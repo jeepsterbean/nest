@@ -1,6 +1,12 @@
 import { moveItem } from "../../lib/reorder";
 
-export type TaskViewKey = "day" | "table" | "map";
+export const TASK_VIEWS = [
+  { key: "day", label: "Day" },
+  { key: "table", label: "Table" },
+  { key: "map", label: "Map" },
+] as const;
+
+export type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
 
 export const TASK_TABLE_COLUMNS = [
   { id: "title", label: "Title", width: 240, minWidth: 120 },
@@ -84,13 +90,6 @@ export const serializeTaskTableLayout = (columns: TaskTableColumn[]) => ({
   widths: Object.fromEntries(columns.map((column) => [column.id, column.width])),
   hidden: columns.filter((column) => column.hidden).map((column) => column.id),
 });
-
-export const sameHiddenTaskTableColumns = (a: TaskTableColumn[], b: TaskTableColumn[]) => {
-  const hiddenIn = (columns: TaskTableColumn[]) => columns.filter((column) => column.hidden).map((column) => column.id);
-  const hiddenA = hiddenIn(a);
-  const hiddenB = hiddenIn(b);
-  return hiddenA.length === hiddenB.length && hiddenA.every((id) => hiddenB.includes(id));
-};
 
 export const sameTaskTableLayout = (a: TaskTableColumn[], b: TaskTableColumn[]) =>
   a.length === b.length &&
@@ -216,15 +215,6 @@ export const setTaskTableColumnHidden = (
 
 export const showAllTaskTableColumns = (columns: TaskTableColumn[]): TaskTableColumn[] =>
   columns.map(({ hidden: _wasHidden, ...column }) => column);
-
-/** Toolbar pill copy: one hidden column is named, several are counted. */
-// Two names still fit a pill; past that a count scans faster and hover lists them.
-export const HIDDEN_COLUMN_NAMES_LIMIT = 2;
-
-export const hiddenColumnsLabel = (hidden: TaskTableColumn[]) =>
-  hidden.length <= HIDDEN_COLUMN_NAMES_LIMIT
-    ? hidden.map((column) => column.label).join(", ")
-    : `${hidden.length} hidden`;
 
 export const moveTaskTableColumn = (
   columns: TaskTableColumn[],

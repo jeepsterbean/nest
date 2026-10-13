@@ -6,18 +6,21 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
-import { eyeOffIcon, plusIcon } from "../components/icons";
+import { plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
 import { DateNavigation } from "../components/DateNavigation";
+import { ViewToggle } from "../components/ViewToggle";
 import {
   HISTORY_WINDOW_DAYS,
   useDashboardData,
 } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
@@ -28,11 +31,10 @@ import {
   stepSelectedDay,
 } from "../lib/dateNavigation";
 import { scopeMatches } from "../lib/scope";
+import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
 import {
   canHideTaskTableColumn,
-  HIDDEN_COLUMN_NAMES_LIMIT,
-  hiddenColumnsLabel,
-  sameHiddenTaskTableColumns,
+  TASK_VIEWS,
   visibleTaskViewFor,
   type TaskTableColumn,
   type TaskViewKey,
@@ -62,17 +64,23 @@ import { TaskTable } from "../task/TaskTable";
 import { TaskWorkedOnFilter } from "../task/TaskWorkedOnFilter";
 import { TaskViewPicker } from "../task/TaskViewPicker";
 
-type TableQueryPill = {
+type TableFilterRule = {
   field: keyof TaskTableQuery;
   name: string;
   value: string;
   remove: () => void;
 };
 
-const optionalPill = (field: TableQueryPill["field"], name: string, value: string | null, remove: () => void): TableQueryPill[] =>
+const optionalRule = (field: TableFilterRule["field"], name: string, value: string | null, remove: () => void): TableFilterRule[] =>
   value === null ? [] : [{ field, name, value, remove }];
 
-export function TasksView({ visible }: { visible: boolean }) {
+export function TasksView({
+  sectionSidebar,
+  visible,
+}: {
+  sectionSidebar: HTMLElement | null;
+  visible: boolean;
+}) {
   const {
     tasks,
     taskWorkStretches,
@@ -85,6 +93,33 @@ export function TasksView({ visible }: { visible: boolean }) {
   const [taskView, setTaskView] = useState<TaskViewKey>("day");
   const showTaskMap = useAppSettings().showTaskMap;
   const visibleTaskView = visibleTaskViewFor(taskView, showTaskMap);
+  // Tasks stays mounted while hidden, so it must not fill another Section's
+  // sidebar, and the collapsed sidebar is too thin for these controls.
+  const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
+  const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
+  const [dayIndexSlot, setDayIndexSlot] = useState<HTMLElement | null>(null);
+  // Day and Table are each other's only alternative until Settings shows Map,
+  // so one button naming the other view replaces the switch.
+  const alternativeView = TASK_VIEWS.find(
+    (view) => view.key === (visibleTaskView === "day" ? "table" : "day"),
+  )!;
+  const viewSwitch = showTaskMap ? (
+    <ViewToggle
+      value={visibleTaskView}
+      options={TASK_VIEWS}
+      label="Tasks view"
+      onChange={setTaskView}
+    />
+  ) : (
+    <button
+      type="button"
+      className="task-view-switch"
+      aria-label={`Show ${alternativeView.label} view`}
+      onClick={() => setTaskView(alternativeView.key)}
+    >
+      {alternativeView.label}
+    </button>
+  );
   const [dayAnchorMs, setDayAnchorMs] = useState<number | null>(null);
   const taskTableViews = useTaskTableViews();
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
@@ -276,20 +311,73 @@ export function TasksView({ visible }: { visible: boolean }) {
 
   const changedFields = changedTaskTableQueryFields(taskTableViews.selected.query, tableQuery);
   const filtersEdited = taskTableFiltersEdited(taskTableViews.selected.query, tableQuery);
-  const queryPills = [
-    ...optionalPill("statuses", "Status", matchingTaskStatusPreset(tableStatuses) === "all" ? null : taskStatusFilterLabel(tableStatuses), () => setTableStatuses([...TASK_STATUSES])),
-    ...optionalPill("scope", "Scope", selectedTaskScope, () => setSelectedTaskScope(null)),
-    ...optionalPill("parent", "Parent", selectedParent === null ? null : selectedParent === "none" ? "No parent" : taskGraph.byId.get(selectedParent)?.title ?? "Parent", () => setSelectedParent(null)),
-    ...optionalPill("created", "Created", taskDateFilterLabel(createdFilter, dateNowMs), () => setCreatedFilter(null)),
-    ...optionalPill("updated", "Updated", taskDateFilterLabel(updatedFilter, dateNowMs), () => setUpdatedFilter(null)),
-    ...optionalPill("closed", "Closed", taskDateFilterLabel(closedFilter, dateNowMs), () => setClosedFilter(null)),
-    ...optionalPill("value", "Value", taskScoreFilterLabel(valueFilter), () => setValueFilter(null)),
-    ...optionalPill("effort", "Effort", taskScoreFilterLabel(effortFilter), () => setEffortFilter(null)),
-    ...optionalPill("workedOn", "Worked on", taskDateFilterLabel(workedOnFilter, dateNowMs), () => setWorkedOnFilter(null)),
-    ...optionalPill("workedTime", "Worked time", taskWorkedTimeFilterLabel(workedTimeFilter), () => setWorkedTimeFilter(null)),
+  const filterRules = [
+    ...optionalRule("statuses", "Status", matchingTaskStatusPreset(tableStatuses) === "all" ? null : taskStatusFilterLabel(tableStatuses), () => setTableStatuses([...TASK_STATUSES])),
+    ...optionalRule("scope", "Scope", selectedTaskScope, () => setSelectedTaskScope(null)),
+    ...optionalRule("parent", "Parent", selectedParent === null ? null : selectedParent === "none" ? "No parent" : taskGraph.byId.get(selectedParent)?.title ?? "Parent", () => setSelectedParent(null)),
+    ...optionalRule("created", "Created", taskDateFilterLabel(createdFilter, dateNowMs), () => setCreatedFilter(null)),
+    ...optionalRule("updated", "Updated", taskDateFilterLabel(updatedFilter, dateNowMs), () => setUpdatedFilter(null)),
+    ...optionalRule("closed", "Closed", taskDateFilterLabel(closedFilter, dateNowMs), () => setClosedFilter(null)),
+    ...optionalRule("value", "Value", taskScoreFilterLabel(valueFilter), () => setValueFilter(null)),
+    ...optionalRule("effort", "Effort", taskScoreFilterLabel(effortFilter), () => setEffortFilter(null)),
+    ...optionalRule("workedTime", "Worked time", taskWorkedTimeFilterLabel(workedTimeFilter), () => setWorkedTimeFilter(null)),
   ];
-  const hasHiddenColumns = tableColumns.hiddenColumns.length > 0;
-  const hiddenColumnsEdited = !sameHiddenTaskTableColumns(taskTableViews.selected.query.columns, tableQuery.columns);
+  const savedHiddenColumnIds = new Set(
+    taskTableViews.selected.query.columns.filter(column => column.hidden).map(column => column.id),
+  );
+
+  const newTaskButton = loaded && visibleTaskView !== "map" && (
+    <button
+      ref={newTaskButtonRef}
+      type="button"
+      className="task-new-button"
+      aria-label="New task"
+      title="New task"
+      aria-haspopup="dialog"
+      aria-expanded={creatingTask}
+      onClick={openTaskCreate}
+    >
+      {plusIcon}
+      New task
+    </button>
+  );
+
+  const tableQueryPanel = (
+    <div className="task-query">
+      <div className="task-query__pickers">
+        <TaskViewPicker views={taskTableViews} />
+        <div className="task-query__result">
+          <span className="task-filter-result" role="status">
+            {workedOnLoading ? "Loading work history…" : workedOnFailed ? "Work history unavailable" : filtersEdited
+              ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
+              : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`}
+          </span>
+          {workedOnFailed && <button type="button" className="task-filter-retry" onClick={retryWorkedOn}>Retry</button>}
+        </div>
+      </div>
+      <TaskFilterRules rules={filterRules.map(rule => ({ ...rule, edited: changedFields.has(rule.field) }))}>
+        <TaskWorkedOnFilter filter={workedOnFilter} onChange={setWorkedOnFilter}
+          nowMs={dateNowMs} edited={changedFields.has("workedOn")}
+          open={openHeaderMenu === "workedOn"}
+          onOpenChange={open => setOpenHeaderMenu(open ? "workedOn" : null)} />
+      </TaskFilterRules>
+      <TaskSortRules rules={tableSort} savedRules={taskTableViews.selected.query.sort} onChange={setTableSort} />
+      {tableColumns.hiddenColumns.length > 0 && <section className="task-query__group" aria-label="Hidden columns">
+        <div className="task-query__head">
+          <h3>Hidden</h3>
+          {tableColumns.hiddenColumns.length > 1 && <button type="button" className="task-views__link" onClick={tableColumns.showAllColumns}>Show all</button>}
+        </div>
+        <ul className="task-query__chips">{tableColumns.hiddenColumns.map(column => <li key={column.id}>
+          <button type="button" className={`task-query-chip${savedHiddenColumnIds.has(column.id) ? "" : " is-edited"}`}
+            aria-label={`Show ${column.label} column`}
+            title={savedHiddenColumnIds.has(column.id) ? `Show ${column.label} column` : `Show ${column.label} column (unsaved)`}
+            onClick={() => tableColumns.showColumn(column.id)}>
+            {column.label}<span aria-hidden="true">×</span>
+          </button>
+        </li>)}</ul>
+      </section>}
+    </div>
+  );
 
   const composerForm = (
     <form className="task-composer" onSubmit={onComposerSubmit}>
@@ -315,6 +403,15 @@ export function TasksView({ visible }: { visible: boolean }) {
 
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded || workedOnLoading}>
+      {sidebar && createPortal(
+        <>
+          {newTaskButton}
+          {loaded && visibleTaskView === "table"
+            ? tableQueryPanel
+            : <div className="task-sidebar__day" ref={setDayIndexSlot} />}
+        </>,
+        sidebar,
+      )}
       <header className="dash-section__head task-header">
         {loaded && visibleTaskView === "day" && (
           <DateNavigation
@@ -329,28 +426,8 @@ export function TasksView({ visible }: { visible: boolean }) {
           />
         )}
         <div className="task-header__actions">
-          {loaded && visibleTaskView !== "map" && (
-            <button
-              ref={newTaskButtonRef}
-              type="button"
-              className="task-new-button"
-              aria-label="New task"
-              title="New task"
-              aria-haspopup="dialog"
-              aria-expanded={creatingTask}
-              onClick={openTaskCreate}
-            >
-              {plusIcon}
-              New task
-            </button>
-          )}
-          <button
-            type="button"
-            className="task-view-button"
-            onClick={() => setTaskView(visibleTaskView === "day" ? "table" : "day")}
-          >
-            {visibleTaskView === "day" ? "Table" : "Day"}
-          </button>
+          {!sidebar && newTaskButton}
+          {viewSwitch}
         </div>
       </header>
 
@@ -368,6 +445,7 @@ export function TasksView({ visible }: { visible: boolean }) {
                 tasks={tasks}
                 taskGraph={taskGraph}
                 workStretches={taskWorkStretches}
+                indexSlot={dayIndexSlot}
                 onSelectTask={selectTask}
               />
             )}
@@ -381,39 +459,7 @@ export function TasksView({ visible }: { visible: boolean }) {
             )}
             {visibleTaskView === "table" && (
               <>
-                <div className="task-table-toolbar">
-                  <div className="task-table-toolbar__query">
-                    <TaskViewPicker views={taskTableViews} />
-                    <TaskWorkedOnFilter filter={workedOnFilter} onChange={setWorkedOnFilter}
-                      nowMs={dateNowMs} edited={changedFields.has("workedOn")}
-                      open={openHeaderMenu === "workedOn"}
-                      onOpenChange={open => setOpenHeaderMenu(open ? "workedOn" : null)} />
-                    {(queryPills.length > 0 || tableSort.length > 0 || hasHiddenColumns) && <div className="task-table-toolbar__pills" aria-label="Active filters, sorting and hidden columns">
-                      <TaskFilterRules rules={queryPills.map(pill => ({ ...pill, edited: changedFields.has(pill.field) }))} />
-                      {tableSort.length > 0 && <TaskSortRules rules={tableSort} savedRules={taskTableViews.selected.query.sort} onChange={setTableSort} edited={changedFields.has("sort")} />}
-                      {hasHiddenColumns && <span className={`task-filter-pill task-filter-pill--columns${hiddenColumnsEdited ? " is-edited" : ""}`}>
-                        <span className="task-filter-pill__icon" aria-hidden="true">{eyeOffIcon}</span>
-                        <span className="task-filter-pill__value" aria-label={`Hidden columns: ${tableColumns.hiddenColumns.map(column => column.label).join(", ")}`}>
-                          {hiddenColumnsLabel(tableColumns.hiddenColumns)}
-                        </span>
-                        {tableColumns.hiddenColumns.length > HIDDEN_COLUMN_NAMES_LIMIT && <span className="task-filter-pill__names">
-                          <span className="task-filter-pill__names-title">Hidden columns</span>
-                          <ul>{tableColumns.hiddenColumns.map(column => <li key={column.id}>
-                            <span>{column.label}</span>
-                            <button type="button" aria-label={`Show ${column.label} column`} onClick={() => tableColumns.showColumn(column.id)}>×</button>
-                          </li>)}</ul>
-                        </span>}
-                        <button type="button" aria-label="Show all columns" onClick={tableColumns.showAllColumns}>×</button>
-                      </span>}
-                    </div>}
-                    <span className="task-filter-result" role="status">
-                      {workedOnLoading ? "Loading work history…" : workedOnFailed ? "Work history unavailable" : filtersEdited
-                        ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
-                        : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`}
-                    </span>
-                    {workedOnFailed && <button type="button" className="task-filter-retry" onClick={retryWorkedOn}>Retry</button>}
-                  </div>
-                </div>
+                {!sidebar && tableQueryPanel}
                 <TaskTable
                 wrapRef={tableColumns.wrapRef}
                 columns={tableColumns.visibleColumns}

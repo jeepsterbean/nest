@@ -59,6 +59,28 @@ export function taskDayTableFilters(dayMs: number) {
   } satisfies Record<string, TaskTableRowFilters>;
 }
 
+/** A list Day can show: one stat's Tasks, or today's open Tasks. */
+export type TaskDayListKey = keyof TaskDaySummary | "open";
+
+// Worked on leads because a past day is mostly read for where the time went.
+const PAST_DAY_LIST_ORDER = ["workedOn", "completed", "created", "cancelled"] as const;
+
+/**
+ * The list Day shows for a day. The chosen list is kept while paging and
+ * yields only on a day where it has nothing to show, so an empty stat never
+ * hides a day's other Tasks.
+ */
+export function shownTaskDayList(
+  chosen: TaskDayListKey | null,
+  isToday: boolean,
+  summary: TaskDaySummary,
+): TaskDayListKey {
+  if (chosen === "open" && isToday) return chosen;
+  if (chosen !== null && chosen !== "open" && summary[chosen] > 0) return chosen;
+  if (isToday) return "open";
+  return PAST_DAY_LIST_ORDER.find((key) => summary[key] > 0) ?? "workedOn";
+}
+
 const latestFirst = (rows: TaskDayStatusRow[]) =>
   rows.sort((a, b) => b.at - a.at || b.taskId - a.taskId);
 

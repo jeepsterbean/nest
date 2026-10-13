@@ -7,6 +7,7 @@ import type {
 import {
   buildOpenTaskGroups,
   buildTaskDay,
+  shownTaskDayList,
   taskDayTableFilters,
 } from "../../../src/dashboard/lib/taskDay";
 import { buildTaskGraph } from "../../../src/dashboard/lib/taskGraph";
@@ -224,5 +225,28 @@ describe("open task groups", () => {
     expect(groups[1].rows[0].unresolvedBlockerCount).toBe(0);
     expect(groups.flatMap((group) => group.rows).map((row) => row.task.id))
       .not.toContain(5);
+  });
+});
+
+describe("shownTaskDayList", () => {
+  const summary = { created: 0, completed: 2, cancelled: 0, incomplete: 0, workedOn: 0 };
+  const quietDay = { ...summary, completed: 0 };
+
+  it("opens today on Open and a past day on its first stat with Tasks", () => {
+    expect(shownTaskDayList(null, true, summary)).toBe("open");
+    expect(shownTaskDayList(null, false, summary)).toBe("completed");
+    expect(shownTaskDayList(null, false, { ...summary, workedOn: 1 })).toBe("workedOn");
+    expect(shownTaskDayList(null, false, quietDay)).toBe("workedOn");
+  });
+
+  it("keeps the chosen list only on a day where it has Tasks", () => {
+    expect(shownTaskDayList("completed", true, summary)).toBe("completed");
+    expect(shownTaskDayList("created", true, summary)).toBe("open");
+    expect(shownTaskDayList("created", false, summary)).toBe("completed");
+  });
+
+  it("shows Open on today only", () => {
+    expect(shownTaskDayList("open", true, quietDay)).toBe("open");
+    expect(shownTaskDayList("open", false, summary)).toBe("completed");
   });
 });

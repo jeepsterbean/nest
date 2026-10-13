@@ -65,14 +65,17 @@ export function TaskWorkedOnFilter({ filter, onChange, nowMs, edited, open, onOp
   }, [open, onOpenChange]);
 
   return <>
-    <button ref={triggerRef} type="button"
-      className={`task-views__trigger task-worked-on-trigger${edited ? " is-edited" : ""}`}
-      aria-label={`Worked on: ${label}`} title={`Worked on: ${label}`}
-      aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
-      onClick={() => onOpenChange(!open)}>
-      <span>Worked on</span><span className="task-worked-on-trigger__value">{label}</span>
-      <span aria-hidden="true">{chevronDownIcon}</span>
-    </button>
+    <li className={`task-query-rule task-query-rule--worked-on${filter ? "" : " is-unset"}${edited ? " is-edited" : ""}`}>
+      <button ref={triggerRef} type="button" className="task-worked-on-trigger"
+        aria-label={`Worked on: ${label}`} title={edited ? `Worked on: ${label} (unsaved)` : `Worked on: ${label}`}
+        aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
+        onClick={() => onOpenChange(!open)}>
+        <span className="task-query-rule__field">Worked on</span>
+        <span className="task-query-rule__value">{label}</span>
+        <span className="task-views__chevron" aria-hidden="true">{chevronDownIcon}</span>
+      </button>
+      {filter && <button type="button" className="task-query-rule__remove" aria-label={`Remove Worked on: ${label}`} onClick={() => onChange(null)}>×</button>}
+    </li>
     {open && box && createPortal(
       <div ref={menuRef} id={menuId} role="dialog" aria-label="Worked on"
         className={`menu-select__menu task-column-menu${box.openUp ? " menu-select__menu--up" : ""}`}

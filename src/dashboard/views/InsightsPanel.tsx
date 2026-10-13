@@ -1,4 +1,4 @@
-import type { Section } from "../lib/sections";
+import { COLLAPSED_SECTION_SIDEBAR, type Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md#insights
 import { useMemo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -17,7 +17,6 @@ import type { LogKindKey } from "../lib/logs";
 
 // Matches the width in shell.css where the Section sidebar collapses to a
 // strip too thin to hold Insights.
-const COLLAPSED_SECTION_SIDEBAR = "(max-width: 600px)";
 
 /** Insights for the Recap range. It lives in the Section sidebar, and moves
  * under the figure while that sidebar is collapsed. */

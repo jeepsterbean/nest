@@ -144,10 +144,10 @@ function DashboardInner() {
                 <BrainDumpView sectionSidebar={sectionSidebar} visible={section === "brainDump"} />
               </div>
               <div className="section-slot" hidden={section !== "tasks"}>
-                <TasksView visible={section === "tasks"} />
+                <TasksView sectionSidebar={sectionSidebar} visible={section === "tasks"} />
               </div>
               <div className="section-slot" hidden={section !== "metrics"}>
-                <MetricsView />
+                <MetricsView sectionSidebar={sectionSidebar} visible={section === "metrics"} />
               </div>
               <div className="section-slot" hidden={section !== "phases"}>
                 <PhasesView />

@@ -77,7 +77,10 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Every Section has a Section sidebar, `.section-sidebar`, between the
   Sidebar and `.dashboard__inner`. It shows the Section's name. On Recap, `RecapInsights`
   portals Insights into it under that name, and renders under the figure
-  once the sidebar collapses.
+  once the sidebar collapses. On Tasks, `TasksView` portals "New task" (`.task-new-button`) onto the
+  name's row and, in Table, the query (`.task-query`); in Day, `TaskDay`
+  portals its index (`.task-day-index`) into `.task-sidebar__day`. All three
+  render in the Section's main content once the sidebar collapses.
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.

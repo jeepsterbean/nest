@@ -10,3 +10,6 @@ export type Section = (typeof SECTIONS)[number]["key"];
 
 export const sectionLabel = (section: Section) =>
   SECTIONS.find((item) => item.key === section)!.label;
+
+/** Keep in step with the width where `.section-sidebar` collapses in shell.css. */
+export const COLLAPSED_SECTION_SIDEBAR = "(max-width: 600px)";

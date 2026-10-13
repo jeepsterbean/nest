@@ -1,6 +1,13 @@
 import { useId, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Task, TaskWorkStretch } from "../../lib/types";
-import { buildOpenTaskGroups, buildTaskDay } from "../lib/taskDay";
+import {
+  buildOpenTaskGroups,
+  buildTaskDay,
+  shownTaskDayList,
+  type TaskDayListKey,
+  type TaskDaySummary,
+} from "../lib/taskDay";
 import type { TaskGraphProjection } from "../lib/taskGraph";
 import {
   dayLabel,
@@ -10,15 +17,8 @@ import {
 } from "../lib/time";
 import { TaskDayOpen } from "./TaskDayOpen";
 
-type TaskDayStatKey =
-  | "created"
-  | "completed"
-  | "cancelled"
-  | "incomplete"
-  | "workedOn";
-
 type TaskDayMeasure = {
-  key: TaskDayStatKey;
+  key: keyof TaskDaySummary;
   label: string;
   value: number;
   /** The stat this one is a part of, shown as "of N" beside its value. */
@@ -37,6 +37,7 @@ export function TaskDay({
   tasks,
   taskGraph,
   workStretches,
+  indexSlot,
   onSelectTask,
 }: {
   selectedDayMs: number;
@@ -44,10 +45,12 @@ export function TaskDay({
   tasks: Task[];
   taskGraph: TaskGraphProjection;
   workStretches: TaskWorkStretch[];
+  /** Where the index of lists renders; it sits above the list without one. */
+  indexSlot: HTMLElement | null;
   onSelectTask: (id: number, origin?: HTMLElement) => void;
 }) {
-  const [selectedStat, setSelectedStat] = useState<TaskDayStatKey | null>(null);
-  const detailId = useId();
+  const [chosenList, setChosenList] = useState<TaskDayListKey | null>(null);
+  const listId = useId();
   const label = dayLabel(selectedDayMs / 1000, nowMs);
   const day = buildTaskDay(
     selectedDayMs,
@@ -65,7 +68,7 @@ export function TaskDay({
     taskId: row.taskId,
     meta: formatCompactDuration(row.seconds),
   }));
-  // Each group reads from one history, so its stats can be compared: Changes
+  // Each group reads from one history, so its stats can be compared: Status changes
   // from status events, Work from Work stretches. Incomplete is the part of
   // Worked on still open when the day ended.
   const changes: TaskDayMeasure[] = [
@@ -107,97 +110,110 @@ export function TaskDay({
     },
   ];
   const groups: TaskDayMeasureGroup[] = [
-    { label: "Changes", measures: changes },
+    { label: "Status changes", measures: changes },
     { label: "Work", measures: work },
   ];
   // Open Tasks are a present-tense list; a past day's leftovers already show as Incomplete.
   const isToday = selectedDayMs === startOfDayMs(nowMs / 1000);
-  const openMeasure = [...changes, ...work].find(
-    (measure) => measure.key === selectedStat && measure.rows.length > 0,
+  const openGroups = isToday
+    ? buildOpenTaskGroups(taskGraph, day.worked)
+    : null;
+  const shownList = shownTaskDayList(chosenList, isToday, day.summary);
+  const shownMeasure = [...changes, ...work].find(
+    (measure) => measure.key === shownList,
   );
-
-  return (
-    <div className="task-day">
-      <div
-        className="task-day__summary"
-        role="group"
-        aria-label={`${label} task summary`}
-      >
-        {groups.map((group) => (
-          <section
-            key={group.label}
-            className="task-day__group"
-            aria-label={group.label}
-          >
-            <h3>{group.label}</h3>
-            <ul>
-              {group.measures.map((measure) => (
-                <li key={measure.key}>
-                  <button
-                    type="button"
-                    className={`task-day__measure${
-                      openMeasure?.key === measure.key ? " is-open" : ""
-                    }`}
-                    aria-expanded={
-                      measure.rows.length > 0
-                        ? openMeasure?.key === measure.key
-                        : undefined
-                    }
-                    aria-controls={
-                      measure.rows.length > 0 ? detailId : undefined
-                    }
-                    disabled={measure.rows.length === 0}
-                    onClick={() =>
-                      setSelectedStat((current) =>
-                        current === measure.key ? null : measure.key,
-                      )
-                    }
-                  >
-                    <span>{measure.label}</span>
-                    <strong>
-                      {measure.value}
-                      {measure.outOf !== undefined && measure.outOf > 0 && (
-                        <small> of {measure.outOf}</small>
-                      )}
-                    </strong>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-      {openMeasure && (
-        <section
-          id={detailId}
-          className="task-day__detail"
-          aria-label={`${openMeasure.label} Tasks`}
-        >
-          <h3>{openMeasure.label}</h3>
+  const indexRow = (
+    key: TaskDayListKey,
+    rowLabel: string,
+    count: number,
+    outOf?: number,
+  ) => (
+    <button
+      type="button"
+      className={`task-day-index__row${outOf === undefined ? "" : " task-day-index__row--part"}`}
+      title={outOf === undefined ? undefined : `${count} of ${outOf} Worked on`}
+      aria-pressed={shownList === key}
+      aria-controls={listId}
+      // Open stays selectable at zero so today always has a place to land.
+      disabled={count === 0 && key !== "open"}
+      onClick={() => setChosenList(key)}
+    >
+      <span className="task-day-index__name">{rowLabel}</span>
+      <span className="task-day-index__count">{count}</span>
+    </button>
+  );
+  const index = (
+    <nav className="task-day-index" aria-label={`${label} Task lists`}>
+      {openGroups && (
+        <ul>
+          <li>
+            {indexRow(
+              "open",
+              "Open",
+              openGroups.reduce((total, group) => total + group.rows.length, 0),
+            )}
+          </li>
+        </ul>
+      )}
+      {groups.map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          <h3>{group.label}</h3>
           <ul>
-            {openMeasure.rows.map((row) => (
-              <li key={row.taskId}>
-                <button
-                  type="button"
-                  title="Open task details"
-                  onClick={(event) =>
-                    onSelectTask(row.taskId, event.currentTarget)
-                  }
-                >
-                  <span>{taskTitles.get(row.taskId) ?? `Task ${row.taskId}`}</span>
-                  <span>{row.meta}</span>
-                </button>
+            {group.measures.map((measure) => (
+              <li key={measure.key}>
+                {indexRow(
+                  measure.key,
+                  measure.label,
+                  measure.value,
+                  measure.outOf,
+                )}
               </li>
             ))}
           </ul>
         </section>
-      )}
-      {isToday && (
-        <TaskDayOpen
-          groups={buildOpenTaskGroups(taskGraph, day.worked)}
-          onSelectTask={onSelectTask}
-        />
-      )}
+      ))}
+    </nav>
+  );
+
+  return (
+    <div className="task-day">
+      {indexSlot ? createPortal(index, indexSlot) : index}
+      <div id={listId} className="task-day__list">
+        {shownList === "open" && openGroups ? (
+          <TaskDayOpen groups={openGroups} onSelectTask={onSelectTask} />
+        ) : (
+          shownMeasure && (
+            <section
+              className="task-day__detail"
+              aria-label={`${shownMeasure.label} Tasks`}
+            >
+              <h3>{shownMeasure.label}</h3>
+              {shownMeasure.rows.length === 0 ? (
+                <p className="task-day__empty">Nothing recorded this day.</p>
+              ) : (
+                <ul>
+                  {shownMeasure.rows.map((row) => (
+                    <li key={row.taskId}>
+                      <button
+                        type="button"
+                        title="Open task details"
+                        onClick={(event) =>
+                          onSelectTask(row.taskId, event.currentTarget)
+                        }
+                      >
+                        <span>
+                          {taskTitles.get(row.taskId) ?? `Task ${row.taskId}`}
+                        </span>
+                        <span>{row.meta}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )
+        )}
+      </div>
     </div>
   );
 }

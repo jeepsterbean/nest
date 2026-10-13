@@ -99,7 +99,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
 
 const QUERY_FIELDS = Object.keys(SAME_QUERY_FIELD) as (keyof TaskTableQuery)[];
 
-/** Fields of `query` that differ from `saved`, so the toolbar can mark what Save would change. */
+/** Fields of `query` that differ from `saved`, so the active rules can mark what Save would change. */
 export const changedTaskTableQueryFields = (saved: TaskTableQuery, query: TaskTableQuery) =>
   new Set(QUERY_FIELDS.filter((field) => !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(saved[field], query[field])));
 
@@ -115,7 +115,7 @@ const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuer
   workedTime: "workedTime",
 };
 
-// Includes Worked on, which filters rows from the toolbar instead of a column menu.
+// Includes Worked on, which filters rows from its own control instead of a column menu.
 const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "columns");
 
 /** Whether any row-selection filter differs from the saved view.

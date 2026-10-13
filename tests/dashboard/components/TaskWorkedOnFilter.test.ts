@@ -9,7 +9,7 @@ const props = {
   open: false, onOpenChange: () => {},
 };
 
-describe("Worked on toolbar control", () => {
+describe("Worked on control", () => {
   it("defaults to All dates as an independent control", () => {
     const html = renderToStaticMarkup(createElement(TaskWorkedOnFilter, { ...props, filter: null }));
     expect(html).toContain('aria-label="Worked on: All dates"');

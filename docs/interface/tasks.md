@@ -10,21 +10,30 @@ in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
 
 ## Day
 
-Tasks opens in Day on each visit. The view button offers Table in Day and
-Day in Table. Day is a task-focused daily report over the
-same 30-day history window as Calendar,
+Tasks opens in Day on each visit. The header ends with the view switch: one
+button naming the other of Day and Table, or a Day / Table / Map switch while
+Settings shows Map. Day is a task-focused
+daily report over the same 30-day history window as Calendar,
 paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
 
-The summary has two groups, each read from one history so its stats compare.
-Changes counts Tasks Created, Completed, and Cancelled that day, from status
+The Section sidebar holds the day's index: Open on today, then the stats.
+Day shows one list at a time, the one selected in the index. Today starts on
+Open; a past day starts on the first of Worked on, Completed, Created, and
+Cancelled that has Tasks. A chosen list stays selected while paging days and
+yields to that default on a day where it is empty. A stat with no Tasks cannot
+be selected. Once the Section sidebar collapses, the index sits above the
+list.
+
+The stats form two groups, each read from one history so its stats compare.
+Status changes counts Tasks Created, Completed, and Cancelled that day, from status
 history; a Task closed with no work that day still counts. Work counts distinct
 Tasks Worked on, from Work stretches, and Incomplete as the part of Worked on
-still open when the day ended, shown as "N of" the Worked on count.
+still open when the day ended, listed as a part of Worked on.
 Worked time is shown per Task and not totalled across Tasks.
 Outcomes and clipping follow the
 [range summary rules](../domain/history.md#range-summaries) for a one-day range.
 
-Selecting any non-empty stat reveals the Tasks that contributed to it. Created,
+A stat's list holds the Tasks that contributed to it. Created,
 Completed, and Cancelled show the recorded time; Incomplete and Worked on
 show each Task's Worked time for the day. Selecting a Task opens its
 detail panel. A Task is counted once in each lifecycle stat even if it reaches
@@ -47,7 +56,7 @@ status after its closing day, which is why its status and Closed date now
 give its outcome on that day. Incomplete has no single table query: the
 table cannot select Tasks that were still open when a past day ended.
 
-On today only, Open lists every open Task in Active, Up next, and Backlog
+On today only, the index offers Open, which lists every open Task in Active, Up next, and Backlog
 groups; a past day's leftovers already show as Incomplete. Within a group,
 Working now Tasks lead and [Blocked](../domain/tasks.md#relationships-and-readiness)
 Tasks follow the Ready ones, muted and showing how many unresolved Blockers they
@@ -60,6 +69,11 @@ The table filters by any set of [Task statuses](../domain/tasks.md#fields-and-st
 with Open / Closed / All presets; first visit is the Raw saved view. There is
 no scope sidebar; Scope is a column filter.
 
+The Section sidebar holds the table's query: the saved-view picker, the
+result count, and the [active rules](#active-rules-and-result-count), led by
+the [Worked on control](#filters). Once the Section sidebar collapses, the query sits above
+the table.
+
 ### Saved views
 
 A **saved view** names one table query: the status set, Scope, Parent, Created,
@@ -71,8 +85,8 @@ overwritten, or deleted, so there is always an unfiltered view to fall back to. 
 made while on Raw are never kept; it always loads as built.
 
 Changing any filter, the sort, or the columns after loading a view exposes Save
-and Revert (Save is disabled on Raw), and marks each pill whose filter, sort, or
-hidden columns differ from the saved query; matching the saved query again
+and Revert (Save is disabled on Raw), and marks each rule whose filter, sort, or
+hidden column differs from the saved query; matching the saved query again
 clears it. Choosing another view switches without asking and drops unsaved
 changes. The picker's "Save current as view" row names the current query as a
 new view and selects it; it is disabled while the table still matches the
@@ -129,8 +143,8 @@ Closed date, so any Closed filter leaves it out. Value and Effort offer All, Non
 scores 1–5; All shows every Task and ticks every score, None only unscored, and
 the numbers are a set of scored values.
 
-The table toolbar offers a standalone **Worked on** date control beside the
-saved-view picker. It defaults to All dates and uses the same date presets and
+The table query offers a standalone **Worked on** date control as the first
+Filters row, shown whether or not it is set. It defaults to All dates and uses the same date presets and
 From / To calendar days as the date columns. The control stays open while
 choosing dates and closes on an outside press, Escape, or outside scrolling.
 A Task matches
@@ -145,7 +159,7 @@ history arrives.
 With Worked on set, the column reads “Worked time in range”; its values,
 sorting, and duration filter all use Worked time clipped to that range,
 following [history range rules](../domain/history.md#records-and-ranges).
-Reset in the Worked on control, choosing All dates, or removing its query pill
+Reset in the Worked on control, choosing All dates, or removing its filter rule
 clears the date filter and restores all-time Worked time. The Worked time
 column menu resets its duration filter and sort independently.
 Created, Updated, and Closed only select rows and leave the Worked time period unchanged. Saved views keep
@@ -158,34 +172,31 @@ captured when the flyout opens so a live Working now total cannot move the
 stops; matching still uses the displayed time for the active range or all time,
 rounded down to whole minutes, with an inclusive threshold. For example, Less than 32m includes 32m59s.
 
-### Query pills and result count
+### Active rules and result count
 
 The count reads `42 tasks` for the current result, or `42 out of 380 tasks` when
 an active filter differs from the saved view; sort and column edits keep the
-simple count. Pills summarize active filters, sorting, and hidden columns. Each
-pill's remove button shows on hover or focus; removing Status selects all
-statuses.
+simple count. Under the picker and the count, Filters and Sort each list their
+active rules one per row. Filters always starts with Worked on; Sort and Hidden
+are left out when empty. Each row's remove button shows on hover or focus;
+removing Status selects all statuses.
 
-Two or more filters use one `Filter: N rules` pill that opens a list of
-individually removable filters, each marked when it differs from the saved
-view. A single sort uses an arrow-and-column pill with a remove button. Two or
-more sorts use one `Sort: N rules` pill that opens a list of those same pills.
-List order determines priority: newly sorted columns append to the list. Drag a
-rule by its grip to reorder it; the focused grip also supports Up / Down arrow
-keys. Directions change through column-header menus; each pill removes its
-rule. Inside the sort list, each rule is marked separately when its column,
+Each filter row is marked when it differs from the saved view. Sort rows are
+listed in priority order: newly sorted columns append to the list. With two or
+more sorts, drag a rule by its grip to reorder it; the focused grip also
+supports Up / Down arrow keys. Directions change through column-header menus;
+each row removes its rule. Each sort rule is marked separately when its column,
 direction, or priority differs from the rule at that position in the saved
 view. Existing saved views with a single sort load it as the first rule.
 
-Hidden columns show as one pill that names up to two columns
-(`Created, Updated`); more show a count (`3 hidden`) and list every name on
-hover, each with its own remove button to show just that column. The pill's
-remove button shows all columns again.
+Hidden lists each hidden column as a button that shows that column again,
+marked when the saved view shows the column. "Show all" appears with two
+or more hidden columns and shows every column again.
 
-Pill values stay short: score sets collapse runs of three or more into a range
+Rule values stay short: score sets collapse runs of three or more into a range
 (`1–3`) and a set missing one interior score into what it leaves out (`≠ 3`); a
 status set missing one status reads `≠ Cancelled`. Longer values are cut off
-with an ellipsis, and the full text is the pill's tooltip.
+with an ellipsis, and the full text is the row's tooltip.
 
 ### Columns
 
@@ -225,7 +236,8 @@ shows whether it is Completed.
 
 ## Creating Tasks
 
-The "New task" button is available in Day and Table and opens
+The "New task" button is available in Day and Table, beside the Section name
+in the Section sidebar and in the header once the sidebar collapses. It opens
 the new-task card as an overlay. Only the name is required; Status (default
 Backlog), Description, Scope, Parent, Value, Effort, and Blockers are optional.
 In Table, a fresh draft takes the view's Status when it shows exactly one and

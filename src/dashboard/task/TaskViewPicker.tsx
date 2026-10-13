@@ -65,7 +65,7 @@ function NameField({ text, label, onChange, onSubmit, onCancel }: {
   </form>;
 }
 
-/** Saved-view picker that leads the Tasks table toolbar: the pills beside it are the view's definition. */
+/** Saved-view picker that leads the Tasks table query: the rules under it are the view's definition. */
 export function TaskViewPicker({ views }: { views: TaskTableViews }) {
   const [saveProblem, setSaveProblem] = useState<SavedTaskViewProblem | null>(null);
   const menuId = useId();

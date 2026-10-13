@@ -6,6 +6,7 @@ import type { BrainDump, Tag } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 import type { DayPickerProps } from "../lib/dayPicker";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
 
 export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext, onToday, dayPicker, tagId, onTagChange, brainDumps, loaded, sectionSidebar, visible }: {
   brainDumps: BrainDump[];
@@ -21,7 +22,7 @@ export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext
   tagId: string;
   onTagChange: (id: string) => void;
 }) {
-  const collapsedSidebar = useMediaQuery("(max-width: 600px)");
+  const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
   const tagCounts = useMemo(() => {
     const counts = new Map<number, number>();
     for (const dump of brainDumps) {

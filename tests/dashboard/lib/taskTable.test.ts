@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fitTaskTableColumns,
-  hiddenColumnsLabel,
   moveTaskTableColumn,
   normalizeTaskTableLayout,
-  sameHiddenTaskTableColumns,
   sameTaskTableLayout,
   serializeTaskTableLayout,
   setTaskTableColumnHidden,
@@ -107,22 +105,13 @@ describe("task table layout", () => {
     expect(layout.filter((column) => column.hidden).map((column) => column.id)).toEqual(["updated"]);
   });
 
-  it("names up to two hidden columns and counts more", () => {
-    const columns = normalizeTaskTableLayout(null);
-    expect(hiddenColumnsLabel(columns.slice(7, 8))).toBe("Created");
-    expect(hiddenColumnsLabel(columns.slice(7, 9))).toBe("Created, Updated");
-    expect(hiddenColumnsLabel(columns.slice(6))).toBe("4 hidden");
-  });
-
-  it("compares layouts by order, width, and hidden, and hidden columns as a set", () => {
+  it("compares layouts by order, width, and hidden", () => {
     const columns = normalizeTaskTableLayout(null);
     expect(sameTaskTableLayout(columns, normalizeTaskTableLayout(null))).toBe(true);
     expect(sameTaskTableLayout(columns, moveTaskTableColumn(columns, "updated", "title"))).toBe(false);
     expect(sameTaskTableLayout(columns, splitTaskTableColumn(columns, "title", 20))).toBe(false);
     const hidden = setTaskTableColumnHidden(columns, "created", true);
     expect(sameTaskTableLayout(columns, hidden)).toBe(false);
-    expect(sameHiddenTaskTableColumns(hidden, moveTaskTableColumn(hidden, "created", "title"))).toBe(true);
-    expect(sameHiddenTaskTableColumns(columns, hidden)).toBe(false);
   });
 });
 
