@@ -1,15 +1,14 @@
-import type { CorePane } from "../lib/corePane";
+import type { Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md#timeline
 import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 import { deleteMetricCheckIn } from "../../lib/commands";
 import {
-  buildLogDayMarkerEvents,
   buildLogsEvents,
-  logDayKeys,
   LOG_EMPTY_COPY,
   LOG_EVENT_BATCH_SIZE,
   MIXED_LOG_EMPTY_COPY,
@@ -25,26 +24,22 @@ import {
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
-import type { RecapPresentation } from "../lib/insights";
 import { dayLabel, historyStartSec } from "../lib/time";
 import { DateNavigation } from "../components/DateNavigation";
-import { DateRangeSidebar } from "../components/DateRangeSidebar";
 import { LogsRawToggle } from "../components/logs/LogKindToggle";
-import { InsightsColumn } from "./InsightsPanel";
+import { RecapInsights } from "./InsightsPanel";
 import { TimelineList } from "./TimelineList";
 
 export function TimelineView({
   range,
-  sidebarTarget,
-  presentation,
-  onPresentation,
-  onOpenCorePane,
+  onOpenSection,
+  recapSwitches,
+  sectionSidebar,
 }: {
   range: ReturnType<typeof useRecapDateRange>;
-  sidebarTarget: HTMLElement | null;
-  presentation: RecapPresentation;
-  onPresentation: (presentation: RecapPresentation) => void;
-  onOpenCorePane: (pane: CorePane) => void;
+  onOpenSection: (section: Section) => void;
+  recapSwitches: ReactNode;
+  sectionSidebar: HTMLElement | null;
 }) {
   const {
     metrics,
@@ -72,26 +67,6 @@ export function TimelineView({
   const showsEveryPhaseCheckpoint = phasesOnly && everyPhaseCheckpoint;
   const nowMs = useCurrentTime();
   const historyFromSec = historyStartSec(nowMs, HISTORY_WINDOW_DAYS);
-  const dayMarkerEvents = useMemo(
-    () =>
-      buildLogDayMarkerEvents(
-        checkIns,
-        phaseCheckIns,
-        brainDumps,
-        taskWorkStretches,
-        historyFromSec,
-        taskStatusEvents,
-      ),
-    [
-      brainDumps,
-      checkIns,
-      historyFromSec,
-      phaseCheckIns,
-      taskWorkStretches,
-      taskStatusEvents,
-    ],
-  );
-
   const listEvents = useMemo(
     () =>
       buildLogsEvents(
@@ -124,7 +99,6 @@ export function TimelineView({
   );
 
   const selectedDayMs = range.columns[0].from * 1000;
-  const markedDays = useMemo(() => new Set(logDayKeys(dayMarkerEvents)), [dayMarkerEvents]);
   useEffect(() => { setVisibleEventCount(LOG_EVENT_BATCH_SIZE); }, [range.from]);
   const { canGoBack, isNow, step, goToday } = range;
   useDatePagingKeys(range);
@@ -161,9 +135,6 @@ export function TimelineView({
 
   return (
     <section className="dash-section dash-section--timeline">
-      <DateRangeSidebar target={sidebarTarget} range={range}
-        presentation={presentation} onPresentation={onPresentation}
-        markedDays={markedDays} onPick={range.goToDay} />
       <div className="dash-toolbar recap-toolbar logs-toolbar">
         <div className="logs-toolbar__row">
           <DateNavigation
@@ -174,6 +145,7 @@ export function TimelineView({
             onPrevious={() => step(-1)}
             onNext={() => step(1)}
             onToday={goToday}
+            picker={range.picker}
           />
           {phasesOnly ? (
             <LogsRawToggle
@@ -181,6 +153,7 @@ export function TimelineView({
               onClick={toggleEveryPhaseCheckpoint}
             />
           ) : null}
+          <div className="recap-toolbar__display">{recapSwitches}</div>
         </div>
       </div>
       <div className="dash-section__body recap-body">
@@ -224,8 +197,9 @@ export function TimelineView({
             </div>
           ) : null}
         </div>
-        <InsightsColumn
-          onOpenCorePane={onOpenCorePane}
+        <RecapInsights
+          sectionSidebar={sectionSidebar}
+          onOpenSection={onOpenSection}
           from={range.from}
           to={range.to}
           nowSec={range.nowSec}

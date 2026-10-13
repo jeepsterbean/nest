@@ -10,11 +10,11 @@ Domain rules live in [Brain dump domain](../domain/brain-dump.md).
 ## Capture
 
 The text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
-and collapsible lists. The popup and the Core Brain dump pane on Today share
+and collapsible lists. The popup and the Brain dump Section on Today share
 the text and selected-tag draft (Cmd/Ctrl+Enter to save), persisted in
-`nest:brain-dump-draft` and `nest:brain-dump-draft-tags`. The Core Today
+`nest:brain-dump-draft` and `nest:brain-dump-draft-tags`. The Today
 composer header shows the current clock time, updating each minute.
-Shift+Enter on the Core Today composer peels the live draft into a floating
+Shift+Enter on the Today composer peels the live draft into a floating
 sticky. The popup browses the five most recent saved dumps. Saved checklist
 boxes show their recorded state in history, Timeline, and Calendar Logs; edit
 the content by forking it into a draft.
@@ -23,9 +23,12 @@ the content by forking it into a draft.
 
 Expanding a saved dump in Timeline opens a read-only sticky, and it closes on
 an outside click or Escape. It has no editing or action controls; collapsible
-lists are unfolded for reading. The Brain dump pane of Core shows one local
+lists are unfolded for reading. The Brain dump Section shows one local
 calendar day through the [shared day navigation](time-surfaces.md#dates-and-ranges). The Tag filter
-has All tags to clear the filter and an Add tag button. Right-clicking a
+lives in the Section sidebar, with one row per Tag and a count of saved dumps
+on the selected day beside each name. All tags clears the filter and shows the
+day’s total. The list scrolls while Add tag stays pinned at the bottom. When
+the sidebar collapses, the filters move above the saved dumps. Right-clicking a
 Tag (or Shift+F10 while focused) opens Rename and Delete actions; deletion asks
 for confirmation.
 History shows saved-sticky previews, newest first, that open the same sticky.
@@ -38,7 +41,7 @@ floating draft (text and Tags).
 
 ## Floating drafts
 
-The Core Today composer can be peeled into movable floating
+The Today composer can be peeled into movable floating
 drafts (Shift+Enter, or the header control) and resized. Each draft has a
 paper color (paper, blush, sage, sky, or lilac) picked from swatches in its
 header; drafts persist in `nest:floating-brain-dumps`.

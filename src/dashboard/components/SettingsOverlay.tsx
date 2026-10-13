@@ -11,6 +11,7 @@ import { NestIcon } from "./PulseIcon";
 const SETTINGS_PAGES = [
   { key: "background", label: "Background" },
   { key: "map", label: "Map" },
+  { key: "workStretch", label: "Work stretch" },
   { key: "icons", label: "Icons" },
 ] as const;
 
@@ -131,10 +132,18 @@ export function SettingsDialog({
                 onChange={(on) => writeAppSettings({ showTaskMap: on })}
               />
             )}
+            {page === "workStretch" && (
+              <SettingsChoice
+                label="Show in Calendar"
+                controlLabel="Show Work stretch in Calendar"
+                on={settings.showWorkStretch}
+                onChange={(on) => writeAppSettings({ showWorkStretch: on })}
+              />
+            )}
             {page === "icons" && (
               <SettingsChoice
-                label="Sidebar and Core"
-                controlLabel="Choose Sidebar and Core icons"
+                label="Sidebar"
+                controlLabel="Choose Sidebar icons"
                 on={settings.iconSelection}
                 onChange={(on) => writeAppSettings({ iconSelection: on })}
               />

@@ -1,6 +1,6 @@
 /* ---------- Tasks ---------- */
 
-/* Menus portal to the dashboard, so the active-pane class also scopes them. */
+/* Menus portal to the dashboard, so the active-Section class also scopes them. */
 .dashboard--tasks .status-dot,
 .dashboard--tasks .menu-select__marker:has(> .status-dot) {
   display: none;
@@ -55,6 +55,15 @@
   gap: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+}
+
+.task-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .task-board__loading {
@@ -837,7 +846,8 @@
   gap: 6px;
 }
 
-.task-new-button {
+.task-new-button,
+.task-view-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -855,8 +865,10 @@
   transition: border-color 0.15s, background 0.15s;
 }
 .task-new-button svg { width: 14px; height: 14px; color: var(--accent); }
-.task-new-button:hover { border-color: var(--accent); background: var(--accent-soft); }
-.task-new-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-new-button:hover,
+.task-view-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.task-new-button:focus-visible,
+.task-view-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @keyframes task-create-fade {
   from { opacity: 0; }

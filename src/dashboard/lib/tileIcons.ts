@@ -3,10 +3,9 @@ import { NEST_ICONS } from "../components/PulseIcon";
 // Named for the retired Overview tiles; kept so saved icon choices carry over.
 export const TILE_ICONS_KEY = "nest:overview-tile-icons";
 
-/** Section and Core pane icons a person can change. */
+/** Section icons a person can change. */
 const CONFIGURABLE_ICON_IDS = [
   "recap",
-  "core",
   "tasks",
   "brainDump",
   "metrics",
@@ -18,7 +17,6 @@ export type TileIcons = Record<ConfigurableIcon, string>;
 
 export const DEFAULT_TILE_ICONS: TileIcons = {
   recap: "date",
-  core: "core",
   tasks: "check",
   brainDump: "brain",
   metrics: "gauge",

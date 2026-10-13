@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  availableTaskViews,
   fitTaskTableColumns,
   hiddenColumnsLabel,
   moveTaskTableColumn,
@@ -8,52 +7,18 @@ import {
   sameHiddenTaskTableColumns,
   sameTaskTableLayout,
   serializeTaskTableLayout,
-  readTaskView,
   setTaskTableColumnHidden,
   showAllTaskTableColumns,
   splitTaskTableColumn,
   TASK_TABLE_COLUMNS,
-  TASK_VIEWS,
   visibleTaskViewFor,
-  writeTaskView,
   type TaskTableColumn,
 } from "../../../src/dashboard/lib/taskTable";
-
-const memory = () => {
-  const values = new Map<string, string>();
-  return {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      values.set(key, value);
-    },
-  };
-};
 
 const defaultIds = TASK_TABLE_COLUMNS.map((column) => column.id);
 
 describe("task view", () => {
-  it("defaults to Day and restores the last saved layout", () => {
-    const storage = memory();
-    expect(TASK_VIEWS.map((view) => view.key)).toEqual(["day", "table", "map"]);
-    expect(readTaskView(storage)).toBe("day");
-    writeTaskView("map", storage);
-    expect(readTaskView(storage)).toBe("map");
-    writeTaskView("table", storage);
-    expect(readTaskView(storage)).toBe("table");
-  });
-
-  it("falls back to Day for an unknown stored view, including retired Kanban", () => {
-    const storage = memory();
-    storage.setItem("nest:task-view", "kanban");
-    expect(readTaskView(storage)).toBe("day");
-  });
-
-  it("offers Map only while Settings shows it", () => {
-    expect(availableTaskViews(false).map((view) => view.key)).toEqual(["day", "table"]);
-    expect(availableTaskViews(true)).toBe(TASK_VIEWS);
-  });
-
-  it("shows Day for a remembered Map choice while Map is hidden", () => {
+  it("shows Day for a Map choice while Map is hidden", () => {
     expect(visibleTaskViewFor("map", false)).toBe("day");
     expect(visibleTaskViewFor("map", true)).toBe("map");
     expect(visibleTaskViewFor("table", false)).toBe("table");

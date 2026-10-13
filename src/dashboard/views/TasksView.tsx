@@ -11,7 +11,7 @@ import type { TaskStatus } from "../../lib/types";
 import { eyeOffIcon, plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
-import { ViewToggle } from "../components/ViewToggle";
+import { DateNavigation } from "../components/DateNavigation";
 import {
   HISTORY_WINDOW_DAYS,
   useDashboardData,
@@ -22,22 +22,20 @@ import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
-import type { CorePaneControls } from "../lib/corePane";
 import {
   boundedDayMs,
+  singleDayPicker,
   stepSelectedDay,
 } from "../lib/dateNavigation";
 import { scopeMatches } from "../lib/scope";
 import {
-  availableTaskViews,
   canHideTaskTableColumn,
   HIDDEN_COLUMN_NAMES_LIMIT,
   hiddenColumnsLabel,
-  readTaskView,
   sameHiddenTaskTableColumns,
   visibleTaskViewFor,
-  writeTaskView,
   type TaskTableColumn,
+  type TaskViewKey,
 } from "../lib/taskTable";
 import {
   TASK_STATUSES,
@@ -51,7 +49,7 @@ import { taskMatchesTableRowFilters } from "../lib/taskTableFilter";
 import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
 import { changedTaskTableQueryFields, taskTableColumnQueryEdited, taskTableFiltersEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
 import { taskMatchesWorkedTimeFilter, taskWorkedTimeFilterLabel, type TaskWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
-import { historyStartSec, startOfDayMs } from "../lib/time";
+import { dayLabel, historyStartSec, startOfDayMs } from "../lib/time";
 import {
   EMPTY_TASK_DRAFT,
   TaskCreateCard,
@@ -74,7 +72,7 @@ type TableQueryPill = {
 const optionalPill = (field: TableQueryPill["field"], name: string, value: string | null, remove: () => void): TableQueryPill[] =>
   value === null ? [] : [{ field, name, value, remove }];
 
-export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
+export function TasksView({ visible }: { visible: boolean }) {
   const {
     tasks,
     taskWorkStretches,
@@ -84,10 +82,9 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     reload,
     setError,
   } = useDashboardData();
-  const [taskView, setTaskView] = useState(readTaskView);
+  const [taskView, setTaskView] = useState<TaskViewKey>("day");
   const showTaskMap = useAppSettings().showTaskMap;
   const visibleTaskView = visibleTaskViewFor(taskView, showTaskMap);
-  const taskViewOptions = availableTaskViews(showTaskMap);
   const [dayAnchorMs, setDayAnchorMs] = useState<number | null>(null);
   const taskTableViews = useTaskTableViews();
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
@@ -183,14 +180,19 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   }, [mapHidden]);
 
   // Escape closes the detail panel, but only once open menus and in-place
-  // editors have had their turn at the key. Core keeps this pane mounted while
-  // hidden, so the handler must not fire from another pane.
-  const tasksPaneVisible = pane === "tasks";
+  // editors have had their turn at the key. Tasks stays mounted while
+  // hidden, so the handler must not fire from another Section.
   useEffect(() => {
-    if (!tasksPaneVisible || visibleTaskView !== "table") setOpenHeaderMenu(null);
-  }, [tasksPaneVisible, visibleTaskView]);
+    if (!visible) {
+      setTaskView("day");
+      setSelectedTaskId(null);
+    }
+  }, [visible]);
   useEffect(() => {
-    if (selectedTaskId === null || !tasksPaneVisible) return;
+    if (!visible || visibleTaskView !== "table") setOpenHeaderMenu(null);
+  }, [visible, visibleTaskView]);
+  useEffect(() => {
+    if (selectedTaskId === null || !visible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (statusMenu || scopeMenu || creatingTask) return;
@@ -203,16 +205,16 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTaskId, tasksPaneVisible, statusMenu, scopeMenu, creatingTask, closeDetail]);
+  }, [selectedTaskId, visible, statusMenu, scopeMenu, creatingTask, closeDetail]);
 
   useEffect(() => {
-    if (!tasksPaneVisible || visibleTaskView !== "table") setCreatingTask(false);
-  }, [tasksPaneVisible, visibleTaskView]);
+    setCreatingTask(false);
+  }, [visible, visibleTaskView]);
 
   const openTaskCreate = () => {
     // An untouched draft picks up the table's Scope, and its Status when the
     // view shows only one, so the new Task lands in the view it was added from.
-    if (taskDraft === EMPTY_TASK_DRAFT) {
+    if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
       const status = tableStatuses.length === 1 ? tableStatuses[0]! : EMPTY_TASK_DRAFT.status;
       setTaskDraft({ ...EMPTY_TASK_DRAFT, scope: selectedTaskScope, status });
     }
@@ -314,28 +316,42 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded || workedOnLoading}>
       <header className="dash-section__head task-header">
-        <ViewToggle
-          value={visibleTaskView}
-          options={taskViewOptions}
-          label="Task view"
-          onChange={(key) => {
-            writeTaskView(key);
-            setTaskView(key);
-          }}
-        />
-        {loaded && visibleTaskView === "table" && (
-          <button
-            ref={newTaskButtonRef}
-            type="button"
-            className="task-new-button"
-            aria-haspopup="dialog"
-            aria-expanded={creatingTask}
-            onClick={openTaskCreate}
-          >
-            {plusIcon}
-            New task
-          </button>
+        {loaded && visibleTaskView === "day" && (
+          <DateNavigation
+            label={dayLabel(selectedTaskDayMs / 1000, dateNowMs)}
+            unit="day"
+            canGoPrevious={selectedTaskDayMs > earliestTaskDayMs}
+            canGoNext={selectedTaskDayMs < todayMs}
+            onPrevious={() => setDayAnchorMs(stepSelectedDay(selectedTaskDayMs, -1, dateNowMs))}
+            onNext={() => setDayAnchorMs(stepSelectedDay(selectedTaskDayMs, 1, dateNowMs))}
+            onToday={() => setDayAnchorMs(null)}
+            picker={singleDayPicker(selectedTaskDayMs, dateNowMs, setDayAnchorMs, earliestTaskHistorySec)}
+          />
         )}
+        <div className="task-header__actions">
+          {loaded && visibleTaskView !== "map" && (
+            <button
+              ref={newTaskButtonRef}
+              type="button"
+              className="task-new-button"
+              aria-label="New task"
+              title="New task"
+              aria-haspopup="dialog"
+              aria-expanded={creatingTask}
+              onClick={openTaskCreate}
+            >
+              {plusIcon}
+              New task
+            </button>
+          )}
+          <button
+            type="button"
+            className="task-view-button"
+            onClick={() => setTaskView(visibleTaskView === "day" ? "table" : "day")}
+          >
+            {visibleTaskView === "day" ? "Table" : "Day"}
+          </button>
+        </div>
       </header>
 
       {!loaded ? (
@@ -349,22 +365,9 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
               <TaskDay
                 selectedDayMs={selectedTaskDayMs}
                 nowMs={dateNowMs}
-                canGoPrevious={selectedTaskDayMs > earliestTaskDayMs}
-                canGoNext={selectedTaskDayMs < todayMs}
                 tasks={tasks}
                 taskGraph={taskGraph}
                 workStretches={taskWorkStretches}
-                onPreviousDay={() =>
-                  setDayAnchorMs(
-                    stepSelectedDay(selectedTaskDayMs, -1, dateNowMs),
-                  )
-                }
-                onNextDay={() =>
-                  setDayAnchorMs(
-                    stepSelectedDay(selectedTaskDayMs, 1, dateNowMs),
-                  )
-                }
-                onToday={() => setDayAnchorMs(null)}
                 onSelectTask={selectTask}
               />
             )}

@@ -198,32 +198,93 @@
 
 /* ---------- Day and Tag filters ---------- */
 
-.brain-dump-filter-tags {
+.brain-dump-filter-tags:not([hidden]) {
   display: flex;
   flex: 1;
+  min-height: 0;
   min-width: 0;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
 }
 
+/* Only the list scrolls so Add tag stays at the foot of the Section sidebar. */
 .brain-dump-filter-tags__scroll {
   display: flex;
   flex: 1;
-  min-width: 0;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 4px;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  padding: 3px;
 }
 
-.brain-dump-filter-tags .brain-dump-tag {
+.brain-dump-filter-tags__row {
+  display: flex;
   flex: none;
-  min-height: 30px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.brain-dump-filter-tags__row:hover {
+  background: var(--dump-soft);
+  color: var(--ink);
+}
+
+.brain-dump-filter-tags__row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.brain-dump-filter-tags__row[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--dump) 20%, transparent);
+  background: var(--dump-soft);
+  color: var(--dump);
+  font-weight: 600;
+}
+
+.brain-dump-filter-tags__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.brain-dump-filter-tags [aria-pressed="true"] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+.brain-dump-filter-tags__count {
+  flex: none;
+  min-width: 24px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.brain-dump-filter-tags__add {
+  border-top-color: var(--border);
+  border-radius: 0;
+  color: var(--dump);
+}
+
+/* The collapsed sidebar is too thin for tag names; keep filters available
+   above the grid with a bounded list and its own pinned Add tag row. */
+@media (max-width: 600px) {
+  .brain-dump-history__filters .brain-dump-filter-tags {
+    max-height: 220px;
+  }
 }
 
 .brain-dump-filter-popup {

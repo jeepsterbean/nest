@@ -52,10 +52,6 @@
   }
 
   .dashboard {
-    grid-template-columns: 52px minmax(0, 1fr);
-  }
-
-  .dashboard--section-sidebar {
     grid-template-columns: 52px 200px minmax(0, 1fr);
   }
 
@@ -115,7 +111,7 @@
 }
 
 @media (max-width: 600px) {
-  .dashboard--section-sidebar {
+  .dashboard {
     grid-template-columns: 52px 54px minmax(0, 1fr);
   }
 }

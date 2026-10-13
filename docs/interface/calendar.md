@@ -1,16 +1,18 @@
 # Calendar interface
 
 The Recap Section (Calendar and Timeline presentations, with Insights
-beside either) and its history review surfaces. The Core guide lives in
+in the Section sidebar) and its history review surfaces. The Phases guide lives in
 [Phases interface](phases.md). Shared date, Logs
 kind, and Phase appearance rules live in
 [`docs/interface/time-surfaces.md`](time-surfaces.md). Domain words live in [`CONTEXT.md`](../../CONTEXT.md); Phase derivation lives in
 [Phases](../domain/phases.md). Shared dashboard controls
 live in [`UI.md`](../../UI.md).
 
-## Range sidebar
+## Presentation and range
 
-The Recap sidebar switches between Calendar and Timeline, remembered in
+Recap's Section sidebar holds [Insights](#insights). The toolbar of both
+presentations ends with a Day / Week switch and then a Calendar / Timeline switch. The presentation is
+remembered in
 `nest:recap-presentation` (Calendar when unset). Calendar then
 offers Day and Week, remembered in `nest:date-range` (first visit is Day).
 Timeline has no Week: it always shows the
@@ -19,19 +21,17 @@ Calendar on Week opens the week that contains that day. Calendar and Timeline
 share the selected day. These anchors survive Section navigation during the
 current dashboard session; app restarts open on today.
 
-The Section sidebar holds the presentation switch and an always-visible
-Monday-first month calendar. Calendar's Day / Week control sits to the right
-of its date navigation and names the current range; a click switches to the other. The calendar's highlight is
-the range, so the sidebar shows no range title text. Dates outside the loaded
-history and future dates are disabled. In a narrow window, the sidebar
-moves above the content. The month calendar has one Tab stop; arrow keys move
-focus by a day or week, Home / End move to the week edges, and Enter / Space
-selects the focused date. On Timeline the mini calendar dots dates with
-recorded entries.
+On Timeline the Day / Week switch shows Day and Week is disabled. A date is
+chosen from the
+[date picker](time-surfaces.md#dates-and-ranges) on the toolbar date. On Week
+the picker highlights the whole week, and picking a day opens the week that
+contains it. In a narrow window, both switches and Calendar's figure control
+wrap under the date navigation.
 
-Calendar, Timeline, and Insights share that one day or week. Insights always
-sits beside the figure, each scrolling on its own. When the Section is too
-narrow for both columns, Insights moves under the figure.
+Calendar, Timeline, and Insights share that one day or week. Insights sits
+in the Section sidebar for both presentations and scrolls on its own. When
+the window is narrow enough to collapse the Section sidebar, Insights moves
+under the figure.
 
 ## Calendar
 
@@ -39,15 +39,18 @@ The toolbar opens with the
 [shared date navigation](time-surfaces.md#dates-and-ranges) for the day or
 week on screen; on Week it pages a week at a time and names the week's first
 and last day. Left / Right arrows page that range and `t` returns to Today
-while focus is outside interactive controls. The sidebar month calendar and
-this toolbar select the same range.
+while focus is outside interactive controls.
 
-The figure control sits beside Day / Week and names Work stretch or Logs; a click switches to the other, remembered in
-`nest:calendar-figure` (Work stretch on first visit). Work stretch is the
-timetable of recorded work. Logs places history on that same Calendar.
+Calendar draws one of two figures. Logs places history on Calendar. Work
+stretch is the timetable of recorded work, hidden until Settings shows it.
+While it is shown, the figure control sits beside Day / Week and names Work
+stretch or Logs; a click switches to the other, remembered in
+`nest:calendar-figure` (Work stretch when unset). While it is hidden, Calendar
+draws Logs with no figure control and keeps the stored choice. A recorded
+stretch can be moved, resized, or deleted only on the Work stretch figure.
 [Logs kinds](time-surfaces.md#logs-kinds) are chosen from Insights and shared
 with Timeline. Hiding Tasks leaves the Work stretch timetable whole. Insights
-stays beside either figure.
+stays shown for either figure.
 
 Work stretch is hours in a left gutter, one column
 per calendar day, each column a Phase wash behind its Work stretches. A
@@ -89,9 +92,9 @@ reachable.
 
 ## Insights
 
-Insights sits beside Calendar and beside Timeline. It shows Brain dumps, Tasks,
-Metrics, and Phases, in that order, matching Core. Each heading shows that
-kind's Core icon beside the title; the title opens that kind in Core. Each
+Insights sits in Recap's Section sidebar, for Calendar and for Timeline. It shows Brain dumps, Tasks,
+Metrics, and Phases, in that order, matching the Sidebar. Each heading shows
+that kind's Section icon beside the title; the title opens that Section. Each
 heading has a hide control; the heading stays so the kind can be shown again.
 The last shown kind stays shown. That choice is the
 [Logs kinds](time-surfaces.md#logs-kinds) selection.
@@ -124,14 +127,14 @@ reloads.
 The history presentation inside Recap, one day at a time. Not a stored record: Metric check-ins, brain dumps, and
 Phase checkpoints each stand on their own. Its [Logs kinds](time-surfaces.md#logs-kinds)
 are the same selection Calendar's Logs figure and Insights use. Insights
-sits beside the list, on the same day.
+reviews the same day.
 
 The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
 The toolbar shows the selected
 day with the [shared day navigation](time-surfaces.md#dates-and-ranges),
-then the Phases-only eye when Phases is the only kind shown. The sidebar month calendar
-and this toolbar both stay: month jump and day-step select the same day. The list
+then the Phases-only eye when Phases is the only kind shown, and ends with
+the [Day / Week and presentation switches](#presentation-and-range). The list
 does not repeat that day.
 Left / Right arrows page the selected day and `t` returns to Today
 while focus is outside interactive controls.

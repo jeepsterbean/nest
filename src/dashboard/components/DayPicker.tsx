@@ -8,16 +8,10 @@ import {
   shiftMonthMs,
   startOfMonthMs,
   WEEKDAY_INITIALS,
-  type DayPickerBounds,
+  type DayPickerProps,
 } from "../lib/dayPicker";
 
 import { shiftDayMs, startOfDayMs } from "../lib/time";
-
-export type DayPickerProps = DayPickerBounds & {
-  onPick: (dayMs: number) => void;
-  /** Day starts that hold entries, marked with a dot. */
-  markedDays?: ReadonlySet<number>;
-};
 
 const dayName = (dayMs: number) =>
   new Date(dayMs).toLocaleDateString(undefined, {
@@ -26,7 +20,7 @@ const dayName = (dayMs: number) =>
     day: "numeric",
   });
 
-export function DayCalendar({ earliestSec, nowMs, selected, onPick, markedDays }: DayPickerProps) {
+export function DayCalendar({ earliestSec, nowMs, selected, onPick }: DayPickerProps) {
   const selectedMonthMs = startOfMonthMs(selected.from * 1000);
   const [browsedMonth, setBrowsedMonth] = useState({ selectedFrom: selected.from, monthMs: selectedMonthMs });
   const monthMs = browsedMonth.selectedFrom === selected.from ? browsedMonth.monthMs : selectedMonthMs;
@@ -100,15 +94,10 @@ export function DayCalendar({ earliestSec, nowMs, selected, onPick, markedDays }
                   cell.inMonth ? "" : "is-outside",
                   cell.isToday ? "is-today" : "",
                   cell.isSelected ? "is-selected" : "",
-                  markedDays?.has(cell.dayMs) ? "has-entries" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                aria-label={
-                  markedDays?.has(cell.dayMs)
-                    ? `${dayName(cell.dayMs)}, has entries`
-                    : dayName(cell.dayMs)
-                }
+                aria-label={dayName(cell.dayMs)}
                 aria-selected={cell.isSelected}
                 disabled={!cell.isPickable}
                 onClick={() => {

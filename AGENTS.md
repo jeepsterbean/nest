@@ -19,12 +19,12 @@ reference by default.
 | Domain words, Ready/Blocked | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | History ranges, Phase settling, or summary calculations | `docs/domain/history.md` |
-| Phases pane interactions | `docs/interface/phases.md` |
+| Phases Section interactions | `docs/interface/phases.md` |
 | Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
 | Tasks Day, Table, Map, or detail interactions | `docs/interface/tasks.md` |
 | Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date and Logs kind rules |
 | Pulse membership or Metric check-in records | `CONTEXT.md`, `docs/domain/metrics.md` |
-| Metrics pane interactions | `docs/interface/metrics.md` |
+| Metrics Section interactions | `docs/interface/metrics.md` |
 | Timer countdown, interval, or due state | `docs/domain/timer.md` |
 | Timer controls or readouts | `docs/interface/timer.md` |
 | Popup | `docs/interface/popup.md` |
@@ -41,14 +41,14 @@ reference by default.
 |-------------|------|
 | Product language, shared domain distinctions | `CONTEXT.md` |
 | Phase derivation, work recording lifecycle | `docs/domain/phases.md` |
-| Phases pane interactions | `docs/interface/phases.md` |
+| Phases Section interactions | `docs/interface/phases.md` |
 | Task fields, relationships, readiness, history, deletion | `docs/domain/tasks.md` |
 | Tasks dashboard interactions | `docs/interface/tasks.md` |
 | History ranges, Phase settling, range summary calculations | `docs/domain/history.md` |
 | Calendar, Insights, Timeline interactions | `docs/interface/calendar.md` |
 | Rules shared across time surfaces (navigation, Logs kinds, Phase appearance) | `docs/interface/time-surfaces.md` |
 | Metric records and Pulse membership | `docs/domain/metrics.md` |
-| Metrics pane behavior | `docs/interface/metrics.md` |
+| Metrics Section behavior | `docs/interface/metrics.md` |
 | Timer state and cadence | `docs/domain/timer.md` |
 | Timer controls and readouts | `docs/interface/timer.md` |
 | Popup | `docs/interface/popup.md` |
@@ -111,7 +111,8 @@ Follow the table above when editing a Nest doc.
 
 ## Repository-wide invariants
 
-- The dashboard has two Sections, Recap and Core, and starts on Recap.
+- The dashboard has five Sections, Recap, Brain dump, Tasks, Metrics, and
+  Phases, and starts on Recap.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,

@@ -1,6 +1,7 @@
-import type { CorePane } from "../lib/corePane";
+import type { Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md#insights
 import { useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
@@ -9,56 +10,71 @@ import {
   InsightLedger,
 } from "../components/InsightBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTileIcons } from "../hooks/useTileIcons";
 import { rangeInsight } from "../lib/insights";
 import type { LogKindKey } from "../lib/logs";
 
-export function InsightsColumn({
+// Matches the width in shell.css where the Section sidebar collapses to a
+// strip too thin to hold Insights.
+const COLLAPSED_SECTION_SIDEBAR = "(max-width: 600px)";
+
+/** Insights for the Recap range. It lives in the Section sidebar, and moves
+ * under the figure while that sidebar is collapsed. */
+export function RecapInsights({
+  sectionSidebar,
   from,
   to,
   nowSec,
   kinds,
   onToggleKind,
-  onOpenCorePane,
+  onOpenSection,
 }: {
+  sectionSidebar: HTMLElement | null;
   from: number;
   to: number;
   nowSec: number;
   kinds: LogKindKey[];
   onToggleKind: (key: LogKindKey) => void;
-  onOpenCorePane: (pane: CorePane) => void;
+  onOpenSection: (section: Section) => void;
 }) {
-  return (
-    <div id="recap-insights" className="recap-body__insights" aria-label="Insights" role="region">
+  const underFigure = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
+  if (!underFigure && !sectionSidebar) return null;
+
+  const insights = (
+    <div id="recap-insights" className="recap-insights" aria-label="Insights" role="region">
       <InsightsPanel
         from={from}
         to={to}
         nowSec={nowSec}
         kinds={kinds}
         onToggleKind={onToggleKind}
-        onOpenCorePane={onOpenCorePane}
+        onOpenSection={onOpenSection}
       />
     </div>
   );
+  return underFigure || !sectionSidebar
+    ? insights
+    : createPortal(insights, sectionSidebar);
 }
 
 /** The review of a range: Brain dumps, Tasks, Metrics, and Phases, stacked in
- * Core order. Each heading shows that kind's Core icon; the title opens that
- * kind in Core. Each heading hides that kind for Insights, Logs, and Timeline. */
+ * Sidebar order. Each heading shows that kind's Section icon; the title opens
+ * that Section. Each heading hides that kind for Insights, Logs, and Timeline. */
 export function InsightsPanel({
   from,
   to,
   nowSec,
   kinds,
   onToggleKind,
-  onOpenCorePane,
+  onOpenSection,
 }: {
   from: number;
   to: number;
   nowSec: number;
   kinds: LogKindKey[];
   onToggleKind: (key: LogKindKey) => void;
-  onOpenCorePane: (pane: CorePane) => void;
+  onOpenSection: (section: Section) => void;
 }) {
   const {
     tasks,
@@ -111,7 +127,7 @@ export function InsightsPanel({
         shown={shown("dumps")}
         alone={alone("dumps")}
         onToggle={() => onToggleKind("dumps")}
-        onOpen={() => onOpenCorePane("brainDump")}
+        onOpen={() => onOpenSection("brainDump")}
       />
       <InsightSection
         label="Tasks"
@@ -119,7 +135,7 @@ export function InsightsPanel({
         shown={shown("tasks")}
         alone={alone("tasks")}
         onToggle={() => onToggleKind("tasks")}
-        onOpen={() => onOpenCorePane("tasks")}
+        onOpen={() => onOpenSection("tasks")}
       >
         <InsightLedger counts={insight.taskCounts} />
       </InsightSection>
@@ -129,7 +145,7 @@ export function InsightsPanel({
         shown={shown("metrics")}
         alone={alone("metrics")}
         onToggle={() => onToggleKind("metrics")}
-        onOpen={() => onOpenCorePane("metrics")}
+        onOpen={() => onOpenSection("metrics")}
       >
         <InsightCheckIns groups={insight.checkIns} />
       </InsightSection>
@@ -139,7 +155,7 @@ export function InsightsPanel({
         shown={shown("phases")}
         alone={alone("phases")}
         onToggle={() => onToggleKind("phases")}
-        onOpen={() => onOpenCorePane("phases")}
+        onOpen={() => onOpenSection("phases")}
       >
         <PhaseMix sessions={insight.sessions} phases={phases} />
       </InsightSection>

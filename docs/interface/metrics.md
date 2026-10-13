@@ -1,15 +1,15 @@
 # Metrics interface
 
-The Metrics pane of Core: one day of Metric check-ins, and Pulse and Metric
+The Metrics Section: one day of Metric check-ins, and Pulse and Metric
 setup. Domain words (Pulse, Metric, Metric check-in) live in
 [`CONTEXT.md`](../../CONTEXT.md). Shared dashboard controls live in
-[`UI.md`](../../UI.md). Its icon is picked from the Core sidebar.
+[`UI.md`](../../UI.md). Its icon is picked from the Sidebar.
 
 Domain rules live in [Metrics domain](../domain/metrics.md).
 
 ## Day board
 
-The pane reads one local day at a time through the
+The Section reads one local day at a time through the
 [shared day navigation](time-surfaces.md#dates-and-ranges).
 
 Each Pulse is a group headed by its icon and name, marked `Hidden from popup`

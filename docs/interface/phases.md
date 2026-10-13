@@ -1,20 +1,19 @@
 # Phases interface
 
-One day of Phases, and the Core guide to attention. Derivation and work
+One day of Phases, and the guide to attention. Derivation and work
 recording live in [Phases domain](../domain/phases.md).
 
-## Phases pane
+## Phases Section
 
-The Phases pane of Core has two layouts, Day and Guide. Day is the default, and
-the last choice is remembered (`nest:phase-view`). Its icon is picked from the
-Core sidebar. Phase icons and colors follow
+The Phases Section shows Day, with a Guide button that opens an overlay
+over the day report. Its icon is picked from the Sidebar. Phase icons and colors follow
 [Phase appearance](time-surfaces.md#phase-appearance).
 
 ## Day
 
 Day reads one local day at a time through the
 [shared day navigation](time-surfaces.md#dates-and-ranges). The selected day
-survives a switch to Guide and back.
+stays selected while the Guide overlay is open and after it closes.
 
 Each of the four Phases is a row in guide order, 0m included: its name, a day
 strip, and its total for the day. The strip runs midnight to midnight on the
@@ -26,6 +25,11 @@ so a checkpoint with no Phase counts as Offline. On today the current Phase is
 marked. A day with no checkpoints shows four empty rows.
 
 ## Guide
+
+Guide opens over the Day view, which stays mounted and visible behind it.
+Close it with its close button, Escape, an outside press, or the Guide button.
+Opening focuses the dialog; dismissing returns focus to Guide. The day report
+is inert while the overlay is open. Overlay visibility is session state.
 
 Guide is read-only: how Phase is derived, then the four Phases (Doing, Scoping,
 Resting, Offline) with their meanings. Both must mirror the

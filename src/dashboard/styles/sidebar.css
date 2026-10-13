@@ -10,7 +10,7 @@
   align-items: center;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: var(--surface);
 }
 
 .dash-nav {
@@ -64,12 +64,6 @@
 .dash-nav__picker .icon-picker {
   top: 0;
   left: calc(100% + 10px);
-}
-
-/* Lower Sections open upward so the grid stays in the window. */
-.dash-nav__picker:nth-last-child(-n + 3) .icon-picker {
-  top: auto;
-  bottom: 0;
 }
 
 .dash-nav__picker:has(.icon-picker) .dash-nav__btn {

@@ -1,8 +1,8 @@
-import type { CorePane } from "../lib/corePane";
+import type { Section } from "../lib/sections";
 // Behavior and invariants: docs/interface/calendar.md
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DateNavigation } from "../components/DateNavigation";
-import { DateRangeSidebar } from "../components/DateRangeSidebar";
+import { useAppSettings } from "../hooks/useAppSettings";
 import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
 import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
@@ -19,12 +19,10 @@ import {
 } from "../../lib/commands";
 import {
   CALENDAR_FIGURES,
-  RANGE_MODES,
   openAtPct,
   readCalendarFigure,
   writeCalendarFigure,
   type CalendarFigure,
-  type RecapPresentation,
 } from "../lib/insights";
 import { isQuietPhase } from "../lib/period";
 import { columnPhaseSessions } from "../lib/timeline";
@@ -38,7 +36,7 @@ import {
 } from "../lib/logs";
 import { logHours } from "../lib/logHours";
 import { dayLabel, historyStartSec } from "../lib/time";
-import { InsightsColumn } from "./InsightsPanel";
+import { RecapInsights } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
 
 function CycleChoice<T extends string>({
@@ -68,16 +66,14 @@ function CycleChoice<T extends string>({
 }
 
 export function CalendarView({
-  sidebarTarget,
-  presentation,
-  onPresentation,
-  onOpenCorePane,
+  onOpenSection,
+  recapSwitches,
+  sectionSidebar,
   range,
 }: {
-  sidebarTarget: HTMLElement | null;
-  presentation: RecapPresentation;
-  onPresentation: (presentation: RecapPresentation) => void;
-  onOpenCorePane: (pane: CorePane) => void;
+  onOpenSection: (section: Section) => void;
+  recapSwitches: ReactNode;
+  sectionSidebar: HTMLElement | null;
   range: ReturnType<typeof useRecapDateRange>;
 }) {
   const {
@@ -93,7 +89,11 @@ export function CalendarView({
     loaded,
     mutate,
   } = useDashboardData();
-  const [figure, setFigure] = useState(readCalendarFigure);
+  const showWorkStretch = useAppSettings().showWorkStretch;
+  const [storedFigure, setFigure] = useState(readCalendarFigure);
+  // The stored figure stays put while Work stretch is hidden, so showing it
+  // again in Settings returns to the last choice.
+  const figure = showWorkStretch ? storedFigure : "logs";
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
   const [selected, setSelected] = useState<StretchEdit | null>(null);
 
@@ -200,9 +200,6 @@ export function CalendarView({
 
   return (
     <section className="dash-section dash-section--calendar">
-      <DateRangeSidebar target={sidebarTarget} range={range}
-        presentation={presentation} onPresentation={onPresentation}
-        onPick={range.goToDay} />
       <div className="dash-toolbar recap-toolbar calendar-panel-controls">
         <DateNavigation
           label={range.mode === "day" ? dayLabel(range.from, range.nowMs) : range.title}
@@ -212,20 +209,18 @@ export function CalendarView({
           onPrevious={() => range.step(-1)}
           onNext={() => range.step(1)}
           onToday={range.goToday}
+          picker={range.picker}
         />
-        <div className="calendar-panel-controls__display">
-          <CycleChoice
-            value={range.mode}
-            options={RANGE_MODES}
-            label="Calendar date range"
-            onChange={range.selectMode}
-          />
-          <CycleChoice
-            value={figure}
-            options={CALENDAR_FIGURES}
-            label="Calendar figure"
-            onChange={selectFigure}
-          />
+        <div className="recap-toolbar__display">
+          {showWorkStretch && (
+            <CycleChoice
+              value={figure}
+              options={CALENDAR_FIGURES}
+              label="Calendar figure"
+              onChange={selectFigure}
+            />
+          )}
+          {recapSwitches}
         </div>
       </div>
       <div className="dash-section__body recap-body">
@@ -278,8 +273,9 @@ export function CalendarView({
                 </>
               )}
             </div>
-            <InsightsColumn
-              onOpenCorePane={onOpenCorePane}
+            <RecapInsights
+              sectionSidebar={sectionSidebar}
+              onOpenSection={onOpenSection}
               from={range.from}
               to={range.to}
               nowSec={range.nowSec}

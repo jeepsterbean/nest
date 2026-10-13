@@ -5,11 +5,8 @@ import { DashboardDataProvider, useDashboardData } from "./context/DashboardData
 import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import { AmbientVisualizer } from "./components/AmbientVisualizer";
-import {
-  DashboardSidebar,
-  type DashboardView,
-} from "./components/DashboardSidebar";
-import { CorePaneSidebar } from "./components/CorePaneSidebar";
+import { DashboardSidebar } from "./components/DashboardSidebar";
+import { ViewToggle } from "./components/ViewToggle";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
@@ -17,9 +14,14 @@ import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { CalendarView } from "./views/CalendarView";
 import { TimelineView } from "./views/TimelineView";
-import { CoreView } from "./views/CoreView";
-import { readCorePane, writeCorePane, type CorePane } from "./lib/corePane";
+import { BrainDumpView } from "./views/BrainDumpView";
+import { MetricsView } from "./views/MetricsView";
+import { PhasesView } from "./views/PhasesView";
+import { TasksView } from "./views/TasksView";
+import { sectionLabel, type Section } from "./lib/sections";
 import {
+  RANGE_MODES,
+  RECAP_PRESENTATIONS,
   readRecapPresentation,
   writeRecapPresentation,
   type RecapPresentation,
@@ -30,19 +32,13 @@ import { nextDashboardSize } from "./lib/windowSize";
 import "./Dashboard.css";
 
 function DashboardInner() {
-  const [view, setView] = useState<DashboardView>("recap");
+  const [section, setSection] = useState<Section>("recap");
   const [recapPresentation, setRecapPresentation] =
     useState<RecapPresentation>(readRecapPresentation);
   const recapDateRange = useRecapDateRange(recapPresentation);
-  const [corePane, setCorePane] = useState<CorePane>(readCorePane);
-  const selectCorePane = useCallback((pane: CorePane) => {
-    writeCorePane(pane);
-    setCorePane(pane);
-  }, []);
-  const openCorePane = (pane: CorePane) => {
-    selectCorePane(pane);
-    setView("core");
-  };
+  const [sectionSidebar, setSectionSidebar] = useState<HTMLElement | null>(
+    null,
+  );
   const selectRecapPresentation = useCallback(
     (presentation: RecapPresentation) => {
       writeRecapPresentation(presentation);
@@ -59,12 +55,28 @@ function DashboardInner() {
   const isDoing = currentPhaseName
     ? phaseTone(currentPhaseName) === "doing"
     : false;
-  // Core panes reuse the layout rules written for their former Sections.
-  const showTimeline = view === "recap" && recapPresentation === "timeline";
-  const surface = view === "core" ? corePane : showTimeline ? "timeline" : "calendar";
-  const hasRangeSidebar = view === "recap";
-  const hasSectionSidebar = view === "core" || hasRangeSidebar;
-  const [rangeSidebarTarget, setRangeSidebarTarget] = useState<HTMLElement | null>(null);
+  const onRecap = section === "recap";
+  const showTimeline = onRecap && recapPresentation === "timeline";
+  const surface = !onRecap ? section : showTimeline ? "timeline" : "calendar";
+  const recapSwitches = (
+    <>
+      <ViewToggle
+        value={recapDateRange.mode}
+        options={RANGE_MODES.map((mode) => ({
+          ...mode,
+          disabled: showTimeline && mode.key === "week",
+        }))}
+        label="Recap date range"
+        onChange={recapDateRange.selectMode}
+      />
+      <ViewToggle
+        value={recapPresentation}
+        options={RECAP_PRESENTATIONS}
+        label="Recap presentation"
+        onChange={selectRecapPresentation}
+      />
+    </>
+  );
 
   useEffect(() => {
     const resize = (event: KeyboardEvent) => {
@@ -91,7 +103,7 @@ function DashboardInner() {
 
   return (
     <main
-      className={`dashboard${hasSectionSidebar ? " dashboard--section-sidebar" : ""}${hasRangeSidebar ? " dashboard--range-sidebar" : ""}${view === "core" && corePane === "tasks" ? " dashboard--tasks" : ""}`}
+      className={`dashboard${section === "tasks" ? " dashboard--tasks" : ""}`}
     >
       {/* Provider (and sticky board) must live under .dashboard so theme
           tokens like --surface / --dump resolve on the notes. */}
@@ -101,38 +113,46 @@ function DashboardInner() {
           style={backgroundStyle}
           tuning={backgroundTuning}
         />
-        <DashboardSidebar view={view} onSelectView={setView} />
-        {view === "core" && (
-          <CorePaneSidebar pane={corePane} onSelectPane={selectCorePane} />
-        )}
-        {hasRangeSidebar && <aside className="section-sidebar range-sidebar" ref={setRangeSidebarTarget} />}
-        <div
-          className={`dashboard__inner dashboard__inner--${surface}${
-            view === "core" ? " dashboard__inner--core" : ""
-          }`}
-        >
+        <DashboardSidebar section={section} onSelectSection={setSection} />
+        <aside className="section-sidebar" ref={setSectionSidebar}>
+          <h2 className="section-sidebar__title">{sectionLabel(section)}</h2>
+        </aside>
+        <div className={`dashboard__inner dashboard__inner--${surface}`}>
           <ErrorBanner />
 
-          {view === "recap" && !showTimeline && (
+          {onRecap && !showTimeline && (
             <CalendarView
-              sidebarTarget={rangeSidebarTarget}
-              presentation={recapPresentation}
-              onPresentation={selectRecapPresentation}
-              onOpenCorePane={openCorePane}
+              onOpenSection={setSection}
+              recapSwitches={recapSwitches}
+              sectionSidebar={sectionSidebar}
               range={recapDateRange}
             />
           )}
           {showTimeline && (
             <TimelineView
-              onOpenCorePane={openCorePane}
+              onOpenSection={setSection}
+              recapSwitches={recapSwitches}
+              sectionSidebar={sectionSidebar}
               range={recapDateRange}
-              sidebarTarget={rangeSidebarTarget}
-              presentation={recapPresentation}
-              onPresentation={selectRecapPresentation}
             />
           )}
-          {view === "core" && (
-            <CoreView pane={corePane} />
+          {/* Away from Recap, these four stay mounted so filters, selection,
+              and unsent names survive switches between them. */}
+          {!onRecap && (
+            <>
+              <div className="section-slot" hidden={section !== "brainDump"}>
+                <BrainDumpView sectionSidebar={sectionSidebar} visible={section === "brainDump"} />
+              </div>
+              <div className="section-slot" hidden={section !== "tasks"}>
+                <TasksView visible={section === "tasks"} />
+              </div>
+              <div className="section-slot" hidden={section !== "metrics"}>
+                <MetricsView />
+              </div>
+              <div className="section-slot" hidden={section !== "phases"}>
+                <PhasesView />
+              </div>
+            </>
           )}
         </div>
         <ScopeMenu />

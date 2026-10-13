@@ -8,6 +8,7 @@ vi.mock("../../../src/dashboard/hooks/useTileIcons", () => ({
 
 import { DashboardSidebar } from "../../../src/dashboard/components/DashboardSidebar";
 import { SettingsDialog } from "../../../src/dashboard/components/SettingsOverlay";
+import type { Section } from "../../../src/dashboard/lib/sections";
 import { DEFAULT_TILE_ICONS } from "../../../src/dashboard/lib/tileIcons";
 import { BackgroundView } from "../../../src/dashboard/views/BackgroundView";
 
@@ -24,27 +25,31 @@ beforeEach(() => {
   vi.stubGlobal("localStorage", memoryStorage());
 });
 
-const renderSidebar = (view: "recap" | "core") =>
+const renderSidebar = (section: Section) =>
   renderToStaticMarkup(
-    createElement(DashboardSidebar, { view, onSelectView: vi.fn() }),
+    createElement(DashboardSidebar, { section, onSelectSection: vi.fn() }),
   );
 
 describe("DashboardSidebar", () => {
-  it("offers Recap and Core as the only Sections", () => {
+  it("offers Recap, Brain dump, Tasks, Metrics, and Phases as the Sections", () => {
     const html = renderSidebar("recap");
 
     expect(html).toContain('aria-label="Recap, choose icon"');
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain('aria-label="Core"');
-    for (const retired of ["Overview", "Assistant"]) {
+    const others = ["Brain dump", "Tasks", "Metrics", "Phases"].map((label) =>
+      html.indexOf(`aria-label="${label}"`),
+    );
+    expect(others).toEqual([...others].sort((a, b) => a - b));
+    expect(others[0]).toBeGreaterThan(html.indexOf('aria-label="Recap'));
+    for (const retired of ["Overview", "Assistant", "Core"]) {
       expect(html).not.toContain(retired);
     }
   });
 
-  it("marks Core as the current Section when it is selected", () => {
-    const html = renderSidebar("core");
+  it("marks Tasks as the current Section when it is selected", () => {
+    const html = renderSidebar("tasks");
 
-    expect(html).toContain('aria-label="Core, choose icon"');
+    expect(html).toContain('aria-label="Tasks, choose icon"');
     expect(html).toContain('aria-label="Recap"');
   });
 
@@ -85,7 +90,7 @@ describe("BackgroundView", () => {
 });
 
 describe("SettingsDialog", () => {
-  const renderDialog = (page: "background" | "map" | "icons") =>
+  const renderDialog = (page: "background" | "map" | "workStretch" | "icons") =>
     renderToStaticMarkup(
       createElement(SettingsDialog, { page, onPage: vi.fn(), onClose: vi.fn() }),
     );
@@ -107,11 +112,18 @@ describe("SettingsDialog", () => {
     expect(html).toContain('aria-pressed="true">Off');
   });
 
-  it("starts icon selection on for the Sidebar and Core", () => {
+  it("keeps Work stretch off until it is shown in Calendar", () => {
+    const html = renderDialog("workStretch");
+
+    expect(html).toContain("Show in Calendar");
+    expect(html).toContain('aria-label="Show Work stretch in Calendar"');
+    expect(html).toContain('aria-pressed="true">Off');
+  });
+
+  it("starts icon selection on for the Sidebar", () => {
     const html = renderDialog("icons");
 
-    expect(html).toContain("Sidebar and Core");
-    expect(html).toContain('aria-label="Choose Sidebar and Core icons"');
+    expect(html).toContain('aria-label="Choose Sidebar icons"');
     expect(html).toContain('aria-pressed="true">On');
   });
 });

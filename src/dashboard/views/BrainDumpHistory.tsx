@@ -15,7 +15,7 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
 import { filterBrainDumpHistory } from "../lib/brainDumpHistory";
 import { dayLabel, formatTime, startOfDayMs } from "../lib/time";
-import { selectedDayMs as resolveSelectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
+import { selectedDayMs as resolveSelectedDayMs, singleDayPicker, stepSelectedDay } from "../lib/dateNavigation";
 import { useBrainDumpComposer } from "../hooks/useBrainDumpComposer";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useBrainDumpsForDay } from "../hooks/useBrainDumpsForDay";
@@ -84,7 +84,10 @@ function BrainDumpTodayComposer() {
   );
 }
 
-export function BrainDumpHistory() {
+export function BrainDumpHistory({ sectionSidebar, visible }: {
+  sectionSidebar: HTMLElement | null;
+  visible: boolean;
+}) {
   const { tags, mutate } = useDashboardData();
   const { forkToFloating } = useFloatingBrainDumpsContext();
   const [anchorMs, setAnchorMs] = useState<number | null>(null);
@@ -98,9 +101,13 @@ export function BrainDumpHistory() {
   const todayMs = startOfDayMs(nowMs / 1000);
   const isToday = selectedDayMs === todayMs;
   const { dumps: brainDumps, loaded } = useBrainDumpsForDay(selectedDayMs, nowMs);
+  const dayDumps = useMemo(
+    () => filterBrainDumpHistory(brainDumps, selectedDayMs, ""),
+    [brainDumps, selectedDayMs],
+  );
   const dumps = useMemo(
-    () => filterBrainDumpHistory(brainDumps, selectedDayMs, tagId),
-    [brainDumps, selectedDayMs, tagId],
+    () => filterBrainDumpHistory(dayDumps, selectedDayMs, tagId),
+    [dayDumps, selectedDayMs, tagId],
   );
   const selectedLabel = dayLabel(selectedDayMs / 1000, nowMs);
   const showGrid = isToday || dumps.length > 0;
@@ -120,11 +127,16 @@ export function BrainDumpHistory() {
   return (
     <div className="brain-dump-history">
       <BrainDumpFilters
+        sectionSidebar={sectionSidebar}
+        visible={visible}
+        brainDumps={dayDumps}
+        loaded={loaded}
         dayLabel={selectedLabel}
         onPreviousDay={() => setAnchorMs((current) => stepSelectedDay(current, -1, nowMs))}
         onNextDay={() => setAnchorMs((current) => stepSelectedDay(current, 1, nowMs))}
         canGoNext={selectedDayMs < todayMs}
         onToday={() => setAnchorMs(null)}
+        dayPicker={singleDayPicker(selectedDayMs, nowMs, setAnchorMs)}
         tagId={tagId}
         onTagChange={setTagId}
       />

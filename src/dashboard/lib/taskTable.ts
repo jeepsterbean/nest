@@ -1,12 +1,6 @@
 import { moveItem } from "../../lib/reorder";
 
-export const TASK_VIEWS = [
-  { key: "day", label: "Day" },
-  { key: "table", label: "Table" },
-  { key: "map", label: "Map" },
-] as const;
-
-export type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
+export type TaskViewKey = "day" | "table" | "map";
 
 export const TASK_TABLE_COLUMNS = [
   { id: "title", label: "Title", width: 240, minWidth: 120 },
@@ -34,10 +28,7 @@ export type TaskTableColumn = {
 /** Title names the row, so it stays visible. */
 export const canHideTaskTableColumn = (id: TaskTableColumnId) => id !== "title";
 
-const TASK_VIEW_KEY = "nest:task-view";
 const COLUMN_IDS = new Set<string>(TASK_TABLE_COLUMNS.map((column) => column.id));
-
-type TaskStorage = Pick<Storage, "getItem" | "setItem">;
 
 const isColumnId = (value: unknown): value is TaskTableColumnId =>
   typeof value === "string" && COLUMN_IDS.has(value);
@@ -45,23 +36,7 @@ const isColumnId = (value: unknown): value is TaskTableColumnId =>
 const clampWidth = (minWidth: number, width: number) =>
   Math.max(minWidth, Math.round(width));
 
-/** Day is the default Tasks layout. An unknown stored value falls back. */
-export const readTaskView = (storage: TaskStorage = localStorage): TaskViewKey => {
-  const stored = storage.getItem(TASK_VIEW_KEY);
-  return stored === "day" || stored === "table" || stored === "map" ? stored : "day";
-};
-
-export const writeTaskView = (
-  key: TaskViewKey,
-  storage: TaskStorage = localStorage,
-) => {
-  storage.setItem(TASK_VIEW_KEY, key);
-};
-
-export const availableTaskViews = (showTaskMap: boolean) =>
-  showTaskMap ? TASK_VIEWS : TASK_VIEWS.filter((view) => view.key !== "map");
-
-/** A remembered Map choice shows Day while Map is hidden. */
+/** A Map choice shows Day while Map is hidden. */
 export const visibleTaskViewFor = (
   taskView: TaskViewKey,
   showTaskMap: boolean,

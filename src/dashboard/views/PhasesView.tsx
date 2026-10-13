@@ -1,21 +1,19 @@
-// Behavior and invariants: docs/interface/phases.md#phases-pane
-import { useMemo, useState, type CSSProperties } from "react";
+// Behavior and invariants: docs/interface/phases.md#phases-section
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { listPhaseCheckIns } from "../../lib/commands";
 import { DateNavigation } from "../components/DateNavigation";
 import { DayAxis, DayTrack } from "../components/DayStrip";
 import { NestIcon } from "../components/PulseIcon";
-import { ViewToggle } from "../components/ViewToggle";
+import { xIcon } from "../components/icons";
+import { useDismiss } from "../hooks/useDismiss";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useDayRecords } from "../hooks/useDayRecords";
-import { selectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
+import { selectedDayMs, singleDayPicker, stepSelectedDay } from "../lib/dateNavigation";
 import { dayOffset, metricDayTicks, type MetricDayTick } from "../lib/metricDay";
 import { phaseIconName } from "../lib/period";
 import {
   buildPhaseDay,
-  PHASE_VIEWS,
-  readPhaseView,
-  writePhaseView,
   type PhaseDayRow,
 } from "../lib/phaseDay";
 import { phaseMeaning, phasesInGuideOrder } from "../lib/phaseGuide";
@@ -162,7 +160,22 @@ function PhaseGuide() {
 }
 
 export function PhasesView() {
-  const [view, setView] = useState(readPhaseView);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const guideButtonRef = useRef<HTMLButtonElement>(null);
+  const guideDialogRef = useRef<HTMLDivElement>(null);
+  const guideTitleId = useId();
+  const guideId = useId();
+  const closeGuide = () => {
+    setGuideOpen(false);
+    guideButtonRef.current?.focus();
+  };
+  useDismiss(guideDialogRef, guideOpen, () => {
+    closeGuide();
+    return true;
+  });
+  useEffect(() => {
+    if (guideOpen) guideDialogRef.current?.focus();
+  }, [guideOpen]);
   const [anchorMs, setAnchorMs] = useState<number | null>(null);
   const nowMs = useCurrentTime();
   const dayStartMs = selectedDayMs(anchorMs, nowMs);
@@ -170,31 +183,54 @@ export function PhasesView() {
   return (
     <section className="dash-section dash-section--phases">
       <header className="dash-section__head">
-        {view === "day" ? (
-          <DateNavigation
-            label={dayLabel(dayStartMs / 1000, nowMs)}
-            unit="day"
-            canGoNext={dayStartMs < startOfDayMs(nowMs / 1000)}
-            onPrevious={() => setAnchorMs((current) => stepSelectedDay(current, -1, nowMs))}
-            onNext={() => setAnchorMs((current) => stepSelectedDay(current, 1, nowMs))}
-            onToday={() => setAnchorMs(null)}
-          />
-        ) : null}
-        <ViewToggle
-          value={view}
-          options={PHASE_VIEWS}
-          label="Phase view"
-          onChange={(key) => {
-            writePhaseView(key);
-            setView(key);
-          }}
+        <DateNavigation
+          label={dayLabel(dayStartMs / 1000, nowMs)}
+          unit="day"
+          canGoNext={dayStartMs < startOfDayMs(nowMs / 1000)}
+          onPrevious={() => setAnchorMs((current) => stepSelectedDay(current, -1, nowMs))}
+          onNext={() => setAnchorMs((current) => stepSelectedDay(current, 1, nowMs))}
+          onToday={() => setAnchorMs(null)}
+          picker={singleDayPicker(dayStartMs, nowMs, setAnchorMs)}
         />
+        <button
+          ref={guideButtonRef}
+          type="button"
+          className="phase-guide-button"
+          aria-expanded={guideOpen}
+          aria-controls={guideId}
+          onClick={() => setGuideOpen((open) => !open)}
+        >
+          Guide
+        </button>
       </header>
       <div className="dash-section__body">
-        {view === "day" ? (
+        <div inert={guideOpen}>
           <PhaseDay dayStartMs={dayStartMs} nowMs={nowMs} />
-        ) : (
-          <PhaseGuide />
+        </div>
+        {guideOpen && (
+          <div className="phase-guide-overlay">
+            <div
+              ref={guideDialogRef}
+              id={guideId}
+              className="phase-guide-dialog"
+              role="dialog"
+              aria-labelledby={guideTitleId}
+              tabIndex={-1}
+            >
+              <header className="phase-guide-dialog__header">
+                <h2 id={guideTitleId}>Phase guide</h2>
+                <button
+                  type="button"
+                  className="phase-guide-dialog__close"
+                  aria-label="Close Phase guide"
+                  onClick={closeGuide}
+                >
+                  {xIcon}
+                </button>
+              </header>
+              <PhaseGuide />
+            </div>
+          </div>
         )}
       </div>
     </section>

@@ -12,7 +12,7 @@ const headings = [
 ] as const;
 
 describe("InsightHeading", () => {
-  it.each(headings)("places the Core icon beside the $label title", ({ label, icon }) => {
+  it.each(headings)("places the Section icon beside the $label title", ({ label, icon }) => {
     const html = renderToStaticMarkup(
       createElement(InsightHeading, {
         label,

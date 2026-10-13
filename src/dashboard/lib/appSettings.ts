@@ -3,12 +3,15 @@ export const APP_SETTINGS_KEY = "nest:settings";
 export type AppSettings = {
   /** Map is a Tasks layout. Hidden until this is on. */
   showTaskMap: boolean;
-  /** Second click on a selected Sidebar or Core icon opens the icon picker. */
+  /** Work stretch is a Calendar figure. Hidden until this is on. */
+  showWorkStretch: boolean;
+  /** Second click on a selected Sidebar icon opens the icon picker. */
   iconSelection: boolean;
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   showTaskMap: false,
+  showWorkStretch: false,
   iconSelection: true,
 };
 
@@ -20,7 +23,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const booleanOr = (value: unknown, fallback: boolean) =>
   typeof value === "boolean" ? value : fallback;
 
-/** Map stays hidden. Icon selection stays available. Unknown stored values fall back per field. */
+/** Map and Work stretch stay hidden. Icon selection stays available. Unknown stored values fall back per field. */
 export const readAppSettings = (
   storage: Pick<Storage, "getItem"> = localStorage,
 ): AppSettings => {
@@ -32,6 +35,7 @@ export const readAppSettings = (
     if (!isRecord(parsed)) return { ...DEFAULT_APP_SETTINGS };
     return {
       showTaskMap: booleanOr(parsed.showTaskMap, DEFAULT_APP_SETTINGS.showTaskMap),
+      showWorkStretch: booleanOr(parsed.showWorkStretch, DEFAULT_APP_SETTINGS.showWorkStretch),
       iconSelection: booleanOr(parsed.iconSelection, DEFAULT_APP_SETTINGS.iconSelection),
     };
   } catch {

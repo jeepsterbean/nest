@@ -1,6 +1,5 @@
 import { useId, useState } from "react";
 import type { Task, TaskWorkStretch } from "../../lib/types";
-import { DateNavigation } from "../components/DateNavigation";
 import { buildOpenTaskGroups, buildTaskDay } from "../lib/taskDay";
 import type { TaskGraphProjection } from "../lib/taskGraph";
 import {
@@ -35,26 +34,16 @@ type TaskDayMeasureGroup = {
 export function TaskDay({
   selectedDayMs,
   nowMs,
-  canGoPrevious,
-  canGoNext,
   tasks,
   taskGraph,
   workStretches,
-  onPreviousDay,
-  onNextDay,
-  onToday,
   onSelectTask,
 }: {
   selectedDayMs: number;
   nowMs: number;
-  canGoPrevious: boolean;
-  canGoNext: boolean;
   tasks: Task[];
   taskGraph: TaskGraphProjection;
   workStretches: TaskWorkStretch[];
-  onPreviousDay: () => void;
-  onNextDay: () => void;
-  onToday: () => void;
   onSelectTask: (id: number, origin?: HTMLElement) => void;
 }) {
   const [selectedStat, setSelectedStat] = useState<TaskDayStatKey | null>(null);
@@ -129,15 +118,6 @@ export function TaskDay({
 
   return (
     <div className="task-day">
-      <DateNavigation
-        label={label}
-        unit="day"
-        canGoPrevious={canGoPrevious}
-        canGoNext={canGoNext}
-        onPrevious={onPreviousDay}
-        onNext={onNextDay}
-        onToday={onToday}
-      />
       <div
         className="task-day__summary"
         role="group"

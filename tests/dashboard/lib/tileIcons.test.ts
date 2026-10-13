@@ -49,7 +49,7 @@ describe("tile icons", () => {
     });
   });
 
-  it("writes the Phases pane icon", () => {
+  it("writes the Phases Section icon", () => {
     const storage = memory();
     writeTileIcon("phases", "moon", storage);
     expect(readTileIcons(storage)).toEqual({

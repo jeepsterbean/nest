@@ -36,7 +36,7 @@ export function InsightHideButton({
   );
 }
 
-/** Section title opens that kind in Core. The eye still hides or shows it. */
+/** The title opens that kind's Section. The eye still hides or shows it. */
 export function InsightHeading({
   label,
   icon,

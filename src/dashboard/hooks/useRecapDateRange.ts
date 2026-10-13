@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/interface/calendar.md#range-sidebar
+// Behavior and invariants: docs/interface/calendar.md#presentation-and-range
 import { useCallback, useState } from "react";
 import {
   readRecapDateRangeMode,
@@ -27,10 +27,12 @@ export function useRecapDateRange(
 
   const selectMode = useCallback(
     (key: RangeModeKey) => {
+      // Timeline's Day is a readout; pressing it must keep Calendar's stored Week.
+      if (presentation === "timeline") return;
       setMode(key);
       store.write(key);
     },
-    [store],
+    [presentation, store],
   );
 
   return {
@@ -40,13 +42,12 @@ export function useRecapDateRange(
     to: dates.to,
     nowMs: dates.nowMs,
     nowSec: dates.nowSec,
-    earliestSec: dates.earliestSec,
     canGoBack: dates.canGoBack,
     isNow: dates.isNow,
     title: dates.title,
     selectMode,
     step: dates.step,
     goToday: dates.goToday,
-    goToDay: dates.goToDay,
+    picker: dates.picker,
   };
 }

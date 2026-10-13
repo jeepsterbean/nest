@@ -5,7 +5,7 @@ description: Change or diagnose Nest's Brain dump rich-text editors, caret or fo
 
 # Nest editor
 
-Preserve each editor's selection and undo state across the Core composer,
+Preserve each editor's selection and undo state across the Today composer,
 floating stickies, and the Popup while keeping the shared draft synchronized.
 
 1. Read [editor ownership and synchronization](../../../docs/interface/editor.md#editor-ownership-and-synchronization)

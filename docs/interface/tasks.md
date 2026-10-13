@@ -5,13 +5,13 @@ in [Tasks domain](../domain/tasks.md); shared terminology lives in
 [`CONTEXT.md`](../../CONTEXT.md) and dashboard controls in
 [`UI.md`](../../UI.md).
 
-The Tasks pane icon is picked from the Core sidebar and also marks Task events
+The Tasks Section icon is picked from the Sidebar and also marks Task events
 in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
 
 ## Day
 
-Day is the default Tasks layout; Table is the other. Map is a third layout,
-hidden until Settings shows it. Day is a task-focused daily report over the
+Tasks opens in Day on each visit. The view button offers Table in Day and
+Day in Table. Day is a task-focused daily report over the
 same 30-day history window as Calendar,
 paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
 
@@ -56,9 +56,7 @@ row opens its detail panel.
 
 ## Table
 
-The last Day / Table / Map choice is remembered (`nest:task-view`). While Map
-is hidden, a remembered Map choice shows Day and stays saved. The table
-filters by any set of [Task statuses](../domain/tasks.md#fields-and-status)
+The table filters by any set of [Task statuses](../domain/tasks.md#fields-and-status)
 with Open / Closed / All presets; first visit is the Raw saved view. There is
 no scope sidebar; Scope is a column filter.
 
@@ -227,17 +225,17 @@ shows whether it is Completed.
 
 ## Creating Tasks
 
-The "New task" button is available only in Table and opens the new-task card as
-an overlay. Only the name is required; Status (default Backlog, or the view's
-status when it shows exactly one), Description, Scope (seeded from the table's
-Scope filter), Parent, Value, Effort, and Blockers are optional. Pressing
+The "New task" button is available in Day and Table and opens
+the new-task card as an overlay. Only the name is required; Status (default
+Backlog), Description, Scope, Parent, Value, Effort, and Blockers are optional.
+In Table, a fresh draft takes the view's Status when it shows exactly one and
+its Scope filter. In Day, a fresh draft starts unscoped with Status Backlog. Pressing
 outside the card, Escape, or Cancel dismisses it and keeps the draft for the
 next open; adding clears the draft and opens the new Task's detail panel.
 
 ## Map
 
-Map stays out of the Tasks layout toggle until Settings shows it. It is a
-free-form canvas the user arranges by hand. Each placed Task is an
+Map is a free-form canvas the user arranges by hand. Each placed Task is an
 **entity box** showing its title and attributes (status, scope, value / effort,
 and parent, children or blocked by when they apply). The canvas is far larger
 than the screen and is panned by dragging bare canvas, zoomed with the wheel

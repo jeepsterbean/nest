@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildLogDayMarkerEvents,
+  ALL_LOG_KINDS,
   buildLogsEvents,
-  logDayKeys,
   taskStatusEventLabel,
   readLogsPreferences,
   toggleLogKind,
@@ -140,7 +139,7 @@ describe("Logs feed", () => {
   });
 });
 
-describe("day marker events", () => {
+describe("every Logs kind together", () => {
   it("uses settled Phase changes and includes every event type", () => {
     const checkIn: MetricCheckInWithRatings = {
       id: 1,
@@ -159,7 +158,9 @@ describe("day marker events", () => {
       phaseId,
       phaseLabel: null,
     });
-    const events = buildLogDayMarkerEvents(
+    const events = buildLogsEvents(
+      ALL_LOG_KINDS,
+      false,
       [checkIn],
       [phase(1, 100, 1), phase(2, 130, 2), phase(3, 150, 3)],
       [
@@ -194,7 +195,9 @@ describe("day marker events", () => {
     });
     const SCOPING = 2;
     const RESTING = 4;
-    const events = buildLogDayMarkerEvents(
+    const events = buildLogsEvents(
+      ALL_LOG_KINDS,
+      false,
       [],
       [
         phase(1, 100, SCOPING),
@@ -258,25 +261,4 @@ describe("Task lifecycle history", () => {
       "Cancelled task · Paused → Cancelled",
     ]);
   });
-});
-
-describe("Logs selected day", () => {
-  const day = (date: number) => new Date(2026, 8, date).getTime();
-  const at = (date: number, hour: number) =>
-    new Date(2026, 8, date, hour).getTime() / 1000;
-  // Newest first, with Sep 26 and Sep 29 empty.
-  const events = [
-    { at: at(30, 9) },
-    { at: at(28, 18) },
-    { at: at(28, 8) },
-    { at: at(27, 12) },
-    { at: at(25, 7) },
-  ];
-  const keys = logDayKeys(events);
-
-  it("lists each day with entries once, newest first", () => {
-    expect(keys).toEqual([day(30), day(28), day(27), day(25)]);
-  });
-
-
 });

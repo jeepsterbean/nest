@@ -56,17 +56,16 @@ Surface behavior: [Metrics interface](docs/interface/metrics.md),
 - **Timer** names the countdown; **Popup** names the window it opens. Use
   these names in chrome, accessible names, and class names; reserve check-in
   for Metric scoring records.
-- **Section** names Recap or Core. Recap contains Calendar and Timeline
-  presentations, with Insights beside either. Core contains Brain dump,
-  Tasks, Metrics, and Phases panes.
+- **Section** names Recap, Brain dump, Tasks, Metrics, or Phases. Recap
+  contains Calendar and Timeline presentations, with Insights in the Section sidebar.
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.
-- **Settings** names the overlay the Sidebar opens for Background, Map, and
-  Icons preferences.
+- **Settings** names the overlay the Sidebar opens for Background, Map, Work
+  stretch, and Icons preferences.
 - Day, Table, and Map are Tasks **layouts**. A **saved view** is a named Table
   query.
 - **Map** names the Tasks layout; **Note Board** names the brain dump board.
 - **Timeline** lists history; **Logs** places it on Calendar beside Work stretch.
-- A **pane** is a destination within Core or Metrics; a **panel** is a content
+- A **pane** is a destination within Metrics; a **panel** is a content
   surface such as Task details.
 
 Lowercase section can describe a general content region. Internal code may

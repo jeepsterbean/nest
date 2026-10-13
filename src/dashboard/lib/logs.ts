@@ -8,7 +8,6 @@ import type {
   TaskStatusEvent,
 } from "../../lib/types";
 import { TASK_STATUS_LABEL } from "./tasks";
-import { startOfDayMs } from "./time";
 import {
   buildRawLog,
   collapsePhaseCheckIns,
@@ -50,16 +49,6 @@ export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }>
       body: "Task creation, status changes, and Working now starts and stops will land here.",
     },
   };
-
-/** Distinct local day starts of a newest-first event list, newest first. */
-export const logDayKeys = (events: readonly { at: number }[]): number[] => {
-  const keys: number[] = [];
-  for (const event of events) {
-    const key = startOfDayMs(event.at);
-    if (keys[keys.length - 1] !== key) keys.push(key);
-  }
-  return keys;
-};
 
 /** Selected kinds, kept non-empty and in LOG_KINDS order. Shared by Insights,
  * Timeline, and Calendar's Logs figure. */
@@ -141,28 +130,6 @@ export function buildLogsEvents(
     kinds.includes("dumps") ? brainDumps : [],
     kinds.includes("tasks") ? taskWorkStretches : [],
     kinds.includes("tasks") ? taskStatusEvents : [],
-  );
-}
-
-/** Every kind with settled Phase changes, whatever the kind filter: the days
- * the Recap sidebar marks as holding history. */
-export function buildLogDayMarkerEvents(
-  checkIns: MetricCheckInWithRatings[],
-  phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
-  taskWorkStretches: TaskWorkStretch[],
-  historyFromSec: number,
-  taskStatusEvents: TaskStatusEvent[] = [],
-) {
-  return buildLogsEvents(
-    ALL_LOG_KINDS,
-    false,
-    checkIns,
-    phaseCheckIns,
-    brainDumps,
-    taskWorkStretches,
-    historyFromSec,
-    taskStatusEvents,
   );
 }
 

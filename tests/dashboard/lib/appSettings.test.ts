@@ -16,7 +16,7 @@ const memory = () => {
 };
 
 describe("app settings", () => {
-  it("hides Map and keeps icon selection until a choice is saved", () => {
+  it("hides Map and Work stretch and keeps icon selection until a choice is saved", () => {
     expect(readAppSettings(memory())).toEqual(DEFAULT_APP_SETTINGS);
   });
 
@@ -25,11 +25,13 @@ describe("app settings", () => {
     writeAppSettings({ showTaskMap: true }, storage);
     expect(readAppSettings(storage)).toEqual({
       showTaskMap: true,
+      showWorkStretch: false,
       iconSelection: true,
     });
     writeAppSettings({ iconSelection: false }, storage);
     expect(readAppSettings(storage)).toEqual({
       showTaskMap: true,
+      showWorkStretch: false,
       iconSelection: false,
     });
   });
@@ -41,6 +43,7 @@ describe("app settings", () => {
     storage.setItem("nest:settings", JSON.stringify({ showTaskMap: "yes", iconSelection: false }));
     expect(readAppSettings(storage)).toEqual({
       showTaskMap: false,
+      showWorkStretch: false,
       iconSelection: false,
     });
   });

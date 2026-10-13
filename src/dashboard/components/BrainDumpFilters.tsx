@@ -1,19 +1,34 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { DateNavigation } from "./DateNavigation";
 import { createTag, deleteTag, renameTag } from "../../lib/commands";
-import type { Tag } from "../../lib/types";
+import type { BrainDump, Tag } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
+import type { DayPickerProps } from "../lib/dayPicker";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 
-export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext, onToday, tagId, onTagChange }: {
+export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext, onToday, dayPicker, tagId, onTagChange, brainDumps, loaded, sectionSidebar, visible }: {
+  brainDumps: BrainDump[];
+  loaded: boolean;
+  sectionSidebar: HTMLElement | null;
+  visible: boolean;
   dayLabel: string;
   onPreviousDay: () => void;
   onNextDay: () => void;
   canGoNext: boolean;
   onToday: () => void;
+  dayPicker: DayPickerProps;
   tagId: string;
   onTagChange: (id: string) => void;
 }) {
+  const collapsedSidebar = useMediaQuery("(max-width: 600px)");
+  const tagCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const dump of brainDumps) {
+      for (const tag of dump.tags) counts.set(tag.id, (counts.get(tag.id) ?? 0) + 1);
+    }
+    return counts;
+  }, [brainDumps]);
   const { tags, mutate } = useDashboardData();
   const [menu, setMenu] = useState<{ tag: Tag; x: number; y: number } | null>(null);
   const [editor, setEditor] = useState<{ tag: Tag | null; name: string } | null>(null);
@@ -84,15 +99,15 @@ export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext
     if (tagId && !activeTagId) onTagChange("");
   }, [tagId, activeTagId, onTagChange]);
 
-  return (
-    <div ref={rootRef} className="brain-dump-history__filters">
-      <DateNavigation label={dayLabel} unit="day" canGoNext={canGoNext}
-        onPrevious={onPreviousDay} onNext={onNextDay} onToday={onToday} />
-      <div className="brain-dump-filter-tags">
+  const tagFilters = (
+      <div className="brain-dump-filter-tags" hidden={!visible}>
         <div className="brain-dump-filter-tags__scroll" aria-label="Filter brain dumps by tag">
-          <button type="button" className="brain-dump-tag" aria-pressed={!activeTagId} onClick={() => onTagChange("")}>All tags</button>
+          <button type="button" className="brain-dump-filter-tags__row" aria-pressed={!activeTagId} onClick={() => onTagChange("")}>
+            <span className="brain-dump-filter-tags__name">All tags</span>
+            <span className="brain-dump-filter-tags__count">{loaded ? brainDumps.length : "…"}</span>
+          </button>
           {tags.map((tag) => (
-            <button key={tag.id} type="button" className="brain-dump-tag"
+            <button key={tag.id} type="button" className="brain-dump-filter-tags__row"
               aria-pressed={activeTagId === String(tag.id)} aria-haspopup="menu"
               title={`${tag.name} — right-click to rename or delete`}
               onClick={() => onTagChange(String(tag.id))}
@@ -110,17 +125,27 @@ export function BrainDumpFilters({ dayLabel, onPreviousDay, onNextDay, canGoNext
                 setEditor(null);
                 setMenu({ tag, x: rect.left, y: rect.bottom });
               }}
-            >{tag.name}</button>
+            >
+              <span className="brain-dump-filter-tags__name">{tag.name}</span>
+              <span className="brain-dump-filter-tags__count">{loaded ? tagCounts.get(tag.id) ?? 0 : "…"}</span>
+            </button>
           ))}
         </div>
-        <button type="button" className="brain-dump-tag brain-dump-filter-tags__add" aria-haspopup="dialog"
+        <button type="button" className="brain-dump-filter-tags__row brain-dump-filter-tags__add" aria-haspopup="dialog"
           onClick={(event) => {
             returnFocusRef.current = event.currentTarget;
             setMenu(null);
             setEditor({ tag: null, name: "" });
           }}>+ Add tag</button>
       </div>
-      {(menu || editor) && createPortal(
+  );
+
+  return (
+    <div ref={rootRef} className="brain-dump-history__filters">
+      <DateNavigation label={dayLabel} unit="day" canGoNext={canGoNext}
+        onPrevious={onPreviousDay} onNext={onNextDay} onToday={onToday} picker={dayPicker} />
+      {collapsedSidebar || !sectionSidebar ? tagFilters : createPortal(tagFilters, sectionSidebar)}
+      {visible && (menu || editor) && createPortal(
         <div ref={popupRef} className="brain-dump-filter-popup"
           role={editor ? "dialog" : "menu"}
           aria-label={editor ? (editor.tag ? "Rename tag" : "Add tag") : `Manage ${menu?.tag.name}`}

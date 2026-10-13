@@ -27,7 +27,7 @@ import { useInlineRename } from "../hooks/useInlineRename";
 import { LIST_SORT_IGNORE, useListSort, type SortRowProps } from "../hooks/useListSort";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useDayRecords } from "../hooks/useDayRecords";
-import { selectedDayMs as resolveSelectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
+import { selectedDayMs as resolveSelectedDayMs, singleDayPicker, stepSelectedDay } from "../lib/dateNavigation";
 import {
   buildMetricDay,
   dayOffset,
@@ -557,6 +557,7 @@ export function MetricsView() {
           onPrevious={() => setAnchorMs((current) => stepSelectedDay(current, -1, nowMs))}
           onNext={() => setAnchorMs((current) => stepSelectedDay(current, 1, nowMs))}
           onToday={() => setAnchorMs(null)}
+          picker={singleDayPicker(dayStartMs, nowMs, setAnchorMs)}
         />
         {isEmpty && !editing ? null : (
           <button

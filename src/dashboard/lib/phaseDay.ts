@@ -19,28 +19,6 @@ export type PhaseDayRow = {
   sessions: PhaseDaySession[];
 };
 
-export const PHASE_VIEWS = [
-  { key: "day", label: "Day" },
-  { key: "guide", label: "Guide" },
-] as const;
-
-export type PhaseView = (typeof PHASE_VIEWS)[number]["key"];
-
-const PHASE_VIEW_KEY = "nest:phase-view";
-
-type ViewStorage = Pick<Storage, "getItem" | "setItem">;
-
-/** Day is the default Phases layout. An unknown stored value falls back. */
-export const readPhaseView = (storage: ViewStorage = localStorage): PhaseView =>
-  storage.getItem(PHASE_VIEW_KEY) === "guide" ? "guide" : "day";
-
-export const writePhaseView = (
-  view: PhaseView,
-  storage: ViewStorage = localStorage,
-) => {
-  storage.setItem(PHASE_VIEW_KEY, view);
-};
-
 /** One row per live Phase, 0m included, holding its settled sessions for the
  * day. Sessions stop at now, since the last checkpoint would otherwise claim
  * the rest of today, and Idle counts as Offline like every other summary. */

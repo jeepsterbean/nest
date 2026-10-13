@@ -5,3 +5,10 @@ app wiring that hurt maintainability, correctness, or future change.
 
 This file is for engineering health — not user-facing features. Prefer short,
 actionable items. When empty, there is no known backend work queued.
+
+## History window
+
+- Calendar, Timeline, and Tasks Day read only the 30-day history the dashboard
+  loads, so their date picker and paging stop there, while Brain dump, Metrics,
+  and Phases Day fetch older days on demand. Load older history on demand for
+  those three so every surface reaches the same days.

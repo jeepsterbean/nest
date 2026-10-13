@@ -6,7 +6,7 @@ import {
 } from "../lib/tileIcons";
 
 /**
- * Tracks the Section and pane icon preferences across both windows. The native
+ * Tracks the Section icon preferences across both windows. The native
  * `storage` event only fires in the other window, so writes also dispatch a
  * same-window event under `TILE_ICONS_KEY`.
  */

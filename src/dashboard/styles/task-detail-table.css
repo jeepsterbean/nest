@@ -239,7 +239,7 @@
   font-weight: 500;
 }
 
-/* The Tasks pane gives filled scopes a border at higher specificity, so the
+/* The Tasks Section gives filled scopes a border at higher specificity, so the
    border is removed by width and the padding makes up the missing pixel. */
 .task-detail .task-card__scope {
   display: flex;
@@ -375,7 +375,7 @@
   font-size: 12.5px;
 }
 
-/* The Tasks pane hides status dots; here a Blocker's dot is the only sign of
+/* The Tasks Section hides status dots; here a Blocker's dot is the only sign of
    whether it still holds the Task back. */
 .dashboard--tasks .task-detail .task-relation-list .status-dot {
   display: block;
