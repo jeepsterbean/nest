@@ -22,6 +22,7 @@ export type TaskTableQuery = {
   parent: TaskParentFilter;
   created: TaskDateFilter;
   updated: TaskDateFilter;
+  workedOn: TaskDateFilter;
   value: TaskScoreFilter;
   effort: TaskScoreFilter;
   workedTime: TaskWorkedTimeFilter;
@@ -61,6 +62,7 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   parent: null,
   created: null,
   updated: null,
+  workedOn: null,
   value: null,
   effort: null,
   workedTime: null,
@@ -84,6 +86,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
   parent: (a, b) => a === b,
   created: sameDateFilter,
   updated: sameDateFilter,
+  workedOn: sameDateFilter,
   value: sameScoreFilter,
   effort: sameScoreFilter,
   workedTime: sameWorkedTimeFilter,
@@ -108,15 +111,17 @@ const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuer
   workedTime: "workedTime",
 };
 
+// Includes Worked on, which filters rows from the toolbar instead of a column menu.
+const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "columns");
+
 /** Whether any row-selection filter differs from the saved view.
  * Column layout and sorting do not affect filtered-result count copy. */
 export const taskTableFiltersEdited = (
   saved: TaskTableQuery,
   query: TaskTableQuery,
 ) =>
-  Object.values(COLUMN_FILTER_FIELD).some(
+  ROW_FILTER_FIELDS.some(
     (field) =>
-      field !== undefined &&
       !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(
         saved[field],
         query[field],
@@ -237,6 +242,7 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
     parent: parent === "none" || (typeof parent === "number" && Number.isInteger(parent)) ? parent : null,
     created: normalizeDateFilter(value.created),
     updated: normalizeDateFilter(value.updated),
+    workedOn: normalizeDateFilter(value.workedOn),
     value: normalizeScoreFilter(value.value),
     effort: normalizeScoreFilter(value.effort),
     workedTime: normalizeWorkedTimeFilter(value.workedTime),

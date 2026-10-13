@@ -127,22 +127,27 @@ export function WorkingToggle({
 
 /** Worked time: every finished stretch banked by SQL, plus the open one while
  * it runs. Stands on its own — the total outlives Working now and Active, so
- * it is not a child of the working control. */
+ * it is not a child of the working control. `rangeSeconds` replaces the
+ * all-time total with time already clipped to a Worked on range. */
 export function WorkedTime({
   task,
   nowMs,
+  rangeSeconds,
 }: {
   task: Task;
   nowMs?: number;
+  rangeSeconds?: number;
 }) {
-  const seconds = task.workedSeconds + (useWorkSessionSeconds(task, nowMs) ?? 0);
+  const allTimeSeconds = task.workedSeconds + (useWorkSessionSeconds(task, nowMs) ?? 0);
+  const seconds = rangeSeconds ?? allTimeSeconds;
+  const period = rangeSeconds === undefined ? "Worked time, all time" : "Worked time in range";
 
   return (
     <time
       className="worked-time"
       dateTime={`PT${seconds}S`}
-      title="Worked time"
-      aria-label={`${formatWorkedTime(seconds)} Worked time`}
+      title={period}
+      aria-label={`${formatWorkedTime(seconds)} ${period}`}
     >
       {formatWorkedTime(seconds)}
     </time>

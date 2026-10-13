@@ -93,9 +93,10 @@ function TaskDateBoundField({ label, day, nowMs, editing, onEdit, onClear }: {
   </div>;
 }
 
-function TaskDateFilterFields({ filter, onChange }: {
+export function TaskDateFilterFields({ filter, onChange, emptyLabel = "Any date" }: {
   filter: TaskDateFilter;
   onChange: (filter: TaskDateFilter) => void;
+  emptyLabel?: string;
 }) {
   const nowMs = Date.now();
   const preset = matchingTaskDatePreset(filter, nowMs);
@@ -104,10 +105,10 @@ function TaskDateFilterFields({ filter, onChange }: {
   const [editing, setEditing] = useState<"from" | "to">("from");
   const presetRef = useRef<HTMLDivElement>(null);
   const presetLabel = preset
-    ? TASK_DATE_PRESETS.find(item => item.key === preset)?.label ?? "Any date"
+    ? TASK_DATE_PRESETS.find(item => item.key === preset)?.label ?? emptyLabel
     : filter
       ? "Custom"
-      : "Any date";
+      : emptyLabel;
   const writeRange = (fromDay: string, toDay: string) => {
     const nextFrom = fromDay || null;
     const nextTo = toDay || null;
@@ -139,7 +140,7 @@ function TaskDateFilterFields({ filter, onChange }: {
         <span className="task-column-menu__chevron" aria-hidden="true">{chevronDownIcon}</span>
       </button>
       {presetOpen && <div className="task-column-menu__preset-menu" role="group" aria-label="Date range">
-        <MenuOption selected={filter === null} onClick={() => choosePreset(null)}>Any date</MenuOption>
+        <MenuOption selected={filter === null} onClick={() => choosePreset(null)}>{emptyLabel}</MenuOption>
         {TASK_DATE_PRESETS.map(item =>
           <MenuOption key={item.key} selected={preset === item.key} onClick={() => choosePreset(item.key)}>
             {item.label}
@@ -184,15 +185,16 @@ function TaskScoreFilterFields({ filter, onChange }: {
   </>;
 }
 
-function TaskWorkedTimeFilterFields({ filter, onChange, candidates }: {
+function TaskWorkedTimeFilterFields({ filter, onChange, candidates, workedSecondsByTask }: {
   filter: TaskWorkedTimeFilter;
   onChange: (filter: TaskWorkedTimeFilter) => void;
   candidates: Task[];
+  workedSecondsByTask: ReadonlyMap<number, number> | null;
 }) {
   // Snapshot at flyout open so a live Working now total cannot rebuild the line.
   const [stops] = useState(() =>
     includeWorkedTimeThreshold(
-      workedTimeStops(candidates.map(task => taskDisplayedWorkedSeconds(task, Date.now()))),
+      workedTimeStops(candidates.map(task => workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : taskDisplayedWorkedSeconds(task, Date.now()))),
       filter,
     ));
   const comparator = filter?.comparator ?? "more";
@@ -222,7 +224,7 @@ function TaskWorkedTimeFilterFields({ filter, onChange, candidates }: {
   </div>;
 }
 
-export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStatusesChange, scope, onScopeChange, parent, onParentChange, createdFilter, onCreatedFilterChange, updatedFilter, onUpdatedFilterChange, valueFilter, onValueFilterChange, effortFilter, onEffortFilterChange, workedTimeFilter, onWorkedTimeFilterChange, workedTimeCandidates, sort, onSortChange, onHide, open, onOpenChange, edited }: {
+export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStatusesChange, scope, onScopeChange, parent, onParentChange, createdFilter, onCreatedFilterChange, updatedFilter, onUpdatedFilterChange, valueFilter, onValueFilterChange, effortFilter, onEffortFilterChange, workedTimeFilter, onWorkedTimeFilterChange, workedTimeCandidates, workedSecondsByTask, workHistoryStatus, sort, onSortChange, onHide, open, onOpenChange, edited }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   edited: boolean;
@@ -246,6 +248,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   workedTimeFilter: TaskWorkedTimeFilter;
   onWorkedTimeFilterChange: (filter: TaskWorkedTimeFilter) => void;
   workedTimeCandidates: Task[];
+  workHistoryStatus: string | null;
+  workedSecondsByTask: ReadonlyMap<number, number> | null;
   sort: TaskColumnSort[];
   onSortChange: (sort: TaskColumnSort[]) => void;
   /** Absent for columns that must stay visible. */
@@ -462,7 +466,9 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     </>}
     {onDateFilterChange && <TaskDateFilterFields filter={dateFilter} onChange={onDateFilterChange} />}
     {onScoreFilterChange && <TaskScoreFilterFields filter={scoreFilter} onChange={onScoreFilterChange} />}
-    {column.id === "workedTime" && <TaskWorkedTimeFilterFields filter={workedTimeFilter} onChange={onWorkedTimeFilterChange} candidates={workedTimeCandidates} />}
+    {column.id === "workedTime" && (workHistoryStatus
+      ? <div className="task-column-menu__empty" role="status">{workHistoryStatus}</div>
+      : <TaskWorkedTimeFilterFields filter={workedTimeFilter} onChange={onWorkedTimeFilterChange} candidates={workedTimeCandidates} workedSecondsByTask={workedSecondsByTask} />)}
   </>;
 
   const paneRow = (pane: MenuPane, label: string, icon: ReactNode, hint: string | null) =>
@@ -478,13 +484,17 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
       <span className="task-column-menu__chevron" aria-hidden="true">{chevronRightIcon}</span>
     </button>;
 
-  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}`;
+  const inWorkedOnRange = column.id === "workedTime" && workedSecondsByTask !== null;
+  const columnHeading = inWorkedOnRange
+    ? <>{column.label}<span className="task-column-period">in range</span></>
+    : column.label;
+  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}${inWorkedOnRange ? " in range" : ""}`;
   return <>
     <button ref={triggerRef} type="button" className={`task-column-trigger${edited ? " is-active" : ""}`}
       aria-label={`${menuLabel}${filterLabel ? `, ${filterLabel}` : ""}${sorted ? `, sorted ${columnSort?.direction}` : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onPointerDown={event => event.stopPropagation()} onClick={() => onOpenChange(!open)}>
-      <span>{column.label}</span>
+      <span>{columnHeading}</span>
       <span aria-hidden="true">{sorted ? (columnSort?.direction === "ascending" ? "↑" : "↓") : chevronDownIcon}</span>
     </button>
     {open && box && createPortal(<>
@@ -493,7 +503,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
         style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}
         onPointerDown={event => event.stopPropagation()}>
         <div className="task-column-menu__head">
-          <span>{column.label}</span>
+          <span>{columnHeading}</span>
           {(sorted || filterLabel) && <button type="button" className="task-column-menu__reset" onClick={reset}>Reset</button>}
         </div>
 

@@ -45,8 +45,8 @@ no scope sidebar; Scope is a column filter.
 ### Saved views
 
 A **saved view** names one table query: the status set, Scope, Parent, Created,
-Updated, Value, Effort, Worked time, the ordered sort rules, and the columns:
-their order, widths, and which are hidden. Up to five views, including Raw, are
+Updated, Worked on, Value, Effort, Worked time, the ordered sort rules, and the
+columns: their order, widths, and which are hidden. Up to five views, including Raw, are
 kept, in the order they were made; names are unique ignoring case. The built-in
 Raw view (every status, no filters, no sort, default columns) cannot be renamed,
 overwritten, or deleted, so there is always an unfiltered view to fall back to. Edits
@@ -78,8 +78,8 @@ Effort, Worked time), and Hide column (every column but Title); hovering or
 clicking Sort or Filter opens its options. Title has only Sort, so its menu
 shows the sort options directly. Menus dismiss on outside pointer press
 (including another column trigger), Escape, or scrolling outside the menu.
-Status, Created, Updated, Value, Effort, and Worked time keep their menu open
-while choosing; Scope, Parent, and sort selections close their menu. Headers
+Status, Created, Updated, Value, Effort, and Worked time keep their
+menu open while choosing; Scope, Parent, and sort selections close their menu. Headers
 indicate sort direction and highlight only when that column's filter or sort
 differs from the saved view.
 
@@ -88,8 +88,9 @@ differs from the saved view.
 Every column sorts ascending or descending with empty values last: Title,
 Scope, and Parent (by the parent's title) sort A to Z or Z to A; Status sorts
 in lifecycle order; Value, Effort, and Worked time sort lowest or highest first
-(Worked time uses the displayed total, including an open stretch); Created and
-Updated sort oldest or newest first. Choosing a new column appends a sort rule;
+(Worked time uses the displayed time for the active Worked on range, or the
+all-time total when unset, including an open stretch); Created and Updated
+sort oldest or newest first. Choosing a new column appends a sort rule;
 changing its direction keeps its priority. Choosing the active direction again
 removes only that rule. Rules apply in order to break ties, with empty values
 last at each level. Sorting starts unset; removing it restores the incoming
@@ -108,12 +109,34 @@ bound (From first, then To). Value and Effort offer All, None (unscored), and
 scores 1–5; All shows every Task and ticks every score, None only unscored, and
 the numbers are a set of scored values.
 
+The table toolbar offers a standalone **Worked on** date control beside the
+saved-view picker. It defaults to All dates and uses the same date presets and
+From / To calendar days as Created and Updated. The control stays open while
+choosing dates and closes on an outside press, Escape, or outside scrolling.
+A Task matches
+when it has positive Worked time overlapping any part of the selected range;
+a stretch crossing midnight contributes to both days. Either bound may be
+empty. Work history for the selected range is fetched independently of Day's
+30-day window. While a newly chosen range loads, the table shows a loading
+state; a failed fetch shows an unavailable state with Retry. When recorded
+work changes, the rows already shown stay in place until the refreshed
+history arrives.
+
+With Worked on set, the column reads “Worked time in range”; its values,
+sorting, and duration filter all use Worked time clipped to that range,
+following [history range rules](../domain/history.md#records-and-ranges).
+Reset in the Worked on control, choosing All dates, or removing its query pill
+clears the date filter and restores all-time Worked time. The Worked time
+column menu resets its duration filter and sort independently.
+Created and Updated only select rows and leave the Worked time period unchanged. Saved views keep
+Worked on: presets such as This week move with the calendar, while explicit
+dates stay fixed. Older saved views load with Worked on unset.
+
 Worked time offers More than / Less than and a line of minute stops taken from
 the Tasks already in view (every other filter, not this one). The line is
 captured when the flyout opens so a live Working now total cannot move the
-stops; matching still uses the displayed total (finished stretches plus the
-open stretch), rounded down to whole minutes, with an inclusive threshold. For
-example, Less than 32m includes 32m59s.
+stops; matching still uses the displayed time for the active range or all time,
+rounded down to whole minutes, with an inclusive threshold. For example, Less than 32m includes 32m59s.
 
 ### Query pills and result count
 
@@ -166,7 +189,8 @@ the closed status with its closing date and one action, "Create follow-up".
 The lock is checked when the control opens, so a dashboard left open past
 midnight shows it.
 
-Details show status, Working now, and Worked time across every day. Table rows
+Details show status, Working now, and Worked time across every day, labelled
+“all time” independently of the table’s Worked on filter. Table rows
 also indicate Working now. Work controls live in the [Popup's Tasks and metrics
 panel](popup.md). Scope, Value, and Effort can be edited in details. The
 description is edited in place and the editor grows with its text: Enter saves,

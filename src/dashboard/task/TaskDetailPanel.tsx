@@ -58,7 +58,8 @@ export function TaskDetailPanel({
         <div className="task-detail__state">
           <StatusTrigger task={task} />
           {task.workingNow && <WorkingBadge />}
-          <WorkedTime task={task} />
+          {/* The readout's accessible name already says all time. */}
+          <span><WorkedTime task={task} /><span aria-hidden="true"> all time</span></span>
         </div>
         <button
           type="button"

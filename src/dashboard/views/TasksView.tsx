@@ -20,6 +20,7 @@ import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
+import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
 import type { CorePaneControls } from "../lib/corePane";
 import {
@@ -59,6 +60,7 @@ import { TaskDay } from "../task/TaskDay";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
+import { TaskWorkedOnFilter } from "../task/TaskWorkedOnFilter";
 import { TaskViewPicker } from "../task/TaskViewPicker";
 
 type TableQueryPill = {
@@ -95,6 +97,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     parent: selectedParent,
     created: createdFilter,
     updated: updatedFilter,
+    workedOn: workedOnFilter,
     value: valueFilter,
     effort: effortFilter,
     workedTime: workedTimeFilter,
@@ -105,6 +108,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const setSelectedParent = (parent: TaskParentFilter) => setTableQuery(q => ({ ...q, parent }));
   const setCreatedFilter = (created: TaskDateFilter) => setTableQuery(q => ({ ...q, created }));
   const setUpdatedFilter = (updated: TaskDateFilter) => setTableQuery(q => ({ ...q, updated }));
+  const setWorkedOnFilter = (workedOn: TaskDateFilter) => setTableQuery(q => ({ ...q, workedOn }));
   const setValueFilter = (value: TaskScoreFilter) => setTableQuery(q => ({ ...q, value }));
   const setEffortFilter = (effort: TaskScoreFilter) => setTableQuery(q => ({ ...q, effort }));
   const setWorkedTimeFilter = (workedTime: TaskWorkedTimeFilter) => setTableQuery(q => ({ ...q, workedTime }));
@@ -135,6 +139,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     return () => window.clearInterval(id);
   }, [tickWorkedTime]);
   const nowMs = tickWorkedTime ? workedNowMs : dateNowMs;
+  const { workedSecondsByTask, workedTaskIds, loading: workedOnLoading, failed: workedOnFailed, retry: retryWorkedOn } = useTaskWorkedOn(workedOnFilter, nowMs, visibleTaskView === "table");
   const setTableColumns = useCallback(
     (columns: TaskTableColumn[]) => setTableQuery(q => ({ ...q, columns })),
     [setTableQuery],
@@ -228,15 +233,17 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     [tasks, selectedTaskScope],
   );
   const tableTasksWithoutWorkedTime = useMemo(
-    () => scopedTasks.filter((task) => tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent)) && taskMatchesDateFilter(task.createdAt, createdFilter, dateNowMs) && taskMatchesDateFilter(task.updatedAt, updatedFilter, dateNowMs) && taskMatchesScoreFilter(task.value, valueFilter) && taskMatchesScoreFilter(task.effort, effortFilter)),
-    [scopedTasks, tableStatuses, selectedParent, createdFilter, updatedFilter, valueFilter, effortFilter, dateNowMs],
+    () => scopedTasks.filter((task) => (workedTaskIds === null || workedTaskIds.has(task.id)) && tableStatuses.includes(task.status) && (selectedParent === null || (selectedParent === "none" ? task.parentTaskId === null : task.parentTaskId === selectedParent)) && taskMatchesDateFilter(task.createdAt, createdFilter, dateNowMs) && taskMatchesDateFilter(task.updatedAt, updatedFilter, dateNowMs) && taskMatchesScoreFilter(task.value, valueFilter) && taskMatchesScoreFilter(task.effort, effortFilter)),
+    [scopedTasks, tableStatuses, selectedParent, createdFilter, updatedFilter, valueFilter, effortFilter, dateNowMs, workedTaskIds],
   );
   const tableTasks = useMemo(
-    () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs)),
-    [tableTasksWithoutWorkedTime, workedTimeFilter, nowMs],
+    () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs, workedSecondsByTask?.get(task.id))),
+    [tableTasksWithoutWorkedTime, workedTimeFilter, nowMs, workedSecondsByTask],
   );
   const emptyListCopy =
-    tasks.length === 0
+    workedOnLoading ? "Loading work history…"
+      : workedOnFailed ? "Work history could not be loaded."
+      : tasks.length === 0
       ? "Nothing on the board yet — add the first task."
       : scopedTasks.length === 0
         ? "No tasks in this scope yet."
@@ -273,6 +280,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
     ...optionalPill("updated", "Updated", taskDateFilterLabel(updatedFilter, dateNowMs), () => setUpdatedFilter(null)),
     ...optionalPill("value", "Value", taskScoreFilterLabel(valueFilter), () => setValueFilter(null)),
     ...optionalPill("effort", "Effort", taskScoreFilterLabel(effortFilter), () => setEffortFilter(null)),
+    ...optionalPill("workedOn", "Worked on", taskDateFilterLabel(workedOnFilter, dateNowMs), () => setWorkedOnFilter(null)),
     ...optionalPill("workedTime", "Worked time", taskWorkedTimeFilterLabel(workedTimeFilter), () => setWorkedTimeFilter(null)),
   ];
   const hasHiddenColumns = tableColumns.hiddenColumns.length > 0;
@@ -301,7 +309,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
   const overlayDetailOpen = selectedTask !== null && visibleTaskView !== "map";
 
   return (
-    <section className="dash-section dash-section--tasks" aria-busy={!loaded}>
+    <section className="dash-section dash-section--tasks" aria-busy={!loaded || workedOnLoading}>
       <header className="dash-section__head task-header">
         <ViewToggle
           value={visibleTaskView}
@@ -371,6 +379,10 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 <div className="task-table-toolbar">
                   <div className="task-table-toolbar__query">
                     <TaskViewPicker views={taskTableViews} />
+                    <TaskWorkedOnFilter filter={workedOnFilter} onChange={setWorkedOnFilter}
+                      nowMs={dateNowMs} edited={changedFields.has("workedOn")}
+                      open={openHeaderMenu === "workedOn"}
+                      onOpenChange={open => setOpenHeaderMenu(open ? "workedOn" : null)} />
                     {(queryPills.length > 0 || tableSort.length > 0 || hasHiddenColumns) && <div className="task-table-toolbar__pills" aria-label="Active filters, sorting and hidden columns">
                       <TaskFilterRules rules={queryPills.map(pill => ({ ...pill, edited: changedFields.has(pill.field) }))} />
                       {tableSort.length > 0 && <TaskSortRules rules={tableSort} savedRules={taskTableViews.selected.query.sort} onChange={setTableSort} edited={changedFields.has("sort")} />}
@@ -390,16 +402,17 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                       </span>}
                     </div>}
                     <span className="task-filter-result" role="status">
-                      {filtersEdited
+                      {workedOnLoading ? "Loading work history…" : workedOnFailed ? "Work history unavailable" : filtersEdited
                         ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
                         : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`}
                     </span>
+                    {workedOnFailed && <button type="button" className="task-filter-retry" onClick={retryWorkedOn}>Retry</button>}
                   </div>
                 </div>
                 <TaskTable
                 wrapRef={tableColumns.wrapRef}
                 columns={tableColumns.visibleColumns}
-                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs)}
+                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask)}
                 headerSort={tableSort[0]}
                 renderHeader={(column) => (
                   <TaskTableHeaderMenu
@@ -426,6 +439,8 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                     workedTimeFilter={workedTimeFilter}
                     onWorkedTimeFilterChange={setWorkedTimeFilter}
                     workedTimeCandidates={tableTasksWithoutWorkedTime}
+                    workHistoryStatus={workedOnLoading ? "Loading work history…" : workedOnFailed ? "Work history unavailable" : null}
+                    workedSecondsByTask={workedSecondsByTask}
                     sort={tableSort}
                     onSortChange={setTableSort}
                     onHide={canHideTaskTableColumn(column.id) ? () => tableColumns.hideColumn(column.id) : undefined}
@@ -433,6 +448,7 @@ export function TasksView({ pane }: Pick<CorePaneControls, "pane">) {
                 )}
                 taskGraph={taskGraph}
                 nowMs={nowMs}
+                workedSecondsByTask={workedSecondsByTask}
                 selectedTaskId={selectedTaskId}
                 emptyCopy={emptyListCopy}
                 onSelect={selectTask}
