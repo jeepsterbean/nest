@@ -730,6 +730,29 @@ fn heading(text: &str) -> String {
     format!("<p style=\"font-size: 18px\"><strong>{text}</strong></p>")
 }
 
+fn title(text: &str) -> String {
+    format!("<p style=\"font-size: 24px\"><strong>{text}</strong></p>")
+}
+
+fn para(text: &str) -> String {
+    format!("<p>{text}</p>")
+}
+
+fn ordered(items: &[&str]) -> String {
+    let rows: String = items
+        .iter()
+        .map(|text| format!("<li><p>{text}</p></li>"))
+        .collect();
+    format!("<ol>{rows}</ol>")
+}
+
+fn toggle(summary: &str, body: &[&str]) -> String {
+    let content: String = body.iter().map(|text| format!("<p>{text}</p>")).collect();
+    format!(
+        "<details class=\"brain-dump-details\"><summary class=\"brain-dump-details__summary\">{summary}</summary><div class=\"brain-dump-details__content\" data-type=\"detailsContent\">{content}</div></details>"
+    )
+}
+
 fn rich(parts: &[String]) -> String {
     format!("{RICH_TEXT_PREFIX}{}", parts.concat())
 }
@@ -755,9 +778,30 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
         ),
         (
             9,
+            hm(12, 20),
+            "Inbox is a hallway. Archive anything that is just noise, and turn the rest into Tasks.".into(),
+            &["Work"],
+        ),
+        (
+            9,
+            hm(16, 15),
+            rich(&[
+                heading("Warmth, not polish"),
+                para("The site should feel like a kitchen table, not a deck. Soft type. Real photos. One sentence that sounds like me."),
+            ]),
+            &["Work", "Idea"],
+        ),
+        (
+            9,
             hm(20, 10),
             "Grateful for the long walk by the river and the bakery still being open.".into(),
             &["Gratitude"],
+        ),
+        (
+            9,
+            hm(21, 5),
+            "Twenty pages of The Overstory. Trees as slow company. I want evenings to keep this pace.".into(),
+            &["Personal"],
         ),
         (
             8,
@@ -773,10 +817,40 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
             &["Work", "Idea"],
         ),
         (
+            8,
+            hm(11, 40),
+            "Maya offered to read the site before it goes out. I should actually send it this time.".into(),
+            &["Work"],
+        ),
+        (
+            8,
+            hm(14, 20),
+            "Ate on the steps. The afternoon felt longer in a good way.".into(),
+            &["Personal"],
+        ),
+        (
+            8,
+            hm(19, 30),
+            "Field Notes started as a wet notebook I could not bear to throw away. That is the opening, if I am honest.".into(),
+            &["Idea", "Work"],
+        ),
+        (
+            7,
+            hm(8, 55),
+            "Spanish lesson 12. The subjunctive still feels like walking in the dark, but I am less lost than last week.".into(),
+            &["Personal"],
+        ),
+        (
             7,
             hm(13, 5),
             "Afternoons go better when I eat away from the desk. Noting it so I believe it.".into(),
             &["Personal"],
+        ),
+        (
+            7,
+            hm(16, 45),
+            "The portfolio still reads like a résumé. Cut the skills list. Keep the three stories.".into(),
+            &["Work"],
         ),
         (
             7,
@@ -793,9 +867,42 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
         ),
         (
             6,
+            hm(9, 10),
+            "Almost sure of the three projects. Sleep on it, then stop shopping for a fourth.".into(),
+            &["Work"],
+        ),
+        (
+            6,
+            hm(12, 35),
+            "The unused streaming trial is still charging. Cancel it before I invent a reason to keep it.".into(),
+            &["Errand"],
+        ),
+        (
+            6,
             hm(15, 50),
             "Picked the three projects. Relief. The case study is the real work now.".into(),
             &["Work"],
+        ),
+        (
+            6,
+            hm(20, 15),
+            "Quiet evening after deciding. Grateful I did not keep circling.".into(),
+            &["Gratitude"],
+        ),
+        (
+            5,
+            hm(10, 20),
+            "The garden bed is a rectangle of good intentions. I want herbs I will actually cut.".into(),
+            &["Personal", "Idea"],
+        ),
+        (
+            5,
+            hm(14, 10),
+            rich(&[
+                heading("For the soups"),
+                bullets(&["Squash", "Miso", "Ginger", "Something green that will last"]),
+            ]),
+            &["Errand", "Personal"],
         ),
         (
             5,
@@ -804,16 +911,85 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
             &["Idea", "Personal"],
         ),
         (
+            5,
+            hm(21, 0),
+            rich(&[
+                heading("Garden bed, loose"),
+                bullets(&[
+                    "Basil already in the kitchen pot",
+                    "Thyme along the edge",
+                    "Leave a path so I can reach things",
+                ]),
+            ]),
+            &["Idea"],
+        ),
+        (
+            4,
+            hm(9, 20),
+            "Woke up already mid-thought. Write it down, then pick one thing.".into(),
+            &[],
+        ),
+        (
             4,
             hm(11, 10),
             "Felt scattered this morning. Two short Doing stretches still counted.".into(),
             &["Personal"],
         ),
         (
+            4,
+            hm(12, 15),
+            "Passport photos before I book anything for spring. The old ones look like a different person.".into(),
+            &["Errand"],
+        ),
+        (
+            4,
+            hm(19, 55),
+            "More Overstory. The trees keep making my own pacing feel hurried, which is useful.".into(),
+            &["Personal"],
+        ),
+        (
+            3,
+            hm(10, 30),
+            rich(&[
+                heading("Case study, in order"),
+                ordered(&[
+                    "The wet notebook",
+                    "The question: what if notes could find you again?",
+                    "One screen that made the idea click",
+                    "What I would change now",
+                ]),
+            ]),
+            &["Work"],
+        ),
+        (
             3,
             hm(12, 5),
             "Library books returned. Picked up a new one by accident, as usual.".into(),
             &["Errand", "Gratitude"],
+        ),
+        (
+            3,
+            hm(16, 20),
+            "The accidental book is about rivers. I did not plan that. It can wait on the table.".into(),
+            &["Personal"],
+        ),
+        (
+            3,
+            hm(20, 30),
+            "Tea, the new book, and no inbox. A small evening I want more of.".into(),
+            &["Gratitude"],
+        ),
+        (
+            2,
+            hm(11, 55),
+            "Finished Spanish lesson 12. I can feel the grammar settling, even when I still trip.".into(),
+            &["Personal"],
+        ),
+        (
+            2,
+            hm(12, 25),
+            "Cancelled the streaming trial. Two minutes. I had been carrying it for weeks.".into(),
+            &["Errand"],
         ),
         (
             2,
@@ -827,6 +1003,40 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
                 ]),
             ]),
             &["Work", "Idea"],
+        ),
+        (
+            2,
+            hm(19, 35),
+            "Call Grandma tonight or tomorrow. Ask about the garden and the plum cake.".into(),
+            &["Personal"],
+        ),
+        (
+            1,
+            hm(13, 20),
+            rich(&[
+                heading("Sunday pots"),
+                toggle("If I only cook two things", &[
+                    "Squash and miso soup",
+                    "A grain that can take leftovers",
+                ]),
+                para("Something green can be a bunch of herbs on the counter."),
+            ]),
+            &["Personal"],
+        ),
+        (
+            1,
+            hm(16, 25),
+            rich(&[
+                title("Plum cake"),
+                para("Grandma said the trick is <em>not</em> to fuss the batter. Fruit on top. More sugar than I would guess."),
+            ]),
+            &["Idea", "Personal"],
+        ),
+        (
+            1,
+            hm(18, 40),
+            "The basil is thirsty again. The kitchen pot dries out before I notice.".into(),
+            &["Personal"],
         ),
         (
             1,
@@ -850,9 +1060,40 @@ fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i6
         ),
         (
             0,
+            hm(9, 50),
+            "Watered the basil. The kitchen smells like soil. A quiet start.".into(),
+            &["Gratitude"],
+        ),
+        (
+            0,
             hm(11, 15),
             "The opening paragraph finally has a shape. Leave it alone until after lunch.".into(),
             &["Work"],
+        ),
+        (
+            0,
+            hm(12, 20),
+            "Inbox is down to ten. Most of it was waiting, not work.".into(),
+            &["Work"],
+        ),
+        (
+            0,
+            hm(14, 5),
+            rich(&[
+                heading("Photos for the case study"),
+                bullets(&[
+                    "The rain-smudged notebook, open",
+                    "One screen from the field, not a mockup",
+                    "My hands, if the light is kind",
+                ]),
+            ]),
+            &["Work", "Idea"],
+        ),
+        (
+            0,
+            hm(16, 10),
+            "Walk before dinner if the light holds. No headphones.".into(),
+            &[],
         ),
     ];
 
@@ -916,7 +1157,7 @@ mod tests {
         assert!(count(&conn, "SELECT COUNT(*) FROM task_work_stretches") > 20);
         assert!(count(&conn, "SELECT COUNT(*) FROM phase_check_ins") > 50);
         assert!(count(&conn, "SELECT COUNT(*) FROM metric_check_ins") > 30);
-        assert!(count(&conn, "SELECT COUNT(*) FROM brain_dumps") >= 10);
+        assert!(count(&conn, "SELECT COUNT(*) FROM brain_dumps") >= 30);
         let violations: Vec<String> = conn
             .prepare("PRAGMA foreign_key_check")
             .unwrap()
