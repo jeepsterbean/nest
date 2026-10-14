@@ -532,55 +532,79 @@ fn seed_days(
 struct MetricSeed {
     name: &'static str,
     icon: &'static str,
-    color: &'static str,
 }
 
+/// Same Metrics and Pulses as the live Nest database, so recordings match
+/// the real setup.
 const METRICS: &[MetricSeed] = &[
     MetricSeed {
-        name: "Sleep",
-        icon: "bed",
-        color: "#6872bd",
+        name: "Satisfaction",
+        icon: "coffee",
     },
     MetricSeed {
-        name: "Energy",
-        icon: "battery",
-        color: "#c47a3a",
+        name: "Control",
+        icon: "idea",
     },
     MetricSeed {
-        name: "Mood",
-        icon: "mood",
-        color: "#b95755",
+        name: "Effort",
+        icon: "eye",
+    },
+    MetricSeed {
+        name: "Output",
+        icon: "trophy",
     },
     MetricSeed {
         name: "Focus",
         icon: "target",
-        color: "#35764e",
     },
     MetricSeed {
-        name: "Calm",
-        icon: "leaf",
-        color: "#438c83",
+        name: "Awake",
+        icon: "sun",
     },
     MetricSeed {
-        name: "Body",
-        icon: "body",
-        color: "#a08e2f",
+        name: "Manageable",
+        icon: "steps",
+    },
+    MetricSeed {
+        name: "Clarity",
+        icon: "zap",
+    },
+    MetricSeed {
+        name: "Decomposition",
+        icon: "home",
+    },
+    MetricSeed {
+        name: "Confidence",
+        icon: "gauge",
     },
 ];
 
 const PULSES: &[(&str, &str, &[&str])] = &[
-    ("Morning", "sun", &["Sleep", "Energy", "Mood"]),
-    ("Through the day", "activity", &["Energy", "Focus", "Calm"]),
-    ("Evening", "moon", &["Mood", "Calm", "Body"]),
+    (
+        "Rythmn",
+        "activity",
+        &["Control", "Focus", "Effort", "Output", "Satisfaction"],
+    ),
+    (
+        "Stuck",
+        "brain",
+        &[
+            "Awake",
+            "Manageable",
+            "Clarity",
+            "Decomposition",
+            "Confidence",
+        ],
+    ),
 ];
 
 /// (minute of day, Pulse name)
 const CHECK_IN_TIMES: &[(i64, &str)] = &[
-    (hm(8, 45), "Morning"),
-    (hm(11, 5), "Through the day"),
-    (hm(14, 35), "Through the day"),
-    (hm(16, 55), "Through the day"),
-    (hm(20, 30), "Evening"),
+    (hm(11, 5), "Rythmn"),
+    (hm(13, 10), "Rythmn"),
+    (hm(15, 40), "Stuck"),
+    (hm(16, 55), "Rythmn"),
+    (hm(20, 30), "Rythmn"),
 ];
 
 struct SeededMetrics {
@@ -592,8 +616,8 @@ fn seed_metrics_and_pulses(tx: &Transaction) -> Result<SeededMetrics> {
     let mut metric_ids = HashMap::new();
     for metric in METRICS {
         tx.execute(
-            "INSERT INTO metrics (name, created_at, icon, color) VALUES (?1, 0, ?2, ?3)",
-            params![metric.name, metric.icon, metric.color],
+            "INSERT INTO metrics (name, created_at, icon) VALUES (?1, 0, ?2)",
+            params![metric.name, metric.icon],
         )?;
         metric_ids.insert(metric.name, tx.last_insert_rowid());
     }
@@ -618,19 +642,27 @@ fn seed_metrics_and_pulses(tx: &Transaction) -> Result<SeededMetrics> {
     })
 }
 
-/// A gentle story: Mood and Calm lift over the week, Energy dips after lunch,
-/// and Focus is best late morning.
+/// A gentle story: Satisfaction and Decomposition lift over the week, Output
+/// and Control dip after lunch, and Focus is best late morning.
 fn rating(metric: &str, days_ago: i64, minute: i64, seed: u64) -> i64 {
     let week_lift = (HISTORY_DAYS - days_ago) as f64 / HISTORY_DAYS as f64;
+    let after_lunch = minute >= hm(14, 0) && minute < hm(16, 0);
     let base = match metric {
-        "Sleep" => 3.2,
-        "Energy" if minute >= hm(14, 0) && minute < hm(16, 0) => 2.6,
-        "Energy" => 3.5,
-        "Mood" => 2.9 + week_lift,
-        "Focus" if minute < hm(12, 0) => 4.0,
-        "Focus" => 3.1,
-        "Calm" => 3.0 + week_lift * 0.8,
-        _ => 3.4,
+        "Satisfaction" => 2.8 + week_lift,
+        "Control" if after_lunch => 2.4,
+        "Control" => 3.0,
+        "Effort" => 3.8,
+        "Output" if after_lunch => 2.3,
+        "Output" => 3.0,
+        "Focus" if minute < hm(13, 0) => 4.0,
+        "Focus" => 3.4,
+        "Awake" if minute >= hm(16, 0) => 3.2,
+        "Awake" => 3.8,
+        "Manageable" => 2.7 + week_lift * 0.6,
+        "Clarity" => 2.6 + week_lift * 0.5,
+        "Decomposition" => 2.4 + week_lift,
+        "Confidence" => 2.6 + week_lift * 0.6,
+        _ => 3.2,
     };
     let wobble = (noise(seed) % 3) as f64 - 1.0;
     (base + wobble * 0.7).round().clamp(1.0, 5.0) as i64
@@ -1019,6 +1051,84 @@ mod tests {
         );
         assert!(count(&conn, "SELECT MAX(created_at) FROM task_status_events") <= now);
         assert!(count(&conn, "SELECT MAX(created_at) FROM tasks") <= now);
+    }
+
+    #[test]
+    fn metrics_and_pulses_match_the_live_project() {
+        let conn = seeded();
+        let metrics: Vec<(String, String)> = conn
+            .prepare("SELECT name, icon FROM metrics ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            metrics,
+            [
+                ("Satisfaction", "coffee"),
+                ("Control", "idea"),
+                ("Effort", "eye"),
+                ("Output", "trophy"),
+                ("Focus", "target"),
+                ("Awake", "sun"),
+                ("Manageable", "steps"),
+                ("Clarity", "zap"),
+                ("Decomposition", "home"),
+                ("Confidence", "gauge"),
+            ]
+            .map(|(name, icon)| (name.into(), icon.into()))
+        );
+        let pulses: Vec<(String, String, Vec<String>)> = conn
+            .prepare(
+                "SELECT p.name, p.icon, m.name \
+                 FROM pulses p \
+                 JOIN pulse_metrics pm ON pm.pulse_id = p.id \
+                 JOIN metrics m ON m.id = pm.metric_id \
+                 ORDER BY p.sort_order, pm.sort_order",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<(String, String, String)>>>()
+            .unwrap()
+            .into_iter()
+            .fold(Vec::new(), |mut grouped, (name, icon, metric)| {
+                match grouped.last_mut() {
+                    Some((pulse_name, _, members)) if *pulse_name == name => {
+                        members.push(metric);
+                    }
+                    _ => grouped.push((name, icon, vec![metric])),
+                }
+                grouped
+            });
+        assert_eq!(
+            pulses,
+            [
+                (
+                    "Rythmn".into(),
+                    "activity".into(),
+                    vec![
+                        "Control".into(),
+                        "Focus".into(),
+                        "Effort".into(),
+                        "Output".into(),
+                        "Satisfaction".into(),
+                    ],
+                ),
+                (
+                    "Stuck".into(),
+                    "brain".into(),
+                    vec![
+                        "Awake".into(),
+                        "Manageable".into(),
+                        "Clarity".into(),
+                        "Decomposition".into(),
+                        "Confidence".into(),
+                    ],
+                ),
+            ]
+        );
     }
 
     #[test]
