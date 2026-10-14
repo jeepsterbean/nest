@@ -55,6 +55,9 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 ## Dashboard shell
 
+- Demo mode disables Sidebar icon selection and omits the Settings control
+  and overlay. The demo Tauri config sets `VITE_NEST_DEMO=true` for development
+  and builds, so saved icon-selection preferences cannot enable the picker.
 - Dashboard CSS enters through `src/dashboard/Dashboard.css`, whose ordered
   imports from `src/dashboard/styles/` define the cascade.
 - `DashboardSidebar` holds the five Sections in `SECTIONS` order: Recap,

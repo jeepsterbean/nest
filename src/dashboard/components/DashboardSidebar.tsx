@@ -1,5 +1,6 @@
 import { useAppSettings } from "../hooks/useAppSettings";
 import { useTileIcons } from "../hooks/useTileIcons";
+import { IS_DEMO } from "../lib/demoMode";
 import { SECTIONS, type Section } from "../lib/sections";
 import { writeTileIcon } from "../lib/tileIcons";
 import { IconPickerButton, NestIcon } from "./PulseIcon";
@@ -13,7 +14,7 @@ export function DashboardSidebar({
   onSelectSection: (section: Section) => void;
 }) {
   const tileIcons = useTileIcons();
-  const chooseIcons = useAppSettings().iconSelection;
+  const chooseIcons = useAppSettings().iconSelection && !IS_DEMO;
 
   return (
     <aside className="dash-sidebar">
@@ -58,7 +59,7 @@ export function DashboardSidebar({
           );
         })}
       </nav>
-      <SettingsControl />
+      {!IS_DEMO && <SettingsControl />}
     </aside>
   );
 }

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { IS_DEMO } from "../lib/demoMode";
+import { readDemoTaskViews } from "../lib/demoTaskViews";
 import {
   createSavedTaskView,
   deleteSavedTaskView,
@@ -19,7 +21,9 @@ export type TaskTableViews = ReturnType<typeof useTaskTableViews>;
 /** The Tasks table query plus the saved views it can be loaded from or saved to.
  *  Unsaved edits live only in memory: a reload reopens the selected view as saved. */
 export function useTaskTableViews() {
-  const [state, setState] = useState<SavedTaskViewState>(readSavedTaskViews);
+  const [state, setState] = useState<SavedTaskViewState>(
+    () => IS_DEMO ? readDemoTaskViews() : readSavedTaskViews(),
+  );
   const [query, setQuery] = useState<TaskTableQuery>(
     () => state.views.find((view) => view.id === state.selectedId)!.query,
   );

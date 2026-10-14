@@ -1,5 +1,9 @@
 {
   "identifier": "com.huwenjie.nest.demo",
+  "build": {
+    "beforeDevCommand": "VITE_NEST_DEMO=true npm run dev",
+    "beforeBuildCommand": "VITE_NEST_DEMO=true npm run build"
+  },
   "app": {
     "windows": [
       {
