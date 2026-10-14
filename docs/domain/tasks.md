@@ -60,9 +60,20 @@ Recording, recovery, and Phase behavior live in [Phases](phases.md).
 
 ## History and deletion
 
-Task creation and status changes are recorded as status events. Other Task
-edits are not historical events. Work stretches record when work happened.
+Task creation and status changes are recorded as status events. Work stretches
+record when work happened; correcting or removing them changes the work entries
+shown in a Task's [History](../interface/tasks.md#history). Separate
+append-only edit records preserve title, Scope, Value, Effort, description
+changes (without description text), relationships, Follow-up links, and work
+corrections and removals. Corrections retain old and new times and are dated
+when made. Reordering is excluded.
 
-Deleting a Task removes its status events, Work stretches, and Blocker /
+Relationship changes appear on both Tasks. Reparenting records the change on
+the child and both affected Parents. Related titles are snapshots that survive
+renaming and deletion. Deletion records relationship removals on surviving
+Tasks, including either side of a Follow-up link. Existing Tasks retain their status and work history; edit recording
+starts at the upgrade, whose time is saved. Unchanged saves add no edit record.
+
+Deleting a Task removes its own edit records, status events, Work stretches, and Blocker /
 Dependent relationships. Its Children remain and become Tasks with no Parent.
 Deleted Task history therefore disappears from Day, Calendar, and Timeline.

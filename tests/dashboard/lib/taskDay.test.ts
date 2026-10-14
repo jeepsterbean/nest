@@ -34,7 +34,7 @@ const task = (
   effort: null,
   parentTaskId: null,
   closedAt: null,
-  followsTaskId: null,
+  followsTaskId: null, historyRevision: 0,
   createdAt: at(1, 9),
   updatedAt: at(1, 9),
   ...overrides,

@@ -23,7 +23,7 @@ pub(crate) const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
     (SELECT MAX(e.created_at) FROM task_status_events e \
      WHERE e.task_id = t.id AND e.to_status = t.status \
        AND t.status IN ('completed', 'cancelled')), \
-    t.follows_task_id";
+    t.follows_task_id, t.history_revision";
 
 pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
     Ok(Task {
@@ -42,6 +42,7 @@ pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         updated_at: row.get(12)?,
         closed_at: row.get(13)?,
         follows_task_id: row.get(14)?,
+        history_revision: row.get(15)?,
     })
 }
 

@@ -1,5 +1,4 @@
 mod activity;
-mod timer;
 mod commands;
 mod db;
 mod demo;
@@ -13,6 +12,7 @@ mod task;
 mod task_graph;
 mod task_lifecycle;
 mod time;
+mod timer;
 
 use std::{
     fs::OpenOptions,
@@ -292,15 +292,18 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                 }
             }
 
-            if let Some(transition) = app
-                .state::<ActivityIdleTracker>()
-                .tick(activity::is_idle())
-            {
+            if let Some(transition) = app.state::<ActivityIdleTracker>().tick(activity::is_idle()) {
                 sync_activity_idle_transition(&app, transition);
             }
 
             let title = {
-                let phase = app.state::<CurrentPhase>().inner().0.lock().unwrap().clone();
+                let phase = app
+                    .state::<CurrentPhase>()
+                    .inner()
+                    .0
+                    .lock()
+                    .unwrap()
+                    .clone();
                 let timer = app.state::<Mutex<Timer>>();
                 let timer = timer.lock().unwrap();
                 tray_title(&phase, &timer, now, ticks)
@@ -968,9 +971,7 @@ const POPUP_KEY_ESCAPE: u16 = 53;
 
 /// Command without Shift/Control/Option. Caps Lock and the like can stay on.
 #[cfg(target_os = "macos")]
-fn popup_command_chord(
-    flags: tauri_nspanel::objc2_app_kit::NSEventModifierFlags,
-) -> bool {
+fn popup_command_chord(flags: tauri_nspanel::objc2_app_kit::NSEventModifierFlags) -> bool {
     use tauri_nspanel::objc2_app_kit::NSEventModifierFlags;
     flags.intersection(
         NSEventModifierFlags::Command
@@ -981,7 +982,11 @@ fn popup_command_chord(
 }
 
 #[cfg(target_os = "macos")]
-fn popup_panel_shortcut_key(key_code: u16, command_chord: bool, repeat: bool) -> Option<&'static str> {
+fn popup_panel_shortcut_key(
+    key_code: u16,
+    command_chord: bool,
+    repeat: bool,
+) -> Option<&'static str> {
     if repeat || !command_chord {
         return None;
     }
@@ -1321,6 +1326,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::metric::list_metrics,
             commands::task::list_tasks,
+            commands::task::list_task_updates,
             commands::task::list_task_dependencies,
             commands::task::list_task_status_events,
             commands::task::create_task,

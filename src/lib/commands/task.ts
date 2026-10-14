@@ -6,6 +6,8 @@ import type {
   TaskStatus,
   TaskStatusEvent,
   TaskWorkStretch,
+  TaskUpdateCursor,
+  TaskUpdatePage,
 } from "../types";
 import { isTaskLocked, localDayStartSec } from "../taskLock";
 
@@ -158,4 +160,11 @@ export function setTaskScoreField(
 
 export function reorderTasks(ids: number[]): Promise<void> {
   return invoke("reorder_tasks", { ids });
+}
+
+export function listTaskUpdates(
+  id: number,
+  cursor: TaskUpdateCursor | null = null,
+): Promise<TaskUpdatePage> {
+  return invoke("list_task_updates", { id, cursor });
 }

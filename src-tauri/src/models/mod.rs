@@ -10,5 +10,8 @@ pub use metric::{
     PulseMetricEntry,
 };
 pub use phase::{Phase, PhaseCheckIn};
-pub use task::{Task, TaskDependency, TaskStatusEvent, TaskWorkStretch};
+pub use task::{
+    Task, TaskDependency, TaskStatusEvent, TaskUpdate, TaskUpdateCursor, TaskUpdatePage,
+    TaskWorkInterval, TaskWorkStretch,
+};
 pub use timer::TimerState;

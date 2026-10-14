@@ -1,4 +1,4 @@
-import type { RatingValue, Task, TaskStatus } from "../../lib/types";
+import type { RatingValue, RecordedTaskStatus, Task, TaskStatus } from "../../lib/types";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "backlog",
@@ -42,6 +42,11 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   active: "Active",
   completed: "Completed",
   cancelled: "Cancelled",
+};
+
+export const RECORDED_TASK_STATUS_LABEL: Record<RecordedTaskStatus, string> = {
+  ...TASK_STATUS_LABEL,
+  paused: "Paused",
 };
 
 export type TaskTableSort = "updated" | "status";

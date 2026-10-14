@@ -23,7 +23,7 @@ const task = (id: number, title = `Task ${id}`): Task => ({
   effort: null,
   parentTaskId: null,
   closedAt: null,
-  followsTaskId: null,
+  followsTaskId: null, historyRevision: 0,
   createdAt: 0,
   updatedAt: 0,
 });

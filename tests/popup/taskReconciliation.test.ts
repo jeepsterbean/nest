@@ -21,7 +21,7 @@ const task = (id: number, title = `Task ${id}`): Task => ({
   createdAt: 1,
   updatedAt: 1,
   closedAt: null,
-  followsTaskId: null,
+  followsTaskId: null, historyRevision: 0,
 });
 
 describe("popup task reconciliation", () => {

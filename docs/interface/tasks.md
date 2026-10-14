@@ -226,13 +226,29 @@ Details show status, Working now, and Worked time across every day, labelled
 “all time” independently of the table’s Worked on filter. Table rows
 also indicate Working now. Work controls live in the [Popup's Tasks and metrics
 panel](popup.md). Scope, Value, and Effort can be edited in details. The
-description is edited in place and the editor grows with its text: Enter saves,
+description is edited in place: Enter saves,
 Shift+Enter breaks the line, Escape cancels, and leaving the field saves.
 Parent, Children, Blocked by, and Blocks (only when the Task blocks others) are
 labelled rows in the panel. An empty row names its state ("No parent", "No
 children", "No blockers"); once a row lists Tasks, its control reads "Add
 child…" or "Add blocker…". Each Blocker row's status dot
 shows whether it is Completed.
+
+### History
+
+History shows creation, status, work, and recorded edits newest first, with a
+divider between local calendar days. The heading shows the day of the topmost
+entry in view, with Today labelled alongside its date. Each entry shows its
+time beside the event and any recorded change beneath it.
+Load earlier updates pages through history. Recorded changes, including changes
+from other windows, restart the list at the newest page so corrected or removed
+work entries are refreshed. Switching Tasks also starts with the newest page.
+Loading, empty, and unavailable with Retry states are shown. The end reads
+"Beginning of history." For Tasks created before edit recording began, it also
+shows "Edits recorded since [date]"; earlier status and work entries remain
+available. The drawer scrolls to keep long relationship lists and its controls
+accessible. Recording and deletion rules live
+in [Task history](../domain/tasks.md#history-and-deletion).
 
 ## Creating Tasks
 

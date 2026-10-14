@@ -14,7 +14,7 @@ const task = (id: number, fields: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds: 0, workStartedAt: null, scope: null, value: null, effort: null,
   parentTaskId: null, createdAt: at(1, 9), updatedAt: at(1, 9), closedAt: null,
-  followsTaskId: null, ...fields,
+  followsTaskId: null, historyRevision: 0, ...fields,
 });
 
 const matchingIds = (tasks: Task[], filters: Partial<TaskTableRowFilters>, workedTaskIds: ReadonlySet<number> | null = null) =>

@@ -5,6 +5,7 @@ import { trashIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { formatDate, formatTime } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
+import { TaskUpdates } from "./TaskUpdates";
 import { TaskDescription } from "./TaskDescription";
 import { TaskRelations } from "./TaskRelations";
 import { TaskScopeButton } from "./TaskScopeButton";
@@ -84,7 +85,10 @@ export function TaskDetailPanel({
         </div>
         <TaskScoreControls task={task} />
       </div>
-      <TaskDescription task={task} />
+      <div className="task-detail__writing">
+        <div className="task-detail__description"><TaskDescription task={task} /></div>
+        <TaskUpdates key={task.id} task={task} />
+      </div>
       <TaskRelations task={task} />
       <footer className="task-detail__footer">
         <div className="task-detail__dates">
