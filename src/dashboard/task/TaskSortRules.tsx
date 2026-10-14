@@ -39,7 +39,7 @@ export function TaskSortRules({ rules, savedRules, onChange, openColumn, onOpenC
         <TaskQueryRuleMenu name={columnLabel} value={`${rule.direction === "ascending" ? "↑" : "↓"} ${taskSortDirectionLabel(rule)}`}
           title={edited ? `${label} (unsaved)` : label} menuLabel={`Sort ${columnLabel}`} minWidth={MENU_MIN_WIDTH}
           open={openColumn === rule.column} onOpenChange={open => onOpenColumnChange(open ? rule.column : null)}>
-          <TaskSortDirectionOptions column={rule.column} sort={rules} onSortChange={onChange} onDone={() => onOpenColumnChange(null)} />
+          {close => <TaskSortDirectionOptions column={rule.column} sort={rules} onSortChange={onChange} onDone={close} />}
         </TaskQueryRuleMenu>
         <button type="button" className="task-query-rule__remove" aria-label={`Remove ${label}`}
           onClick={() => onChange(rules.filter(current => current.column !== rule.column))}>×</button>

@@ -17,12 +17,28 @@ export function TaskQueryRuleMenu({ name, value, title, menuLabel, minWidth, ope
   onOpenChange: (open: boolean) => void;
   /** Absent when the menu has nothing to reset. */
   onReset?: () => void;
-  children: ReactNode;
+  children: (close: () => void) => ReactNode;
 }) {
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<MenuSelectBox | null>(null);
+
+  const close = () => {
+    const trigger = triggerRef.current;
+    const query = trigger?.closest(".task-query");
+    const controls = query ? Array.from(query.querySelectorAll<HTMLButtonElement>("button:not(:disabled):not(.task-query-rule__remove):not(.task-query-rule__grip)")) : [];
+    const index = trigger ? controls.indexOf(trigger) : -1;
+    const fallbackControls = [...controls.slice(index + 1), ...controls.slice(0, Math.max(0, index)).reverse()];
+    trigger?.focus();
+    onOpenChange(false);
+    // A selection can remove its own rule. Wait for that commit before choosing
+    // a surviving control, and preserve focus if another interaction moved it.
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected || document.activeElement !== document.body) return;
+      fallbackControls.find(control => control.isConnected && !control.disabled)?.focus();
+    });
+  };
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -51,8 +67,7 @@ export function TaskQueryRuleMenu({ name, value, title, menuLabel, minWidth, ope
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
-      onOpenChange(false);
-      triggerRef.current?.focus();
+      close();
     };
     const scroll = (event: Event) => {
       if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
@@ -86,7 +101,7 @@ export function TaskQueryRuleMenu({ name, value, title, menuLabel, minWidth, ope
           <span>{menuLabel}</span>
           {onReset && <button type="button" className="task-column-menu__reset" onClick={onReset}>Reset</button>}
         </div>
-        <div className="task-column-menu__section">{children}</div>
+        <div className="task-column-menu__section">{children(close)}</div>
       </div>, triggerRef.current?.closest(".dashboard") ?? document.body,
     )}
   </>;

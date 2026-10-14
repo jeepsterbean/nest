@@ -27,6 +27,8 @@ filter or sort. Title opens sort options directly. Sort and Filter options open
 on hover or click. Only one column or rule menu opens at a time; outside press,
 Escape, or outside scrolling dismisses it. Scope, Parent, and sort selections
 close the menu; other column filter selections keep it open.
+Choosing a sidebar option or pressing Escape returns focus to its rule trigger;
+if the rule disappears, focus moves to a surviving nearby query control.
 Headers show sort direction and highlight filter or sort changes from the saved view.
 
 ### Filters

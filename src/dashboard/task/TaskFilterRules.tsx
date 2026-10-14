@@ -34,8 +34,8 @@ export function TaskFilterRules({ query, onQueryChange, changedFields, context, 
           menuLabel={rule.name} minWidth={taskFilterMenuWidth(rule.field)}
           open={openField === rule.field} onOpenChange={open => onOpenFieldChange(open ? rule.field : null)}
           onReset={rule.value === null ? undefined : clear}>
-          <TaskFilterFields field={rule.field} query={query} onQueryChange={onQueryChange} context={context}
-            onDone={() => onOpenFieldChange(null)} />
+          {close => <TaskFilterFields field={rule.field} query={query} onQueryChange={onQueryChange} context={context}
+            onDone={close} />}
         </TaskQueryRuleMenu>
         {rule.value !== null && <button type="button" className="task-query-rule__remove" aria-label={`Remove ${label}`} onClick={clear}>×</button>}
       </li>;

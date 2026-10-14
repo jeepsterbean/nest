@@ -61,11 +61,9 @@ type TaskQueryMenu = TaskTableColumnId | `filter:${TaskTableFilterField}` | `sor
 
 export function TasksView({
   sectionSidebar,
-  sectionSidebarHead,
   visible,
 }: {
   sectionSidebar: HTMLElement | null;
-  sectionSidebarHead: HTMLElement | null;
   visible: boolean;
 }) {
   const {
@@ -286,7 +284,7 @@ export function TasksView({
 
   const tableQueryPanel = (
     <div className="task-query">
-      {!sidebar && <TaskViewPicker views={taskTableViews} />}
+      <TaskViewPicker views={taskTableViews} />
       <TaskFilterRules query={tableQuery} onQueryChange={patchTableQuery} changedFields={changedFields}
         context={filterContext} nowMs={dateNowMs}
         openField={openQueryMenu?.startsWith("filter:") ? openQueryMenu.slice("filter:".length) as TaskTableFilterField : null}
@@ -351,8 +349,6 @@ export function TasksView({
 
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded || historyLoading}>
-      {sidebar && sectionSidebarHead && loaded && visibleTaskView === "table"
-        && createPortal(<TaskViewPicker views={taskTableViews} />, sectionSidebarHead)}
       {sidebar && loaded && visibleTaskView === "table" && createPortal(tableQueryPanel, sidebar)}
       {showTaskMap && (
         <header className="dash-section__head task-header" inert={overlayDetailOpen}>

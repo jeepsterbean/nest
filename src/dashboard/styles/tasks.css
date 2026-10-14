@@ -329,16 +329,11 @@
 .task-column-menu__date-clear svg { width: 11px; height: 11px; }
 .task-column-menu__date-clear:hover { background: var(--surface-2); color: var(--ink); }
 .task-column-menu__date-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The date toolbar's DayCalendar, unrestyled, so every date picker reads the
+   same; this wrapper only separates it from the From / To rows. */
 .task-column-menu__calendar {
   padding: 4px 2px 2px;
   border-top: 1px solid var(--border);
-}
-.task-column-menu__calendar .date-navigation--month { margin-bottom: 4px; }
-.task-column-menu__calendar .day-picker__day { height: 26px; }
-.task-column-menu__calendar .day-picker__day.is-selected {
-  background-color: color-mix(in srgb, var(--accent-soft) 80%, var(--surface));
-  color: var(--accent);
-  font-weight: 650;
 }
 .task-column-menu__presets button {
   flex: 1;
@@ -859,51 +854,50 @@
 .task-filter-retry:hover { background: var(--accent-soft); }
 .task-filter-retry:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.task-views__trigger {
+/* The View row reads as one more query rule: same row height, label column,
+   text edge, hover wash, and edited tint as `.task-query-rule`. */
+.task-views__control {
   position: relative;
-  display: inline-flex;
-  flex: none;
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 7px;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.task-views__control:is(:hover, :focus-within),
+.task-views__control:has(> .task-views__trigger[aria-expanded="true"]) { background: var(--surface-2); }
+.task-views__control.is-edited { background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.task-views__trigger {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 8px 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
+  padding: 0 8px 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: inherit;
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  text-align: left;
   cursor: pointer;
 }
-.task-views__trigger:hover,
-.task-views__trigger[aria-expanded="true"] { border-color: var(--border-strong); background: var(--surface-2); }
-.task-views__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-views__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.task-views__label { flex: 0 0 74px; color: var(--muted); }
 .task-views__name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  font-weight: 600;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: left;
 }
 .task-views__chevron { display: grid; flex: none; color: var(--muted); }
 .task-views__chevron svg { width: 12px; height: 12px; }
-.task-views__control {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.task-views__control .task-views__trigger { flex: 1; min-width: 0; border: 0; background: transparent; }
-.section-sidebar__head > .task-views__control {
-  flex: 0 1 auto;
-  min-width: 0;
-  margin-left: auto;
-}
 .task-views__changes { display: inline-flex; padding-right: 3px; }
 .task-views__changes button {
   display: grid;

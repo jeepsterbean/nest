@@ -104,8 +104,9 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 `TasksView` owns the header's `.task-header__actions` group with a Table / Map
 `ViewToggle` when Settings shows Map; with Map hidden, the header is left out.
-Table's saved-view picker shares `.section-sidebar__head` with the Tasks title;
-it returns to the query when the sidebar collapses. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
+Table's saved-view picker (`TaskViewPicker`) is the query's first row, above
+Filters, Sort, and Hidden, so the Section sidebar head keeps only the title as
+on every Section. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
 same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows. Tasks resets
 to Table when leaving the Section; table queries and drafts stay mounted.
 
