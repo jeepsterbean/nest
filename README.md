@@ -8,6 +8,16 @@ npm install
 npm run tauri dev
 ```
 
+To try Nest with seeded sample data, switch to the
+[`demo`](https://github.com/jeepsterbean/nest/tree/demo) branch and follow its
+README:
+
+```sh
+git checkout demo
+npm install
+npm run demo
+```
+
 Checks:
 
 ```sh
