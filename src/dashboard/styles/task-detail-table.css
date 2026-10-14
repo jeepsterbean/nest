@@ -1188,7 +1188,8 @@
   background: var(--border-strong);
 }
 
-.task-updates li:first-child .task-updates__entry::before { background: var(--accent); }
+/* Each day group is its own list, so scope the accent to the newest entry overall. */
+.task-updates__day:first-child li:first-child .task-updates__entry::before { background: var(--accent); }
 
 .task-updates__detail {
   color: var(--muted);

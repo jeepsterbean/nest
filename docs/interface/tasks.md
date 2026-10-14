@@ -243,7 +243,9 @@ time beside the event and any recorded change beneath it.
 Load earlier updates pages through history. Recorded changes, including changes
 from other windows, restart the list at the newest page so corrected or removed
 work entries are refreshed. Switching Tasks also starts with the newest page.
-Loading, empty, and unavailable with Retry states are shown. The end reads
+Loading, empty, and unavailable with Retry states are shown. When an earlier
+page fails, Retry requests that page again and keeps the entries already
+shown. The end reads
 "Beginning of history." For Tasks created before edit recording began, it also
 shows "Edits recorded since [date]"; earlier status and work entries remain
 available. The drawer scrolls to keep long relationship lists and its controls

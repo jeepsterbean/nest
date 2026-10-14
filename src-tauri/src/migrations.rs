@@ -1234,6 +1234,19 @@ BEGIN
  UPDATE tasks SET history_revision=history_revision+1 WHERE id=OLD.task_id;
 END;
 "#),
+        // A dependency carries its own created_at, which seeded and imported
+        // rows backdate, so History dates the addition from it. Removal has no
+        // stored time and keeps the clock.
+        M::up(r#"
+DROP TRIGGER task_history_dependency_added;
+CREATE TRIGGER task_history_dependency_added AFTER INSERT ON task_dependencies
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocked_task_id,'blocker_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.blocker_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocker_task_id,'dependent_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.blocked_task_id;
+END;
+"#),
     ])
 }
 

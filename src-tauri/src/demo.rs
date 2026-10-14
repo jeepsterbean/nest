@@ -368,11 +368,17 @@ fn seed_tasks(
         let (created_at, _) = events[0];
         let (updated_at, status) = *events.last().unwrap();
         let parent_id = task.parent.map(|key| timelines[key].0);
+        // The Follow-up History trigger only fires on insert, so the link has
+        // to be part of the row as a real Follow-up would be.
+        let follows_id = FOLLOW_UPS
+            .iter()
+            .find(|&&(_, follow_up)| follow_up == task.key)
+            .map(|&(original, _)| timelines[original].0);
         tx.execute(
             "INSERT INTO tasks \
              (title, description, status, scope, value, effort, parent_task_id, \
-              created_at, updated_at, sort_order) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+              follows_task_id, created_at, updated_at, sort_order) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 task.title,
                 task.description,
@@ -381,6 +387,7 @@ fn seed_tasks(
                 task.value,
                 task.effort,
                 parent_id,
+                follows_id,
                 created_at,
                 updated_at,
                 sort_order as i64,
@@ -397,12 +404,6 @@ fn seed_tasks(
             from_status = Some(to_status);
         }
         timelines.insert(task.key, (id, events));
-    }
-    for &(original, follow_up) in FOLLOW_UPS {
-        tx.execute(
-            "UPDATE tasks SET follows_task_id = ?1 WHERE id = ?2",
-            params![timelines[original].0, timelines[follow_up].0],
-        )?;
     }
     for &(blocker, dependent) in BLOCKERS {
         let created_at = timelines[dependent].1[0].0;
@@ -993,6 +994,14 @@ mod tests {
                    AND original.status = 'completed'"
             ),
             1
+        );
+        // The walkthrough opens this Task, so its History must show the link.
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM task_edit_history WHERE kind IN ('follows', 'follow_up')"
+            ),
+            2
         );
     }
 

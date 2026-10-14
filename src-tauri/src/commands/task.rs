@@ -1420,6 +1420,19 @@ mod update_history_tests {
     }
 
     #[test]
+    fn a_backdated_dependency_is_dated_from_its_own_record() {
+        let conn = database();
+        conn.execute("INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,created_at) VALUES(2,1,5)",[]).unwrap();
+        let page = read_task_updates(&conn, 1, None).unwrap();
+        let added = page
+            .updates
+            .iter()
+            .find(|u| u.kind == "blocker_added")
+            .unwrap();
+        assert_eq!(added.cursor.time, 5);
+    }
+
+    #[test]
     fn every_history_source_moves_the_revision_within_one_second() {
         let conn = database();
         let revision = || fetch_task(&conn, 1).unwrap().history_revision;

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { listTaskUpdates } from "../../lib/commands";
-import type { Task, TaskUpdate, TaskUpdatePage, TaskWorkInterval } from "../../lib/types";
+import type { Task, TaskUpdate, TaskUpdateKind, TaskUpdatePage, TaskWorkInterval } from "../../lib/types";
 import { formatDate, formatTime, startOfDayMs } from "../lib/time";
 import { RECORDED_TASK_STATUS_LABEL } from "../lib/tasks";
 
-const labels: Record<string, string> = {
+const labels: Record<TaskUpdateKind, string> = {
   created: "Task created", status: "Status changed", title: "Renamed", description: "Description updated",
   scope: "Scope", value: "Value", effort: "Effort", parent_set: "Parent set",
   parent_removed: "Parent removed", child_added: "Child added", child_removed: "Child removed",
@@ -15,9 +15,11 @@ const labels: Record<string, string> = {
   work_stopped: "Stopped work", work_corrected: "Work corrected", work_removed: "Work removed",
 };
 
+// A recorded interval is a past snapshot, so an open end means the stretch was
+// still running then. "Working now" would claim it is live today.
 function workIntervalLabel({ startedAt, endedAt }: TaskWorkInterval): string {
   const moment = (seconds: number) => `${formatDate(seconds)}, ${formatTime(seconds)}`;
-  return `${moment(startedAt)} – ${endedAt === null ? "Working now" : moment(endedAt)}`;
+  return `${moment(startedAt)} – ${endedAt === null ? "still running" : moment(endedAt)}`;
 }
 
 function updateDetail(update: TaskUpdate): string | null {
@@ -78,6 +80,10 @@ export function TaskUpdates({ task }: { task: Task }) {
       .finally(() => { if (request === generation.current) setLoading(false); });
   };
 
+  // Only an earlier page can fail while a page is held, so Retry repeats that
+  // page instead of discarding everything already loaded.
+  const retry = () => page ? loadMore() : setRetries((value) => value + 1);
+
   const dayGroups: { day: number; updates: TaskUpdate[] }[] = [];
   for (const update of page?.updates ?? []) {
     const day = startOfDayMs(update.cursor.time);
@@ -112,14 +118,14 @@ export function TaskUpdates({ task }: { task: Task }) {
           return <li key={`${update.cursor.source}:${update.cursor.id}`}>
             <time dateTime={new Date(update.cursor.time * 1000).toISOString()}>{formatTime(update.cursor.time)}</time>
             <span className="task-updates__entry">
-              <span className="task-updates__event">{labels[update.kind] ?? update.kind}</span>
+              <span className="task-updates__event">{labels[update.kind]}</span>
               {detail !== null && <span className="task-updates__detail">{detail}</span>}
             </span>
           </li>;
         })}</ol>
       </div>)}
       {loading && <p role="status">Loading updates…</p>}
-      {failed && <p role="alert">Updates unavailable. <button type="button" onClick={() => setRetries((value) => value + 1)}>Retry</button></p>}
+      {failed && <p role="alert">Updates unavailable. <button type="button" onClick={retry}>Retry</button></p>}
       {!loading && !failed && page && <>
         {page.updates.length === 0 && <p>No updates yet.</p>}
         {page.hasMore && <button type="button" onClick={loadMore}>Load earlier updates</button>}
