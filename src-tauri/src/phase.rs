@@ -252,7 +252,10 @@ mod tests {
     fn priority_prefers_working_now_then_offline_then_idle_then_engagement() {
         let engaged = signals(true, true, true);
         assert_eq!(derived_phase(true, engaged, false), PHASE_DOING);
-        assert_eq!(derived_phase(true, PhaseSignals::default(), false), PHASE_DOING);
+        assert_eq!(
+            derived_phase(true, PhaseSignals::default(), false),
+            PHASE_DOING
+        );
         assert_eq!(derived_phase(true, away(engaged), false), PHASE_DOING);
         assert_eq!(derived_phase(false, away(engaged), false), PHASE_OFFLINE);
         assert_eq!(
@@ -271,7 +274,10 @@ mod tests {
             derived_phase(false, signals(false, false, true), false),
             PHASE_SCOPING
         );
-        assert_eq!(derived_phase(false, PhaseSignals::default(), false), PHASE_RESTING);
+        assert_eq!(
+            derived_phase(false, PhaseSignals::default(), false),
+            PHASE_RESTING
+        );
         assert_eq!(
             derived_phase(false, signals(false, true, false), true),
             PHASE_RESTING
@@ -440,12 +446,16 @@ mod tests {
     #[test]
     fn switching_dashboard_to_notion_does_not_record_resting() {
         let conn = database();
-        assert!(sync_derived_phase(&conn, signals(true, false, false), 10, false)
-            .unwrap()
-            .is_some());
-        assert!(sync_derived_phase(&conn, signals(false, false, true), 20, false)
-            .unwrap()
-            .is_none());
+        assert!(
+            sync_derived_phase(&conn, signals(true, false, false), 10, false)
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            sync_derived_phase(&conn, signals(false, false, true), 20, false)
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(names(&conn), vec![PHASE_SCOPING]);
     }
 
@@ -453,9 +463,15 @@ mod tests {
     fn repeated_sync_inserts_nothing() {
         let conn = database();
         let rest = PhaseSignals::default();
-        assert!(sync_derived_phase(&conn, rest, 10, false).unwrap().is_some());
-        assert!(sync_derived_phase(&conn, rest, 11, false).unwrap().is_none());
-        assert!(sync_derived_phase(&conn, rest, 12, false).unwrap().is_none());
+        assert!(sync_derived_phase(&conn, rest, 10, false)
+            .unwrap()
+            .is_some());
+        assert!(sync_derived_phase(&conn, rest, 11, false)
+            .unwrap()
+            .is_none());
+        assert!(sync_derived_phase(&conn, rest, 12, false)
+            .unwrap()
+            .is_none());
         let (_, _, resting_id) = phase_ids(&conn);
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM phase_check_ins", [], |row| row.get(0))

@@ -401,7 +401,11 @@ pub(crate) fn set_pulse_order(conn: &Connection, ids: &[i64]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn set_pulse_metric_order(conn: &Connection, pulse_id: i64, metric_ids: &[i64]) -> Result<()> {
+pub(crate) fn set_pulse_metric_order(
+    conn: &Connection,
+    pulse_id: i64,
+    metric_ids: &[i64],
+) -> Result<()> {
     let pulse_exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM pulses WHERE id = ?1)",
         params![pulse_id],
@@ -646,10 +650,7 @@ mod tests {
         assert_eq!(pulse_ids, vec![2, 1]);
 
         set_pulse_metric_order(&conn, 1, &[11, 10]).unwrap();
-        assert_eq!(
-            fetch_pulse(&conn, 1).unwrap().metric_ids,
-            vec![11, 10]
-        );
+        assert_eq!(fetch_pulse(&conn, 1).unwrap().metric_ids, vec![11, 10]);
         assert!(set_pulse_order(&conn, &[1]).is_err());
         assert!(set_pulse_metric_order(&conn, 1, &[10]).is_err());
     }
@@ -842,7 +843,10 @@ mod tests {
             .map(|item| {
                 (
                     item.check_in.id,
-                    item.ratings.iter().map(|r| (r.metric_id, r.value)).collect(),
+                    item.ratings
+                        .iter()
+                        .map(|r| (r.metric_id, r.value))
+                        .collect(),
                 )
             })
             .collect();

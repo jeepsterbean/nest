@@ -35,7 +35,13 @@ pub fn is_demo_identifier(identifier: &str) -> bool {
 /// codegen cannot compile `dataStoreIdentifier`; they are built here instead,
 /// before setup looks any of them up.
 pub fn create_windows<R: tauri::Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
-    for window in app.config().app.windows.iter().filter(|window| !window.create) {
+    for window in app
+        .config()
+        .app
+        .windows
+        .iter()
+        .filter(|window| !window.create)
+    {
         tauri::WebviewWindowBuilder::from_config(app.handle(), window)?
             .data_store_identifier(DEMO_WEBVIEW_STORE)
             .build()?;
@@ -148,7 +154,11 @@ const TASKS: &[TaskSeed] = &[
         value: Some(4),
         effort: Some(2),
         parent: Some("portfolio"),
-        history: &[(8, hm(9, 10), "up_next"), (8, hm(9, 15), "active"), (6, hm(15, 40), "completed")],
+        history: &[
+            (8, hm(9, 10), "up_next"),
+            (8, hm(9, 15), "active"),
+            (6, hm(15, 40), "completed"),
+        ],
     },
     TaskSeed {
         key: "headshot",
@@ -218,7 +228,11 @@ const TASKS: &[TaskSeed] = &[
         value: Some(2),
         effort: Some(1),
         parent: None,
-        history: &[(7, hm(9, 0), "up_next"), (3, hm(11, 15), "active"), (3, hm(12, 0), "completed")],
+        history: &[
+            (7, hm(9, 0), "up_next"),
+            (3, hm(11, 15), "active"),
+            (3, hm(12, 0), "completed"),
+        ],
     },
     TaskSeed {
         key: "grandma",
@@ -228,7 +242,11 @@ const TASKS: &[TaskSeed] = &[
         value: Some(5),
         effort: Some(1),
         parent: None,
-        history: &[(2, hm(19, 30), "up_next"), (1, hm(19, 35), "active"), (1, hm(20, 15), "completed")],
+        history: &[
+            (2, hm(19, 30), "up_next"),
+            (1, hm(19, 35), "active"),
+            (1, hm(20, 15), "completed"),
+        ],
     },
     TaskSeed {
         key: "dentist",
@@ -331,7 +349,11 @@ const FOLLOW_UPS: &[(&str, &str)] = &[("library", "library_follow_up")];
 /// Working now during a seeded Doing block.
 type StatusTimelines = HashMap<&'static str, (i64, Vec<(i64, &'static str)>)>;
 
-fn seed_tasks(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i64) -> Result<StatusTimelines> {
+fn seed_tasks(
+    tx: &Transaction,
+    day_start: &dyn Fn(i64) -> i64,
+    cutoff: i64,
+) -> Result<StatusTimelines> {
     let mut timelines: StatusTimelines = HashMap::new();
     for (sort_order, task) in TASKS.iter().enumerate() {
         let events: Vec<(i64, &str)> = task
@@ -415,10 +437,16 @@ const DAY: &[(i64, Block)] = &[
     (hm(9, 45), Block::Phase("Resting")),
     (hm(10, 0), Block::Doing(&["case_study", "pick_projects"])),
     (hm(11, 0), Block::Phase("Scoping")),
-    (hm(11, 20), Block::Doing(&["library", "spanish", "pick_projects", "inbox"])),
+    (
+        hm(11, 20),
+        Block::Doing(&["library", "spanish", "pick_projects", "inbox"]),
+    ),
     (hm(12, 5), Block::Phase("Offline")),
     (hm(13, 0), Block::Phase("Scoping")),
-    (hm(13, 15), Block::Doing(&["meal_prep", "case_study", "pick_projects"])),
+    (
+        hm(13, 15),
+        Block::Doing(&["meal_prep", "case_study", "pick_projects"]),
+    ),
     (hm(14, 30), Block::Phase("Resting")),
     (hm(14, 50), Block::Doing(&["pick_projects", "case_study"])),
     (hm(15, 35), Block::Phase("Scoping")),
@@ -451,14 +479,18 @@ fn seed_days(
             .iter()
             .enumerate()
             .map(|(index, (minute, _))| {
-                let jitter = noise((days_ago as u64) << 8 | index as u64) % MAX_START_JITTER_MINUTES;
+                let jitter =
+                    noise((days_ago as u64) << 8 | index as u64) % MAX_START_JITTER_MINUTES;
                 start_of_day + (minute + jitter as i64) * 60
             })
             .collect();
 
         for (index, (_, block)) in DAY.iter().enumerate() {
             let start = starts[index];
-            let end = starts.get(index + 1).copied().unwrap_or(start_of_day + DAY_END * 60);
+            let end = starts
+                .get(index + 1)
+                .copied()
+                .unwrap_or(start_of_day + DAY_END * 60);
             if start >= cutoff {
                 break;
             }
@@ -503,12 +535,36 @@ struct MetricSeed {
 }
 
 const METRICS: &[MetricSeed] = &[
-    MetricSeed { name: "Sleep", icon: "bed", color: "#6872bd" },
-    MetricSeed { name: "Energy", icon: "battery", color: "#c47a3a" },
-    MetricSeed { name: "Mood", icon: "mood", color: "#b95755" },
-    MetricSeed { name: "Focus", icon: "target", color: "#35764e" },
-    MetricSeed { name: "Calm", icon: "leaf", color: "#438c83" },
-    MetricSeed { name: "Body", icon: "body", color: "#a08e2f" },
+    MetricSeed {
+        name: "Sleep",
+        icon: "bed",
+        color: "#6872bd",
+    },
+    MetricSeed {
+        name: "Energy",
+        icon: "battery",
+        color: "#c47a3a",
+    },
+    MetricSeed {
+        name: "Mood",
+        icon: "mood",
+        color: "#b95755",
+    },
+    MetricSeed {
+        name: "Focus",
+        icon: "target",
+        color: "#35764e",
+    },
+    MetricSeed {
+        name: "Calm",
+        icon: "leaf",
+        color: "#438c83",
+    },
+    MetricSeed {
+        name: "Body",
+        icon: "body",
+        color: "#a08e2f",
+    },
 ];
 
 const PULSES: &[(&str, &str, &[&str])] = &[
@@ -555,7 +611,10 @@ fn seed_metrics_and_pulses(tx: &Transaction) -> Result<SeededMetrics> {
         }
         pulse_ids.insert(name, pulse_id);
     }
-    Ok(SeededMetrics { metric_ids, pulse_ids })
+    Ok(SeededMetrics {
+        metric_ids,
+        pulse_ids,
+    })
 }
 
 /// A gentle story: Mood and Calm lift over the week, Energy dips after lunch,
@@ -627,7 +686,10 @@ fn checklist(items: &[(&str, bool)]) -> String {
 }
 
 fn bullets(items: &[&str]) -> String {
-    let rows: String = items.iter().map(|text| format!("<li><p>{text}</p></li>")).collect();
+    let rows: String = items
+        .iter()
+        .map(|text| format!("<li><p>{text}</p></li>"))
+        .collect();
     format!("<ul>{rows}</ul>")
 }
 
@@ -644,45 +706,121 @@ const TAGS: &[&str] = &["Work", "Idea", "Personal", "Gratitude", "Errand"];
 fn seed_brain_dumps(tx: &Transaction, day_start: &dyn Fn(i64) -> i64, cutoff: i64) -> Result<()> {
     let mut tag_ids = HashMap::new();
     for tag in TAGS {
-        tx.execute("INSERT INTO tags (name, created_at) VALUES (?1, 0)", params![tag])?;
+        tx.execute(
+            "INSERT INTO tags (name, created_at) VALUES (?1, 0)",
+            params![tag],
+        )?;
         tag_ids.insert(*tag, tx.last_insert_rowid());
     }
 
     let dumps: Vec<(i64, i64, String, &[&str])> = vec![
-        (9, hm(8, 50), "New week. I want the portfolio to feel like me again, not like a résumé.".into(), &["Work"]),
-        (9, hm(20, 10), "Grateful for the long walk by the river and the bakery still being open.".into(), &["Gratitude"]),
-        (8, hm(9, 35), rich(&[
-            heading("Portfolio, roughly"),
-            bullets(&["Field Notes app", "The library wayfinding project", "Something small and playful"]),
-        ]), &["Work", "Idea"]),
-        (7, hm(13, 5), "Afternoons go better when I eat away from the desk. Noting it so I believe it.".into(), &["Personal"]),
-        (7, hm(19, 50), rich(&[
-            heading("Errands"),
-            checklist(&[("Library books", false), ("Dentist", false), ("Passport photos", false)]),
-        ]), &["Errand"]),
-        (6, hm(15, 50), "Picked the three projects. Relief. The case study is the real work now.".into(), &["Work"]),
-        (5, hm(19, 45), "Soup idea: roasted squash with miso and a lot of ginger.".into(), &["Idea", "Personal"]),
-        (4, hm(11, 10), "Felt scattered this morning. Two short Doing stretches still counted.".into(), &["Personal"]),
-        (3, hm(12, 5), "Library books returned. Picked up a new one by accident, as usual.".into(), &["Errand", "Gratitude"]),
-        (2, hm(16, 40), rich(&[
-            heading("Case study opening"),
-            bullets(&[
-                "Start in the field: the notebook full of rain-smudged sketches",
-                "Then the question: what if notes could find you again?",
-                "Keep the process part short",
+        (
+            9,
+            hm(8, 50),
+            "New week. I want the portfolio to feel like me again, not like a résumé.".into(),
+            &["Work"],
+        ),
+        (
+            9,
+            hm(20, 10),
+            "Grateful for the long walk by the river and the bakery still being open.".into(),
+            &["Gratitude"],
+        ),
+        (
+            8,
+            hm(9, 35),
+            rich(&[
+                heading("Portfolio, roughly"),
+                bullets(&[
+                    "Field Notes app",
+                    "The library wayfinding project",
+                    "Something small and playful",
+                ]),
             ]),
-        ]), &["Work", "Idea"]),
-        (1, hm(20, 20), "Called Grandma. She laughed at the plum cake story again. A good evening.".into(), &["Gratitude", "Personal"]),
-        (0, hm(8, 55), rich(&[
-            heading("Today, gently"),
-            checklist(&[
-                ("Water the basil", true),
-                ("Write the case study opening", false),
-                ("Plan Sunday soups", false),
-                ("Walk before dinner", false),
+            &["Work", "Idea"],
+        ),
+        (
+            7,
+            hm(13, 5),
+            "Afternoons go better when I eat away from the desk. Noting it so I believe it.".into(),
+            &["Personal"],
+        ),
+        (
+            7,
+            hm(19, 50),
+            rich(&[
+                heading("Errands"),
+                checklist(&[
+                    ("Library books", false),
+                    ("Dentist", false),
+                    ("Passport photos", false),
+                ]),
             ]),
-        ]), &["Personal"]),
-        (0, hm(11, 15), "The opening paragraph finally has a shape. Leave it alone until after lunch.".into(), &["Work"]),
+            &["Errand"],
+        ),
+        (
+            6,
+            hm(15, 50),
+            "Picked the three projects. Relief. The case study is the real work now.".into(),
+            &["Work"],
+        ),
+        (
+            5,
+            hm(19, 45),
+            "Soup idea: roasted squash with miso and a lot of ginger.".into(),
+            &["Idea", "Personal"],
+        ),
+        (
+            4,
+            hm(11, 10),
+            "Felt scattered this morning. Two short Doing stretches still counted.".into(),
+            &["Personal"],
+        ),
+        (
+            3,
+            hm(12, 5),
+            "Library books returned. Picked up a new one by accident, as usual.".into(),
+            &["Errand", "Gratitude"],
+        ),
+        (
+            2,
+            hm(16, 40),
+            rich(&[
+                heading("Case study opening"),
+                bullets(&[
+                    "Start in the field: the notebook full of rain-smudged sketches",
+                    "Then the question: what if notes could find you again?",
+                    "Keep the process part short",
+                ]),
+            ]),
+            &["Work", "Idea"],
+        ),
+        (
+            1,
+            hm(20, 20),
+            "Called Grandma. She laughed at the plum cake story again. A good evening.".into(),
+            &["Gratitude", "Personal"],
+        ),
+        (
+            0,
+            hm(8, 55),
+            rich(&[
+                heading("Today, gently"),
+                checklist(&[
+                    ("Water the basil", true),
+                    ("Write the case study opening", false),
+                    ("Plan Sunday soups", false),
+                    ("Walk before dinner", false),
+                ]),
+            ]),
+            &["Personal"],
+        ),
+        (
+            0,
+            hm(11, 15),
+            "The opening paragraph finally has a shape. Leave it alone until after lunch.".into(),
+            &["Work"],
+        ),
     ];
 
     for (days_ago, minute, text, tags) in dumps {
@@ -760,7 +898,10 @@ mod tests {
     fn leaves_nothing_working_and_nothing_in_the_future() {
         let conn = seeded();
         assert_eq!(
-            count(&conn, "SELECT COUNT(*) FROM task_work_stretches WHERE ended_at IS NULL"),
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM task_work_stretches WHERE ended_at IS NULL"
+            ),
             0
         );
         for sql in [
@@ -804,13 +945,18 @@ mod tests {
     fn tasks_read_back_with_worked_time_and_current_status() {
         let conn = seeded();
         let tasks: Vec<_> = conn
-            .prepare(&format!("SELECT {TASK_COLUMNS} FROM tasks t ORDER BY t.sort_order"))
+            .prepare(&format!(
+                "SELECT {TASK_COLUMNS} FROM tasks t ORDER BY t.sort_order"
+            ))
             .unwrap()
             .query_map([], map_task)
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-        let case_study = tasks.iter().find(|t| t.title.starts_with("Write the Field")).unwrap();
+        let case_study = tasks
+            .iter()
+            .find(|t| t.title.starts_with("Write the Field"))
+            .unwrap();
         assert_eq!(case_study.status, "active");
         assert!(case_study.worked_seconds > 3600);
         assert!(!case_study.working_now);
@@ -895,7 +1041,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nest-demo-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let db_path = dir.join("nest.db");
-        Connection::open(&db_path).unwrap().pragma_update(None, "journal_mode", "WAL").unwrap();
+        Connection::open(&db_path)
+            .unwrap()
+            .pragma_update(None, "journal_mode", "WAL")
+            .unwrap();
         remove_database(&db_path).unwrap();
         remove_database(&db_path).unwrap();
         assert!(!db_path.exists());
