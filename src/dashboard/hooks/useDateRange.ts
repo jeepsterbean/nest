@@ -1,5 +1,6 @@
-// Behavior and invariants: docs/calendar.md#range-sidebar
+// Behavior and invariants: docs/interface/calendar.md#presentation-and-range
 import { useCallback, useMemo, useRef, useState } from "react";
+import type { DayPickerProps } from "../lib/dayPicker";
 import { HISTORY_WINDOW_DAYS } from "../context/DashboardDataContext";
 import {
   insightColumns,
@@ -7,8 +8,8 @@ import {
   stepColumns,
   type RangeModeKey,
 } from "../lib/insights";
-import { formatRangeDate, formatRangeDay, historyStartSec, startOfDayMs } from "../lib/time";
-import { boundedDayMs, selectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
+import { formatRangeDate, formatRangeDay, historyStartSec } from "../lib/time";
+import { pickedDayAnchor, selectedDayMs, stepSelectedDay } from "../lib/dateNavigation";
 import { useCurrentTime } from "./useCurrentTime";
 
 /** Date paging is independent of persisted presentation mode. */
@@ -48,9 +49,12 @@ export function useDateRange(mode: RangeModeKey) {
   }, [mode]);
   const goToday = useCallback(() => setAnchorMs(null), []);
   const goToDay = useCallback((dayMs: number) => {
-    const bounded = boundedDayMs(dayMs, nowMs, earliestSec);
-    setAnchorMs(bounded === startOfDayMs(nowMs / 1000) ? null : bounded);
+    setAnchorMs(pickedDayAnchor(dayMs, nowMs, earliestSec));
   }, [nowMs, earliestSec]);
+  const picker = useMemo<DayPickerProps>(
+    () => ({ earliestSec, nowMs, selected: { from, to }, onPick: goToDay }),
+    [earliestSec, nowMs, from, to, goToDay],
+  );
 
   return {
     mode,
@@ -65,6 +69,6 @@ export function useDateRange(mode: RangeModeKey) {
     title,
     step,
     goToday,
-    goToDay,
+    picker,
   };
 }

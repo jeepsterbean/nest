@@ -1,0 +1,490 @@
+/* ---------- Task cards, relations, and scope ---------- */
+
+.task-card__description {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.task-card__description:hover {
+  border-color: var(--accent);
+}
+
+.task-card__description--empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.task-card__description-input {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  outline: none;
+  resize: vertical;
+}
+
+.task-card__description-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-relations {
+  display: grid;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.task-relation-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-relation-group__head > span:first-child,
+.task-relation-field__label {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.task-relation-field {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.task-relation-group {
+  display: grid;
+  gap: 6px;
+}
+
+.task-relation-group__head > span:last-child {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-relation-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-relation-list li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.task-relation-list li > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-relation-list__remove {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.task-relation-list__remove svg {
+  width: 11px;
+  height: 11px;
+}
+
+.task-relation-list__remove:hover {
+  background: var(--dump-soft);
+  color: var(--dump);
+}
+
+.task-relation-add {
+  width: 100%;
+}
+
+.task-card__scope {
+  display: inline-flex;
+  flex: none;
+  max-width: 100%;
+  align-items: center;
+  gap: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 78%, var(--surface));
+  color: var(--accent);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.task-card__scope-segment {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-card__scope-segment:not(:last-child) {
+  flex: 0 1 auto;
+  color: color-mix(in srgb, var(--accent) 58%, var(--muted));
+  font-weight: 700;
+}
+
+.task-card__scope-segment:not(:last-child)::after {
+  content: "/";
+  padding: 0 5px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.task-card__scope-segment--leaf {
+  flex: 0 1 auto;
+}
+
+.task-card__scope:hover {
+  border-color: var(--accent);
+}
+
+.task-card__scope--empty {
+  width: 13px;
+  height: 13px;
+  min-width: 13px;
+  padding: 0;
+  border-color: color-mix(in srgb, var(--muted) 34%, var(--border));
+  background: color-mix(in srgb, var(--muted) 18%, var(--surface-2));
+  color: transparent;
+}
+
+.task-card__scope--empty:hover {
+  border-color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 28%, var(--surface-2));
+}
+
+.task-card__scope-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.76;
+}
+
+.task-scope-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+}
+
+.task-scope-menu {
+  position: fixed;
+  z-index: 83;
+  display: flex;
+  width: min(280px, calc(100vw - 16px));
+  max-height: var(--task-scope-menu-max-height, calc(100vh - 16px));
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-2));
+  box-shadow:
+    0 18px 42px -30px rgba(60, 48, 30, 0.46),
+    0 1px 4px rgba(60, 48, 30, 0.07);
+}
+
+.task-scope-menu__head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 5px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  margin-bottom: 4px;
+}
+
+.task-scope-menu__path {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.task-scope-menu__crumb-wrap {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-scope-menu__crumb {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 5px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.task-scope-menu__crumb:hover,
+.task-scope-menu__crumb:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.task-scope-menu__crumb-separator {
+  flex: none;
+  color: var(--border-strong);
+}
+
+.task-scope-menu__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-scope-menu__icon-btn {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.task-scope-menu__icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.task-scope-menu__icon-btn:hover,
+.task-scope-menu__icon-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.task-scope-menu__icon-btn--danger:hover,
+.task-scope-menu__icon-btn--danger:focus-visible {
+  border-color: color-mix(in srgb, var(--danger, #b84a4a) 55%, var(--border));
+  color: var(--danger, #b84a4a);
+}
+
+.task-scope-menu__options {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.task-scope-menu__option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border-radius: 6px;
+}
+
+.task-scope-menu__option-row:hover,
+.task-scope-menu__option-row:focus-within {
+  background: var(--surface-2);
+}
+
+.task-scope-menu__option-row.is-selected {
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface));
+  color: var(--accent);
+}
+
+.task-scope-menu__select {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 35px;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-scope-menu__select:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.task-scope-menu__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-scope-menu__check {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
+}
+
+.task-scope-menu__check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.task-scope-menu__drill {
+  display: inline-flex;
+  width: 34px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.task-scope-menu__drill svg {
+  width: 13px;
+  height: 13px;
+}
+
+.task-scope-menu__drill:hover,
+.task-scope-menu__drill:focus-visible {
+  background: color-mix(in srgb, var(--accent-soft) 54%, transparent);
+  color: var(--accent);
+  outline: none;
+}
+
+.task-scope-menu__empty {
+  padding: 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.task-scope-menu__new {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.task-scope-menu__new input {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.task-scope-menu__new input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.task-scope-menu__new button {
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.task-scope-menu__new button:disabled {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.task-title {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.task-title:hover {
+  color: var(--accent);
+}

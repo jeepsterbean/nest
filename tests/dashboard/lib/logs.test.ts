@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildLogExportEvents,
+  ALL_LOG_KINDS,
   buildLogsEvents,
-  logDayKeys,
-  logDayMarkdown,
+  taskStatusEventLabel,
   readLogsPreferences,
-  soloLogKind,
   toggleLogKind,
   writeLogsPreferences,
 } from "../../../src/dashboard/lib/logs";
@@ -96,16 +94,8 @@ describe("Logs kind selection", () => {
     expect(toggleLogKind(["dumps", "tasks"], "dumps")).toEqual(["tasks"]);
   });
 
-  it("keeps the last selected kind on", () => {
+  it("keeps the last shown kind on", () => {
     expect(toggleLogKind(["phases"], "phases")).toEqual(["phases"]);
-  });
-
-  it("isolates a kind, and restores every kind when it is already alone", () => {
-    expect(soloLogKind(["dumps", "phases", "metrics"], "metrics")).toEqual([
-      "metrics",
-    ]);
-    expect(soloLogKind(["dumps"], "metrics")).toEqual(["metrics"]);
-    expect(soloLogKind(["metrics"], "metrics")).toEqual(ALL_KINDS);
   });
 });
 
@@ -149,7 +139,7 @@ describe("Logs feed", () => {
   });
 });
 
-describe("daily Logs export", () => {
+describe("every Logs kind together", () => {
   it("uses settled Phase changes and includes every event type", () => {
     const checkIn: MetricCheckInWithRatings = {
       id: 1,
@@ -168,7 +158,9 @@ describe("daily Logs export", () => {
       phaseId,
       phaseLabel: null,
     });
-    const events = buildLogExportEvents(
+    const events = buildLogsEvents(
+      ALL_LOG_KINDS,
+      false,
       [checkIn],
       [phase(1, 100, 1), phase(2, 130, 2), phase(3, 150, 3)],
       [
@@ -185,51 +177,12 @@ describe("daily Logs export", () => {
 
     expect(events.filter((event) => event.kind === "phase")).toHaveLength(1);
 
-    const markdown = logDayMarkdown(0, events, {
-      phases: [
-        {
-          id: 3,
-          name: "Doing",
-          icon: "play",
-          color: null,
-          createdAt: 0,
-          inactiveSince: null,
-        },
-      ],
-      metrics: [
-        { id: 1, name: "Energy", icon: "sun", color: null, createdAt: 0 },
-      ],
-      pulses: [
-        { id: 1, name: "Daily pulse", icon: "activity", createdAt: 0, metricIds: [1] },
-      ],
-      tasks: [
-        {
-          id: 1,
-          title: "Write proposal",
-          description: "",
-          status: "active",
-          workingNow: false,
-          workedSeconds: 30,
-          workStartedAt: null,
-          scope: null,
-          value: null,
-          effort: null,
-          parentTaskId: null,
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      ],
-    });
-
-    expect(markdown).toContain("Phase — Doing");
-    expect(markdown).toContain("Metric check-in — Daily pulse: Energy 4");
-    expect(markdown).toContain("Working now started — Write proposal");
-    expect(markdown).toContain("Paused — Write proposal");
-    expect(markdown).toContain("Brain dump — Tags: reflection");
-    expect(markdown).toContain("> First line\n  > Second line");
+    expect(new Set(events.map((event) => event.kind))).toEqual(
+      new Set(["phase", "metrics", "dump", "work-start", "work-stop"]),
+    );
   });
 
-  it("keeps settled Resting in the day export so Scoping-only dumps cannot hide away time", () => {
+  it("keeps settled Resting so Scoping-only dumps cannot hide away time", () => {
     const phase = (
       id: number,
       createdAt: number,
@@ -242,7 +195,9 @@ describe("daily Logs export", () => {
     });
     const SCOPING = 2;
     const RESTING = 4;
-    const events = buildLogExportEvents(
+    const events = buildLogsEvents(
+      ALL_LOG_KINDS,
+      false,
       [],
       [
         phase(1, 100, SCOPING),
@@ -297,36 +252,13 @@ describe("Task lifecycle history", () => {
     expect(buildLogsEvents(["dumps"], false, [], [], [], [], 0, history)).toEqual([]);
   });
 
-  it("exports creation, completion, reopening, cancellation and retired statuses", () => {
-    const events = buildLogExportEvents([], [], [], [], 0, history);
-    const markdown = logDayMarkdown(0, events, { phases: [], metrics: [], pulses: [], tasks: [] });
-    expect(markdown).toContain("Created task · Active — Task 7");
-    expect(markdown).toContain("Completed task · Active → Completed — Task 7");
-    expect(markdown).toContain("Completed → Up next — Task 7");
-    expect(markdown).toContain("Cancelled task · Up next → Cancelled — Task 7");
-    expect(markdown).toContain("Cancelled task · Paused → Cancelled — Task 7");
-    expect(markdown.indexOf("Created task")).toBeLessThan(markdown.indexOf("Completed task"));
-    expect(markdown.indexOf("Completed task")).toBeLessThan(markdown.indexOf("Completed → Up next"));
+  it("labels creation, completion, reopening, cancellation and retired statuses", () => {
+    expect(history.map(taskStatusEventLabel)).toEqual([
+      "Created task · Active",
+      "Completed task · Active → Completed",
+      "Completed → Up next",
+      "Cancelled task · Up next → Cancelled",
+      "Cancelled task · Paused → Cancelled",
+    ]);
   });
-});
-
-describe("Logs selected day", () => {
-  const day = (date: number) => new Date(2026, 8, date).getTime();
-  const at = (date: number, hour: number) =>
-    new Date(2026, 8, date, hour).getTime() / 1000;
-  // Newest first, with Sep 26 and Sep 29 empty.
-  const events = [
-    { at: at(30, 9) },
-    { at: at(28, 18) },
-    { at: at(28, 8) },
-    { at: at(27, 12) },
-    { at: at(25, 7) },
-  ];
-  const keys = logDayKeys(events);
-
-  it("lists each day with entries once, newest first", () => {
-    expect(keys).toEqual([day(30), day(28), day(27), day(25)]);
-  });
-
-
 });

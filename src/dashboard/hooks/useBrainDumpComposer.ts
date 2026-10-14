@@ -9,7 +9,7 @@ import {
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useFloatingBrainDumpsContext } from "../context/FloatingBrainDumpsContext";
 
-/** Draft lifecycle for the Core Today composer: edit, save with Cmd/Ctrl+Enter,
+/** Draft lifecycle for the Today composer: edit, save with Cmd/Ctrl+Enter,
  * peel with Shift+Enter. */
 export function useBrainDumpComposer() {
   const { mutate } = useDashboardData();

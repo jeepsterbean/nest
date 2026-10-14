@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -7,6 +7,7 @@ use super::shared::{valid_color, valid_icon};
 use crate::error::{AppError, Result};
 use crate::models::{
     Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput, Pulse,
+    PulseMetricEntry,
 };
 use crate::time::now_unix_secs;
 
@@ -174,6 +175,144 @@ pub fn create_pulse(state: State<'_, Mutex<Connection>>, name: String) -> Result
     fetch_pulse(&conn, conn.last_insert_rowid())
 }
 
+/// Creates a Pulse together with its Metrics and memberships in one
+/// transaction, so a failure at any step stores none of them. Everything that
+/// can be checked is checked before the first write; the transaction covers
+/// what only SQLite can reject.
+pub(crate) fn create_pulse_with_metrics_in(
+    conn: &mut Connection,
+    name: &str,
+    icon: &str,
+    entries: &[PulseMetricEntry],
+    now: i64,
+) -> Result<Pulse> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
+    }
+    if !valid_icon(icon) {
+        return Err(AppError::InvalidInput("invalid pulse icon".into()));
+    }
+
+    let mut existing_ids = HashSet::new();
+    for entry in entries {
+        let (entry_name, entry_icon, entry_color) = match entry {
+            PulseMetricEntry::Existing {
+                id,
+                name,
+                icon,
+                color,
+            } => {
+                if !existing_ids.insert(*id) {
+                    return Err(AppError::InvalidInput(format!(
+                        "metric {id} is listed more than once"
+                    )));
+                }
+                (name, icon, color)
+            }
+            PulseMetricEntry::New { name, icon, color } => (name, icon, color),
+        };
+        if entry_name.trim().is_empty() {
+            return Err(AppError::InvalidInput("metric name cannot be empty".into()));
+        }
+        if !valid_icon(entry_icon) {
+            return Err(AppError::InvalidInput("invalid metric icon".into()));
+        }
+        if entry_color
+            .as_deref()
+            .is_some_and(|color| !valid_color(color))
+        {
+            return Err(AppError::InvalidInput("invalid metric color".into()));
+        }
+    }
+
+    let tx = conn.transaction()?;
+
+    let stored_names = {
+        let mut stmt = tx.prepare("SELECT id, name FROM metrics")?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<HashMap<i64, String>>>()?;
+        rows
+    };
+    if let Some(missing) = existing_ids
+        .iter()
+        .find(|id| !stored_names.contains_key(id))
+    {
+        return Err(AppError::NotFound(format!("metric {missing}")));
+    }
+    // The names every Metric would hold afterwards: untouched Metrics keep
+    // theirs, listed ones take the entry's name.
+    let mut resulting_names: HashSet<&str> = stored_names
+        .iter()
+        .filter(|(id, _)| !existing_ids.contains(id))
+        .map(|(_, stored_name)| stored_name.as_str())
+        .collect();
+    for entry in entries {
+        let (PulseMetricEntry::Existing { name, .. } | PulseMetricEntry::New { name, .. }) = entry;
+        if !resulting_names.insert(name.trim()) {
+            return Err(AppError::InvalidInput(format!(
+                "a metric named \"{}\" already exists",
+                name.trim()
+            )));
+        }
+    }
+
+    tx.execute(
+        "INSERT INTO pulses (name, icon, created_at, sort_order) VALUES ( \
+           ?1, \
+           ?2, \
+           ?3, \
+           COALESCE((SELECT MAX(sort_order) FROM pulses), -1) + 1 \
+         )",
+        params![name, icon, now],
+    )?;
+    let pulse_id = tx.last_insert_rowid();
+
+    for (index, entry) in entries.iter().enumerate() {
+        let metric_id = match entry {
+            PulseMetricEntry::Existing {
+                id,
+                name,
+                icon,
+                color,
+            } => {
+                tx.execute(
+                    "UPDATE metrics SET name = ?1, icon = ?2, color = ?3 WHERE id = ?4",
+                    params![name.trim(), icon, color, id],
+                )?;
+                *id
+            }
+            PulseMetricEntry::New { name, icon, color } => {
+                tx.execute(
+                    "INSERT INTO metrics (name, icon, color, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    params![name.trim(), icon, color, now],
+                )?;
+                tx.last_insert_rowid()
+            }
+        };
+        tx.execute(
+            "INSERT INTO pulse_metrics (pulse_id, metric_id, sort_order) VALUES (?1, ?2, ?3)",
+            params![pulse_id, metric_id, index as i64],
+        )?;
+    }
+
+    let pulse = fetch_pulse(&tx, pulse_id)?;
+    tx.commit()?;
+    Ok(pulse)
+}
+
+#[tauri::command]
+pub fn create_pulse_with_metrics(
+    state: State<'_, Mutex<Connection>>,
+    name: String,
+    icon: String,
+    metrics: Vec<PulseMetricEntry>,
+) -> Result<Pulse> {
+    let mut conn = state.lock().unwrap();
+    create_pulse_with_metrics_in(&mut conn, &name, &icon, &metrics, now_unix_secs())
+}
+
 #[tauri::command]
 pub fn rename_pulse(state: State<'_, Mutex<Connection>>, id: i64, name: String) -> Result<Pulse> {
     let name = name.trim().to_string();
@@ -262,7 +401,11 @@ pub(crate) fn set_pulse_order(conn: &Connection, ids: &[i64]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn set_pulse_metric_order(conn: &Connection, pulse_id: i64, metric_ids: &[i64]) -> Result<()> {
+pub(crate) fn set_pulse_metric_order(
+    conn: &Connection,
+    pulse_id: i64,
+    metric_ids: &[i64],
+) -> Result<()> {
     let pulse_exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM pulses WHERE id = ?1)",
         params![pulse_id],
@@ -507,12 +650,178 @@ mod tests {
         assert_eq!(pulse_ids, vec![2, 1]);
 
         set_pulse_metric_order(&conn, 1, &[11, 10]).unwrap();
-        assert_eq!(
-            fetch_pulse(&conn, 1).unwrap().metric_ids,
-            vec![11, 10]
-        );
+        assert_eq!(fetch_pulse(&conn, 1).unwrap().metric_ids, vec![11, 10]);
         assert!(set_pulse_order(&conn, &[1]).is_err());
         assert!(set_pulse_metric_order(&conn, 1, &[10]).is_err());
+    }
+
+    fn seeded_metrics() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO pulses (id, name, created_at, sort_order) VALUES (1, 'Morning', 1, 0);
+             INSERT INTO metrics (id, name, created_at) \
+             VALUES (10, 'Energy', 1), (11, 'Mood', 2);
+             INSERT INTO pulse_metrics (pulse_id, metric_id, sort_order) VALUES (1, 10, 0);",
+        )
+        .unwrap();
+        conn
+    }
+
+    /// Pulses, Metrics, and memberships as stored, to compare before and after.
+    fn stored_metric_setup(conn: &Connection) -> Vec<String> {
+        let mut rows = Vec::new();
+        for query in [
+            "SELECT 'pulse ' || id || ' ' || name || ' ' || icon FROM pulses ORDER BY id",
+            "SELECT 'metric ' || id || ' ' || name || ' ' || icon || ' ' || COALESCE(color, '-') \
+             FROM metrics ORDER BY id",
+            "SELECT 'member ' || pulse_id || ' ' || metric_id || ' ' || sort_order \
+             FROM pulse_metrics ORDER BY pulse_id, metric_id",
+        ] {
+            let mut stmt = conn.prepare(query).unwrap();
+            rows.extend(
+                stmt.query_map([], |row| row.get::<_, String>(0))
+                    .unwrap()
+                    .map(|row| row.unwrap()),
+            );
+        }
+        rows
+    }
+
+    fn new_metric(name: &str) -> PulseMetricEntry {
+        PulseMetricEntry::New {
+            name: name.into(),
+            icon: "activity".into(),
+            color: None,
+        }
+    }
+
+    fn existing_metric(id: i64, name: &str) -> PulseMetricEntry {
+        PulseMetricEntry::Existing {
+            id,
+            name: name.into(),
+            icon: "activity".into(),
+            color: None,
+        }
+    }
+
+    #[test]
+    fn creates_a_pulse_with_new_and_existing_metrics_in_order() {
+        let mut conn = seeded_metrics();
+        let entries = [
+            new_metric("  Focus  "),
+            PulseMetricEntry::Existing {
+                id: 10,
+                name: "Energy level".into(),
+                icon: "zap".into(),
+                color: Some("#abc".into()),
+            },
+        ];
+
+        let pulse =
+            create_pulse_with_metrics_in(&mut conn, "  Evening ", "moon", &entries, 50).unwrap();
+
+        assert_eq!(pulse.name, "Evening");
+        assert_eq!(pulse.icon, "moon");
+        let focus_id: i64 = conn
+            .query_row("SELECT id FROM metrics WHERE name = 'Focus'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(pulse.metric_ids, vec![focus_id, 10]);
+        let energy = fetch_metric(&conn, 10).unwrap();
+        assert_eq!(
+            (
+                energy.name.as_str(),
+                energy.icon.as_str(),
+                energy.color.as_deref()
+            ),
+            ("Energy level", "zap", Some("#abc"))
+        );
+        // The Metric is shared, so its first Pulse keeps it.
+        assert_eq!(fetch_pulse(&conn, 1).unwrap().metric_ids, vec![10]);
+    }
+
+    #[test]
+    fn rolls_back_a_pulse_creation_that_fails_after_its_first_writes() {
+        let mut conn = seeded_metrics();
+        // Validation passes, so the Pulse, the new Metric, its membership, and
+        // the edit to Energy are all written before Mood's membership aborts.
+        conn.execute_batch(
+            "CREATE TRIGGER fail_mood_membership BEFORE INSERT ON pulse_metrics \
+             WHEN NEW.metric_id = 11 \
+             BEGIN SELECT RAISE(ABORT, 'forced failure'); END;",
+        )
+        .unwrap();
+        let before = stored_metric_setup(&conn);
+        let entries = [
+            new_metric("Focus"),
+            PulseMetricEntry::Existing {
+                id: 10,
+                name: "Energy level".into(),
+                icon: "zap".into(),
+                color: Some("#abc".into()),
+            },
+            existing_metric(11, "Mood"),
+        ];
+
+        let result = create_pulse_with_metrics_in(&mut conn, "Evening", "moon", &entries, 50);
+
+        assert!(matches!(result, Err(AppError::Sqlite(_))));
+        assert_eq!(stored_metric_setup(&conn), before);
+    }
+
+    #[test]
+    fn rejects_an_invalid_pulse_creation_before_writing() {
+        let mut conn = seeded_metrics();
+        let before = stored_metric_setup(&conn);
+        let colored = |color: &str| PulseMetricEntry::New {
+            name: "Focus".into(),
+            icon: "activity".into(),
+            color: Some(color.into()),
+        };
+        let with_icon = |icon: &str| PulseMetricEntry::New {
+            name: "Focus".into(),
+            icon: icon.into(),
+            color: None,
+        };
+        let rejected: [(&str, &str, Vec<PulseMetricEntry>); 10] = [
+            ("  ", "moon", vec![]),
+            ("Evening", "Not An Icon", vec![]),
+            ("Evening", "moon", vec![new_metric("  ")]),
+            ("Evening", "moon", vec![with_icon("Not An Icon")]),
+            ("Evening", "moon", vec![colored("red")]),
+            // The same existing Metric twice.
+            (
+                "Evening",
+                "moon",
+                vec![existing_metric(10, "Energy"), existing_metric(10, "Vigor")],
+            ),
+            // An existing Metric that is not stored.
+            ("Evening", "moon", vec![existing_metric(99, "Calm")]),
+            // A new name taken by a Metric outside the list.
+            ("Evening", "moon", vec![new_metric("Mood")]),
+            // Two entries ending up with one name.
+            (
+                "Evening",
+                "moon",
+                vec![new_metric("Focus"), new_metric(" Focus ")],
+            ),
+            // A rename onto a Metric outside the list.
+            ("Evening", "moon", vec![existing_metric(10, "Mood")]),
+        ];
+
+        for (name, icon, entries) in rejected {
+            let result = create_pulse_with_metrics_in(&mut conn, name, icon, &entries, 50);
+            assert!(
+                matches!(
+                    result,
+                    Err(AppError::InvalidInput(_) | AppError::NotFound(_))
+                ),
+                "{name:?} {icon:?} {entries:?} gave {result:?}"
+            );
+            assert_eq!(stored_metric_setup(&conn), before);
+        }
     }
 
     #[test]
@@ -534,7 +843,10 @@ mod tests {
             .map(|item| {
                 (
                     item.check_in.id,
-                    item.ratings.iter().map(|r| (r.metric_id, r.value)).collect(),
+                    item.ratings
+                        .iter()
+                        .map(|r| (r.metric_id, r.value))
+                        .collect(),
                 )
             })
             .collect();

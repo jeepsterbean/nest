@@ -1,4 +1,5 @@
-// Behavior and invariants: docs/calendar.md#phases-pane
+// Behavior and invariants: docs/domain/phases.md#phase-derivation
+// The guide's rules and meanings must mirror that derivation.
 import type { Phase } from "../../lib/types";
 
 type PhaseGuideEntry = { name: string; meaning: string };

@@ -1,6 +1,5 @@
-// Behavior and invariants: docs/calendar.md#timeline
+// Behavior and invariants: docs/interface/calendar.md#timeline
 import { memo, useMemo, type CSSProperties } from "react";
-import { Download } from "lucide-react";
 import type { Metric, Phase, PhaseCheckIn, Pulse, Task } from "../../lib/types";
 import { dayLabel, formatTime, startOfDayMs } from "../lib/time";
 import {
@@ -78,28 +77,6 @@ const eventKey = (event: RawLogEvent) =>
           ? `task-status-${event.statusEvent.id}`
           : `${event.kind}-${event.stretch.id}`;
 
-export function DayExportButton({
-  label,
-  dayKey,
-  onExportDay,
-}: {
-  label: string;
-  dayKey: number;
-  onExportDay: (dayKey: number) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="day-group__export"
-      onClick={() => onExportDay(dayKey)}
-      aria-label={`Export ${label} timeline as Markdown`}
-      title="Export timeline as Markdown"
-    >
-      <Download aria-hidden="true" />
-    </button>
-  );
-}
-
 /** Memoized so an unrelated parent re-render does not rebuild up to
  * LOG_EVENT_BATCH_SIZE rows. Callers must pass stable handler identities for
  * this to hold. */
@@ -113,8 +90,6 @@ export const TimelineList = memo(function TimelineList({
   expandedDumpIds,
   onDeleteCheckIn,
   onToggleDump,
-  onExportDay,
-  onOpenDay,
   nowMs,
   showCurrentTime = true,
   colorsTimeColumn = true,
@@ -128,9 +103,6 @@ export const TimelineList = memo(function TimelineList({
   expandedDumpIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
   onToggleDump: (id: number) => void;
-  onExportDay?: (dayKey: number) => void;
-  /** Timeline turns each day label into a jump to that day on Calendar's Logs figure. */
-  onOpenDay?: (dayKey: number) => void;
   nowMs: number;
   showCurrentTime?: boolean;
   /** Timeline with Phases filtered out keeps the quiet time column. */
@@ -160,31 +132,6 @@ export const TimelineList = memo(function TimelineList({
         key={day.key}
         className="day-group logs-chrono-day"
       >
-        <header className="day-group__head">
-          <h3 className="day-group__label">
-            {onOpenDay ? (
-              <button
-                type="button"
-                className="day-group__open"
-                title="Open in Logs"
-                onClick={() => onOpenDay(day.key)}
-              >
-                {day.label}
-              </button>
-            ) : (
-              day.label
-            )}
-          </h3>
-          {onExportDay ? (
-            <div className="day-group__meta">
-              <DayExportButton
-                label={day.label}
-                dayKey={day.key}
-                onExportDay={onExportDay}
-              />
-            </div>
-          ) : null}
-        </header>
         <ol className="logs-chrono">
           {showCurrentTime && day.key === todayKey ? (
             <CurrentTimeRow nowMs={nowMs} phase={nowPhase} />

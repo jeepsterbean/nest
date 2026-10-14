@@ -1,6 +1,6 @@
 /* ---------- Logs toolbar ---------- */
 
-/* Two stable rows: day navigation above, the kind filter below. */
+/* Day navigation and the Phases eye when it is the only kind shown. */
 .logs-toolbar {
   flex-direction: column;
   align-items: stretch;
@@ -8,117 +8,10 @@
 
 .logs-toolbar__row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px 10px;
   min-width: 0;
-}
-
-/* Day labels open that day on Calendar's Logs figure; quiet until hovered. */
-.day-group__open {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.day-group__open:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
-}
-
-.day-group__open:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* ---------- Logs kind filter ---------- */
-
-/* Separate chips rather than a segmented bar: several kinds are usually on at
-   once, so each chip carries its own on/off state. Kind colors match the
-   timeline marks; Phases uses --phase since each Phase row has its own color.
-   A tight toolbar scrolls the chips sideways instead of wrapping. */
-.logs-kind-filter {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.logs-toolbar__row .logs-kind-filter {
-  flex: 1 1 auto;
-}
-
-.logs-kind-filter__chip--dumps {
-  --kind-color: var(--dump);
-}
-
-.logs-kind-filter__chip--phases {
-  --kind-color: var(--phase);
-}
-
-.logs-kind-filter__chip--metrics {
-  --kind-color: var(--accent);
-}
-
-.logs-kind-filter__chip--tasks {
-  --kind-color: var(--doing);
-}
-
-.logs-kind-filter__chip {
-  display: inline-flex;
-  flex-shrink: 0;
-  min-height: 30px;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 9px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.logs-kind-filter__chip:hover {
-  border-style: solid;
-  color: var(--ink);
-}
-
-.logs-kind-filter__chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.logs-kind-filter__chip[aria-pressed="true"] {
-  border-style: solid;
-  border-color: color-mix(in srgb, var(--kind-color) 45%, var(--surface));
-  background: color-mix(in srgb, var(--kind-color) 13%, var(--surface));
-  color: var(--ink);
-}
-
-/* Filled vs hollow keeps the state readable without relying on hue. */
-.logs-kind-filter__dot {
-  width: 8px;
-  height: 8px;
-  flex-shrink: 0;
-  border: 1.5px solid var(--muted);
-  border-radius: 2px;
-  box-sizing: border-box;
-}
-
-.logs-kind-filter__chip[aria-pressed="true"] .logs-kind-filter__dot {
-  border-color: var(--kind-color);
-  background: var(--kind-color);
 }
 
 /* ---------- Logs Phase checkpoint toggle ---------- */

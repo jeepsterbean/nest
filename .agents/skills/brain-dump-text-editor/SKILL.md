@@ -5,10 +5,10 @@ description: Change or diagnose Nest's Brain dump rich-text editors, caret or fo
 
 # Nest editor
 
-Preserve each editor's selection and undo state across the Core composer,
+Preserve each editor's selection and undo state across the Today composer,
 floating stickies, and the Popup while keeping the shared draft synchronized.
 
-1. Read [editor ownership and synchronization](../../../docs/editor.md#editor-ownership-and-synchronization)
+1. Read [editor ownership and synchronization](../../../docs/interface/editor.md#editor-ownership-and-synchronization)
    before changing editor behavior. Trace the affected helper's callers and the
    relevant surface's text, focus, and mount/unmount flow.
 2. For caret, focus, or formatting-menu bugs, also read the dependency findings
@@ -21,6 +21,6 @@ floating stickies, and the Popup while keeping the shared draft synchronized.
    native WKWebView for manual checks and report any checks left unperformed.
 
 Read the Brain dump and Tag definitions in `CONTEXT.md` and
-[docs/brain-dump.md](../../../docs/brain-dump.md) when changing capture,
+[docs/interface/brain-dump.md](../../../docs/interface/brain-dump.md) when changing capture,
 history, or draft behavior. Read `.impeccable.md` and `UI.md` when changing
 presentation.

@@ -63,10 +63,11 @@ export const taskMatchesWorkedTimeFilter = (
   task: { workedSeconds: number; workStartedAt: number | null; workingNow: boolean },
   filter: TaskWorkedTimeFilter,
   nowMs: number = Date.now(),
+  workedSeconds?: number,
 ): boolean => {
   if (filter === null) return true;
   // Compare whole minutes, matching the line's stops, so 32:07 sits on 32m.
-  const seconds = roundWorkedSecondsToMinute(taskDisplayedWorkedSeconds(task, nowMs));
+  const seconds = roundWorkedSecondsToMinute(workedSeconds ?? taskDisplayedWorkedSeconds(task, nowMs));
   return filter.comparator === "more" ? seconds >= filter.seconds : seconds <= filter.seconds;
 };
 

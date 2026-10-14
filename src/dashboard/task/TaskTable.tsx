@@ -26,8 +26,10 @@ function TaskTableCell({
   task,
   taskGraph,
   nowMs,
+  workedSeconds,
 }: {
   id: TaskTableColumnId;
+  workedSeconds?: number;
   task: Task;
   taskGraph: TaskGraphProjection;
   nowMs?: number;
@@ -77,7 +79,7 @@ function TaskTableCell({
     case "workedTime":
       return (
         <td className="task-table__col task-table__col--workedTime">
-          <WorkedTime task={task} nowMs={nowMs} />
+          <WorkedTime task={task} nowMs={nowMs} rangeSeconds={workedSeconds} />
         </td>
       );
     case "created":
@@ -90,6 +92,12 @@ function TaskTableCell({
       return (
         <td className="task-table__col task-table__col--updated">
           {formatDate(task.updatedAt)}
+        </td>
+      );
+    case "closed":
+      return (
+        <td className="task-table__col task-table__col--closed">
+          {task.closedAt !== null && formatDate(task.closedAt)}
         </td>
       );
   }
@@ -107,6 +115,7 @@ export function TaskTable({
   renderHeader,
   headerSort,
   wrapRef,
+  workedSecondsByTask,
   nowMs,
 }: {
   renderHeader?: (column: TaskTableColumn) => ReactNode;
@@ -119,6 +128,7 @@ export function TaskTable({
   onSelect?: (id: number, origin: HTMLElement) => void;
   columnInteraction?: TaskTableColumnInteraction;
   wrapRef?: Ref<HTMLDivElement>;
+  workedSecondsByTask?: ReadonlyMap<number, number> | null;
   /** Shared live clock for callers that display several Working now totals. */
   nowMs?: number;
 }) {
@@ -227,6 +237,7 @@ export function TaskTable({
                     task={task}
                     taskGraph={taskGraph}
                     nowMs={nowMs}
+                    workedSeconds={workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : undefined}
                   />
                 ))}
               </tr>

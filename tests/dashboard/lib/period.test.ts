@@ -1,87 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  completedInPeriod,
   filledPhaseTotals,
   foldIdleIntoOffline,
   phaseColor,
   phaseIcon,
 } from "../../../src/dashboard/lib/period";
-import type { Phase, Task, TaskStatusEvent } from "../../../src/lib/types";
-
-const task = (id: number, status: Task["status"]): Task => ({
-  id,
-  title: `Task ${id}`,
-  description: "",
-  status,
-  workingNow: false,
-  workedSeconds: 0,
-  workStartedAt: null,
-  scope: null,
-  value: 2,
-  effort: 1,
-  parentTaskId: null,
-  createdAt: 10,
-  updatedAt: 100,
-});
-
-const event = (
-  id: number,
-  taskId: number,
-  toStatus: TaskStatusEvent["toStatus"],
-  createdAt: number,
-): TaskStatusEvent => ({
-  id,
-  taskId,
-  fromStatus: null,
-  toStatus,
-  createdAt,
-});
-
-describe("completedInPeriod", () => {
-  it("yields a task once when it was completed twice in the period", () => {
-    expect(
-      completedInPeriod(
-        [task(1, "completed")],
-        [
-          event(1, 1, "completed", 60),
-          event(2, 1, "active", 65),
-          event(3, 1, "completed", 70),
-        ],
-        { from: 50, to: 80 },
-      ).map((item) => item.id),
-    ).toEqual([1]);
-  });
-
-  it("ignores completions outside the period and non-completion events", () => {
-    expect(
-      completedInPeriod(
-        [task(1, "completed"), task(2, "completed")],
-        [event(1, 1, "completed", 40), event(2, 2, "active", 70)],
-        { from: 50, to: 80 },
-      ),
-    ).toEqual([]);
-  });
-
-  it("returns tasks in first-completion order", () => {
-    expect(
-      completedInPeriod(
-        [task(1, "completed"), task(2, "completed")],
-        [event(1, 2, "completed", 70), event(2, 1, "completed", 60)],
-        { from: 50, to: 80 },
-      ).map((item) => item.id),
-    ).toEqual([1, 2]);
-  });
-
-  it("keeps a reopened task on the day it was completed", () => {
-    expect(
-      completedInPeriod(
-        [task(1, "active")],
-        [event(1, 1, "completed", 70), event(2, 1, "active", 90)],
-        { from: 50, to: 80 },
-      ).map((item) => item.id),
-    ).toEqual([1]);
-  });
-});
+import type { Phase } from "../../../src/lib/types";
 
 describe("foldIdleIntoOffline", () => {
   const phases: Phase[] = [

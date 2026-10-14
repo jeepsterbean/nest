@@ -1,12 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setTaskDescription } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { useDashboardData } from "../context/DashboardDataContext";
 
 /**
  * In-place description editor for the Task detail panel. Enter saves and
- * Shift+Enter breaks the line; the editor grows with its text so switching
- * between reading and editing keeps the layout still.
+ * Shift+Enter breaks the line. The detail panel bounds the writing area.
  */
 export function TaskDescription({ task }: { task: Task }) {
   const { mutate } = useDashboardData();
@@ -17,13 +16,6 @@ export function TaskDescription({ task }: { task: Task }) {
   // Set only by keyboard exits; a blur save must leave focus where it went.
   const refocusDisplayRef = useRef(false);
   const editing = editingId === task.id;
-
-  useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    input.style.height = "auto";
-    input.style.height = `${input.scrollHeight}px`;
-  }, [editing, draft]);
 
   useEffect(() => {
     if (editing || !refocusDisplayRef.current) return;

@@ -1,0 +1,55 @@
+# Metrics interface
+
+The Metrics Section: one day of Metric check-ins, and Pulse and Metric
+setup. Domain words (Pulse, Metric, Metric check-in) live in
+[`CONTEXT.md`](../../CONTEXT.md). Shared dashboard controls live in
+[`UI.md`](../../UI.md). Its icon is picked from the Sidebar.
+
+Domain rules live in [Metrics domain](../domain/metrics.md).
+
+## Day board
+
+The Section reads one local day at a time through the
+[shared day navigation](time-surfaces.md#dates-and-ranges).
+
+The Section sidebar starts with `New pulse`, followed by the ordered Pulse
+list and `Not in a pulse`. Selecting an entry shows only that group in the main
+content; the first Pulse is selected initially. Deleting the selected Pulse
+selects the first remaining Pulse, or `Not in a pulse` when Metrics remain.
+At narrow widths the navigation appears above the main controls. Selection
+survives switches between mounted Sections.
+
+Each Pulse is a group headed by its icon and name, marked `Hidden from popup`
+when hidden. Metrics outside every Pulse appear in the separate
+`Not in a pulse` entry.
+Each Metric row reads its name, a day strip, and its latest rating as a number
+tinted by its rating color (`—` when none). The strip runs midnight to
+midnight; on today the hours after now are shaded. Each Metric check-in is a
+rating pill placed at its time, and one within 45 minutes of the previous
+lifts into a second lane so neither hides the other. A Pulse row plots only
+that Pulse's check-ins.
+
+## Edit
+
+The header `Edit` / `Done` toggle switches to setup and is not remembered.
+Date navigation and strips hide. The selected Pulse heading gains an icon
+picker, click-to-rename name, `Show in popup` switch, and delete; Metric rows gain a grip, icon and color
+picker, click-to-rename name, and remove (×), all visible while editing.
+Pulses drag by their sidebar grips while editing, and Metrics drag within
+the selected Pulse. That order is how Pulses, and the Metrics inside a Pulse, appear in the Popup. `Add metric` offers
+existing Metrics or `New metric…`, which creates and adds in one step;
+`New pulse` opens the same Pulse editor with a blank name, an icon picker,
+`Show in popup`, and an empty Metric list with `Add metric`. Existing Metrics
+can be added, and new Metrics can be composed, renamed, styled, removed, and
+reordered in the draft. Changes save with `Create pulse` or Enter from the name field; Cancel
+clears the draft and returns to the previous group. Switching to another
+sidebar entry keeps the creation draft for the next visit. Saving disables
+submission and navigation. The Pulse, its Metrics, and their memberships save
+together: a failed save stores none of them, undoes draft edits to existing
+Metrics, and keeps the draft available for retry. A draft Metric whose name
+matches another Metric blocks saving with an error. `Show in popup` is a local
+preference written after that save; if writing it fails, the Pulse stays
+created and an error says the choice was not saved.
+Creating a Pulse selects it in Edit. Selecting another entry closes open composers
+and cancels inline renaming. Leaving Edit drops open composers. Pulses hidden
+from the Popup persist in `nest:hidden-pulse-ids`.

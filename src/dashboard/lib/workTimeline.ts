@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md#calendar
+// Behavior and invariants: docs/interface/calendar.md#calendar
 import type { Task, TaskWorkStretch } from "../../lib/types";
 import { QUARTER_HOUR_SECONDS, snapToQuarterHour } from "./time";
 
@@ -224,24 +224,4 @@ export const placeStretchEditor = (
     width,
     side,
   };
-};
-
-/** Worked seconds per Task inside [from, to), busiest first. Clips each block
- * so an overnight stretch splits cleanly across calendar days. */
-export const workTotalsInSpan = (
-  blocks: WorkBlock[],
-  from: number,
-  to: number,
-): { task: Task; seconds: number }[] => {
-  const byTask = new Map<number, { task: Task; seconds: number }>();
-  for (const block of blocks) {
-    const seconds = Math.min(block.to, to) - Math.max(block.from, from);
-    if (seconds <= 0) continue;
-    const row = byTask.get(block.task.id);
-    if (row) row.seconds += seconds;
-    else byTask.set(block.task.id, { task: block.task, seconds });
-  }
-  return [...byTask.values()].sort(
-    (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
-  );
 };

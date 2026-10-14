@@ -32,6 +32,8 @@ const task = (
   value: null,
   effort: null,
   parentTaskId: null,
+  closedAt: null,
+  followsTaskId: null, historyRevision: 0,
   createdAt,
   updatedAt,
 });
@@ -130,7 +132,7 @@ describe("groupTasksByStatus", () => {
     expect(grouped.backlog.map((t) => t.id)).toEqual([4]);
   });
 
-  it("pins working-now tasks above every idle one", () => {
+  it("pins working-now tasks above every task that is not working", () => {
     const grouped = groupTasksByStatus([
       task(3, "active"),
       { ...task(1, "active"), workingNow: true },
@@ -184,11 +186,11 @@ describe("pinnedIdOrder", () => {
     expect(pinnedIdOrder([2, 3, 1], tasks)).toEqual([1, 2, 3]);
   });
 
-  it("keeps the dropped order among idle tasks", () => {
+  it("keeps the dropped order among tasks that are not working", () => {
     expect(pinnedIdOrder([3, 2, 1], tasks)).toEqual([1, 3, 2]);
   });
 
-  it("drops lane placeholders and unknown ids", () => {
+  it("drops status group placeholders and unknown ids", () => {
     expect(pinnedIdOrder([-1, 2, -2, 99], tasks)).toEqual([2]);
   });
 });

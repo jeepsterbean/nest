@@ -17,6 +17,10 @@ export type DayPickerBounds = {
   selected: { from: number; to: number };
 };
 
+export type DayPickerProps = DayPickerBounds & {
+  onPick: (dayMs: number) => void;
+};
+
 export const startOfMonthMs = (dayMs: number) => {
   const d = new Date(dayMs);
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();

@@ -36,7 +36,7 @@ Prioritize distinctions that change the reader's understanding:
 - Parent/Child hierarchy versus Blocker/Dependent readiness and Scope;
 - Work stretch, Worked time, Timer, Popup, Pulse, and Metric check-in;
 - live Phase derivation versus historical display labels and recovery rules;
-- formal **Section** destinations, layouts, saved views, Calendar presentations,
+- formal **Section** destinations, layouts, saved views, Recap presentations,
   and Logs when the distinction changes behavior; lowercase "section" is a
   general-purpose word and does not need to identify a precise surface type;
 - stored records versus the surfaces that display or capture them.

@@ -26,9 +26,10 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
 - Persistence is local SQLite through rusqlite.
 - Apply schema changes as new forward migrations in `src/migrations.rs`.
   Never rewrite a migration that may have run on a real database.
-- Overview, Assistant, Settings, and Reminders are retired. Their SQLite
-  tables and migrations stay so existing databases keep opening. Do not add
-  commands against those tables.
+- Overview, Assistant, the SQLite-backed Settings, and Reminders are retired.
+  Their SQLite tables and migrations stay so existing databases keep opening.
+  Do not add commands against those tables. The dashboard's Settings overlay
+  keeps its choices in `localStorage`.
 - Validate user-provided values at Tauri command boundaries and preserve
   relational integrity with foreign keys, status checks, and graph cycle
   checks.
@@ -43,6 +44,11 @@ This guide applies under `src-tauri/`. Read the root `AGENTS.md` first. Use
   cannot include it because the expression contains subqueries.
 - Commands that can change Working now use `with_phase_tx` so Task mutation,
   Phase synchronization, and event emission share one transaction.
+- Every command that changes a Task emits `data-changed` itself, because the
+  dashboard and Popup each render their own copy. Frontend callers do not
+  announce Task changes.
+- `set_task_status` holds the Task lock against the stored row. The frontend
+  sends the local day's start; Rust keeps no timezone.
 - Lock/sleep Offline handling remains in `phase.rs` because it also writes
   PhaseSignals. Startup recovery, heartbeat upkeep, and quit behavior remain
   in `task_lifecycle.rs`.

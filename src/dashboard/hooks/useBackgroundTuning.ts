@@ -9,7 +9,7 @@ import {
  * Tracks the Background speed/intensity preference. The native `storage`
  * event only fires in *other* windows than the one that wrote it, so
  * writeBackgroundTuning also dispatches a same-window event under the same
- * key — together they cover both this window's own Background panel and the
+ * key — together they cover both this window's own Settings overlay and the
  * other window.
  */
 export function useBackgroundTuning(): BackgroundTuning {

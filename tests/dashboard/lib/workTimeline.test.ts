@@ -6,7 +6,6 @@ import {
   placeStretchEditor,
   stretchEditorSide,
   timeOnColumn,
-  workTotalsInSpan,
 } from "../../../src/dashboard/lib/workTimeline";
 import { phaseSessions } from "../../../src/dashboard/lib/timeline";
 import type { Task, TaskWorkStretch } from "../../../src/lib/types";
@@ -23,6 +22,8 @@ const task = (id: number, title = `Task ${id}`): Task => ({
   value: null,
   effort: null,
   parentTaskId: null,
+  closedAt: null,
+  followsTaskId: null, historyRevision: 0,
   createdAt: 0,
   updatedAt: 0,
 });
@@ -182,42 +183,6 @@ describe("layoutWorkBlocks", () => {
       NOW_MS,
     );
     expect(blocks.map((block) => block.cols)).toEqual([2, 2, 1]);
-  });
-});
-
-describe("workTotalsInSpan", () => {
-  it("sums a task's blocks, busiest first", () => {
-    const blocks = layoutWorkBlocks(
-      [
-        stretch(1, 1, 1000, 1100),
-        stretch(2, 2, 1000, 1400),
-        stretch(3, 1, 1500, 1600),
-      ],
-      [task(1), task(2)],
-      FROM,
-      TO,
-      NOW_MS,
-    );
-    expect(workTotalsInSpan(blocks, FROM, TO).map((row) => [row.task.id, row.seconds])).toEqual([
-      [2, 400],
-      [1, 200],
-    ]);
-  });
-
-  it("clips an overnight stretch onto each calendar day", () => {
-    const blocks = layoutWorkBlocks(
-      [stretch(1, 1, 1000, 1800)],
-      [task(1)],
-      FROM,
-      TO,
-      NOW_MS,
-    );
-    expect(workTotalsInSpan(blocks, 1000, 1400).map((row) => row.seconds)).toEqual([
-      400,
-    ]);
-    expect(workTotalsInSpan(blocks, 1400, 2000).map((row) => row.seconds)).toEqual([
-      400,
-    ]);
   });
 });
 

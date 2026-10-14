@@ -8,11 +8,10 @@
   /* Narrowest a Week day gets before the grid scrolls sideways instead, so a
      block keeps room for its title beside a concurrent one. */
   --tl-day-min: 7.5rem;
-  margin-top: 10px;
 }
 
 /* Week's day heads and the hour gutter stay pinned while the grid scrolls on
-   either axis. Lanes slide under them, so both carry the surface color and
+   either axis. Day columns slide under them, so both carry the surface color and
    sit above blocks (selected and dragging blocks reach z-index 3). */
 .tl__heads {
   position: sticky;
@@ -46,8 +45,6 @@
   display: grid;
   grid-template-columns: var(--tl-gutter) 1fr;
   gap: 0 6px;
-  max-height: min(70vh, 620px);
-  margin-top: 4px;
   padding: 9px 0 12px;
   overflow: auto;
   border: 1px solid var(--border);
@@ -133,7 +130,7 @@
   display: grid;
   grid-auto-rows: var(--tl-hour);
   background: var(--surface);
-  /* Covers the column gap so lanes scrolled under the gutter stay hidden. */
+  /* Covers the column gap so day columns scrolled under the gutter stay hidden. */
   box-shadow: 6px 0 0 var(--surface);
 }
 
@@ -143,27 +140,6 @@
 
 .tl--week .tl__cols {
   margin-top: 9px;
-}
-
-/* Last hour on the Day grid: a quiet tint over the trailing hour and an
-   accent bracket on the gutter, so the window Insights reads is visible
-   without hiding the Phase wash or blocks. */
-.tl__span {
-  position: absolute;
-  right: 0;
-  left: 0;
-  border-top: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  pointer-events: none;
-}
-
-.tl__span-mark {
-  position: absolute;
-  right: 0;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--accent);
-  pointer-events: none;
 }
 
 .tl__hour {
@@ -196,7 +172,7 @@
   pointer-events: none;
 }
 
-.tl__lane {
+.tl__day-column {
   position: relative;
   min-width: 0;
 }
@@ -385,7 +361,7 @@
   background: var(--accent);
 }
 
-/* ---------- Day calendar (range sidebar month) ---------- */
+/* ---------- Day calendar (date picker month) ---------- */
 
 .day-picker__grid {
   display: flex;
@@ -441,15 +417,6 @@
 .day-picker__day.is-selected {
   background-color: var(--accent-soft);
   color: var(--ink);
-}
-
-/* Logs marks days with entries; the dot sits under the number so the
-   selected and today treatments still read. */
-.day-picker__day.has-entries {
-  background-image: radial-gradient(circle, var(--accent) 1.5px, transparent 2px);
-  background-position: center calc(100% - 3px);
-  background-size: 6px 6px;
-  background-repeat: no-repeat;
 }
 
 .day-picker__day:disabled {
@@ -538,171 +505,116 @@
   border: none;
 }
 
-.dash-section--calendar {
-  container: calendar / inline-size;
+/* Both presentations start their content below one toolbar height, even when
+   Calendar's controls are taller than Timeline's day navigation. */
+.recap-toolbar {
+  min-height: 30px;
 }
 
-/* With Insights shown, the grid takes what is left and scrolls sideways when a Week needs
-   more; Insights keeps a fixed column at the right and scrolls on its own, so
-   reading one never moves the other. */
-.calendar-body--both {
+.recap-toolbar.logs-toolbar {
+  justify-content: center;
+}
+
+/* The figure takes the available panel height. Calendar scrolls inside its
+   hour frame; Timeline scrolls its rows in the same figure viewport. */
+.recap-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   overflow: hidden;
 }
 
-.calendar-body--both .calendar-body__grid {
+.recap-body .recap-body__grid {
+  display: flex;
   min-width: 0;
   min-height: 0;
+  flex-direction: column;
   overflow-y: auto;
 }
 
-.calendar-body--both .calendar-body__insights {
+.recap-body__grid > .tl {
+  display: flex;
   min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.recap-body__grid .tl__scroll {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Insights fills the Section sidebar under the Section title and scrolls on
+   its own, so a long review never moves the figure. */
+.section-sidebar > .recap-insights {
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
-  padding: 10px 0 0 24px;
-  border-left: 1px solid var(--border);
+  padding: 0 10px;
   overscroll-behavior: contain;
 }
 
-.calendar-body__insights .insights-body {
+.recap-insights .insights-body {
   min-height: 0;
 }
 
-/* Too narrow for a readable grid beside the panel: Insights moves under the
-   grid instead of being hidden. */
-@container calendar (max-width: 640px) {
-  .calendar-body--both {
-    grid-template-columns: minmax(0, 1fr);
+/* The Section sidebar collapses at this width (shell.css), so RecapInsights
+   renders under the figure instead; keep the width in step with
+   COLLAPSED_SECTION_SIDEBAR. */
+@media (max-width: 600px) {
+  .recap-body {
     overflow-y: auto;
   }
 
-  .calendar-body--both .calendar-body__grid,
-  .calendar-body--both .calendar-body__insights {
-    overflow: visible;
+  /* Both presentations keep the same figure viewport before the next row. */
+  .recap-body .recap-body__grid {
+    height: min(70vh, 620px);
   }
 
-  .calendar-body--both .calendar-body__insights {
+  .recap-body > .recap-insights {
     padding: 20px 0 0;
     border-top: 1px solid var(--border);
-    border-left: 0;
   }
 }
 
-.dashboard--range-sidebar {
-  grid-template-columns: 64px 224px minmax(0, 1fr);
-}
-
-.range-sidebar {
-  min-width: 0;
-  overflow-y: auto;
-  align-items: stretch;
-  padding: 26px 12px;
-}
-
-/* Shown below 861px too, where the shared Section sidebar hides its title. */
-.range-sidebar .section-sidebar__title {
-  display: block;
-}
-
-/* Below 681px the shared toggle grows to a full row; in this column that
-   would stretch it vertically. */
-.range-sidebar .view-toggle {
-  display: flex;
-  flex: none;
-}
-
-.range-sidebar .view-toggle__btn {
-  flex: 1;
-  white-space: nowrap;
-}
-
-.range-sidebar__dates {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-.range-sidebar__month {
-  transition: opacity 0.15s;
-}
-
-/* Last hour follows the clock, so the month steps back; picking a day still
-   works and switches to Day. */
-.range-sidebar__month--live:not(:hover, :focus-within) {
-  opacity: 0.55;
-}
-
-/* Work stretch / Logs sits at the left. Insights opens as a column at the
-   grid's right, so its toggle stays on that side. */
 .calendar-panel-controls {
   justify-content: flex-start;
 }
 
-.calendar-insights-toggle {
-  display: inline-flex;
-  margin-left: auto;
-  min-height: 30px;
+/* The range and presentation switches end this group in both presentations,
+   so they hold their place when Calendar's figure choice comes and goes. The
+   group wraps under date navigation when space is tight. */
+.recap-toolbar__display {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  margin-left: auto;
+  max-width: 100%;
+}
+
+.calendar-panel-controls__choice {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 7px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
 }
 
-.calendar-insights-toggle:hover {
-  color: var(--ink);
-}
-
-.calendar-insights-toggle[aria-pressed="true"] {
+.calendar-panel-controls__choice:hover {
   background: var(--surface-2);
-  color: var(--ink);
 }
 
-.calendar-insights-toggle:focus-visible {
+.calendar-panel-controls__choice:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-.calendar-insights-toggle svg {
-  width: 15px;
-  height: 15px;
-}
-
-@media (max-width: 860px) {
-  .dashboard--range-sidebar {
-    grid-template-columns: 64px 200px minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .dashboard--range-sidebar {
-    grid-template-columns: 52px minmax(0, 1fr);
-  }
-
-  .dashboard--range-sidebar .dash-sidebar {
-    grid-row: 1 / span 2;
-  }
-
-  .range-sidebar {
-    position: static;
-    grid-column: 2;
-    height: auto;
-    padding: 18px 12px;
-  }
-
-  .dashboard--range-sidebar .dashboard__inner {
-    grid-column: 2;
-  }
 }

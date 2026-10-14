@@ -1,49 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   fitTaskTableColumns,
-  hiddenColumnsLabel,
   moveTaskTableColumn,
   normalizeTaskTableLayout,
-  sameHiddenTaskTableColumns,
   sameTaskTableLayout,
   serializeTaskTableLayout,
-  readTaskView,
   setTaskTableColumnHidden,
   showAllTaskTableColumns,
   splitTaskTableColumn,
   TASK_TABLE_COLUMNS,
-  TASK_VIEWS,
-  writeTaskView,
+  visibleTaskViewFor,
   type TaskTableColumn,
 } from "../../../src/dashboard/lib/taskTable";
-
-const memory = () => {
-  const values = new Map<string, string>();
-  return {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      values.set(key, value);
-    },
-  };
-};
 
 const defaultIds = TASK_TABLE_COLUMNS.map((column) => column.id);
 
 describe("task view", () => {
-  it("defaults to Day and restores the last saved layout", () => {
-    const storage = memory();
-    expect(TASK_VIEWS.map((view) => view.key)).toEqual(["day", "table", "map"]);
-    expect(readTaskView(storage)).toBe("day");
-    writeTaskView("map", storage);
-    expect(readTaskView(storage)).toBe("map");
-    writeTaskView("table", storage);
-    expect(readTaskView(storage)).toBe("table");
-  });
-
-  it("falls back to Day for an unknown stored view, including retired Kanban", () => {
-    const storage = memory();
-    storage.setItem("nest:task-view", "kanban");
-    expect(readTaskView(storage)).toBe("day");
+  it("shows Table for a Map choice while Map is hidden", () => {
+    expect(visibleTaskViewFor("map", false)).toBe("table");
+    expect(visibleTaskViewFor("map", true)).toBe("map");
+    expect(visibleTaskViewFor("table", false)).toBe("table");
   });
 });
 
@@ -102,6 +78,7 @@ describe("task table layout", () => {
       "workedTime",
       "created",
       "updated",
+      "closed",
     ]);
   });
 
@@ -128,22 +105,13 @@ describe("task table layout", () => {
     expect(layout.filter((column) => column.hidden).map((column) => column.id)).toEqual(["updated"]);
   });
 
-  it("names up to two hidden columns and counts more", () => {
-    const columns = normalizeTaskTableLayout(null);
-    expect(hiddenColumnsLabel(columns.slice(7, 8))).toBe("Created");
-    expect(hiddenColumnsLabel(columns.slice(7))).toBe("Created, Updated");
-    expect(hiddenColumnsLabel(columns.slice(6))).toBe("3 hidden");
-  });
-
-  it("compares layouts by order, width, and hidden, and hidden columns as a set", () => {
+  it("compares layouts by order, width, and hidden", () => {
     const columns = normalizeTaskTableLayout(null);
     expect(sameTaskTableLayout(columns, normalizeTaskTableLayout(null))).toBe(true);
     expect(sameTaskTableLayout(columns, moveTaskTableColumn(columns, "updated", "title"))).toBe(false);
     expect(sameTaskTableLayout(columns, splitTaskTableColumn(columns, "title", 20))).toBe(false);
     const hidden = setTaskTableColumnHidden(columns, "created", true);
     expect(sameTaskTableLayout(columns, hidden)).toBe(false);
-    expect(sameHiddenTaskTableColumns(hidden, moveTaskTableColumn(hidden, "created", "title"))).toBe(true);
-    expect(sameHiddenTaskTableColumns(columns, hidden)).toBe(false);
   });
 });
 
@@ -232,6 +200,6 @@ describe("task table neighbor split", () => {
 
   it("does nothing on the last visible column", () => {
     const columns = normalizeTaskTableLayout(null);
-    expect(splitTaskTableColumn(columns, "updated", 20)).toBe(columns);
+    expect(splitTaskTableColumn(columns, "closed", 20)).toBe(columns);
   });
 });

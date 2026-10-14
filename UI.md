@@ -6,24 +6,25 @@ project-agnostic UI standards in `.agents/standards/ui-standards.md`. Follow
 light and dark system themes.
 
 Each surface's behavior and storage keys live in its own doc: Tasks in
-[`docs/tasks.md`](./docs/tasks.md); Calendar, Insights, Timeline, and Phases in
-[`docs/calendar.md`](./docs/calendar.md), with rules shared by time surfaces in
-[`docs/time-surfaces.md`](./docs/time-surfaces.md); Metrics in
-[`docs/metrics.md`](./docs/metrics.md); Timer in
-[`docs/timer.md`](./docs/timer.md); Popup in
-[`docs/popup.md`](./docs/popup.md); Brain dump in
-[`docs/brain-dump.md`](./docs/brain-dump.md). Non-obvious class
+[`docs/interface/tasks.md`](docs/interface/tasks.md); Calendar, Insights, and Timeline in
+[`docs/interface/calendar.md`](docs/interface/calendar.md), with the Phases Section in
+[Phases interface](docs/interface/phases.md) and rules shared by time surfaces in
+[`docs/interface/time-surfaces.md`](docs/interface/time-surfaces.md); Metrics in
+[`docs/interface/metrics.md`](docs/interface/metrics.md); Timer in
+[`docs/interface/timer.md`](docs/interface/timer.md); Popup in
+[`docs/interface/popup.md`](docs/interface/popup.md); Brain dump in
+[`docs/interface/brain-dump.md`](docs/interface/brain-dump.md). Non-obvious class
 and layout constraints are commented beside their rules in
 `src/dashboard/styles/`.
 
 ## Copy and interaction
 
 - Section main content has no title and starts with its controls, in
-  `.dash-section__head` or a sibling toolbar; the Sidebar names the current
-  place. Core and Calendar also have a title in their Section sidebar.
+  `.dash-section__head` or a sibling toolbar; the Section sidebar names the
+  current place.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
   Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs,
-  Section, Sidebar, and Background.
+  Section, Sidebar, and Settings.
 
 ## Shared controls
 
@@ -36,11 +37,13 @@ Reuse these before adding a control:
   pick, on Escape, and on an outside press; `controlClassName` /
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color
   swatches.
-- `DateNavigation`: day and month paging for Brain dump, Tasks Day, Calendar,
-  Timeline, and Metrics. Its arrows keep fixed positions because the label has
-  a fixed width. Brain dump, Tasks Day, Timeline, and Metrics supply Go to
-  today (`onToday`); Calendar's month pager does not.
-- `DayCalendar`: in-app date picker, used instead of the OS date popup.
+- `DateNavigation`: the shared day, week, and month pager. `onToday` adds Go to today,
+  `canGoPrevious` sets the earliest-day limit, and `picker` makes the label
+  open the date picker (`.date-navigation__popover`); which surfaces use each lives
+  in [Time surfaces](docs/interface/time-surfaces.md#dates-and-ranges).
+  `singleDayPicker` builds `picker` for a surface that shows one day.
+- `DayCalendar`: the month calendar inside the date picker and the Tasks table
+  date filters, used instead of the OS date popup.
 - `startPointerDrag`: threshold, pointer capture, and listener cleanup for
   every pointer drag. Ordering and resize rules stay in each feature's hook.
 - `useDismiss`: outside-press and Escape dismissal for popovers.
@@ -54,40 +57,60 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 - Dashboard CSS enters through `src/dashboard/Dashboard.css`, whose ordered
   imports from `src/dashboard/styles/` define the cascade.
-- `DashboardSidebar` holds the two Sections, Calendar and Core; the dashboard
-  opens on Calendar. Section icons are `NestIcon`s stored in
+- `DashboardSidebar` holds the five Sections in `SECTIONS` order: Recap,
+  Brain dump, Tasks, Metrics, Phases. The dashboard opens on Recap, and the
+  last Section is not remembered. Section icons are `NestIcon`s stored in
   `nest:overview-tile-icons`, a key kept from the retired Overview so saved
   choices carry over. Clicking an icon selects its Section; clicking the
-  selected one opens its `IconPickerButton`. The Timer interval lives on the
-  Popup; the macOS menu bar is a read-only Phase and countdown readout.
-- The Background button sits at the foot of the Sidebar (`.dash-background`)
-  and opens `BackgroundView` in a non-modal panel beside the rail
-  (`.dash-background__panel`, `role="dialog"`). The panel follows the button in
-  DOM order so Tab reaches its controls; `useDismiss` closes it on an outside
-  press or Escape, and Escape returns focus to the button. Changes preview live
-  and apply with Set background. Style persists in `nest:background-style`,
-  speed and intensity in `nest:background-tuning`.
-- Core and Calendar add a Section sidebar, `.section-sidebar` (grid
-  class `.dashboard--section-sidebar`), between the Sidebar and
-  `.dashboard__inner`. Rows are `.section-nav__button` icon-and-label buttons
-  on tiles tinted with `--pane-tone`; selecting the selected row again opens
-  its icon picker. Below 861px the rail keeps only the tiles, with accessible
-  names and tooltips. Calendar's version is `.range-sidebar`
-  (`.dashboard--range-sidebar`).
-- Core panes are Brain dump / Tasks / Metrics / Phases, toned with their Logs
-  kind colors (`--dump`, `--doing`, `--accent`, `--phase`). The last pane is
-  stored in `nest:core-pane` (Brain dump when unset), and `.dashboard__inner`
-  takes the active pane's layout class (`--brainDump`, `--tasks`, `--metrics`,
-  `--phases`).
-- Core keeps every pane mounted (`.core-slot`) and hides inactive ones with
-  `hidden`, so filters, selection, and drafts survive pane switches.
+  selected one opens its `IconPickerButton` when Settings allows icon
+  selection. The Timer interval lives on the Popup; the macOS menu bar is a
+  read-only Phase and countdown readout.
+- The Settings button sits at the foot of the Sidebar (`.dash-settings`) and
+  opens an overlay (`.settings-overlay` scrim around `.settings-dialog`,
+  `role="dialog"`). The overlay lists Background, Map, Work stretch, and Icons. Background
+  previews live and applies with Set background; style persists in `nest:background-style`, speed and intensity in
+  `nest:background-tuning`. Map, Work stretch, and icon selection persist in
+  `nest:settings`. Map and Calendar's Work stretch figure are hidden until shown. Icon selection starts on; while it is off, a
+  selected Sidebar icon does not open the picker. A click on the
+  scrim or Escape closes the overlay, and closing returns focus to the
+  button. The rest of the dashboard is inert while the overlay is open.
+- Every Section has a Section sidebar, `.section-sidebar`, between the
+  Sidebar and `.dashboard__inner`. It shows the Section's name. On Recap, `RecapInsights`
+  portals Insights into it under that name, and renders under the figure
+  once the sidebar collapses. On Tasks, `TasksView` portals Table's query
+  (`.task-query`) into the Section sidebar. It renders in the Section's main
+  content once the sidebar collapses. New task (`.task-new-button`) and the
+  result count sit in `.task-table-bar` above the table.
+- Recap's Day / Week and Calendar / Timeline
+  switches are `ViewToggle`s that `Dashboard` passes to both presentations;
+  each ends its toolbar with them in `.recap-toolbar__display`.
+- `.dashboard__inner` takes the active Section's layout class (`--brainDump`,
+  `--tasks`, `--metrics`, `--phases`; Recap uses `--calendar` or
+  `--timeline`).
+- Away from Recap, Brain dump, Tasks, Metrics, and Phases all stay mounted
+  (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
+  selection, and drafts survive switches between them. Tasks alone returns to
+  Table and closes its Task detail on leaving. Opening Recap unmounts them.
 
 ## Shared surfaces
 
 - `TimelineFrame.tsx` owns the Calendar chrome: gutter, rules, Phase rail and
   wash, now line, and scroll-to-now. Work stretch (`TimelineGrid`) and Logs
-  (`LogsHours`) draw their figure through `renderLane`.
+  (`LogsHours`) draw their figure through `renderDayColumn`.
 - The `logs-` CSS prefix covers both the Timeline presentation and Calendar's
   Logs figure.
-- Saved and floating stickies, docked Note Board rows, the Note Board frame,
-  and the Core Brain dump composer share one 6px corner radius.
+
+## Tasks implementation
+
+`TasksView` owns the header's `.task-header__actions` group with a Table / Map
+`ViewToggle` when Settings shows Map; with Map hidden, the header is left out.
+Table's saved-view picker (`TaskViewPicker`) is the query's first row, above
+Filters, Sort, and Hidden, so the Section sidebar head keeps only the title as
+on every Section. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
+same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows. Tasks resets
+to Table when leaving the Section; table queries and drafts stay mounted.
+
+`taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
+edges for Table, Map, and Task details. The Map draws connectors as an SVG
+overlay. Task surface behavior lives in
+[`docs/interface/tasks.md`](docs/interface/tasks.md).

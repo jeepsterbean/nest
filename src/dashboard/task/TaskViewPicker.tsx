@@ -65,7 +65,7 @@ function NameField({ text, label, onChange, onSubmit, onCancel }: {
   </form>;
 }
 
-/** Saved-view picker that leads the Tasks table toolbar: the pills beside it are the view's definition. */
+/** Saved-view picker for the Tasks table query. */
 export function TaskViewPicker({ views }: { views: TaskTableViews }) {
   const [saveProblem, setSaveProblem] = useState<SavedTaskViewProblem | null>(null);
   const menuId = useId();
@@ -186,12 +186,13 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
   };
 
   return <>
-    <div className="task-views__control">
-    <button ref={triggerRef} type="button" className={`task-views__trigger${edited ? " is-edited" : ""}`}
+    <div className={`task-views__control${edited ? " is-edited" : ""}`}>
+    <button ref={triggerRef} type="button" className="task-views__trigger"
       title={selected.name}
       aria-label={`Task view: ${selected.name}${edited ? ", unsaved changes" : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onClick={() => setOpen(!open)}>
+      <span className="task-views__label" aria-hidden="true">View</span>
       <span className="task-views__name">{selected.name}</span>
       {!edited && <span className="task-views__chevron" aria-hidden="true">{chevronDownIcon}</span>}
     </button>

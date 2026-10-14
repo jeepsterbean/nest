@@ -50,7 +50,7 @@ const scoreRuns = (scores: RatingValue[]) => {
   return runs;
 };
 
-/** Short enough for a toolbar pill: runs of three or more read as a range (`1–3`),
+/** Short enough for a Section sidebar row: runs of three or more read as a range (`1–3`),
  *  and a set missing one interior score reads as what it leaves out (`≠ 3`). */
 export const taskScoreFilterLabel = (filter: TaskScoreFilter): string | null => {
   if (filter === null) return null;

@@ -31,8 +31,8 @@ pub(crate) fn bank_all_working_now(conn: &Connection, now: i64) -> Result<Vec<Ta
         .collect()
 }
 
-/// Stamp the last moment work was known live. The WHERE keeps an idle Nest off
-/// the disk entirely: with nothing open there is nothing to recover.
+/// Stamp the last moment work was known live. The WHERE keeps a Nest with no
+/// Working now Task off the disk entirely: with nothing open there is nothing to recover.
 pub(crate) fn beat_heartbeat(conn: &Connection, now: i64) -> Result<()> {
     conn.execute(
         "UPDATE app_heartbeat SET beat_at = ?1 \
@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(stretches(&conn, 1), vec![(1, 100, Some(400))]);
         assert_eq!(fetch_task(&conn, 1).unwrap().worked_seconds, 300);
 
-        // Nothing open: a second launch is a no-op, and an idle Nest never
+        // Nothing open: a second launch is a no-op, and with no Working now Task it never
         // moves the heartbeat past the work it belongs to.
         beat_heartbeat(&conn, 200_000).unwrap();
         assert_eq!(recover_open_stretches(&conn, 200_000).unwrap(), 0);
@@ -125,8 +125,8 @@ mod tests {
         assert_eq!(second.worked_seconds, 35);
         assert_eq!(second.work_started_at, None);
 
-        let idle = fetch_task(&conn, 3).unwrap();
-        assert!(!idle.working_now);
-        assert_eq!(idle.worked_seconds, 0);
+        let not_working = fetch_task(&conn, 3).unwrap();
+        assert!(!not_working.working_now);
+        assert_eq!(not_working.worked_seconds, 0);
     }
 }

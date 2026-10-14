@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md#insights
+// Behavior and invariants: docs/domain/history.md#range-summaries
 import type {
   BrainDump,
   Metric,
@@ -7,28 +7,15 @@ import type {
   PhaseCheckIn,
   Pulse,
   Task,
-  TaskStatusEvent,
-  TaskWorkStretch,
 } from "../../lib/types";
 
 import { resolveMetricColorFromList } from "../../lib/metricColors";
-import {
-  cancelledInPeriod,
-  completedInPeriod,
-  isQuietPhase,
-  taskStatusAt,
-  type Period,
-} from "./period";
+import { isQuietPhase, type Period } from "./period";
 import {
   phaseSessionsInWindow,
   type PhaseSession,
 } from "./timeline";
-import { dayLabel, formatTime, shiftDayMs, startOfDayMs } from "./time";
-import {
-  layoutWorkBlocks,
-  workTotalsInSpan,
-  type WorkBlock,
-} from "./workTimeline";
+import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
 
 export type InsightBrainDumpSummary = {
   count: number;
@@ -67,82 +54,58 @@ export const RANGE_MODES = [
 
 export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
-export const LAST_HOUR_WINDOW_SECONDS = 60 * 60;
-
-export const CALENDAR_RANGE_MODES = [
-  { key: "lastHour", label: "Last hour" },
-  ...RANGE_MODES,
-] as const;
-
-export type CalendarRangeMode = (typeof CALENDAR_RANGE_MODES)[number]["key"];
-export type CalendarRangeStore = {
-  read: () => CalendarRangeMode;
-  write: (mode: CalendarRangeMode) => void;
+export type RecapDateRangeStore = {
+  read: () => RangeModeKey;
+  write: (mode: RangeModeKey) => void;
 };
 
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
-const CALENDAR_MODE_KEYS = new Set<string>(
-  CALENDAR_RANGE_MODES.map((item) => item.key),
-);
 
 type RangeStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const CALENDAR_PRESENTATIONS = [
+export const RECAP_PRESENTATIONS = [
   { key: "calendar", label: "Calendar" },
   { key: "timeline", label: "Timeline" },
 ] as const;
-export type CalendarPresentation =
-  (typeof CALENDAR_PRESENTATIONS)[number]["key"];
+export type RecapPresentation =
+  (typeof RECAP_PRESENTATIONS)[number]["key"];
 
-const CALENDAR_PRESENTATION_KEY = "nest:calendar-presentation";
+const RECAP_PRESENTATION_KEY = "nest:recap-presentation";
+// Keys from when the Recap Section was named Calendar; read so saved choices
+// carry over.
+const LEGACY_RECAP_PRESENTATION_KEY = "nest:calendar-presentation";
 
-export const readCalendarPresentation = (
+export const readRecapPresentation = (
   storage: Pick<Storage, "getItem"> = localStorage,
-): CalendarPresentation =>
-  storage.getItem(CALENDAR_PRESENTATION_KEY) === "timeline"
-    ? "timeline"
-    : "calendar";
+): RecapPresentation => {
+  const stored =
+    storage.getItem(RECAP_PRESENTATION_KEY) ??
+    storage.getItem(LEGACY_RECAP_PRESENTATION_KEY);
+  return stored === "timeline" ? "timeline" : "calendar";
+};
 
-export const writeCalendarPresentation = (
-  presentation: CalendarPresentation,
+export const writeRecapPresentation = (
+  presentation: RecapPresentation,
   storage: RangeStorage = localStorage,
 ) => {
-  storage.setItem(CALENDAR_PRESENTATION_KEY, presentation);
+  storage.setItem(RECAP_PRESENTATION_KEY, presentation);
 };
 
-export const readCalendarRangeMode = (
+/** Day unless Week is stored. */
+export const readRecapDateRangeMode = (
   storage: RangeStorage = localStorage,
-): CalendarRangeMode => {
+): RangeModeKey => {
   const stored =
     storage.getItem(RANGE_MODE_KEY) ?? storage.getItem(LEGACY_RANGE_MODE_KEY);
-  return CALENDAR_MODE_KEYS.has(stored ?? "")
-    ? (stored as CalendarRangeMode)
-    : "day";
+  return stored === "week" ? "week" : "day";
 };
 
-export const writeCalendarRangeMode = (
-  key: CalendarRangeMode,
+export const writeRecapDateRangeMode = (
+  key: RangeModeKey,
   storage: RangeStorage = localStorage,
 ) => {
   storage.setItem(RANGE_MODE_KEY, key);
-};
-
-/** Whether Insights sits beside the Calendar grid. The grid itself is always
- * shown, so the stored value is a single on/off. */
-const CALENDAR_INSIGHTS_KEY = "nest:calendar-display";
-
-/** A missing or retired value (including the old Insights-only "insights")
- * reads as shown, so nobody lands with the summary unexpectedly hidden. */
-export const readCalendarInsightsShown = (
-  storage: Pick<Storage, "getItem"> = localStorage,
-): boolean => storage.getItem(CALENDAR_INSIGHTS_KEY) !== "calendar";
-
-export const writeCalendarInsightsShown = (
-  shown: boolean,
-  storage: RangeStorage = localStorage,
-) => {
-  storage.setItem(CALENDAR_INSIGHTS_KEY, shown ? "both" : "calendar");
 };
 
 /** Which figure the Calendar grid draws. Work stretch is the timetable of
@@ -167,21 +130,9 @@ export const writeCalendarFigure = (
   storage.setItem(CALENDAR_FIGURE_KEY, figure);
 };
 
-/** Rolling hour ending at `nowSec`, half-open `[from, to)`. */
-export const lastHourPeriod = (nowSec: number): Period => ({
-  from: nowSec - LAST_HOUR_WINDOW_SECONDS,
-  to: nowSec,
-});
-
 /** One calendar day of the grid: real local midnight to real local midnight,
  * so a DST day is 23 or 25 hours long and blocks still land correctly. */
 export type InsightColumn = { from: number; to: number; label: string };
-
-/** The clock span Last hour covers, e.g. "2:04 PM – 3:04 PM". */
-export const lastHourSpanLabel = (nowSec: number) => {
-  const { from, to } = lastHourPeriod(nowSec);
-  return `${formatTime(from)} – ${formatTime(to)}`;
-};
 
 /** Monday-first start of the week holding `dayMs`. */
 const startOfWeekMs = (dayMs: number) =>
@@ -260,111 +211,33 @@ export const windowPhaseSessions = (
     false,
   );
 
-export type InsightTaskRow = { task: Task; seconds: number };
+export type InsightTaskChange = "created" | "completed" | "cancelled";
 
-/** What happened to a Task over a range. Exclusive and exhaustive by
- * construction: a Task has one status at the range's end, and anything not
- * closed there is Incomplete. */
-export type InsightOutcome = "completed" | "cancelled" | "incomplete";
-
-export const INSIGHT_OUTCOME_LABEL: Record<InsightOutcome, string> = {
+export const INSIGHT_TASK_CHANGE_LABEL: Record<InsightTaskChange, string> = {
+  created: "Created",
   completed: "Completed",
   cancelled: "Cancelled",
-  incomplete: "Incomplete",
 };
 
-export type InsightOutcomeGroup = {
-  outcome: InsightOutcome;
-  rows: InsightTaskRow[];
-  /** Worked time of every row, so a collapsed group still reads as one total. */
-  seconds: number;
-};
+export type InsightTaskCount = { change: InsightTaskChange; count: number };
 
-const INSIGHT_OUTCOME_ORDER: InsightOutcome[] = [
-  "completed",
-  "cancelled",
-  "incomplete",
-];
-
-const outcomeAt = (
-  task: Task,
-  events: TaskStatusEvent[],
-  at: number,
-): InsightOutcome => {
-  const status = taskStatusAt(task, events, at);
-  return status === "completed" || status === "cancelled"
-    ? status
-    : "incomplete";
-};
-
-/** Tasks with Worked time in the range, plus Tasks closed in it and still
- * closed at its end. A closure later reopened says nothing on its own, so
- * without Worked time it is left out. */
-const ledgerRows = (
-  worked: InsightTaskRow[],
+/** Tasks created in the range, and Tasks whose closing falls in it. The
+ * closing-day lock is what lets current status and closed at stand in for a
+ * past range. Work stretches play no part, so every count
+ * reads from one history. All three always return, in this order. */
+export const insightTaskCounts = (
   tasks: Task[],
-  events: TaskStatusEvent[],
   period: Period,
-): InsightTaskRow[] => {
-  const byId = new Map(worked.map((row) => [row.task.id, row]));
-  for (const task of completedInPeriod(tasks, events, period)) {
-    if (outcomeAt(task, events, period.to) !== "completed") continue;
-    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
-  }
-  for (const task of cancelledInPeriod(tasks, events, period)) {
-    if (outcomeAt(task, events, period.to) !== "cancelled") continue;
-    if (!byId.has(task.id)) byId.set(task.id, { task, seconds: 0 });
-  }
-  return [...byId.values()];
-};
-
-const groupByOutcome = (
-  rows: InsightTaskRow[],
-  events: TaskStatusEvent[],
-  period: Period,
-): InsightOutcomeGroup[] => {
-  const buckets = new Map<InsightOutcome, InsightTaskRow[]>();
-  for (const row of rows) {
-    const outcome = outcomeAt(row.task, events, period.to);
-    const list = buckets.get(outcome);
-    if (list) list.push(row);
-    else buckets.set(outcome, [row]);
-  }
-  return INSIGHT_OUTCOME_ORDER.map((outcome) => {
-    const rows = [...(buckets.get(outcome) ?? [])].sort(
-      (a, b) => b.seconds - a.seconds || a.task.id - b.task.id,
-    );
-    return {
-      outcome,
-      rows,
-      seconds: rows.reduce((sum, row) => sum + row.seconds, 0),
-    };
-  });
-};
-
-/** The range's ledger, grouped by what happened to each Task: Completed or
- * Cancelled when it ends the range closed, otherwise Incomplete. All three
- * groups always return, in that order, so an empty one still shows.
- * Completions and Cancellations with no Working now still list, with 0 Worked
- * time. Week sums each Task across its days. */
-export const insightTaskGroups = (
-  range: Period,
-  blocks: WorkBlock[],
-  tasks: Task[],
-  events: TaskStatusEvent[],
-  nowSec: number,
-): InsightOutcomeGroup[] => {
-  const period = { from: range.from, to: Math.min(range.to, nowSec) };
-  const rows =
-    nowSec < range.from
-      ? []
-      : ledgerRows(
-          workTotalsInSpan(blocks, period.from, period.to),
-          tasks,
-          events,
-          period,
-        );
-  return groupByOutcome(rows, events, period);
+): InsightTaskCount[] => {
+  const within = (at: number | null) =>
+    at !== null && at >= period.from && at < period.to;
+  const closedAs = (status: Task["status"]) =>
+    tasks.filter((task) => task.status === status && within(task.closedAt)).length;
+  return [
+    { change: "created", count: tasks.filter((task) => within(task.createdAt)).length },
+    { change: "completed", count: closedAs("completed") },
+    { change: "cancelled", count: closedAs("cancelled") },
+  ];
 };
 
 export type InsightMetricRow = {
@@ -392,16 +265,9 @@ const average = (values: number[]) =>
 
 /** Exclusive end for Insights check-ins. Live now + 1 matches dashboard reload
  * (`to = now + 1`) against `createdAt < to`, so a just-saved rating is not held
- * by the minute clock. Last hour's range end *is* that clock, so `live` must
- * not clamp to it. A past range stays closed at its own end. */
-export const insightCheckInClosedTo = (
-  rangeTo: number,
-  nowMs: number,
-  live = false,
-) => {
-  const liveTo = Math.floor(nowMs / 1000) + 1;
-  return live ? liveTo : Math.min(rangeTo, liveTo);
-};
+ * by the minute clock. A past range stays closed at its own end. */
+export const insightCheckInClosedTo = (rangeTo: number, nowMs: number) =>
+  Math.min(rangeTo, Math.floor(nowMs / 1000) + 1);
 
 /** Metric check-ins in the range, grouped by Pulse, ratings in time order.
  * Every current Pulse is listed, including one with no check-ins in the range. */
@@ -475,8 +341,6 @@ export const insightCheckIns = (
 
 export type InsightData = {
   tasks: Task[];
-  taskStatusEvents: TaskStatusEvent[];
-  taskWorkStretches: TaskWorkStretch[];
   metrics: Metric[];
   pulses: Pulse[];
   checkIns: MetricCheckInWithRatings[];
@@ -485,13 +349,10 @@ export type InsightData = {
   brainDumps: BrainDump[];
 };
 
-export type InsightRange = Period & { live: boolean };
-
-/** `nowMs` / `nowSec` are the clock Phase mix and the ledger stop at;
+/** `nowSec` is the clock the Phase mix stops at;
  * `checkInNowMs` is the wall clock check-ins and brain dumps stop at, so a
  * just-saved one shows without waiting on that clock. */
 export type InsightClock = {
-  nowMs: number;
   nowSec: number;
   checkInNowMs: number;
 };
@@ -499,24 +360,17 @@ export type InsightClock = {
 export type RangeInsight = {
   sessions: PhaseSession[];
   brainDumps: InsightBrainDumpSummary;
-  taskGroups: InsightOutcomeGroup[];
+  taskCounts: InsightTaskCount[];
   checkIns: InsightPulseGroup[];
 };
 
 /** Everything Insights shows for one range. */
 export const rangeInsight = (
   data: InsightData,
-  { from, to, live }: InsightRange,
-  { nowMs, nowSec, checkInNowMs }: InsightClock,
+  { from, to }: Period,
+  { nowSec, checkInNowMs }: InsightClock,
 ): RangeInsight => {
-  const checkInTo = insightCheckInClosedTo(to, checkInNowMs, live);
-  const blocks = layoutWorkBlocks(
-    data.taskWorkStretches,
-    data.tasks,
-    from,
-    to,
-    nowMs,
-  );
+  const checkInTo = insightCheckInClosedTo(to, checkInNowMs);
   return {
     sessions: windowPhaseSessions(
       data.phaseCheckIns,
@@ -525,13 +379,7 @@ export const rangeInsight = (
       Math.min(to, nowSec),
     ),
     brainDumps: insightBrainDumps(data.brainDumps, { from, to: checkInTo }),
-    taskGroups: insightTaskGroups(
-      { from, to },
-      blocks,
-      data.tasks,
-      data.taskStatusEvents,
-      nowSec,
-    ),
+    taskCounts: insightTaskCounts(data.tasks, { from, to }),
     checkIns: insightCheckIns(data.checkIns, data.metrics, data.pulses, {
       from,
       to: checkInTo,

@@ -35,6 +35,14 @@ impl TaskGraph {
     ) -> Result<()> {
         let tx = conn.transaction()?;
         Self::require_task(&tx, task_id)?;
+        let current: Option<i64> = tx.query_row(
+            "SELECT parent_task_id FROM tasks WHERE id=?1",
+            params![task_id],
+            |row| row.get(0),
+        )?;
+        if current == parent_task_id {
+            return Ok(());
+        }
 
         if let Some(parent_id) = parent_task_id {
             Self::require_task(&tx, parent_id)?;
@@ -80,6 +88,10 @@ impl TaskGraph {
         let tx = conn.transaction()?;
         Self::require_task(&tx, blocker_task_id)?;
         Self::require_task(&tx, blocked_task_id)?;
+        let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM task_dependencies WHERE blocker_task_id=?1 AND blocked_task_id=?2)",params![blocker_task_id,blocked_task_id],|row|row.get(0))?;
+        if exists {
+            return Ok(());
+        }
 
         if blocker_task_id == blocked_task_id {
             return Err(AppError::InvalidInput("a task cannot block itself".into()));
@@ -142,18 +154,31 @@ impl TaskGraph {
 
     pub(crate) fn delete_task_in(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
         Self::require_task(tx, id)?;
-        // Deleting relies on the schema's FK actions: children are promoted to
-        // root (parent_task_id SET NULL) and dependency edges plus status
-        // events cascade away. Bump the affected neighbors first so list
-        // ordering reflects the change.
+        // Unlink before deleting so the edit-history triggers record each
+        // removal on the surviving Tasks. The FK actions would do the same
+        // unlinking silently, and a trigger must not edit the row SQLite is
+        // deleting. The Task's own entries then cascade away with it.
+        let now = now_unix_secs();
         tx.execute(
-            "UPDATE tasks SET updated_at = ?1 \
+            "INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+             SELECT follows_task_id,'follow_up_removed',id,title,?1 FROM tasks
+             WHERE id=?2 AND follows_task_id IS NOT NULL
+             UNION ALL
+             SELECT follower.id,'follows_removed',original.id,original.title,?1
+             FROM tasks follower JOIN tasks original ON follower.follows_task_id=original.id
+             WHERE original.id=?2",
+            params![now, id],
+        )?;
+        tx.execute(
+            "UPDATE tasks SET parent_task_id = NULL, updated_at = ?1 \
              WHERE parent_task_id = ?2 \
-                OR id IN (SELECT blocked_task_id FROM task_dependencies \
-                          WHERE blocker_task_id = ?2) \
-                OR id IN (SELECT blocker_task_id FROM task_dependencies \
-                          WHERE blocked_task_id = ?2)",
-            params![now_unix_secs(), id],
+                OR (id = ?2 AND parent_task_id IS NOT NULL)",
+            params![now, id],
+        )?;
+        tx.execute(
+            "DELETE FROM task_dependencies \
+             WHERE blocker_task_id = ?1 OR blocked_task_id = ?1",
+            params![id],
         )?;
         tx.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
         Ok(())

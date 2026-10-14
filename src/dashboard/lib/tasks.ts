@@ -1,4 +1,4 @@
-import type { RatingValue, Task, TaskStatus } from "../../lib/types";
+import type { RatingValue, RecordedTaskStatus, Task, TaskStatus } from "../../lib/types";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "backlog",
@@ -42,6 +42,11 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   active: "Active",
   completed: "Completed",
   cancelled: "Cancelled",
+};
+
+export const RECORDED_TASK_STATUS_LABEL: Record<RecordedTaskStatus, string> = {
+  ...TASK_STATUS_LABEL,
+  paused: "Paused",
 };
 
 export type TaskTableSort = "updated" | "status";
@@ -117,7 +122,7 @@ export const parseRatingValue = (
 };
 
 // Working now outranks manual order, always: a working task sits above every
-// idle one and no drag can push it below. Sort is stable, so the manual
+// task that is not working and no drag can push it below. Sort is stable, so the manual
 // sort_order still decides the order inside each band.
 export const pinWorkingNowFirst = <T extends { workingNow: boolean }>(
   taskList: T[],
@@ -125,8 +130,8 @@ export const pinWorkingNowFirst = <T extends { workingNow: boolean }>(
   [...taskList].sort((a, b) => Number(b.workingNow) - Number(a.workingNow));
 
 /**
- * Ids in drop order, re-pinned so working-now tasks keep the top and lane
- * placeholders (negative ids) drop out. Persist this, never the raw drop.
+ * Ids in drop order, re-pinned so working-now tasks keep the top and status
+ * group placeholders (negative ids) drop out. Persist this, never the raw drop.
  */
 export const pinnedIdOrder = (ids: number[], taskList: Task[]): number[] => {
   const byId = new Map(taskList.map((task) => [task.id, task]));
@@ -138,7 +143,7 @@ export const pinnedIdOrder = (ids: number[], taskList: Task[]): number[] => {
   ).map((task) => task.id);
 };
 
-// Lanes otherwise keep the input order: tasks arrive in their manual
+// Status groups otherwise keep the input order: tasks arrive in their manual
 // sort_order, which drag-to-reorder owns.
 export const groupTasksByStatus = (taskList: Task[]) => {
   const grouped: Record<TaskStatus, Task[]> = {

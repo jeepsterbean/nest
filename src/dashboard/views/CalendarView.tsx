@@ -1,10 +1,10 @@
-// Behavior and invariants: docs/calendar.md
-import { useMemo, useState } from "react";
-import { DateRangeSidebar } from "../components/DateRangeSidebar";
-import { LogKindToggle } from "../components/logs/LogKindToggle";
-import { ViewToggle } from "../components/ViewToggle";
-import { PanelRight } from "lucide-react";
-import { useCalendarRange } from "../hooks/useCalendarRange";
+// Behavior and invariants: docs/interface/calendar.md
+import type { Section } from "../lib/sections";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { DateNavigation } from "../components/DateNavigation";
+import { useAppSettings } from "../hooks/useAppSettings";
+import { useDatePagingKeys } from "../hooks/useDatePagingKeys";
+import { useRecapDateRange } from "../hooks/useRecapDateRange";
 import {
   TimelineGrid,
   type GridColumn,
@@ -21,11 +21,8 @@ import {
   CALENDAR_FIGURES,
   openAtPct,
   readCalendarFigure,
-  readCalendarInsightsShown,
   writeCalendarFigure,
-  writeCalendarInsightsShown,
   type CalendarFigure,
-  type CalendarPresentation,
 } from "../lib/insights";
 import { isQuietPhase } from "../lib/period";
 import { columnPhaseSessions } from "../lib/timeline";
@@ -33,24 +30,51 @@ import { layoutWorkBlocks } from "../lib/workTimeline";
 import {
   buildLogsEvents,
   readLogsPreferences,
+  toggleLogKind,
   writeLogsPreferences,
   type LogKindKey,
 } from "../lib/logs";
 import { logHours } from "../lib/logHours";
-import { historyStartSec } from "../lib/time";
-import { InsightsPanel } from "./InsightsPanel";
+import { dayLabel, historyStartSec } from "../lib/time";
+import { RecapInsights } from "./InsightsPanel";
 import { LogsHours, type LogsHoursColumn } from "./LogsHours";
 
+function CycleChoice<T extends string>({
+  value,
+  options,
+  label,
+  onChange,
+}: {
+  value: T;
+  options: readonly { key: T; label: string }[];
+  label: string;
+  onChange: (key: T) => void;
+}) {
+  const selected = options.find((option) => option.key === value) ?? options[0];
+  const next = options.find((option) => option.key !== selected.key) ?? selected;
+  return (
+    <button
+      type="button"
+      className="calendar-panel-controls__choice"
+      aria-label={`${label}, ${selected.label}. Switch to ${next.label}`}
+      title={`Switch to ${next.label}`}
+      onClick={() => onChange(next.key)}
+    >
+      {selected.label}
+    </button>
+  );
+}
+
 export function CalendarView({
-  sidebarTarget,
-  presentation,
-  onPresentation,
+  onOpenSection,
+  recapSwitches,
+  sectionSidebar,
   range,
 }: {
-  sidebarTarget: HTMLElement | null;
-  presentation: CalendarPresentation;
-  onPresentation: (presentation: CalendarPresentation) => void;
-  range: ReturnType<typeof useCalendarRange>;
+  onOpenSection: (section: Section) => void;
+  recapSwitches: ReactNode;
+  sectionSidebar: HTMLElement | null;
+  range: ReturnType<typeof useRecapDateRange>;
 }) {
   const {
     tasks,
@@ -65,8 +89,11 @@ export function CalendarView({
     loaded,
     mutate,
   } = useDashboardData();
-  const [showInsights, setShowInsights] = useState(readCalendarInsightsShown);
-  const [figure, setFigure] = useState(readCalendarFigure);
+  const showWorkStretch = useAppSettings().showWorkStretch;
+  const [storedFigure, setFigure] = useState(readCalendarFigure);
+  // The stored figure stays put while Work stretch is hidden, so showing it
+  // again in Settings returns to the last choice.
+  const figure = showWorkStretch ? storedFigure : "logs";
   const [kinds, setKinds] = useState(() => readLogsPreferences().kinds);
   const [selected, setSelected] = useState<StretchEdit | null>(null);
 
@@ -155,50 +182,55 @@ export function CalendarView({
     range.nowSec,
   ]);
 
+  useDatePagingKeys(range);
+  // The stretch editor belongs to a block on screen, so paging away closes it.
+  useEffect(() => setSelected(null), [range.from, range.to]);
+
   const selectFigure = (next: CalendarFigure) => {
     setFigure(next);
     writeCalendarFigure(next);
     setSelected(null);
   };
 
-  const updateKinds = (nextKinds: LogKindKey[]) => {
-    const next = { ...readLogsPreferences(), kinds: nextKinds };
-    writeLogsPreferences(next);
+  const updateKinds = (key: LogKindKey) => {
+    const nextKinds = toggleLogKind(kinds, key);
+    writeLogsPreferences({ ...readLogsPreferences(), kinds: nextKinds });
     setKinds(nextKinds);
   };
 
   return (
     <section className="dash-section dash-section--calendar">
-      <DateRangeSidebar target={sidebarTarget} range={range}
-        presentation={presentation} onPresentation={onPresentation}
-        onMode={(mode) => { range.selectMode(mode); setSelected(null); }}
-        onPick={(dayMs) => { range.goToDay(dayMs); setSelected(null); }} />
-      <div className="dash-toolbar calendar-panel-controls">
-        <ViewToggle
-          value={figure}
-          options={CALENDAR_FIGURES}
-          label="Calendar figure"
-          onChange={selectFigure}
+      <div className="dash-toolbar recap-toolbar calendar-panel-controls">
+        <DateNavigation
+          label={range.mode === "day" ? dayLabel(range.from, range.nowMs) : range.title}
+          unit={range.mode}
+          canGoPrevious={range.canGoBack}
+          canGoNext={!range.isNow}
+          onPrevious={() => range.step(-1)}
+          onNext={() => range.step(1)}
+          onToday={range.goToday}
+          picker={range.picker}
         />
-        {figure === "logs" ? (
-          <LogKindToggle kinds={kinds} label="Logs filter" onChange={updateKinds} />
-        ) : null}
-        <button type="button" className="calendar-insights-toggle"
-          aria-pressed={showInsights} aria-controls="calendar-panel-insights"
-          onClick={() => {
-            setShowInsights(!showInsights);
-            writeCalendarInsightsShown(!showInsights);
-          }}><PanelRight aria-hidden="true" /><span>Insights</span></button>
+        <div className="recap-toolbar__display">
+          {showWorkStretch && (
+            <CycleChoice
+              value={figure}
+              options={CALENDAR_FIGURES}
+              label="Calendar figure"
+              onChange={selectFigure}
+            />
+          )}
+          {recapSwitches}
+        </div>
       </div>
-      <div className={`dash-section__body calendar-body${showInsights ? " calendar-body--both" : ""}`}>
+      <div className="dash-section__body recap-body">
         {!loaded ? null : (
           <>
-            <div className="calendar-body__grid">
+            <div className="recap-body__grid">
               {figure === "logs" ? (
                 <LogsHours
                   columns={logsGrid.columns}
-                  mode={range.gridMode}
-                  span={range.span}
+                  mode={range.mode}
                   phases={phases}
                   metrics={metrics}
                   pulses={pulses}
@@ -217,8 +249,7 @@ export function CalendarView({
                   <TimelineGrid
                     columns={grid.columns}
                     phases={phases}
-                    mode={range.gridMode}
-                    span={range.span}
+                    mode={range.mode}
                     scrollPct={grid.scrollPct}
                     nowSec={range.nowSec}
                     selected={selected}
@@ -242,17 +273,15 @@ export function CalendarView({
                 </>
               )}
             </div>
-            {showInsights ? (
-              <div id="calendar-panel-insights" className="calendar-body__insights" aria-label="Insights" role="region">
-                <InsightsPanel
-                  from={range.from}
-                  to={range.to}
-                  live={range.live}
-                  nowMs={range.nowMs}
-                  nowSec={range.nowSec}
-                />
-              </div>
-            ) : null}
+            <RecapInsights
+              sectionSidebar={sectionSidebar}
+              onOpenSection={onOpenSection}
+              from={range.from}
+              to={range.to}
+              nowSec={range.nowSec}
+              kinds={kinds}
+              onToggleKind={updateKinds}
+            />
           </>
         )}
       </div>

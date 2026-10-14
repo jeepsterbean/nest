@@ -15,17 +15,23 @@ reference by default.
 | Dashboard implementation | `src/dashboard/AGENTS.md` |
 | Rust, SQLite, or Tauri backend implementation | `src-tauri/AGENTS.md` |
 | Schema, migration, command payload, or shared DTO change | `.agents/skills/schema-ipc-change/SKILL.md` |
-| Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `.agents/skills/phase-lifecycle/SKILL.md` |
-| Domain words, statuses, Ready/Blocked, Phase derivation | `CONTEXT.md` |
+| Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `docs/domain/phases.md`, then `.agents/skills/phase-lifecycle/SKILL.md` |
+| Domain words, Ready/Blocked | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
-| Tasks table or Map | `docs/tasks.md` |
-| Calendar, Insights, Timeline, or the Phases pane | `docs/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/time-surfaces.md` for shared date, Last hour, and Logs kind rules |
-| Metrics pane, Pulses, or Metric check-in behavior | `CONTEXT.md`, `docs/metrics.md` |
-| Timer | `docs/timer.md` |
-| Popup | `docs/popup.md` |
-| Brain dump capture, Tags, Note Board, or stickies | `docs/brain-dump.md` |
+| History ranges, Phase settling, or summary calculations | `docs/domain/history.md` |
+| Phases Section interactions | `docs/interface/phases.md` |
+| Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
+| Tasks Table, Map, or detail interactions | `docs/interface/tasks.md` |
+| Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date and Logs kind rules |
+| Pulse membership or Metric check-in records | `CONTEXT.md`, `docs/domain/metrics.md` |
+| Metrics Section interactions | `docs/interface/metrics.md` |
+| Timer countdown, interval, or due state | `docs/domain/timer.md` |
+| Timer controls or readouts | `docs/interface/timer.md` |
+| Popup | `docs/interface/popup.md` |
+| Brain dump records or Tag rules | `docs/domain/brain-dump.md` |
+| Brain dump capture, browsing, Note Board, or stickies | `docs/interface/brain-dump.md` |
 | Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
-| Sidebar or Background panel | `CONTEXT.md`, `UI.md` |
+| Sidebar or Settings | `CONTEXT.md`, `UI.md` |
 | Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
 
@@ -33,18 +39,25 @@ reference by default.
 
 | Change kind | File |
 |-------------|------|
-| Product language, lifecycle invariants | `CONTEXT.md` |
-| Tasks table / Map behavior | `docs/tasks.md` |
-| Calendar, Insights, Timeline, Phases pane | `docs/calendar.md` |
-| Rules shared across time surfaces (dates, Last hour, Logs kinds, Phase appearance) | `docs/time-surfaces.md` |
-| Metrics pane behavior | `docs/metrics.md` |
-| Timer | `docs/timer.md` |
-| Popup | `docs/popup.md` |
-| Brain dump capture / Note Board | `docs/brain-dump.md` |
+| Product language, shared domain distinctions | `CONTEXT.md` |
+| Phase derivation, work recording lifecycle | `docs/domain/phases.md` |
+| Phases Section interactions | `docs/interface/phases.md` |
+| Task fields, relationships, readiness, history, deletion | `docs/domain/tasks.md` |
+| Tasks dashboard interactions | `docs/interface/tasks.md` |
+| History ranges, Phase settling, range summary calculations | `docs/domain/history.md` |
+| Calendar, Insights, Timeline interactions | `docs/interface/calendar.md` |
+| Rules shared across time surfaces (navigation, Logs kinds, Phase appearance) | `docs/interface/time-surfaces.md` |
+| Metric records and Pulse membership | `docs/domain/metrics.md` |
+| Metrics Section behavior | `docs/interface/metrics.md` |
+| Timer state and cadence | `docs/domain/timer.md` |
+| Timer controls and readouts | `docs/interface/timer.md` |
+| Popup | `docs/interface/popup.md` |
+| Brain dump records and Tag rules | `docs/domain/brain-dump.md` |
+| Brain dump capture / Note Board | `docs/interface/brain-dump.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | Shared dashboard controls, shell, cross-surface UI rules | `UI.md` |
 | Non-obvious CSS or layout constraint | comment beside the rule |
-| Brain dump editor invariants or library behavior | `docs/editor.md` |
+| Brain dump editor invariants or library behavior | `docs/interface/editor.md` |
 | Closing, parking, or adding durable product work | `BACKLOG-FEATURE-REQUESTS.md` |
 | Engineering backlog | `BACKLOG-BACKEND.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
@@ -53,6 +66,37 @@ reference by default.
 Project-agnostic process rules live under `.agents/standards/`, which
 `.claude/standards/` and `.codex/standards/` expose through symlinks. Keep
 each fact in its closest authoritative source and link to it elsewhere.
+
+## Writing documentation
+
+Follow the table above when editing a Nest doc.
+
+- `docs/domain/` owns records, validation, relationships, lifecycle, and shared
+  calculations, wherever the implementation runs.
+- `docs/interface/` owns frontend navigation, controls, keyboard and focus,
+  drafts, display behavior, and surface preferences. Link to domain rules
+  instead of repeating them. A surface-only topic needs no matching domain doc.
+- Write the fact in the file that owns it, and link to that file from anywhere
+  else. When the owner already says it, delete the copy.
+- `CONTEXT.md` keeps domain definitions and distinctions several surfaces
+  share, with links to the authoritative rules. Include naming guidance when
+  it resolves an ambiguity; use the inline format of the existing entries.
+- A surface doc keeps what that surface does: what is saved, what an action
+  changes, keyboard and focus, empty and missing cases, and a boundary with
+  another surface.
+- Keep a sentence when leaving it out would let someone build the wrong
+  behavior. Drop a sentence that only places a control, names a color or
+  weight, or gives a size in pixels. A breakpoint, a shared row, and a corner
+  radius stay in the CSS comment the table already names. A limit that exists
+  so copy fits a control stays with that control, beside the CSS and the
+  constant.
+- When one sentence mixes a behavior rule with placement or paint, keep the
+  rule.
+- A negative earns its place when it settles a mix-up the other docs would
+  leave open, such as the Tasks table having no scope sidebar. Skip a negative
+  that repeats a positive rule already written beside it.
+- Copy the interface must say stays in the surface doc. Class names, component
+  names, and file paths stay in `UI.md` and `docs/interface/editor.md`.
 
 ## Package manager
 
@@ -67,7 +111,8 @@ each fact in its closest authoritative source and link to it elsewhere.
 
 ## Repository-wide invariants
 
-- The dashboard has two Sections, Calendar and Core, and starts on Calendar.
+- The dashboard has five Sections, Recap, Brain dump, Tasks, Metrics, and
+  Phases, and starts on Recap.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
 - Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
@@ -95,8 +140,7 @@ each fact in its closest authoritative source and link to it elsewhere.
 - User-facing copy should match the calm, private tone in `.impeccable.md` and
   the domain distinctions in `CONTEXT.md`.
 - Timer and Popup chrome, aria, and class names use Timer / Popup / due, never
-  check-in. Popup timer UI shows the countdown and selected interval. The macOS
-  menu bar is a read-only Phase and countdown readout.
+  check-in. Timer readouts live in `docs/interface/timer.md`.
 - Prefer the shared formatters in `src/dashboard/lib/time.ts` for dashboard
   dates and times instead of scattering one-off `Intl` / `toLocale*` options
   across views.

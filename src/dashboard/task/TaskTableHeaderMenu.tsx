@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { Task, TaskStatus } from "../../lib/types";
+import type { Task } from "../../lib/types";
 import { DayCalendar } from "../components/DayPicker";
 import { checkIcon, chevronDownIcon, chevronRightIcon, eyeOffIcon, filterIcon, sortIcon, xIcon } from "../components/icons";
 import { useDismiss } from "../hooks/useDismiss";
@@ -12,7 +12,6 @@ import {
   TASK_DATE_PRESETS,
   taskDateFilterCalendarRange,
   taskDateFilterInputValues,
-  taskDateFilterLabel,
   type TaskDateFilter,
   type TaskDatePreset,
 } from "../lib/taskDateFilter";
@@ -20,20 +19,19 @@ import {
   matchingTaskScorePreset,
   selectedTaskScores,
   TASK_SCORE_PRESETS,
-  taskScoreFilterLabel,
   toggleTaskScoreFilter,
   type TaskScoreFilter,
 } from "../lib/taskScoreFilter";
 import { taskSortDirectionLabel, type TaskColumnSort } from "../lib/taskColumnSort";
-import type { TaskTableColumn } from "../lib/taskTable";
-import type { TaskParentFilter } from "../lib/taskTableViews";
-import { matchingTaskStatusPreset, RATING_VALUES, TASK_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_PRESETS, taskStatusFilterLabel, toggleTaskStatusFilter } from "../lib/tasks";
+import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
+import { clearedTaskTableFilter, taskTableFilterLabel } from "../lib/taskTableFilterRules";
+import { TASK_COLUMN_FILTER_FIELD, type TaskParentFilter, type TaskTableFilterField, type TaskTableQuery } from "../lib/taskTableViews";
+import { matchingTaskStatusPreset, RATING_VALUES, TASK_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_PRESETS, toggleTaskStatusFilter } from "../lib/tasks";
 import { formatCompactDuration, taskDisplayedWorkedSeconds, toDateInput } from "../lib/time";
 import {
   includeWorkedTimeThreshold,
   nearestWorkedTimeStopIndex,
   TASK_WORKED_TIME_COMPARATORS,
-  taskWorkedTimeFilterLabel,
   workedTimeStops,
   type TaskWorkedTimeComparator,
   type TaskWorkedTimeFilter,
@@ -41,20 +39,20 @@ import {
 
 type MenuPane = "sort" | "filter";
 
-const MENU_MIN_WIDTH = 208;
-const PARENT_MENU_MIN_WIDTH = 256;
+export const MENU_MIN_WIDTH = 208;
+export const WIDE_MENU_MIN_WIDTH = 256;
 const MENU_MAX_VISIBLE_ROWS = 14;
 // Short lists scan faster without a field; long ones need one to stay usable.
 const PARENT_SEARCH_THRESHOLD = 8;
 // A diagonal move toward an open flyout crosses the neighbouring row; the delay
 // keeps that crossing from swapping the flyout out from under the pointer.
 const SUBMENU_SWITCH_DELAY_MS = 140;
-const FIRST_FOCUSABLE = ".task-column-menu__search, .task-column-menu__preset-trigger, .task-column-menu__date, .task-column-menu__range input, .task-column-menu__presets button, .menu-select__option";
-// Created/Updated reuse Calendar's DayPicker, which blocks future days. Unix 0
-// is the lower bound so any past Created or Updated day stays pickable.
+export const FIRST_FOCUSABLE = ".task-column-menu__search, .task-column-menu__preset-trigger, .task-column-menu__date, .task-column-menu__range input, .task-column-menu__presets button, .menu-select__option";
+// Date columns reuse Calendar's DayPicker, which blocks future days. Unix 0
+// is the lower bound so any past Created, Updated, or Closed day stays pickable.
 const DATE_FILTER_EARLIEST_SEC = 0;
 
-function MenuOption({ selected, marker, wrap, onClick, children }: {
+export function MenuOption({ selected, marker, wrap, onClick, children }: {
   selected: boolean;
   marker?: ReactNode;
   wrap?: boolean;
@@ -93,9 +91,10 @@ function TaskDateBoundField({ label, day, nowMs, editing, onEdit, onClear }: {
   </div>;
 }
 
-function TaskDateFilterFields({ filter, onChange }: {
+function TaskDateFilterFields({ filter, onChange, emptyLabel = "Any date" }: {
   filter: TaskDateFilter;
   onChange: (filter: TaskDateFilter) => void;
+  emptyLabel?: string;
 }) {
   const nowMs = Date.now();
   const preset = matchingTaskDatePreset(filter, nowMs);
@@ -104,10 +103,10 @@ function TaskDateFilterFields({ filter, onChange }: {
   const [editing, setEditing] = useState<"from" | "to">("from");
   const presetRef = useRef<HTMLDivElement>(null);
   const presetLabel = preset
-    ? TASK_DATE_PRESETS.find(item => item.key === preset)?.label ?? "Any date"
+    ? TASK_DATE_PRESETS.find(item => item.key === preset)?.label ?? emptyLabel
     : filter
       ? "Custom"
-      : "Any date";
+      : emptyLabel;
   const writeRange = (fromDay: string, toDay: string) => {
     const nextFrom = fromDay || null;
     const nextTo = toDay || null;
@@ -139,7 +138,7 @@ function TaskDateFilterFields({ filter, onChange }: {
         <span className="task-column-menu__chevron" aria-hidden="true">{chevronDownIcon}</span>
       </button>
       {presetOpen && <div className="task-column-menu__preset-menu" role="group" aria-label="Date range">
-        <MenuOption selected={filter === null} onClick={() => choosePreset(null)}>Any date</MenuOption>
+        <MenuOption selected={filter === null} onClick={() => choosePreset(null)}>{emptyLabel}</MenuOption>
         {TASK_DATE_PRESETS.map(item =>
           <MenuOption key={item.key} selected={preset === item.key} onClick={() => choosePreset(item.key)}>
             {item.label}
@@ -184,15 +183,16 @@ function TaskScoreFilterFields({ filter, onChange }: {
   </>;
 }
 
-function TaskWorkedTimeFilterFields({ filter, onChange, candidates }: {
+function TaskWorkedTimeFilterFields({ filter, onChange, candidates, workedSecondsByTask }: {
   filter: TaskWorkedTimeFilter;
   onChange: (filter: TaskWorkedTimeFilter) => void;
   candidates: Task[];
+  workedSecondsByTask: ReadonlyMap<number, number> | null;
 }) {
   // Snapshot at flyout open so a live Working now total cannot rebuild the line.
   const [stops] = useState(() =>
     includeWorkedTimeThreshold(
-      workedTimeStops(candidates.map(task => taskDisplayedWorkedSeconds(task, Date.now()))),
+      workedTimeStops(candidates.map(task => workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : taskDisplayedWorkedSeconds(task, Date.now()))),
       filter,
     ));
   const comparator = filter?.comparator ?? "more";
@@ -222,32 +222,113 @@ function TaskWorkedTimeFilterFields({ filter, onChange, candidates }: {
   </div>;
 }
 
-export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStatusesChange, scope, onScopeChange, parent, onParentChange, createdFilter, onCreatedFilterChange, updatedFilter, onUpdatedFilterChange, valueFilter, onValueFilterChange, effortFilter, onEffortFilterChange, workedTimeFilter, onWorkedTimeFilterChange, workedTimeCandidates, sort, onSortChange, onHide, open, onOpenChange, edited }: {
+/** What a filter editor needs beyond the query itself. */
+export type TaskFilterContext = {
+  tasks: Task[];
+  scopeTree: ScopeTree;
+  workedTimeCandidates: Task[];
+  workedSecondsByTask: ReadonlyMap<number, number> | null;
+  workHistoryStatus: string | null;
+};
+
+// These editors need room for a calendar, a slider, or long Task titles.
+const WIDE_FILTER_FIELDS = new Set<TaskTableFilterField>(["parent", "created", "updated", "closed", "workedOn", "statusChanged", "workedTime"]);
+export const taskFilterMenuWidth = (field: TaskTableFilterField) =>
+  WIDE_FILTER_FIELDS.has(field) ? WIDE_MENU_MIN_WIDTH : MENU_MIN_WIDTH;
+
+/** One filter's editor, shared by column header menus and the query's rule menus.
+ * `onDone` closes the menu after single-choice picks. */
+export function TaskFilterFields({ field, query, onQueryChange, context, onDone }: {
+  field: TaskTableFilterField;
+  query: TaskTableQuery;
+  onQueryChange: (patch: Partial<TaskTableQuery>) => void;
+  context: TaskFilterContext;
+  onDone: () => void;
+}) {
+  const [parentQuery, setParentQuery] = useState("");
+  switch (field) {
+    case "statuses": {
+      const preset = matchingTaskStatusPreset(query.statuses);
+      return <>
+        <div className="task-column-menu__presets">{TASK_STATUS_PRESETS.map(item => <button key={item.key} type="button" aria-pressed={preset === item.key}
+          onClick={() => onQueryChange({ statuses: [...item.statuses] })}>{item.label}</button>)}</div>
+        {TASK_STATUSES.map(status => <MenuOption key={status} selected={query.statuses.includes(status)}
+          marker={<span className={`status-dot status-dot--${status}`}/>}
+          onClick={() => onQueryChange({ statuses: toggleTaskStatusFilter(query.statuses, status) })}>
+          {TASK_STATUS_LABEL[status]}
+        </MenuOption>)}
+      </>;
+    }
+    case "scope":
+      return <>{[null, ...[...context.scopeTree.byPath.keys()].sort((a, b) => a.localeCompare(b))].map(path =>
+        <MenuOption key={path ?? "all"} selected={query.scope === path} onClick={() => { onQueryChange({ scope: path }); onDone(); }}>
+          {path ?? "All scopes"}
+        </MenuOption>)}</>;
+    case "parent": {
+      const options: { value: TaskParentFilter; label: string }[] = [
+        { value: null, label: "All parents" },
+        { value: "none", label: "No parent" },
+        ...context.tasks.filter(task => context.tasks.some(child => child.parentTaskId === task.id))
+          .sort((a, b) => a.title.localeCompare(b.title))
+          .map(task => ({ value: task.id, label: task.title })),
+      ];
+      const needle = parentQuery.trim().toLocaleLowerCase();
+      const visible = needle ? options.filter(option => option.label.toLocaleLowerCase().includes(needle)) : options;
+      return <>
+        {options.length > PARENT_SEARCH_THRESHOLD && <input type="search" className="task-column-menu__search"
+          placeholder="Find a parent…" aria-label="Find a parent" value={parentQuery}
+          onChange={event => setParentQuery(event.target.value)}/>}
+        {visible.map(option => <MenuOption key={option.value ?? "all"} wrap selected={query.parent === option.value}
+          onClick={() => { onQueryChange({ parent: option.value }); onDone(); }}>
+          {option.label}
+        </MenuOption>)}
+        {visible.length === 0 && <div className="task-column-menu__empty">No matching parents</div>}
+      </>;
+    }
+    case "created":
+    case "updated":
+    case "closed":
+    case "workedOn":
+    case "statusChanged":
+      return <TaskDateFilterFields filter={query[field]} onChange={filter => onQueryChange({ [field]: filter })} />;
+    case "value":
+    case "effort":
+      return <TaskScoreFilterFields filter={query[field]} onChange={filter => onQueryChange({ [field]: filter })} />;
+    case "workedTime":
+      return context.workHistoryStatus
+        ? <div className="task-column-menu__empty" role="status">{context.workHistoryStatus}</div>
+        : <TaskWorkedTimeFilterFields filter={query.workedTime} onChange={workedTime => onQueryChange({ workedTime })}
+          candidates={context.workedTimeCandidates} workedSecondsByTask={context.workedSecondsByTask} />;
+  }
+}
+
+/** Ascending / descending picks for one column; picking the active direction removes the sort. */
+export function TaskSortDirectionOptions({ column, sort, onSortChange, onDone }: {
+  column: TaskTableColumnId;
+  sort: TaskColumnSort[];
+  onSortChange: (sort: TaskColumnSort[]) => void;
+  onDone: () => void;
+}) {
+  const columnSort = sort.find(rule => rule.column === column);
+  return <>{(["ascending", "descending"] as const).map(direction => {
+    const selected = columnSort?.direction === direction;
+    return <MenuOption key={direction} selected={selected} marker={direction === "ascending" ? "↑" : "↓"}
+      onClick={() => { onSortChange(selected ? sort.filter(rule => rule.column !== column) : columnSort
+        ? sort.map(rule => rule.column === column ? { ...rule, direction } : rule)
+        : [...sort, { column, direction }]); onDone(); }}>
+      {taskSortDirectionLabel({ column, direction })}
+    </MenuOption>;
+  })}</>;
+}
+
+export function TaskTableHeaderMenu({ column, query, onQueryChange, filterContext, onHide, open, onOpenChange, edited }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   edited: boolean;
   column: TaskTableColumn;
-  tasks: Task[];
-  scopeTree: ScopeTree;
-  statuses: TaskStatus[];
-  onStatusesChange: (statuses: TaskStatus[]) => void;
-  scope: string | null;
-  onScopeChange: (scope: string | null) => void;
-  parent: TaskParentFilter;
-  onParentChange: (parent: TaskParentFilter) => void;
-  createdFilter: TaskDateFilter;
-  onCreatedFilterChange: (filter: TaskDateFilter) => void;
-  updatedFilter: TaskDateFilter;
-  onUpdatedFilterChange: (filter: TaskDateFilter) => void;
-  valueFilter: TaskScoreFilter;
-  onValueFilterChange: (filter: TaskScoreFilter) => void;
-  effortFilter: TaskScoreFilter;
-  onEffortFilterChange: (filter: TaskScoreFilter) => void;
-  workedTimeFilter: TaskWorkedTimeFilter;
-  onWorkedTimeFilterChange: (filter: TaskWorkedTimeFilter) => void;
-  workedTimeCandidates: Task[];
-  sort: TaskColumnSort[];
-  onSortChange: (sort: TaskColumnSort[]) => void;
+  query: TaskTableQuery;
+  onQueryChange: (patch: Partial<TaskTableQuery>) => void;
+  filterContext: TaskFilterContext;
   /** Absent for columns that must stay visible. */
   onHide?: () => void;
 }) {
@@ -256,27 +337,24 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
   const [box, setBox] = useState<MenuSelectBox | null>(null);
   const [submenu, setSubmenu] = useState<MenuPane | null>(null);
   const [submenuBox, setSubmenuBox] = useState<SubmenuBox | null>(null);
-  const [parentQuery, setParentQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Partial<Record<MenuPane, HTMLButtonElement | null>>>({});
   const hoverTimer = useRef<number | undefined>(undefined);
   const focusSubmenuOnOpen = useRef(false);
+  const { sort } = query;
+  const onSortChange = (next: TaskColumnSort[]) => onQueryChange({ sort: next });
   const columnSort = sort.find(rule => rule.column === column.id);
   const sorted = columnSort !== undefined;
-  const dateFilter = column.id === "created" ? createdFilter : column.id === "updated" ? updatedFilter : null;
-  const onDateFilterChange = column.id === "created" ? onCreatedFilterChange : column.id === "updated" ? onUpdatedFilterChange : null;
-  const scoreFilter = column.id === "value" ? valueFilter : column.id === "effort" ? effortFilter : null;
-  const onScoreFilterChange = column.id === "value" ? onValueFilterChange : column.id === "effort" ? onEffortFilterChange : null;
-  const filterable = column.id === "status" || column.id === "scope" || column.id === "parent" || column.id === "created" || column.id === "updated" || column.id === "value" || column.id === "effort" || column.id === "workedTime";
+  const filterField = TASK_COLUMN_FILTER_FIELD[column.id];
+  const filterable = filterField !== undefined;
   // Columns with a single action skip the row level and show their options directly.
   const nested = filterable || Boolean(onHide);
-  const preset = matchingTaskStatusPreset(statuses);
-  const dateFilterLabel = column.id === "created" || column.id === "updated" ? taskDateFilterLabel(dateFilter) : null;
-  const filterLabel = column.id === "status" ? preset === "all" ? null : taskStatusFilterLabel(statuses) : column.id === "scope" ? scope : column.id === "parent" && parent !== null ? parent === "none" ? "No parent" : tasks.find(task => task.id === parent)?.title ?? "Parent" : column.id === "value" || column.id === "effort" ? taskScoreFilterLabel(scoreFilter) : column.id === "workedTime" ? taskWorkedTimeFilterLabel(workedTimeFilter) : dateFilterLabel;
-  const wideFilter = column.id === "parent" || column.id === "created" || column.id === "updated" || column.id === "workedTime";
-  const submenuWidth = wideFilter && submenu === "filter" ? PARENT_MENU_MIN_WIDTH : MENU_MIN_WIDTH;
+  const filterLabel = filterField
+    ? taskTableFilterLabel(filterField, query, id => filterContext.tasks.find(task => task.id === id)?.title, Date.now())
+    : null;
+  const submenuWidth = filterField && submenu === "filter" ? taskFilterMenuWidth(filterField) : MENU_MIN_WIDTH;
   const close = () => { onOpenChange(false); triggerRef.current?.focus(); };
   const closeSubmenu = (returnFocus: boolean) => {
     window.clearTimeout(hoverTimer.current);
@@ -293,21 +371,13 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     setSubmenuBox(null);
     setSubmenu(pane);
   };
-  const reset = () => {
-    if (column.id === "status") onStatusesChange([...TASK_STATUSES]);
-    if (column.id === "scope") onScopeChange(null);
-    if (column.id === "parent") onParentChange(null);
-    if (column.id === "created") onCreatedFilterChange(null);
-    if (column.id === "updated") onUpdatedFilterChange(null);
-    if (column.id === "value") onValueFilterChange(null);
-    if (column.id === "effort") onEffortFilterChange(null);
-    if (column.id === "workedTime") onWorkedTimeFilterChange(null);
-    if (sorted) onSortChange(sort.filter(rule => rule.column !== column.id));
-  };
+  const reset = () => onQueryChange({
+    ...(filterField ? clearedTaskTableFilter(filterField) : {}),
+    ...(sorted ? { sort: sort.filter(rule => rule.column !== column.id) } : {}),
+  });
 
   useEffect(() => {
     if (open) return;
-    setParentQuery("");
     setSubmenu(null);
     window.clearTimeout(hoverTimer.current);
   }, [open]);
@@ -319,7 +389,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     const update = () => {
       const trigger = triggerRef.current;
       if (trigger) setBox(placeMenuSelect(trigger.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }, MENU_MAX_VISIBLE_ROWS, {
-        minWidth: column.id === "parent" && !nested ? PARENT_MENU_MIN_WIDTH : MENU_MIN_WIDTH,
+        minWidth: MENU_MIN_WIDTH,
         maxVisible: MENU_MAX_VISIBLE_ROWS,
       }));
     };
@@ -414,56 +484,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
     }
   };
 
-  const parentOptions: { value: TaskParentFilter; label: string }[] = column.id === "parent" ? [
-    { value: null, label: "All parents" },
-    { value: "none", label: "No parent" },
-    ...tasks.filter(task => tasks.some(child => child.parentTaskId === task.id))
-      .sort((a, b) => a.title.localeCompare(b.title))
-      .map(task => ({ value: task.id, label: task.title })),
-  ] : [];
-  const normalizedParentQuery = parentQuery.trim().toLocaleLowerCase();
-  const visibleParentOptions = normalizedParentQuery
-    ? parentOptions.filter(option => option.label.toLocaleLowerCase().includes(normalizedParentQuery))
-    : parentOptions;
-
-  const sortOptions = (["ascending", "descending"] as const).map(direction => {
-    const selected = sorted && columnSort?.direction === direction;
-    return <MenuOption key={direction} selected={selected} marker={direction === "ascending" ? "↑" : "↓"}
-      onClick={() => { onSortChange(selected ? sort.filter(rule => rule.column !== column.id) : sorted
-        ? sort.map(rule => rule.column === column.id ? { ...rule, direction } : rule)
-        : [...sort, { column: column.id, direction }]); close(); }}>
-      {taskSortDirectionLabel({ column: column.id, direction })}
-    </MenuOption>;
-  });
-
-  const filterOptions = <>
-    {column.id === "status" && <>
-      <div className="task-column-menu__presets">{TASK_STATUS_PRESETS.map(item => <button key={item.key} type="button" aria-pressed={preset === item.key}
-        onClick={() => onStatusesChange([...item.statuses])}>{item.label}</button>)}</div>
-      {TASK_STATUSES.map(status => <MenuOption key={status} selected={statuses.includes(status)}
-        marker={<span className={`status-dot status-dot--${status}`}/>}
-        onClick={() => onStatusesChange(toggleTaskStatusFilter(statuses, status))}>
-        {TASK_STATUS_LABEL[status]}
-      </MenuOption>)}
-    </>}
-    {column.id === "scope" && [null, ...[...scopeTree.byPath.keys()].sort((a, b) => a.localeCompare(b))].map(path =>
-      <MenuOption key={path ?? "all"} selected={scope === path} onClick={() => { onScopeChange(path); close(); }}>
-        {path ?? "All scopes"}
-      </MenuOption>)}
-    {column.id === "parent" && <>
-      {parentOptions.length > PARENT_SEARCH_THRESHOLD && <input type="search" className="task-column-menu__search"
-        placeholder="Find a parent…" aria-label="Find a parent" value={parentQuery}
-        onChange={event => setParentQuery(event.target.value)}/>}
-      {visibleParentOptions.map(option => <MenuOption key={option.value ?? "all"} wrap selected={parent === option.value}
-        onClick={() => { onParentChange(option.value); close(); }}>
-        {option.label}
-      </MenuOption>)}
-      {visibleParentOptions.length === 0 && <div className="task-column-menu__empty">No matching parents</div>}
-    </>}
-    {onDateFilterChange && <TaskDateFilterFields filter={dateFilter} onChange={onDateFilterChange} />}
-    {onScoreFilterChange && <TaskScoreFilterFields filter={scoreFilter} onChange={onScoreFilterChange} />}
-    {column.id === "workedTime" && <TaskWorkedTimeFilterFields filter={workedTimeFilter} onChange={onWorkedTimeFilterChange} candidates={workedTimeCandidates} />}
-  </>;
+  const sortOptions = <TaskSortDirectionOptions column={column.id} sort={sort} onSortChange={onSortChange} onDone={close} />;
 
   const paneRow = (pane: MenuPane, label: string, icon: ReactNode, hint: string | null) =>
     <button ref={element => { rowRefs.current[pane] = element; }} type="button"
@@ -478,13 +499,17 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
       <span className="task-column-menu__chevron" aria-hidden="true">{chevronRightIcon}</span>
     </button>;
 
-  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}`;
+  const inWorkedOnRange = column.id === "workedTime" && filterContext.workedSecondsByTask !== null;
+  const columnHeading = inWorkedOnRange
+    ? <>{column.label}<span className="task-column-period">in range</span></>
+    : column.label;
+  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}${inWorkedOnRange ? " in range" : ""}`;
   return <>
     <button ref={triggerRef} type="button" className={`task-column-trigger${edited ? " is-active" : ""}`}
       aria-label={`${menuLabel}${filterLabel ? `, ${filterLabel}` : ""}${sorted ? `, sorted ${columnSort?.direction}` : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onPointerDown={event => event.stopPropagation()} onClick={() => onOpenChange(!open)}>
-      <span>{column.label}</span>
+      <span>{columnHeading}</span>
       <span aria-hidden="true">{sorted ? (columnSort?.direction === "ascending" ? "↑" : "↓") : chevronDownIcon}</span>
     </button>
     {open && box && createPortal(<>
@@ -493,7 +518,7 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
         style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}
         onPointerDown={event => event.stopPropagation()}>
         <div className="task-column-menu__head">
-          <span>{column.label}</span>
+          <span>{columnHeading}</span>
           {(sorted || filterLabel) && <button type="button" className="task-column-menu__reset" onClick={reset}>Reset</button>}
         </div>
 
@@ -519,7 +544,8 @@ export function TaskTableHeaderMenu({ column, tasks, scopeTree, statuses, onStat
         onPointerDown={event => event.stopPropagation()}
         onPointerEnter={() => window.clearTimeout(hoverTimer.current)}
         onKeyDown={onSubmenuKeyDown}>
-        {submenu === "sort" ? sortOptions : filterOptions}
+        {submenu === "sort" ? sortOptions : filterField &&
+          <TaskFilterFields field={filterField} query={query} onQueryChange={onQueryChange} context={filterContext} onDone={close} />}
       </div>}
     </>, triggerRef.current?.closest(".dashboard") ?? document.body)}
   </>;

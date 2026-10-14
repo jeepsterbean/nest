@@ -1,3 +1,4 @@
+import { isTaskLocked } from "../../lib/taskLock";
 import type { Task } from "../../lib/types";
 import { chevronDownIcon } from "../components/icons";
 import { useTaskMenus } from "../context/TaskMenuContext";
@@ -20,7 +21,7 @@ export function StatusTrigger({
       className={`task-status-trigger task-status-trigger--${task.status}${
         compact ? " task-status-trigger--compact" : ""
       }`}
-      aria-haspopup="listbox"
+      aria-haspopup={isTaskLocked(task, Date.now()) ? "menu" : "listbox"}
       aria-expanded={open}
       aria-label={`Status for ${task.title}: ${TASK_STATUS_LABEL[task.status]}`}
       title={compact ? TASK_STATUS_LABEL[task.status] : undefined}

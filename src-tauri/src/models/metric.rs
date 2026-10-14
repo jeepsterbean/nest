@@ -20,6 +20,24 @@ pub struct Pulse {
     pub metric_ids: Vec<i64>,
 }
 
+/// One Metric in a Pulse being created: an existing Metric with the name,
+/// icon, and color it should end up with, or a Metric to create.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PulseMetricEntry {
+    Existing {
+        id: i64,
+        name: String,
+        icon: String,
+        color: Option<String>,
+    },
+    New {
+        name: String,
+        icon: String,
+        color: Option<String>,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetricCheckIn {

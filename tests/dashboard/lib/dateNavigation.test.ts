@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boundedDayMs, selectedDayMs, stepSelectedDay } from "../../../src/dashboard/lib/dateNavigation";
+import { boundedDayMs, pickedDayAnchor, selectedDayMs, singleDayPicker, stepSelectedDay } from "../../../src/dashboard/lib/dateNavigation";
 import { shiftDayMs, startOfDayMs } from "../../../src/dashboard/lib/time";
 
 const nowMs = new Date(2026, 9, 7, 12).getTime();
@@ -25,5 +25,23 @@ describe("date navigation bounds", () => {
     expect(stepSelectedDay(null, -1, nowMs)).toBe(shiftDayMs(todayMs, -1));
     expect(stepSelectedDay(shiftDayMs(todayMs, -1), 1, nowMs)).toBeNull();
     expect(stepSelectedDay(shiftDayMs(todayMs, -3), 7, nowMs)).toBeNull();
+  });
+
+  it("follows Today again when Today is picked and bounds any other pick", () => {
+    const earliestMs = shiftDayMs(todayMs, -30);
+    expect(pickedDayAnchor(todayMs, nowMs)).toBeNull();
+    expect(pickedDayAnchor(shiftDayMs(todayMs, 3), nowMs)).toBeNull();
+    expect(pickedDayAnchor(shiftDayMs(todayMs, -5), nowMs)).toBe(shiftDayMs(todayMs, -5));
+    expect(pickedDayAnchor(shiftDayMs(todayMs, -40), nowMs, earliestMs / 1000)).toBe(earliestMs);
+  });
+
+  it("gives a single-day surface its picker range and reaches any past day by default", () => {
+    const yesterdayMs = shiftDayMs(todayMs, -1);
+    const anchors: (number | null)[] = [];
+    const picker = singleDayPicker(yesterdayMs, nowMs, (anchorMs) => anchors.push(anchorMs));
+    expect(picker.selected).toEqual({ from: yesterdayMs / 1000, to: todayMs / 1000 });
+    picker.onPick(shiftDayMs(todayMs, -400));
+    picker.onPick(todayMs);
+    expect(anchors).toEqual([shiftDayMs(todayMs, -400), null]);
   });
 });

@@ -21,6 +21,8 @@
   box-sizing: border-box;
   flex-direction: column;
   gap: 10px;
+  /* Long relationship lists and short windows need a drawer scroll fallback
+     after the writing area reaches its minimum height. */
   overflow-y: auto;
   padding: 16px;
   border: 1px solid var(--border-strong);
@@ -239,7 +241,7 @@
   font-weight: 500;
 }
 
-/* The Tasks pane gives filled scopes a border at higher specificity, so the
+/* The Tasks Section gives filled scopes a border at higher specificity, so the
    border is removed by width and the padding makes up the missing pixel. */
 .task-detail .task-card__scope {
   display: flex;
@@ -375,7 +377,7 @@
   font-size: 12.5px;
 }
 
-/* The Tasks pane hides status dots; here a Blocker's dot is the only sign of
+/* The Tasks Section hides status dots; here a Blocker's dot is the only sign of
    whether it still holds the Task back. */
 .dashboard--tasks .task-detail .task-relation-list .status-dot {
   display: block;
@@ -639,6 +641,21 @@
 .task-status-menu__option.is-selected {
   background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface));
   color: var(--accent);
+}
+
+.task-status-menu__locked {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 7px 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The action row has no dot or check, so it drops the option's three columns. */
+.task-status-menu__option--action {
+  display: block;
 }
 
 .task-status-menu__text {
@@ -906,7 +923,8 @@
 
 .task-table__col--workedTime,
 .task-table__col--created,
-.task-table__col--updated {
+.task-table__col--updated,
+.task-table__col--closed {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1030,4 +1048,170 @@
     width: 100%;
     border-radius: 0;
   }
+}
+
+/* Independent scroll regions bound descriptions and history; the drawer
+   scrolls when relationships need more room. */
+.task-detail__writing {
+  display: grid;
+  grid-template-rows: minmax(72px, 3fr) minmax(96px, 2fr);
+  gap: 12px;
+  flex: 1 1 340px;
+  /* Matches the two row minimums plus the gap. Shrinking further would let
+     the grid spill under the relation rows that follow. */
+  min-height: 180px;
+}
+
+.task-detail__description {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.task-detail__description .task-card__description,
+.task-detail__description .task-card__description-input {
+  display: block;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.task-detail__description:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Task updates stays unboxed so recorded history reads as a log beneath the
+   editable description instead of a second input competing with it. */
+.task-updates {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-updates__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.task-updates__day-label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-updates h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The bottom fade signals that a row cut off by the scroll edge continues,
+   rather than looking clipped. */
+.task-updates__list {
+  --updates-time-column: 64px;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 16px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
+
+.task-updates__list:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.task-updates__day + .task-updates__day {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.task-updates ol { list-style: none; margin: 0; padding: 0; }
+
+.task-updates li {
+  display: grid;
+  grid-template-columns: var(--updates-time-column) minmax(0, 1fr);
+  column-gap: 10px;
+  line-height: 1.45;
+}
+
+.task-updates time {
+  padding-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The rail runs through each entry's left edge and stops at the day's last
+   entry, so days read as separate runs of events. */
+.task-updates__entry {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  padding: 2px 0 10px 16px;
+  border-left: 1px solid var(--border);
+}
+
+.task-updates li:last-child .task-updates__entry {
+  padding-bottom: 2px;
+  border-left-color: transparent;
+}
+
+.task-updates__entry::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+/* Each day group is its own list, so scope the accent to the newest entry overall. */
+.task-updates__day:first-child li:first-child .task-updates__entry::before { background: var(--accent); }
+
+.task-updates__detail {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.task-updates p {
+  margin: 12px 0 0 calc(var(--updates-time-column) + 10px);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.task-updates__list > button {
+  display: block;
+  margin: 12px 0 0 calc(var(--updates-time-column) + 10px);
+}
+
+/* Opaque and stacked above the writing area so nothing from History can show
+   through the rows below it. */
+.task-detail .task-relations,
+.task-detail__footer {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
 }

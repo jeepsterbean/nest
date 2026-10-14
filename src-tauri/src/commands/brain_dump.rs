@@ -63,7 +63,8 @@ pub(crate) fn load_brain_dump_tags(conn: &Connection, dumps: &mut [BrainDump]) -
     Ok(())
 }
 
-pub(crate) const TAG_COLUMNS_WITH_LAST_USED: &str = "t.id, t.name, t.created_at, MAX(bd.created_at) \
+pub(crate) const TAG_COLUMNS_WITH_LAST_USED: &str =
+    "t.id, t.name, t.created_at, MAX(bd.created_at) \
      FROM tags t \
      LEFT JOIN brain_dump_tags bdt ON bdt.tag_id = t.id \
      LEFT JOIN brain_dumps bd ON bd.id = bdt.brain_dump_id";

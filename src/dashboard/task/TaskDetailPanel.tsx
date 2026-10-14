@@ -3,8 +3,9 @@ import { deleteTask } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { trashIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { formatDate } from "../lib/time";
+import { formatDate, formatTime } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
+import { TaskUpdates } from "./TaskUpdates";
 import { TaskDescription } from "./TaskDescription";
 import { TaskRelations } from "./TaskRelations";
 import { TaskScopeButton } from "./TaskScopeButton";
@@ -58,7 +59,8 @@ export function TaskDetailPanel({
         <div className="task-detail__state">
           <StatusTrigger task={task} />
           {task.workingNow && <WorkingBadge />}
-          <WorkedTime task={task} />
+          {/* The readout's accessible name already says all time. */}
+          <span><WorkedTime task={task} /><span aria-hidden="true"> all time</span></span>
         </div>
         <button
           type="button"
@@ -83,13 +85,25 @@ export function TaskDetailPanel({
         </div>
         <TaskScoreControls task={task} />
       </div>
-      <TaskDescription task={task} />
+      <div className="task-detail__writing">
+        <div className="task-detail__description"><TaskDescription task={task} /></div>
+        <TaskUpdates key={task.id} task={task} />
+      </div>
       <TaskRelations task={task} />
       <footer className="task-detail__footer">
         <div className="task-detail__dates">
           <span>Created {formatDate(task.createdAt)}</span>
           <span className="task-detail__date-divider" aria-hidden="true" />
           <span>Updated {formatDate(task.updatedAt)}</span>
+          {task.closedAt !== null && (
+            <>
+              <span className="task-detail__date-divider" aria-hidden="true" />
+              <span>
+                {task.status === "cancelled" ? "Cancelled" : "Completed"}{" "}
+                {formatDate(task.closedAt)}, {formatTime(task.closedAt)}
+              </span>
+            </>
+          )}
         </div>
         {confirmingDelete ? (
           <div className="task-detail__confirm">

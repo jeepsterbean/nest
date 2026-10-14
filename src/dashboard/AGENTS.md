@@ -7,9 +7,9 @@ then only the surface document it routes for the task.
 
 - Dashboard code is grouped into `views/`, `task/`, `context/`, `lib/`,
   `components/`, `hooks/`, and `styles/`.
-- Sections are Calendar and Core. Calendar switches between Calendar and
-  Timeline and can show Insights. Core contains Brain dump, Tasks, Metrics,
-  and Phases. The Sidebar's Background button opens the Background panel.
+- Sections are Recap, Brain dump, Tasks, Metrics, and Phases. Recap switches
+  between Calendar and Timeline, with Insights in the Section sidebar. The Sidebar's
+  Settings button opens the Settings overlay.
 - Keep view files focused on composition. Load and mutate shared application
   data through `DashboardDataContext`.
 - Put pure derivations in `lib/` and reusable stateful behavior in `hooks/`.
@@ -36,10 +36,13 @@ then only the surface document it routes for the task.
 
 - Use `CONTEXT.md` vocabulary in user-facing copy and types.
 - Prefer the shared formatters in `lib/time.ts` for dashboard dates and times.
-- Keep Day, Table, and Map behavior in `docs/tasks.md`, Calendar behavior in
-  `docs/calendar.md`, rules shared by
-  time surfaces in `docs/time-surfaces.md`, Metrics behavior in `docs/metrics.md`, and Brain dump
-  behavior in `docs/brain-dump.md`.
+- Keep shared record rules, lifecycle, and calculations in `docs/domain/`;
+  use the root ownership table to choose the topic. Frontend preferences and
+  interactions belong in `docs/interface/`.
+- Keep Table and Map behavior in `docs/interface/tasks.md`, Calendar behavior in
+  `docs/interface/calendar.md`, rules shared by
+  time surfaces in `docs/interface/time-surfaces.md`, Metrics behavior in `docs/interface/metrics.md`, and Brain dump
+  behavior in `docs/interface/brain-dump.md`.
 - For editor selection, focus, draft synchronization, TipTap, or ProseMirror,
   follow `.agents/skills/brain-dump-text-editor/SKILL.md`.
 

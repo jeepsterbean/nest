@@ -1067,6 +1067,186 @@ UPDATE phases SET
 "#,
         ),
         M::up("DROP TABLE metric_check_in_schedule;"),
+        // A follow-up Task points back at the closed Task it continues.
+        // Deleting the original leaves the follow-up standing on its own.
+        M::up(
+            "ALTER TABLE tasks ADD COLUMN follows_task_id INTEGER \
+             REFERENCES tasks(id) ON DELETE SET NULL;",
+        ),
+        // Rebuilding tasks must preserve this log before cascading deletes run.
+        M::up(r#"
+CREATE TABLE task_edit_history (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ kind TEXT NOT NULL,
+ before_value TEXT,
+ after_value TEXT,
+ related_task_id INTEGER,
+ related_title TEXT,
+ created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_task_edit_history_task_time ON task_edit_history(task_id, created_at DESC, id DESC);
+CREATE INDEX idx_task_edit_history_time ON task_edit_history(created_at);
+CREATE TRIGGER task_history_touch AFTER INSERT ON task_edit_history
+BEGIN
+ UPDATE tasks SET updated_at=MAX(updated_at,NEW.created_at) WHERE id=NEW.task_id;
+END;
+CREATE TABLE task_history_metadata (id INTEGER PRIMARY KEY CHECK(id = 1), started_at INTEGER NOT NULL);
+INSERT INTO task_history_metadata VALUES (1, CAST(strftime('%s','now') AS INTEGER));
+CREATE TRIGGER task_history_title AFTER UPDATE OF title ON tasks
+WHEN OLD.title IS NOT NEW.title
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(NEW.id,'title',CAST(OLD.title AS TEXT),CAST(NEW.title AS TEXT),NEW.updated_at);
+END;
+CREATE TRIGGER task_history_description AFTER UPDATE OF description ON tasks
+WHEN OLD.description IS NOT NEW.description
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(NEW.id,'description',NULL,NULL,NEW.updated_at);
+END;
+CREATE TRIGGER task_history_scope AFTER UPDATE OF scope ON tasks
+WHEN OLD.scope IS NOT NEW.scope
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(NEW.id,'scope',CAST(OLD.scope AS TEXT),CAST(NEW.scope AS TEXT),NEW.updated_at);
+END;
+CREATE TRIGGER task_history_value AFTER UPDATE OF value ON tasks
+WHEN OLD.value IS NOT NEW.value
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(NEW.id,'value',CAST(OLD.value AS TEXT),CAST(NEW.value AS TEXT),NEW.updated_at);
+END;
+CREATE TRIGGER task_history_effort AFTER UPDATE OF effort ON tasks
+WHEN OLD.effort IS NOT NEW.effort
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(NEW.id,'effort',CAST(OLD.effort AS TEXT),CAST(NEW.effort AS TEXT),NEW.updated_at);
+END;
+CREATE TRIGGER task_history_parent_remove AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND OLD.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_removed',id,title,NEW.updated_at FROM tasks WHERE id=OLD.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(OLD.parent_task_id,'child_removed',NEW.id,NEW.title,NEW.updated_at);
+END;
+CREATE TRIGGER task_history_parent_add AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.updated_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.updated_at);
+END;
+CREATE TRIGGER task_history_initial_parent AFTER INSERT ON tasks WHEN NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.created_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.created_at);
+END;
+CREATE TRIGGER task_history_follow_up AFTER INSERT ON tasks WHEN NEW.follows_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'follows',id,title,NEW.created_at FROM tasks WHERE id=NEW.follows_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.follows_task_id,'follow_up',NEW.id,NEW.title,NEW.created_at);
+END;
+CREATE TRIGGER task_history_dependency_added AFTER INSERT ON task_dependencies
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocked_task_id,'blocker_added',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks WHERE id=NEW.blocker_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocker_task_id,'dependent_added',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks WHERE id=NEW.blocked_task_id;
+END;
+CREATE TRIGGER task_history_dependency_removed AFTER DELETE ON task_dependencies
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.blocked_task_id,'blocker_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks WHERE id=OLD.blocker_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.blocker_task_id,'dependent_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks WHERE id=OLD.blocked_task_id;
+END;
+CREATE TRIGGER task_history_before_delete BEFORE DELETE ON tasks
+BEGIN
+ UPDATE tasks SET parent_task_id=NULL,updated_at=CAST(strftime('%s','now') AS INTEGER) WHERE id=OLD.id OR parent_task_id=OLD.id;
+ DELETE FROM task_dependencies WHERE blocker_task_id=OLD.id OR blocked_task_id=OLD.id;
+END;
+CREATE TRIGGER task_history_work_removed AFTER DELETE ON task_work_stretches WHEN EXISTS(SELECT 1 FROM tasks WHERE id=OLD.task_id)
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,before_value,after_value,created_at)
+ VALUES(OLD.task_id,'work_removed',CAST(OLD.started_at AS TEXT) || ' / ' || COALESCE(CAST(OLD.ended_at AS TEXT),'open'),NULL,CAST(strftime('%s','now') AS INTEGER));
+END;
+"#),
+        // That trigger edited the row being deleted, which SQLite leaves
+        // undefined. TaskGraph::delete_task_in now unlinks the Task first.
+        // Without it, a delete that lets FK actions unlink the Task makes
+        // these triggers log on the deleted row, so each entry now requires
+        // the Task it is written to.
+        M::up(r#"
+DROP TRIGGER IF EXISTS task_history_before_delete;
+DROP TRIGGER task_history_parent_remove;
+CREATE TRIGGER task_history_parent_remove AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND OLD.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_removed',id,title,NEW.updated_at FROM tasks WHERE id=OLD.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.parent_task_id,'child_removed',NEW.id,NEW.title,NEW.updated_at
+ WHERE EXISTS(SELECT 1 FROM tasks WHERE id=OLD.parent_task_id);
+END;
+DROP TRIGGER task_history_dependency_removed;
+CREATE TRIGGER task_history_dependency_removed AFTER DELETE ON task_dependencies
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.blocked_task_id,'blocker_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.blocker_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.blocked_task_id);
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.blocker_task_id,'dependent_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.blocked_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.blocker_task_id);
+END;
+"#),
+        // History merges several tables and updated_at only resolves to the
+        // second, so a counter bumped by every source tells the dashboard its
+        // History is stale. Work removal is now recorded in Rust beside work
+        // corrections, so one function owns the stored interval text.
+        M::up(r#"
+ALTER TABLE tasks ADD COLUMN history_revision INTEGER NOT NULL DEFAULT 0;
+DROP TRIGGER task_history_work_removed;
+CREATE TRIGGER task_history_revision_edit AFTER INSERT ON task_edit_history
+BEGIN
+ UPDATE tasks SET history_revision=history_revision+1 WHERE id=NEW.task_id;
+END;
+CREATE TRIGGER task_history_revision_status AFTER INSERT ON task_status_events
+BEGIN
+ UPDATE tasks SET history_revision=history_revision+1 WHERE id=NEW.task_id;
+END;
+CREATE TRIGGER task_history_revision_work_insert AFTER INSERT ON task_work_stretches
+BEGIN
+ UPDATE tasks SET history_revision=history_revision+1 WHERE id=NEW.task_id;
+END;
+CREATE TRIGGER task_history_revision_work_update AFTER UPDATE OF started_at,ended_at ON task_work_stretches
+BEGIN
+ UPDATE tasks SET history_revision=history_revision+1 WHERE id=NEW.task_id;
+END;
+CREATE TRIGGER task_history_revision_work_delete AFTER DELETE ON task_work_stretches
+BEGIN
+ UPDATE tasks SET history_revision=history_revision+1 WHERE id=OLD.task_id;
+END;
+"#),
+        // A dependency carries its own created_at, which seeded and imported
+        // rows backdate, so History dates the addition from it. Removal has no
+        // stored time and keeps the clock.
+        M::up(r#"
+DROP TRIGGER task_history_dependency_added;
+CREATE TRIGGER task_history_dependency_added AFTER INSERT ON task_dependencies
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocked_task_id,'blocker_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.blocker_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.blocker_task_id,'dependent_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.blocked_task_id;
+END;
+"#),
     ])
 }
 
@@ -1079,6 +1259,66 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn edit_history_upgrade_keeps_existing_records_and_starts_empty() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 55).unwrap();
+        conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at) VALUES(1,'Existing','active',1,1)",[]).unwrap();
+        conn.execute("INSERT INTO task_status_events(task_id,from_status,to_status,created_at) VALUES(1,NULL,'active',1)",[]).unwrap();
+        conn.execute(
+            "INSERT INTO task_work_stretches(task_id,started_at,ended_at) VALUES(1,2,3)",
+            [],
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        for table in [
+            "tasks",
+            "task_status_events",
+            "task_work_stretches",
+            "task_history_metadata",
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(count, 1);
+        }
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+        conn.execute("UPDATE tasks SET title='Changed' WHERE id=1", [])
+            .unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn existing_tasks_follow_no_task() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 54).unwrap();
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, created_at, updated_at) \
+             VALUES (1, 'Closed earlier', 'completed', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let follows_task_id: Option<i64> = conn
+            .query_row(
+                "SELECT follows_task_id FROM tasks WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(follows_task_id, None);
+    }
 
     #[test]
     fn removing_metric_schedule_preserves_ratings_and_timer() {
@@ -1130,16 +1370,22 @@ mod tests {
         migrations().to_latest(&mut conn).unwrap();
 
         let seeded: (String, String) = conn
-            .query_row("SELECT title, instructions FROM assistant_prompts", [], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            })
+            .query_row(
+                "SELECT title, instructions FROM assistant_prompts",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
             .unwrap();
         assert_eq!(seeded.0, "Stuck on a Task");
         // A Prompt fills the composer, so the seed has to read as the user talking.
         assert!(seeded.1.starts_with("I am stuck"));
 
-        assert!(conn.prepare("SELECT prompt_id FROM assistant_conversations").is_err());
-        assert!(conn.prepare("SELECT context FROM assistant_messages").is_err());
+        assert!(conn
+            .prepare("SELECT prompt_id FROM assistant_conversations")
+            .is_err());
+        assert!(conn
+            .prepare("SELECT context FROM assistant_messages")
+            .is_err());
     }
 
     #[test]
@@ -1155,7 +1401,9 @@ mod tests {
 
         migrations().to_latest(&mut conn).unwrap();
         let instructions: String = conn
-            .query_row("SELECT instructions FROM assistant_prompts", [], |row| row.get(0))
+            .query_row("SELECT instructions FROM assistant_prompts", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(instructions, "My own wording");
     }
@@ -1211,7 +1459,13 @@ mod tests {
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-        assert_eq!(versions, vec![("Second instruction".into(), 2), ("First instruction".into(), 1)]);
+        assert_eq!(
+            versions,
+            vec![
+                ("Second instruction".into(), 2),
+                ("First instruction".into(), 1)
+            ]
+        );
     }
 
     #[test]
@@ -1226,18 +1480,22 @@ mod tests {
         )
         .unwrap();
 
-        assert!(conn.execute(
-            "INSERT INTO assistant_messages \
+        assert!(conn
+            .execute(
+                "INSERT INTO assistant_messages \
              (conversation_id, role, content, sent_message, created_at) \
              VALUES (1, 'user', 'Typed', ' ', 1)",
-            [],
-        ).is_err());
-        assert!(conn.execute(
-            "INSERT INTO assistant_messages \
+                [],
+            )
+            .is_err());
+        assert!(conn
+            .execute(
+                "INSERT INTO assistant_messages \
              (conversation_id, role, content, system_instructions, created_at) \
              VALUES (1, 'user', 'Typed', ' ', 1)",
-            [],
-        ).is_err());
+                [],
+            )
+            .is_err());
     }
 
     #[test]

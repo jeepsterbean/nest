@@ -1,4 +1,4 @@
-// Behavior and invariants: docs/calendar.md#calendar
+// Behavior and invariants: docs/interface/calendar.md#calendar
 import {
   isTaskChangeEvent,
   taskChangeTaskId,

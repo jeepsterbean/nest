@@ -145,7 +145,7 @@ describe("saved task views", () => {
     expect(state.views[1]!.query).toEqual({
       statuses: ["active"], scope: null, parent: null, created: null,
       updated: { kind: "range", fromDay: "2026-01-01", toDay: null },
-      value: null, effort: null, workedTime: null, sort: [],
+      closed: null, value: null, effort: null, workedOn: null, statusChanged: null, workedTime: null, sort: [],
       columns: DEFAULT_TASK_TABLE_QUERY.columns,
     });
   });
@@ -222,5 +222,32 @@ describe("ordered saved sorts", () => {
     const primary = { column: "status", direction: "ascending" } as const;
     const secondary = { column: "value", direction: "descending" } as const;
     expect(sameTaskTableQuery(query({ sort: [primary, secondary] }), query({ sort: [secondary, primary] }))).toBe(false);
+  });
+});
+
+describe("Worked on and Status changed saved views", () => {
+  it("keeps explicit ranges and presets, and defaults older views to unset", () => {
+    const range = { kind: "range", fromDay: "2026-01-01", toDay: "2026-01-07" } as const;
+    const preset = { kind: "preset", preset: "this_week" } as const;
+    const state = normalizeSavedTaskViews({ views: [
+      { id: "old", name: "Old", query: { statuses: ["active"] } },
+      { id: "range", name: "Range", query: { workedOn: range, statusChanged: preset } },
+    ] });
+    expect(state.views[1]!.query.workedOn).toBeNull();
+    expect(state.views[1]!.query.statusChanged).toBeNull();
+    expect(state.views[2]!.query.workedOn).toEqual(range);
+    expect(state.views[2]!.query.statusChanged).toEqual(preset);
+  });
+
+  it("marks each as a standalone query filter", () => {
+    const saved = query({});
+    for (const field of ["workedOn", "statusChanged"] as const) {
+      const filtered = query({ [field]: { kind: "preset", preset: "today" } });
+      expect(changedTaskTableQueryFields(saved, filtered)).toEqual(new Set([field]));
+      expect(taskTableFiltersEdited(saved, filtered)).toBe(true);
+      expect(taskTableColumnQueryEdited("workedTime", saved, filtered)).toBe(false);
+      expect(taskTableColumnQueryEdited("updated", saved, filtered)).toBe(false);
+      expect(sameTaskTableQuery(saved, filtered)).toBe(false);
+    }
   });
 });

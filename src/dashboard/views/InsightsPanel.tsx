@@ -1,33 +1,76 @@
-// Behavior and invariants: docs/calendar.md#insights
-import { useMemo } from "react";
+// Behavior and invariants: docs/interface/calendar.md#insights
+import { COLLAPSED_SECTION_SIDEBAR, type Section } from "../lib/sections";
+import { useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
   InsightBrainDumps,
+  InsightHeading,
   InsightLedger,
 } from "../components/InsightBoard";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useTileIcons } from "../hooks/useTileIcons";
 import { rangeInsight } from "../lib/insights";
+import type { LogKindKey } from "../lib/logs";
 
-/** The review of a range: Phases, Brain dumps, Tasks, and Metrics, stacked in
- * Calendar's side column. */
+/** Insights for the Recap range. It lives in the Section sidebar, and moves
+ * under the figure while that sidebar is collapsed. */
+export function RecapInsights({
+  sectionSidebar,
+  from,
+  to,
+  nowSec,
+  kinds,
+  onToggleKind,
+  onOpenSection,
+}: {
+  sectionSidebar: HTMLElement | null;
+  from: number;
+  to: number;
+  nowSec: number;
+  kinds: LogKindKey[];
+  onToggleKind: (key: LogKindKey) => void;
+  onOpenSection: (section: Section) => void;
+}) {
+  const underFigure = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
+  const insights = (
+    <div id="recap-insights" className="recap-insights" aria-label="Insights" role="region">
+      <InsightsPanel
+        from={from}
+        to={to}
+        nowSec={nowSec}
+        kinds={kinds}
+        onToggleKind={onToggleKind}
+        onOpenSection={onOpenSection}
+      />
+    </div>
+  );
+  if (underFigure) return insights;
+  return sectionSidebar ? createPortal(insights, sectionSidebar) : null;
+}
+
+/** The review of a range: Brain dumps, Tasks, Metrics, and Phases, stacked in
+ * Sidebar order. Each heading shows that kind's Section icon; the title opens
+ * that Section. Each heading hides that kind for Insights, Logs, and Timeline. */
 export function InsightsPanel({
   from,
   to,
-  live,
-  nowMs,
   nowSec,
+  kinds,
+  onToggleKind,
+  onOpenSection,
 }: {
   from: number;
   to: number;
-  live: boolean;
-  nowMs: number;
   nowSec: number;
+  kinds: LogKindKey[];
+  onToggleKind: (key: LogKindKey) => void;
+  onOpenSection: (section: Section) => void;
 }) {
   const {
     tasks,
-    taskStatusEvents,
-    taskWorkStretches,
     metrics,
     pulses,
     checkIns,
@@ -35,14 +78,13 @@ export function InsightsPanel({
     phases,
     brainDumps,
   } = useDashboardData();
+  const icons = useTileIcons();
 
   const insight = useMemo(
     () =>
       rangeInsight(
         {
           tasks,
-          taskStatusEvents,
-          taskWorkStretches,
           metrics,
           pulses,
           checkIns,
@@ -50,14 +92,12 @@ export function InsightsPanel({
           phases,
           brainDumps,
         },
-        { from, to, live },
-        { nowMs, nowSec, checkInNowMs: Date.now() },
+        { from, to },
+        { nowSec, checkInNowMs: Date.now() },
       ),
     [
       brainDumps,
       tasks,
-      taskStatusEvents,
-      taskWorkStretches,
       metrics,
       pulses,
       checkIns,
@@ -65,27 +105,85 @@ export function InsightsPanel({
       phases,
       from,
       to,
-      live,
-      nowMs,
       nowSec,
     ],
   );
 
+  const shown = (key: LogKindKey) => kinds.includes(key);
+  const alone = (key: LogKindKey) => shown(key) && kinds.length === 1;
+
   return (
     <div className="insights-body">
-      <section className="insight-list" aria-label="Phases">
-        <h3>Phases</h3>
-        <PhaseMix sessions={insight.sessions} phases={phases} />
-      </section>
-      <InsightBrainDumps summary={insight.brainDumps} />
-      <section className="insight-list" aria-label="Tasks">
-        <h3>Tasks</h3>
-        <InsightLedger groups={insight.taskGroups} />
-      </section>
-      <section className="insight-list" aria-label="Metrics">
-        <h3>Metrics</h3>
+      <InsightBrainDumps
+        summary={insight.brainDumps}
+        icon={icons.brainDump}
+        shown={shown("dumps")}
+        alone={alone("dumps")}
+        onToggle={() => onToggleKind("dumps")}
+        onOpen={() => onOpenSection("brainDump")}
+      />
+      <InsightSection
+        label="Tasks"
+        icon={icons.tasks}
+        shown={shown("tasks")}
+        alone={alone("tasks")}
+        onToggle={() => onToggleKind("tasks")}
+        onOpen={() => onOpenSection("tasks")}
+      >
+        <InsightLedger counts={insight.taskCounts} />
+      </InsightSection>
+      <InsightSection
+        label="Metrics"
+        icon={icons.metrics}
+        shown={shown("metrics")}
+        alone={alone("metrics")}
+        onToggle={() => onToggleKind("metrics")}
+        onOpen={() => onOpenSection("metrics")}
+      >
         <InsightCheckIns groups={insight.checkIns} />
-      </section>
+      </InsightSection>
+      <InsightSection
+        label="Phases"
+        icon={icons.phases}
+        shown={shown("phases")}
+        alone={alone("phases")}
+        onToggle={() => onToggleKind("phases")}
+        onOpen={() => onOpenSection("phases")}
+      >
+        <PhaseMix sessions={insight.sessions} phases={phases} />
+      </InsightSection>
     </div>
+  );
+}
+
+function InsightSection({
+  label,
+  icon,
+  shown,
+  alone,
+  onToggle,
+  onOpen,
+  children,
+}: {
+  label: string;
+  icon: string;
+  shown: boolean;
+  alone: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="insight-list" aria-label={label}>
+      <InsightHeading
+        label={label}
+        icon={icon}
+        shown={shown}
+        alone={alone}
+        onToggle={onToggle}
+        onOpen={onOpen}
+      />
+      {shown ? children : null}
+    </section>
   );
 }

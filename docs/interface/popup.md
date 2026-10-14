@@ -1,39 +1,44 @@
-# Popup
+# Popup interface
 
 The Popup is a compact window for quick actions. Timer behavior lives in
-[`timer.md`](./timer.md); domain words live in [`CONTEXT.md`](../CONTEXT.md).
+[`timer.md`](timer.md); domain words live in [`CONTEXT.md`](../../CONTEXT.md).
 
 ## Window lifecycle
 
 The Popup can be summoned with ⌘⇧E, by the Timer becoming due, or when input
-resumes after an idle stretch spent Resting. Each trigger opens the same
+resumes after a period of Resting. Each trigger opens the same
 window and restores the same panel selection.
 
 The Popup is fixed and non-resizable; its size lives in
 `src-tauri/tauri.conf.json`. Opening the dashboard from the Popup dismisses it.
 
-The Popup hosts a Timer bar across the top with the countdown, interval picker,
-and a line that drains with the remaining time. This is a Timer surface inside
-the Popup; the Popup's other behavior does not depend on why it was summoned.
+The Popup hosts the Timer bar, described in [Timer interface](timer.md). The
+Popup's other behavior does not depend on why it was summoned.
 
 ## Panels
 
-An icon-only strip down the left has one toggle per panel: Brain dump and
-Tasks and metrics. Each toggle shows or hides its panel, so any combination
-can be visible, including none. Visible panels share the width evenly in that
-order.
+Brain dump and Tasks and metrics each have a toggle. Each toggle shows or hides
+its panel, so any combination can be visible, including none.
 
-Tasks and metrics holds Metric scoring above the Active / Up next task list;
+Tasks and metrics holds Metric scoring and the Active / Up next task list;
 extra tasks scroll. Completed and Cancelled Tasks from the last 60 minutes sit
 above Active. The list opens on Active, and scrolling up reveals those Tasks so
-they can be returned to Active.
+they can be returned to Active. A Task that closed before today's midnight is
+[locked](../domain/tasks.md#closing-and-the-lock) and offers no return.
 
 Active rows start or stop Working now with their leading control. While
 working, a row shows the Task's total Worked time, including the open stretch.
 Starting an Up next Task moves it to Active and starts Working now. Active rows
-have Up next to the left of Complete.
+have Up next and Complete.
 
-Brain dump holds the brain dump.
+Double-clicking any task row, including working and Done rows, opens an input
+inside that row to name a Child. Enter creates the Child with the Parent's
+status and Scope, as its own row directly below the Parent; Done rows keep
+their close-time order instead. ⌘↵ also starts Working now on the Child, but
+only under an Active Parent; elsewhere it acts like Enter. The Parent keeps
+working either way, and the Child shares no status or Worked time with it after
+creation. Escape or clicking outside discards the input. Child rows look like
+any other row.
 
 Every summon restores `nest:popup-panels`, even if the Timer is still paused at
 zero. Brain dump shows on first use. A saved selection naming the retired Chat
@@ -49,8 +54,8 @@ Metrics can hide a Pulse from the Popup. A Pulse toggle swaps among Pulses
 shown there. Finishing the last Metric of a Pulse saves a Metric check-in and
 closes the Popup.
 
-Metric scoring is manual and always available. It has no interval, due glow,
-or due dot.
+Scoring follows [Metrics domain](../domain/metrics.md#metric-check-ins).
+The scoring controls have no due glow or due dot.
 
 ## Keyboard and focus
 

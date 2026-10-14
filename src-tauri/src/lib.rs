@@ -1,8 +1,6 @@
 mod activity;
-mod timer;
 mod commands;
 mod db;
-mod demo;
 mod error;
 mod migrations;
 mod models;
@@ -13,6 +11,7 @@ mod task;
 mod task_graph;
 mod task_lifecycle;
 mod time;
+mod timer;
 
 use std::{
     fs::OpenOptions,
@@ -292,15 +291,18 @@ fn spawn_timer_loop(app: tauri::AppHandle) {
                 }
             }
 
-            if let Some(transition) = app
-                .state::<ActivityIdleTracker>()
-                .tick(activity::is_idle())
-            {
+            if let Some(transition) = app.state::<ActivityIdleTracker>().tick(activity::is_idle()) {
                 sync_activity_idle_transition(&app, transition);
             }
 
             let title = {
-                let phase = app.state::<CurrentPhase>().inner().0.lock().unwrap().clone();
+                let phase = app
+                    .state::<CurrentPhase>()
+                    .inner()
+                    .0
+                    .lock()
+                    .unwrap()
+                    .clone();
                 let timer = app.state::<Mutex<Timer>>();
                 let timer = timer.lock().unwrap();
                 tray_title(&phase, &timer, now, ticks)
@@ -968,9 +970,7 @@ const POPUP_KEY_ESCAPE: u16 = 53;
 
 /// Command without Shift/Control/Option. Caps Lock and the like can stay on.
 #[cfg(target_os = "macos")]
-fn popup_command_chord(
-    flags: tauri_nspanel::objc2_app_kit::NSEventModifierFlags,
-) -> bool {
+fn popup_command_chord(flags: tauri_nspanel::objc2_app_kit::NSEventModifierFlags) -> bool {
     use tauri_nspanel::objc2_app_kit::NSEventModifierFlags;
     flags.intersection(
         NSEventModifierFlags::Command
@@ -981,7 +981,11 @@ fn popup_command_chord(
 }
 
 #[cfg(target_os = "macos")]
-fn popup_panel_shortcut_key(key_code: u16, command_chord: bool, repeat: bool) -> Option<&'static str> {
+fn popup_panel_shortcut_key(
+    key_code: u16,
+    command_chord: bool,
+    repeat: bool,
+) -> Option<&'static str> {
     if repeat || !command_chord {
         return None;
     }
@@ -1142,19 +1146,10 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             popup_placement::install(app_data.clone());
             let db_path = app_data.join("nest.db");
-            let is_demo = demo::is_demo_identifier(&app.config().identifier);
-            if is_demo {
-                demo::create_windows(app)?;
-                demo::remove_database(&db_path)?;
-            }
-            let mut conn = db::open(&db_path)?;
-            if is_demo {
-                demo::seed(&mut conn, now_unix_secs())?;
-            } else {
-                // Off the setup thread: a Keychain access prompt must not hold
-                // up launch.
-                std::thread::spawn(retired_assistant::forget_saved_api_key);
-            }
+            let conn = db::open(&db_path)?;
+            // Off the setup thread: a Keychain access prompt must not hold
+            // up launch.
+            std::thread::spawn(retired_assistant::forget_saved_api_key);
             // Before anything reads stretches — the first Phase sync below
             // derives Doing from them, and a leftover open stretch would make
             // a just-launched Nest look like it never stopped working.
@@ -1321,9 +1316,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::metric::list_metrics,
             commands::task::list_tasks,
+            commands::task::list_task_updates,
             commands::task::list_task_dependencies,
             commands::task::list_task_status_events,
             commands::task::create_task,
+            commands::task::create_follow_up_task,
             commands::task::rename_task,
             commands::task::set_task_description,
             commands::task::set_task_scope,
@@ -1346,6 +1343,7 @@ pub fn run() {
             commands::metric::set_metric_color,
             commands::metric::list_pulses,
             commands::metric::create_pulse,
+            commands::metric::create_pulse_with_metrics,
             commands::metric::rename_pulse,
             commands::metric::set_pulse_icon,
             commands::metric::delete_pulse,

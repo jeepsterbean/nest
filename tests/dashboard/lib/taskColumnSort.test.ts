@@ -5,7 +5,8 @@ import { sortTasksByColumn } from "../../../src/dashboard/lib/taskColumnSort";
 const task = (id: number, fields: Partial<Task>): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds: 0, workStartedAt: null, scope: null, value: null, effort: null,
-  parentTaskId: null, createdAt: id, updatedAt: id, ...fields,
+  parentTaskId: null, createdAt: id, updatedAt: id, closedAt: null,
+  followsTaskId: null, historyRevision: 0, ...fields,
 });
 
 describe("column sorting", () => {
@@ -14,6 +15,11 @@ describe("column sorting", () => {
     expect(sortTasksByColumn(tasks, { column: "value", direction: "ascending" }).map(t => t.id)).toEqual([3, 2, 1]);
     expect(sortTasksByColumn(tasks, { column: "value", direction: "descending" }).map(t => t.id)).toEqual([2, 3, 1]);
     expect(tasks.map(t => t.id)).toEqual([1, 2, 3]);
+  });
+  it("sorts Closed by closing time with open Tasks last", () => {
+    const tasks = [task(1, {}), task(2, { status: "completed", closedAt: 50 }), task(3, { status: "cancelled", closedAt: 20 })];
+    expect(sortTasksByColumn(tasks, { column: "closed", direction: "ascending" }).map(t => t.id)).toEqual([3, 2, 1]);
+    expect(sortTasksByColumn(tasks, { column: "closed", direction: "descending" }).map(t => t.id)).toEqual([2, 3, 1]);
   });
   it("removing the sort preserves the incoming task order", () => {
     const tasks = [task(3, {}), task(1, {}), task(2, {})];

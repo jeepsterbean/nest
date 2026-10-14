@@ -23,9 +23,6 @@ export type FrameColumn = {
   sessions: PhaseSession[];
 };
 
-/** A stretch of time the grid marks across its lanes, e.g. Last hour. */
-export type TimeSpan = { from: number; to: number };
-
 export const pxOf = (sizePct: number) => (sizePct / 100) * DAY_PX;
 
 /** Sessions with their column placement and display name — the rail and the
@@ -45,7 +42,7 @@ const placeSessions = (column: FrameColumn, phases: Phase[]) =>
 /** Vertical day grid shared by Calendar's Work stretch and Logs figures: hours down
  * the gutter, one column per day. Phase is the ground — a continuous wash
  * behind the column, keyed by icon on the rail left of the hours; each caller
- * draws its own figure on top through `renderLane`. Every span is placed by
+ * draws its own figure on top through `renderDayColumn`. Every span is placed by
  * percentage of its own column, so wash and figure always agree — a DST day's
  * 23 or 25 hours are squeezed into the same pixel height, off by ~4% twice a
  * year. */
@@ -53,20 +50,18 @@ export function TimelineFrame<C extends FrameColumn>({
   columns,
   phases,
   mode,
-  span = null,
   scrollPct,
   nowSec,
   colsRef,
-  renderLane,
+  renderDayColumn,
 }: {
   columns: C[];
   phases: Phase[];
   mode: "day" | "week";
-  span?: TimeSpan | null;
   scrollPct: number | null;
   nowSec: number;
   colsRef?: RefObject<HTMLDivElement | null>;
-  renderLane: (column: C) => ReactNode;
+  renderDayColumn: (column: C) => ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const target = useRef(scrollPct);
@@ -92,25 +87,20 @@ export function TimelineFrame<C extends FrameColumn>({
     const liveIndex = columns.findIndex(
       (column) => nowRef.current >= column.from && nowRef.current < column.to,
     );
-    const lane = el.querySelectorAll<HTMLElement>(".tl__lane")[liveIndex];
+    const dayColumn = el.querySelectorAll<HTMLElement>(".tl__day-column")[liveIndex];
     const gutter = el.querySelector<HTMLElement>(".tl__gutter");
-    if (!lane || !gutter) {
+    if (!dayColumn || !gutter) {
       el.scrollLeft = 0;
       return;
     }
-    const laneRect = lane.getBoundingClientRect();
+    const dayColumnRect = dayColumn.getBoundingClientRect();
     const viewLeft = gutter.getBoundingClientRect().right;
     const viewRight = el.getBoundingClientRect().right;
-    if (laneRect.right > viewRight || laneRect.left < viewLeft) {
-      el.scrollLeft += laneRect.left - viewLeft;
+    if (dayColumnRect.right > viewRight || dayColumnRect.left < viewLeft) {
+      el.scrollLeft += dayColumnRect.left - viewLeft;
     }
     // `columns` is read once per range, like `target`; scrollKey names the range.
   }, [scrollKey]);
-
-  const spanMark =
-    span && columns[0]
-      ? placeOnWindow(span.from, span.to, columns[0].from, columns[0].to)
-      : null;
 
   return (
     <div className={`tl tl--${mode}`} style={{ "--tl-hour": `${HOUR_PX}px` } as CSSProperties}>
@@ -159,13 +149,6 @@ export function TimelineFrame<C extends FrameColumn>({
               {formatHourTick((columns[0]?.from ?? 0) + hour * 3600)}
             </span>
           ))}
-          {spanMark && spanMark.sizePct > 0 ? (
-            <span
-              className="tl__span-mark"
-              aria-hidden="true"
-              style={{ top: `${spanMark.startPct}%`, height: `${spanMark.sizePct}%` }}
-            />
-          ) : null}
         </div>
         <div className="tl__cols" ref={colsRef}>
           {HOURS.map((hour) => (
@@ -173,11 +156,8 @@ export function TimelineFrame<C extends FrameColumn>({
           ))}
           {columns.map((column) => {
             const now = placeOnWindow(nowSec, nowSec, column.from, column.to);
-            const spanOnColumn = span
-              ? placeOnWindow(span.from, span.to, column.from, column.to)
-              : null;
             return (
-              <div key={column.from} className="tl__lane">
+              <div key={column.from} className="tl__day-column">
                 {placeSessions(column, phases).map(
                   ({ session, name, color, startPct, sizePct }) => (
                     <div
@@ -196,17 +176,7 @@ export function TimelineFrame<C extends FrameColumn>({
                     />
                   ),
                 )}
-                {spanOnColumn && spanOnColumn.sizePct > 0 ? (
-                  <div
-                    className="tl__span"
-                    aria-hidden="true"
-                    style={{
-                      top: `${spanOnColumn.startPct}%`,
-                      height: `${spanOnColumn.sizePct}%`,
-                    }}
-                  />
-                ) : null}
-                {renderLane(column)}
+                {renderDayColumn(column)}
                 {nowSec >= column.from && nowSec < column.to ? (
                   <div className="tl__now" style={{ top: `${now.startPct}%` }} />
                 ) : null}
