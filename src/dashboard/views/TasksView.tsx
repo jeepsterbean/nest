@@ -9,7 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { createTask } from "../../lib/commands";
 import type { TaskStatus } from "../../lib/types";
-import { plusIcon } from "../components/icons";
+import { eyeOffIcon, plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
 import { ViewToggle } from "../components/ViewToggle";
@@ -325,7 +325,7 @@ export function TasksView({
       <TaskSortRules rules={tableSort} savedRules={taskTableViews.selected.query.sort} onChange={setTableSort} />
       {tableColumns.hiddenColumns.length > 0 && <section className="task-query__group" aria-label="Hidden columns">
         <div className="task-query__head">
-          <h3>Hidden</h3>
+          <h3>{eyeOffIcon} Hidden</h3>
           {tableColumns.hiddenColumns.length > 1 && <button type="button" className="task-views__link" onClick={tableColumns.showAllColumns}>Show all</button>}
         </div>
         <ul className="task-query__chips">{tableColumns.hiddenColumns.map(column => <li key={column.id}>

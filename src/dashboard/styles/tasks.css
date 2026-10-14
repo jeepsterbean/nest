@@ -109,6 +109,9 @@
 }
 
 .task-query__group h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   padding: 0 10px;
   color: var(--muted);
@@ -116,6 +119,11 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.task-query__group h3 svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
 }
 
 .task-table__header-controls { display: flex; align-items: center; gap: 4px; }
@@ -550,8 +558,8 @@
   padding: 0;
   list-style: none;
 }
-/* The picker, headings, rule rows, and count share one text edge: a rule's
-   1px border plus its 10px inset. */
+/* The picker, heading icons, rule rows, and count share one text edge: a
+   rule's 1px border plus its 10px inset. */
 .task-query__group h3,
 .task-query__result { padding-inline: 11px; }
 .task-query__head {

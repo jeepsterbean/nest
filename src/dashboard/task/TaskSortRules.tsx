@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { useListSort } from "../hooks/useListSort";
-import { gripIcon } from "../components/icons";
+import { gripIcon, sortIcon } from "../components/icons";
 import { moveItem } from "../../lib/reorder";
 import { TASK_TABLE_COLUMNS } from "../lib/taskTable";
 import { taskSortDirectionLabel, type TaskColumnSort } from "../lib/taskColumnSort";
@@ -17,7 +17,7 @@ export function TaskSortRules({ rules, savedRules, onChange }: {
     "button:not(.task-query-rule__grip)");
   if (rules.length === 0) return null;
   return <section className="task-query__group" aria-label="Sort rules in priority order">
-    <h3>Sort</h3>
+    <h3>{sortIcon} Sort</h3>
     <ol>{rules.map((rule, index) => {
       const columnLabel = TASK_TABLE_COLUMNS.find(column => column.id === rule.column)!.label;
       const label = `Sort: ${columnLabel}, ${taskSortDirectionLabel(rule)}`;

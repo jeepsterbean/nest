@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { filterIcon } from "../components/icons";
 
 type FilterRule = {
   field: string;
@@ -10,7 +11,7 @@ type FilterRule = {
 
 export function TaskFilterRules({ rules, children }: { rules: FilterRule[]; children: ReactNode }) {
   return <section className="task-query__group" aria-label="Filters">
-    <h3>Filters</h3>
+    <h3>{filterIcon} Filters</h3>
     <ul>{children}{rules.map(rule => {
       const label = `${rule.name}: ${rule.value}`;
       return <li key={rule.field} className={`task-query-rule${rule.edited ? " is-edited" : ""}`} title={rule.edited ? `${label} (unsaved)` : label}>
