@@ -1,7 +1,6 @@
 mod activity;
 mod commands;
 mod db;
-mod demo;
 mod error;
 mod migrations;
 mod models;
@@ -1147,19 +1146,10 @@ pub fn run() {
             install_diagnostic_logging(app_data.clone());
             popup_placement::install(app_data.clone());
             let db_path = app_data.join("nest.db");
-            let is_demo = demo::is_demo_identifier(&app.config().identifier);
-            if is_demo {
-                demo::create_windows(app)?;
-                demo::remove_database(&db_path)?;
-            }
-            let mut conn = db::open(&db_path)?;
-            if is_demo {
-                demo::seed(&mut conn, now_unix_secs())?;
-            } else {
-                // Off the setup thread: a Keychain access prompt must not hold
-                // up launch.
-                std::thread::spawn(retired_assistant::forget_saved_api_key);
-            }
+            let conn = db::open(&db_path)?;
+            // Off the setup thread: a Keychain access prompt must not hold
+            // up launch.
+            std::thread::spawn(retired_assistant::forget_saved_api_key);
             // Before anything reads stretches — the first Phase sync below
             // derives Doing from them, and a leftover open stretch would make
             // a just-launched Nest look like it never stopped working.
