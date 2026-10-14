@@ -24,6 +24,7 @@ export type TaskTableQuery = {
   updated: TaskDateFilter;
   closed: TaskDateFilter;
   workedOn: TaskDateFilter;
+  statusChanged: TaskDateFilter;
   value: TaskScoreFilter;
   effort: TaskScoreFilter;
   workedTime: TaskWorkedTimeFilter;
@@ -65,6 +66,7 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   updated: null,
   closed: null,
   workedOn: null,
+  statusChanged: null,
   value: null,
   effort: null,
   workedTime: null,
@@ -90,6 +92,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
   updated: sameDateFilter,
   closed: sameDateFilter,
   workedOn: sameDateFilter,
+  statusChanged: sameDateFilter,
   value: sameScoreFilter,
   effort: sameScoreFilter,
   workedTime: sameWorkedTimeFilter,
@@ -103,7 +106,11 @@ const QUERY_FIELDS = Object.keys(SAME_QUERY_FIELD) as (keyof TaskTableQuery)[];
 export const changedTaskTableQueryFields = (saved: TaskTableQuery, query: TaskTableQuery) =>
   new Set(QUERY_FIELDS.filter((field) => !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(saved[field], query[field])));
 
-const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuery>> = {
+/** Query fields that select rows. */
+export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "columns">;
+
+/** The filter each column header edits; Worked on and Status changed have no column. */
+export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTableFilterField>> = {
   status: "statuses",
   scope: "scope",
   parent: "parent",
@@ -115,7 +122,7 @@ const COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, keyof TaskTableQuer
   workedTime: "workedTime",
 };
 
-// Includes Worked on, which filters rows from its own control instead of a column menu.
+// Includes Worked on and Status changed, which have no column of their own.
 const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "columns");
 
 /** Whether any row-selection filter differs from the saved view.
@@ -138,7 +145,7 @@ export const taskTableColumnQueryEdited = (
   saved: TaskTableQuery,
   query: TaskTableQuery,
 ) => {
-  const field = COLUMN_FILTER_FIELD[columnId];
+  const field = TASK_COLUMN_FILTER_FIELD[columnId];
   const filterEdited =
     field !== undefined &&
     !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(saved[field], query[field]);
@@ -248,6 +255,7 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
     updated: normalizeDateFilter(value.updated),
     closed: normalizeDateFilter(value.closed),
     workedOn: normalizeDateFilter(value.workedOn),
+    statusChanged: normalizeDateFilter(value.statusChanged),
     value: normalizeScoreFilter(value.value),
     effort: normalizeScoreFilter(value.effort),
     workedTime: normalizeWorkedTimeFilter(value.workedTime),

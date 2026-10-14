@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Task } from "../../../src/lib/types";
 import {
   DEFAULT_TASK_TABLE_ROW_FILTERS,
+  NO_TASK_TABLE_HISTORY_MATCHES,
   taskMatchesTableRowFilters,
+  type TaskTableHistoryMatches,
   type TaskTableRowFilters,
 } from "../../../src/dashboard/lib/taskTableFilter";
 
@@ -17,9 +19,9 @@ const task = (id: number, fields: Partial<Task> = {}): Task => ({
   followsTaskId: null, historyRevision: 0, ...fields,
 });
 
-const matchingIds = (tasks: Task[], filters: Partial<TaskTableRowFilters>, workedTaskIds: ReadonlySet<number> | null = null) =>
+const matchingIds = (tasks: Task[], filters: Partial<TaskTableRowFilters>, historyMatches: Partial<TaskTableHistoryMatches> = {}) =>
   tasks
-    .filter((row) => taskMatchesTableRowFilters(row, { ...DEFAULT_TASK_TABLE_ROW_FILTERS, ...filters }, workedTaskIds, nowMs))
+    .filter((row) => taskMatchesTableRowFilters(row, { ...DEFAULT_TASK_TABLE_ROW_FILTERS, ...filters }, { ...NO_TASK_TABLE_HISTORY_MATCHES, ...historyMatches }, nowMs))
     .map((row) => row.id);
 
 describe("table row filters", () => {
@@ -40,10 +42,11 @@ describe("table row filters", () => {
     expect(matchingIds(tasks, { closed: { kind: "range", fromDay: null, toDay: "2026-01-09" } })).toEqual([2, 3]);
   });
 
-  it("combines status, scope, parent, score, and Worked on", () => {
+  it("combines status, scope, parent, score, Worked on, and Status changed", () => {
     expect(matchingIds(tasks, { statuses: ["completed", "cancelled"], scope: "Health" })).toEqual([2]);
     expect(matchingIds(tasks, { parent: "none" })).toEqual([1, 2]);
     expect(matchingIds(tasks, { value: { kind: "scores", scores: [4] } })).toEqual([3]);
-    expect(matchingIds(tasks, {}, new Set([1, 3]))).toEqual([1, 3]);
+    expect(matchingIds(tasks, {}, { workedOn: new Set([1, 3]) })).toEqual([1, 3]);
+    expect(matchingIds(tasks, {}, { workedOn: new Set([1, 3]), statusChanged: new Set([2, 3]) })).toEqual([3]);
   });
 });

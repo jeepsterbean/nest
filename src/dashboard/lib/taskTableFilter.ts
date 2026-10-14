@@ -12,16 +12,25 @@ export type TaskTableRowFilters = Omit<TaskTableQuery, "sort" | "columns" | "wor
 
 export const DEFAULT_TASK_TABLE_ROW_FILTERS: TaskTableRowFilters = DEFAULT_TASK_TABLE_QUERY;
 
-/** Shared by the table and Day, so a Day stat lists the rows its table query would. */
+/** Tasks matched from fetched history; each set is null while its filter is unset. */
+export type TaskTableHistoryMatches = {
+  /** Tasks with Worked time in the Worked on range. */
+  workedOn: ReadonlySet<number> | null;
+  /** Tasks with a status transition in the Status changed range. */
+  statusChanged: ReadonlySet<number> | null;
+};
+
+export const NO_TASK_TABLE_HISTORY_MATCHES: TaskTableHistoryMatches = { workedOn: null, statusChanged: null };
+
 export const taskMatchesTableRowFilters = (
   task: Task,
   filters: TaskTableRowFilters,
-  /** Tasks with Worked time in the Worked on range; null while Worked on is unset. */
-  workedTaskIds: ReadonlySet<number> | null,
+  historyMatches: TaskTableHistoryMatches,
   nowMs: number = Date.now(),
 ): boolean =>
   scopeMatches(task.scope, filters.scope) &&
-  (workedTaskIds === null || workedTaskIds.has(task.id)) &&
+  (historyMatches.workedOn === null || historyMatches.workedOn.has(task.id)) &&
+  (historyMatches.statusChanged === null || historyMatches.statusChanged.has(task.id)) &&
   filters.statuses.includes(task.status) &&
   (filters.parent === null ||
     (filters.parent === "none" ? task.parentTaskId === null : task.parentTaskId === filters.parent)) &&

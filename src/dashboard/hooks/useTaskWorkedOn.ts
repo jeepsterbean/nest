@@ -6,7 +6,7 @@ import { resolveTaskDateFilter, type TaskDateFilter } from "../lib/taskDateFilte
 import { taskWorkedSecondsInRange } from "../lib/taskWorkedOn";
 
 // Finite SQL bounds cover all supported calendar dates and open stretches.
-const UNBOUNDED_SECONDS = 99_999_999_999;
+export const UNBOUNDED_HISTORY_SECONDS = 99_999_999_999;
 
 type FetchedRange = { from: number; to: number };
 type RangeHistory = FetchedRange & { stretches: TaskWorkStretch[] };
@@ -17,8 +17,8 @@ const sameRange = (fetched: FetchedRange | null, from: number, to: number) =>
 export function useTaskWorkedOn(filter: TaskDateFilter, nowMs: number, enabled: boolean) {
   const { tasks, taskWorkStretches, setError } = useDashboardData();
   const range = enabled ? resolveTaskDateFilter(filter, nowMs) : null;
-  const from = range?.fromSec ?? -UNBOUNDED_SECONDS;
-  const to = range?.toSec ?? UNBOUNDED_SECONDS;
+  const from = range?.fromSec ?? -UNBOUNDED_HISTORY_SECONDS;
+  const to = range?.toSec ?? UNBOUNDED_HISTORY_SECONDS;
   const active = range !== null;
   const [history, setHistory] = useState<RangeHistory | null>(null);
   const [failedRange, setFailedRange] = useState<FetchedRange | null>(null);

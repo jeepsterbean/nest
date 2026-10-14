@@ -25,18 +25,11 @@
 
 .dashboard--tasks .task-column-trigger,
 .dashboard--tasks .task-column-menu,
-.dashboard--tasks .task-query-rule,
-.dashboard--tasks .task-query-chip,
+.dashboard--tasks .task-query,
 .dashboard--tasks .task-views__changes .task-views__link,
 .dashboard--tasks .task-card__scope {
   --accent: var(--ink);
   --accent-soft: color-mix(in srgb, var(--muted) 13%, transparent);
-}
-
-.dashboard--tasks .task-query-rule.is-edited,
-.dashboard--tasks .task-query-chip.is-edited {
-  border-color: var(--border-strong);
-  background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 
 .dashboard--tasks .task-card__scope:not(.task-card__scope--empty) {
@@ -100,26 +93,27 @@
 .task-workspace--overlay { overflow: hidden; }
 .task-workspace--detail { grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); }
 
-/* New task shares the Section title's row. The sidebar stacks its children,
-   so the button is pinned to the row's right edge instead of joining the stack. */
-.section-sidebar > .task-new-button {
-  position: absolute;
-  top: 23px;
-  right: 12px;
-}
-
 .task-query__group h3 {
   display: flex;
   align-items: center;
   gap: 5px;
   margin: 0;
-  padding: 0 10px;
-  color: var(--muted);
+  padding-inline: 11px;
+  color: var(--ink);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.task-query__count {
+  margin-left: 2px;
+  color: var(--muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* An empty group keeps its heading in place but steps back, so the groups in
+   use read first. */
+.task-query__group.is-empty h3 { color: var(--muted); opacity: 0.65; }
 .task-query__group h3 svg {
   width: 12px;
   height: 12px;
@@ -539,17 +533,13 @@
   overflow-y: auto;
 }
 .task-workspace__main > .task-query { margin-bottom: 12px; }
-.task-query__pickers {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6px;
-}
 .task-query__group {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 .task-query__group :is(ul, ol) {
   display: grid;
@@ -558,12 +548,11 @@
   padding: 0;
   list-style: none;
 }
-/* The picker, heading icons, rule rows, and count share one text edge: a
-   rule's 1px border plus its 10px inset. */
-.task-query__group h3,
-.task-query__result { padding-inline: 11px; }
+/* Headings and rule rows share one text edge: a rule's 1px border plus its
+   10px inset. */
 .task-query__head {
   display: flex;
+  min-height: 18px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -571,34 +560,43 @@
   white-space: nowrap;
 }
 .task-query__head h3 { padding-right: 0; }
-.task-query__result {
-  display: flex;
-  min-height: 20px;
-  align-items: center;
-  gap: 8px;
-}
-.task-query__group .task-query__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-inline: 7px;
-}
-.task-query-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 6px 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: transparent;
+.task-query__action {
+  padding: 0 2px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
   color: var(--muted);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
-.task-query-chip:hover { border-color: var(--border-strong); color: var(--ink); }
-.task-query-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.task-query__action:hover { color: var(--ink); }
+.task-query__action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.task-query__hint {
+  margin: 0;
+  padding-inline: 11px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+/* Above the table the column headers sit right below, so the hint and
+   empty groups are noise; the sidebar keeps every group in place. */
+.task-workspace__main > .task-query :is(.task-query__hint, .task-query__group.is-empty) { display: none; }
+.task-table-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.task-table-bar__result {
+  display: flex;
+  min-width: 0;
+  min-height: 20px;
+  align-items: center;
+  gap: 8px;
+}
 
 .task-new-button {
   display: inline-flex;
@@ -737,12 +735,13 @@
 .task-create-card__cancel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .task-query-rule {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 28px;
   align-items: center;
   gap: 6px;
-  padding: 0 4px 0 10px;
+  padding: 0 0 0 10px;
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--ink);
@@ -756,18 +755,39 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.task-query-rule__field--sorted { color: var(--ink); font-weight: 600; }
-.task-query-rule__direction { color: var(--muted); font-weight: 400; }
-.task-query-rule.is-unset .task-query-rule__value { color: var(--muted); font-weight: 400; }
-.task-query-rule__value { flex: 1; min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-/* Emphasize rules changed since the view was saved. */
-.task-query-rule.is-edited {
-  border-color: color-mix(in srgb, var(--dump) 55%, var(--border));
-  background: color-mix(in srgb, var(--dump) 10%, transparent);
+.task-query-rule__field--fill { flex: 1; }
+/* The trigger spans the row up to the remove button, so the whole rule opens
+   its editor while the text keeps the row's left inset. */
+.task-query-rule__trigger {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  align-items: center;
+  gap: 6px;
+  margin-left: -10px;
+  padding: 0 0 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.task-query-rule:is(:hover, :focus-within),
+.task-query-rule:has(> .task-query-rule__trigger[aria-expanded="true"]) { background: var(--surface-2); }
+.task-query-rule__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.task-query-rule.is-unset .task-query-rule__value { color: var(--muted); font-weight: 400; }
+.task-query-rule__value { flex: 1; min-width: 0; overflow: hidden; font-weight: 600; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* Rules changed since the view was saved get a tinted fill rather than an
+   inset mark, so the grip keeps the left inset and the text edge stays put. */
+.task-query-rule.is-edited { background: color-mix(in srgb, var(--muted) 10%, transparent); }
 .task-query-rule.is-dragging { opacity: 0.45; }
 .task-query-rule.is-drag-over { outline: 1px solid var(--accent); background: var(--surface); }
 .task-query-rule__remove {
+  position: absolute;
+  right: 0;
   display: grid;
   flex: 0 0 22px;
   width: 22px;
@@ -781,34 +801,48 @@
   font-size: 14px;
   cursor: pointer;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.12s;
 }
 .task-query-rule:hover > .task-query-rule__remove,
-.task-query-rule:focus-within > .task-query-rule__remove { opacity: 1; }
+.task-query-rule:focus-within > .task-query-rule__remove { opacity: 1; pointer-events: auto; }
+/* Values reach the row's right edge at rest; make room for the remove action
+   only while it is visible, so it never covers the text. */
+.task-query-rule:has(> .task-query-rule__remove):is(:hover, :focus-within) > .task-query-rule__trigger,
+.task-query-rule:has(> .task-query-rule__remove):is(:hover, :focus-within) > .task-query-rule__field--fill {
+  padding-right: 28px;
+}
 .task-query-rule__remove:hover { background: var(--accent-soft); color: var(--accent); }
 .task-query-rule__remove:focus-visible { outline: 2px solid var(--accent); opacity: 1; }
+/* The grip lives in the 10px left inset and shows on hover or focus, so Sort
+   rows keep the same text and remove-button edges as Filters. */
 .task-query-rule__grip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 22px;
-  height: 24px;
-  padding: 3px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  width: 11px;
+  place-items: center;
+  padding: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--muted);
   cursor: grab;
+  opacity: 0;
   touch-action: none;
+  /* Above the rule trigger, which reaches into the same inset. */
+  z-index: 1;
 }
-.task-query-rule__grip svg { width: 14px; height: 14px; }
+.task-query-rule:is(:hover, :focus-within) > .task-query-rule__grip { opacity: 1; }
+.task-query-rule__grip svg { width: 12px; height: 12px; }
 .task-query-rule__grip:hover { color: var(--ink); }
 .task-query-rule__grip:focus-visible { outline: 2px solid var(--accent); }
 .task-query-rule__grip:active { cursor: grabbing; }
 .task-filter-result {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
 .task-filter-retry {
@@ -865,6 +899,11 @@
   background: var(--surface);
 }
 .task-views__control .task-views__trigger { flex: 1; min-width: 0; border: 0; background: transparent; }
+.section-sidebar__head > .task-views__control {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
 .task-views__changes { display: inline-flex; padding-right: 3px; }
 .task-views__changes button {
   display: grid;
@@ -979,21 +1018,4 @@
 }
 .task-views__field input:focus-visible { border-color: var(--accent); outline: none; }
 
-.task-worked-on-trigger {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-self: stretch;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px 0 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.task-query-rule--worked-on:has(> .task-worked-on-trigger:is(:hover, [aria-expanded="true"])) { background: var(--surface-2); }
-.task-worked-on-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dash-section--tasks > .task-header { flex-wrap: wrap; }

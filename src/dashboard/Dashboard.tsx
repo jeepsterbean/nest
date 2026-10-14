@@ -39,6 +39,7 @@ function DashboardInner() {
   const [sectionSidebar, setSectionSidebar] = useState<HTMLElement | null>(
     null,
   );
+  const [sectionSidebarHead, setSectionSidebarHead] = useState<HTMLDivElement | null>(null);
   const selectRecapPresentation = useCallback(
     (presentation: RecapPresentation) => {
       writeRecapPresentation(presentation);
@@ -115,7 +116,9 @@ function DashboardInner() {
         />
         <DashboardSidebar section={section} onSelectSection={setSection} />
         <aside className="section-sidebar" ref={setSectionSidebar}>
-          <h2 className="section-sidebar__title">{sectionLabel(section)}</h2>
+          <div className="section-sidebar__head" ref={setSectionSidebarHead}>
+            <h2 className="section-sidebar__title">{sectionLabel(section)}</h2>
+          </div>
         </aside>
         <div className={`dashboard__inner dashboard__inner--${surface}`}>
           <ErrorBanner />
@@ -145,7 +148,7 @@ function DashboardInner() {
                 <BrainDumpView sectionSidebar={sectionSidebar} visible={section === "brainDump"} />
               </div>
               <div className="section-slot" hidden={section !== "tasks"}>
-                <TasksView sectionSidebar={sectionSidebar} visible={section === "tasks"} />
+                <TasksView sectionSidebar={sectionSidebar} sectionSidebarHead={sectionSidebarHead} visible={section === "tasks"} />
               </div>
               <div className="section-slot" hidden={section !== "metrics"}>
                 <MetricsView sectionSidebar={sectionSidebar} visible={section === "metrics"} />

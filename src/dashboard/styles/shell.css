@@ -136,9 +136,17 @@
   background: color-mix(in srgb, var(--surface-2) 45%, var(--bg));
 }
 
+.section-sidebar__head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 10px;
+}
+
 .section-sidebar__title {
   margin: 0;
-  padding: 0 10px;
+  flex: none;
   color: var(--ink);
   font-family: var(--serif);
   font-size: 19px;
@@ -158,7 +166,7 @@
     padding: 18px 0;
   }
 
-  .section-sidebar__title {
+  .section-sidebar__head {
     display: none;
   }
 }

@@ -77,9 +77,10 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Every Section has a Section sidebar, `.section-sidebar`, between the
   Sidebar and `.dashboard__inner`. It shows the Section's name. On Recap, `RecapInsights`
   portals Insights into it under that name, and renders under the figure
-  once the sidebar collapses. On Tasks, `TasksView` portals "New task" (`.task-new-button`) onto the
-  name's row and, in Table, the query (`.task-query`). Both render in the
-  Section's main content once the sidebar collapses.
+  once the sidebar collapses. On Tasks, `TasksView` portals Table's query
+  (`.task-query`) into the Section sidebar. It renders in the Section's main
+  content once the sidebar collapses. New task (`.task-new-button`) and the
+  result count sit in `.task-table-bar` above the table.
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.
@@ -101,9 +102,11 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 ## Tasks implementation
 
-`TasksView` owns the header's `.task-header__actions` group, with Table's New
-task button when the Section sidebar collapses and a Table / Map `ViewToggle`
-when Settings shows Map. The header appears when it has controls. Tasks resets
+`TasksView` owns the header's `.task-header__actions` group with a Table / Map
+`ViewToggle` when Settings shows Map; with Map hidden, the header is left out.
+Table's saved-view picker shares `.section-sidebar__head` with the Tasks title;
+it returns to the query when the sidebar collapses. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
+same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows. Tasks resets
 to Table when leaving the Section; table queries and drafts stay mounted.
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent

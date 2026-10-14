@@ -1,235 +1,184 @@
 # Tasks interface
 
-Dashboard interactions for Table, Map, and Task details. Task rules live
-in [Tasks domain](../domain/tasks.md); shared terminology lives in
-[`CONTEXT.md`](../../CONTEXT.md) and dashboard controls in
-[`UI.md`](../../UI.md).
+Table, Map, and Task details interactions. Records and lifecycle rules live in
+[Tasks domain](../domain/tasks.md), shared terminology in
+[`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-The Tasks Section icon is picked from the Sidebar and also marks Task events
-in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
-
-Tasks opens in Table on each visit. Settings can enable Map, which adds a
-Table / Map switch. Hiding Map returns to Table and closes Task details.
+Tasks opens in Table on each visit. Settings can enable the Table / Map switch;
+hiding Map returns to Table and closes Task details.
 
 ## Table
 
-The table filters by any set of [Task statuses](../domain/tasks.md#fields-and-status)
-with Open / Closed / All presets; first visit is the Raw saved view. There is
-no scope sidebar; Scope is a column filter.
+First visit selects Raw. The Section sidebar holds saved views and
+[active rules](#active-rules-and-result-count); collapsing it moves the query
+above the table. The result count sits left above the table, New task right.
+Scope is a column filter; Table has no scope sidebar. Table rows indicate
+Working now.
 
-The Section sidebar holds the table's query: the saved-view picker, the
-result count, and the [active rules](#active-rules-and-result-count), led by
-the [Worked on control](#filters). Once the Section sidebar collapses, the query sits above
-the table.
+### Columns and menus
 
-### Saved views
+Columns can be reordered, resized, and hidden, except Title stays visible.
+Resizing trades width with the next column within their minimum widths; the last
+column has no resize handle. Columns fill the pane or scroll horizontally when
+their minimum widths exceed it.
 
-A **saved view** names one table query: the status set, Scope, Parent, Created,
-Updated, Closed, Worked on, Value, Effort, Worked time, the ordered sort rules, and the
-columns: their order, widths, and which are hidden. Up to five views, including Raw, are
-kept, in the order they were made; names are unique ignoring case. The built-in
-Raw view (every status, no filters, no sort, default columns) cannot be renamed,
-overwritten, or deleted, so there is always an unfiltered view to fall back to. Edits
-made while on Raw are never kept; it always loads as built.
-
-Changing any filter, the sort, or the columns after loading a view exposes Save
-and Revert (Save is disabled on Raw), and marks each rule whose filter, sort, or
-hidden column differs from the saved query; matching the saved query again
-clears it. Choosing another view switches without asking and drops unsaved
-changes. The picker's "Save current as view" row names the current query as a
-new view and selects it; it is disabled while the table still matches the
-selected view, and when five views are already saved. A save or new view whose
-query matches another view is refused with a link to switch to that one. Custom
-rows reveal Rename and Delete on hover or focus; Delete confirms inline, and
-deleting the selected view loads Raw. Saved views and the selected view are
-remembered across launches (`nest:task-table-views`); unsaved changes are not.
-When a view's Scope or Parent no longer exists, that filter is dropped from the
-live query once Tasks load. The saved view is left unchanged, so the picker
-shows Save and Revert until the view is saved (Revert restores the missing
-filter, which is then dropped again). Saved views apply only to Table; the Map
-is never filtered.
-
-### Column menus
-
-Each column header opens a menu, and only one menu opens at a time. The menu
-offers Reset when that column is filtered or sorted. Columns with more than one
-action offer Sort, Filter (Status, Scope, Parent, Created, Updated, Closed,
-Value, Effort, Worked time), and Hide column (every column but Title); hovering or
-clicking Sort or Filter opens its options. Title has only Sort, so its menu
-shows the sort options directly. Menus dismiss on outside pointer press
-(including another column trigger), Escape, or scrolling outside the menu.
-Status, Created, Updated, Closed, Value, Effort, and Worked time keep their
-menu open while choosing; Scope, Parent, and sort selections close their menu. Headers
-indicate sort direction and highlight only when that column's filter or sort
-differs from the saved view.
-
-### Sorting
-
-Every column sorts ascending or descending with empty values last: Title,
-Scope, and Parent (by the parent's title) sort A to Z or Z to A; Status sorts
-in lifecycle order; Value, Effort, and Worked time sort lowest or highest first
-(Worked time uses the displayed time for the active Worked on range, or the
-all-time total when unset, including an open stretch); Created, Updated, and
-Closed sort oldest or newest first, with open Tasks last under Closed. Choosing a new column appends a sort rule;
-changing its direction keeps its priority. Choosing the active direction again
-removes only that rule. Rules apply in order to break ties, with empty values
-last at each level. Sorting starts unset; removing it restores the incoming
-order.
+Headers offer Sort, supported Filters, Hide column, and Reset for an active
+filter or sort. Title opens sort options directly. Sort and Filter options open
+on hover or click. Only one column or rule menu opens at a time; outside press,
+Escape, or outside scrolling dismisses it. Scope, Parent, and sort selections
+close the menu; other column filter selections keep it open.
+Headers show sort direction and highlight filter or sort changes from the saved view.
 
 ### Filters
 
-Filters combine. Status offers Open / Closed / All and individual statuses;
-Scope offers All scopes and scope paths, including descendants. Parent offers
-All parents, No parent, and Tasks with direct children, with a search field
-once the list passes eight options. Created, Updated, and Closed offer a dropdown of Any
-date, Today, This week (Monday–Sunday, matching Calendar), This month, Last 7
-days, and Last 30 days, plus From and To calendar days chosen with the in-app
-date picker; either bound may be left empty. Picking a day writes the active
-bound (From first, then To). Closed shows and filters by
-[closed at](../domain/tasks.md#closing-and-the-lock); an open Task has no
-Closed date, so any Closed filter leaves it out. Value and Effort offer All, None (unscored), and
-scores 1–5; All shows every Task and ticks every score, None only unscored, and
-the numbers are a set of scored values.
+Filters combine. Worked on and Status changed have no columns: they remain the
+first two Filters rows, reading “-” when unset.
 
-The table query offers a standalone **Worked on** date control as the first
-Filters row, shown whether or not it is set. It defaults to All dates and uses the same date presets and
-From / To calendar days as the date columns. The control stays open while
-choosing dates and closes on an outside press, Escape, or outside scrolling.
-A Task matches
-when it has positive Worked time overlapping any part of the selected range;
-a stretch crossing midnight contributes to both days. Either bound may be
-empty. Work history for the selected range is fetched on demand for the selected dates. While a newly chosen range loads, the table shows a loading
-state; a failed fetch shows an unavailable state with Retry. When recorded
-work changes, the rows already shown stay in place until the refreshed
-history arrives.
+| Filter | Choices and matching |
+|---|---|
+| Status | Open / Closed / All presets, or a set of individual statuses. |
+| Scope | All scopes or a scope path, including descendants. |
+| Parent | All parents, No parent, or a Task with direct children. Search appears above eight options. |
+| Created / Updated / Closed | Creation, latest update, or [latest closure](../domain/tasks.md#closing-and-the-lock). A Closed filter excludes open Tasks. |
+| Value / Effort | All, None (unscored), or a set of scores 1–5. All ticks every score and includes unscored Tasks. |
+| Worked on | Positive Worked time overlapping the range. |
+| Status changed | Any recorded status transition in the range, regardless of current status. Creation-only events and ordinary edits are excluded; each Task appears once. |
 
-With Worked on set, the column reads “Worked time in range”; its values,
-sorting, and duration filter all use Worked time clipped to that range,
-following [history range rules](../domain/history.md#records-and-ranges).
-Reset in the Worked on control, choosing All dates, or removing its filter rule
-clears the date filter and restores all-time Worked time. The Worked time
-column menu resets its duration filter and sort independently.
-Created, Updated, and Closed only select rows and leave the Worked time period unchanged. Saved views keep
-Worked on: presets such as This week move with the calendar, while explicit
-dates stay fixed. Older saved views load with Worked on unset.
+Date filters offer Any date, Today, This week (Monday–Sunday), This month,
+Last 7 days, Last 30 days, and From / To calendar days. Either bound can be empty;
+the date picker writes the active bound, starting with From. Presets move with
+the calendar; explicit dates stay fixed.
 
-Worked time offers More than / Less than and a line of minute stops taken from
-the Tasks already in view (every other filter, not this one). The line is
-captured when the flyout opens so a live Working now total cannot move the
-stops; matching still uses the displayed time for the active range or all time,
-rounded down to whole minutes, with an inclusive threshold. For example, Less than 32m includes 32m59s.
+Worked on changes the column label to “Worked time in range”. Its values, sorting,
+and duration filter use time clipped to the range under
+[history range rules](../domain/history.md#records-and-ranges). Clearing Worked on
+restores all-time totals. Other date filters only select rows.
+
+Worked time offers More than / Less than, using whole minutes and inclusive
+thresholds: Less than 32m includes 32m59s. Minute stops come from Tasks matching
+all other filters and remain fixed while the flyout is open; matching uses live
+displayed totals. Its Reset clears the duration filter and sort independently
+of Worked on.
+
+Worked on and Status changed history loads on demand. New ranges show loading
+or unavailable with Retry; refreshing the current range keeps existing rows visible.
+
+### Sorting
+
+Every column sorts in either direction, with empty values last at each level:
+text alphabetically (Parent by title), Status in lifecycle order, scores and
+displayed Worked time numerically, and dates chronologically.
+
+New columns append sort rules; changing direction preserves priority, and choosing
+the active direction removes the rule. Rules break ties in order. Drag rules to
+reorder them, or use Up / Down on the focused grip. Sorting starts unset;
+clearing it restores incoming order.
 
 ### Active rules and result count
 
-The count reads `42 tasks` for the current result, or `42 out of 380 tasks` when
-an active filter differs from the saved view; sort and column edits keep the
-simple count. Under the picker and the count, Filters and Sort each list their
-active rules one per row. Filters always starts with Worked on; Sort and Hidden
-are left out when empty. Each row's remove button shows on hover or focus;
-removing Status selects all statuses.
+The count sits left above the table and reads `42 tasks`, or `42 out of 380 tasks`
+when an active filter differs from the saved view. Sort and column changes keep
+the simple count.
 
-Each filter row is marked when it differs from the saved view. Sort rows are
-listed in priority order: newly sorted columns append to the list. With two or
-more sorts, drag a rule by its grip to reorder it; the focused grip also
-supports Up / Down arrow keys. Directions change through column-header menus;
-each row removes its rule. Each sort rule is marked separately when its column,
-direction, or priority differs from the rule at that position in the saved
-view. Existing saved views with a single sort load it as the first rule.
+Filters, Sort, and Hidden list rules with active counts. Empty groups retain their
+headings in the sidebar and disappear above the table. With no filters, sorts, or
+hidden columns, the sidebar says “Filter and sort from the column headers.”
 
-Hidden lists each hidden column as a button that shows that column again,
-marked when the saved view shows the column. "Show all" appears with two
-or more hidden columns and shows every column again.
+Filter rows open the same editor as column menus, with Reset when set. Clearing
+a column filter keeps its row until the editor closes. Sort rows offer both
+directions; choosing the active direction removes the rule. Remove clears one
+rule (Status returns to All); Filters and Sort offer Clear at two or more rules.
+Hidden rows restore individual columns; Show all appears at two or more.
 
-Rule values stay short: score sets collapse runs of three or more into a range
-(`1–3`) and a set missing one interior score into what it leaves out (`≠ 3`); a
-status set missing one status reads `≠ Cancelled`. Longer values are cut off
-with an ellipsis, and the full text is the row's tooltip.
+Rules mark differences from the saved view: filter values, sort column/direction/
+priority, and columns newly hidden. Score labels compress runs of three or more
+(`1–3`) or one missing interior score (`≠ 3`); status labels compress one missing
+status (`≠ Cancelled`). Truncated values expose their full text in a tooltip.
 
-### Columns
+### Saved views
 
-Table columns can be reordered, resized, and hidden, and each saved view keeps
-its own. Visible columns always fill the table: a resize handle trades width
-with the next column and stops at each column's minimum. The last column has no
-handle. When the minima are wider than the pane, the table scrolls
-horizontally.
+A saved view keeps all filters, ordered sorts, and column order, widths, and
+visibility. Up to five views, including Raw, appear in creation order; names are
+unique ignoring case. Raw always loads all statuses, no filters or sorts, and
+default columns. It cannot be renamed, overwritten, or deleted.
 
-## Task details
+Changes expose Save and Revert; Save is disabled on Raw. Matching the selected
+view clears the changed state. Switching views discards unsaved changes.
+“Save current as view” creates and selects a view, and is disabled when the query
+matches the selected view or five views exist. Duplicate queries are refused
+with a link to the matching view.
 
-Selecting a Task in Table opens its detail panel as an overlay. The
-underlying layout ignores presses; pressing the dimmed area, Escape, or the
-panel's close control dismisses it. The Map shares the pane with the detail
-panel. Opening details focuses the panel; closing returns focus to the
-originating control when it is still available.
+Custom views support Rename and inline-confirmed Delete. Deleting the selected
+view loads Raw. Views and selection persist across launches; unsaved changes are
+discarded. Saved views apply only to Table; Map remains unfiltered.
 
-The status control lists every status for an open Task and for one closed
-today. On a [locked](../domain/tasks.md#closing-and-the-lock) Task it shows
-the closed status with its closing date and one action, "Create follow-up".
-The lock is checked when the control opens, so a dashboard left open past
-midnight shows it.
-
-Details show when the Task was created and last updated, and a closed Task
-also shows the date and time it was Completed or Cancelled.
-Details show status, Working now, and Worked time across every day, labelled
-“all time” independently of the table’s Worked on filter. Table rows
-also indicate Working now. Work controls live in the [Popup's Tasks and metrics
-panel](popup.md). Scope, Value, and Effort can be edited in details. The
-description is edited in place: Enter saves,
-Shift+Enter breaks the line, Escape cancels, and leaving the field saves.
-Parent, Children, Blocked by, and Blocks (only when the Task blocks others) are
-labelled rows in the panel. An empty row names its state ("No parent", "No
-children", "No blockers"); once a row lists Tasks, its control reads "Add
-child…" or "Add blocker…". Each Blocker row's status dot
-shows whether it is Completed.
-
-### History
-
-History shows creation, status, work, and recorded edits newest first, with a
-divider between local calendar days. The heading shows the day of the topmost
-entry in view, with Today labelled alongside its date. Each entry shows its
-time beside the event and any recorded change beneath it.
-Load earlier updates pages through history. Recorded changes, including changes
-from other windows, restart the list at the newest page so corrected or removed
-work entries are refreshed. Switching Tasks also starts with the newest page.
-Loading, empty, and unavailable with Retry states are shown. When an earlier
-page fails, Retry requests that page again and keeps the entries already
-shown. The end reads
-"Beginning of history." For Tasks created before edit recording began, it also
-shows "Edits recorded since [date]"; earlier status and work entries remain
-available. The drawer scrolls to keep long relationship lists and its controls
-accessible. Recording and deletion rules live
-in [Task history](../domain/tasks.md#history-and-deletion).
+Missing Scope or Parent filters are dropped after Tasks load, leaving the saved
+view unchanged and the query marked changed. Revert restores the missing filter,
+which is dropped again. Older views default Worked on and Status changed to unset
+and load a legacy single sort as the first rule.
 
 ## Creating Tasks
 
-The "New task" button is available in Table, beside the Section name
-in the Section sidebar and in the header once the sidebar collapses. It opens
-the new-task card as an overlay. Only the name is required; Status (default
-Backlog), Description, Scope, Parent, Value, Effort, and Blockers are optional.
-In Table, a fresh draft takes the view's Status when it shows exactly one and
-its Scope filter. Pressing
-outside the card, Escape, or Cancel dismisses it and keeps the draft for the
-next open; adding clears the draft and opens the new Task's detail panel.
+Table’s “New task” opens an overlay. Only the name is required; Status defaults
+to Backlog, with Description, Scope, Parent, Value, Effort, and Blockers optional.
+A fresh draft inherits the view’s Scope and its Status when exactly one is selected.
+Outside press, Escape, or Cancel closes the card and preserves the draft.
+Adding clears the draft and opens the new Task’s details.
+
+## Task details
+
+### Opening and closing
+
+Table details open as a modal overlay; Map shares its pane with details.
+Outside press, Escape, or Close dismisses the overlay. Opening focuses details;
+closing restores focus to the originating control when available.
+
+### Status, fields, and work
+
+The status control offers every status for open Tasks and Tasks closed today.
+For [locked Tasks](../domain/tasks.md#closing-and-the-lock), it shows the closed
+status, closing date, and “Create follow-up”. It checks the lock when opened.
+
+Details show creation, latest update, and closure timestamps, status, Working now,
+and Worked time labelled “all time”, independently of Table filters. Work controls
+live in the [Popup](popup.md). Scope, Value, and Effort are editable. Description
+editing saves on Enter or blur, inserts a line break on Shift+Enter, and cancels
+on Escape.
+
+### Relationships
+
+Details show Parent, Children, Blocked by, and Blocks when the Task blocks others.
+Empty states read “No parent”, “No children”, or “No blockers”; populated lists
+use “Add child…” or “Add blocker…”. Blocker status indicators show completion.
+The panel scrolls to keep relationships and controls accessible.
+
+### History
+
+[Task history](../domain/tasks.md#history-and-deletion) appears newest first,
+grouped by local calendar day. The heading follows the topmost visible day,
+labelling Today alongside its date. Entries show event time and recorded changes.
+
+“Load earlier updates” pages backward. Switching Tasks or receiving recorded
+changes, including from other windows, restarts at the newest page. Loading,
+empty, and unavailable with Retry states are shown; a failed earlier page keeps
+existing entries and retries that page.
+
+The end reads “Beginning of history.” Tasks predating edit recording also show
+“Edits recorded since [date]”; earlier status and work entries remain available.
 
 ## Map
 
-Map is a free-form canvas the user arranges by hand. Each placed Task is an
-**entity box** showing its title and attributes (status, scope, value / effort,
-and parent, children or blocked by when they apply). The canvas is far larger
-than the screen and is panned by dragging bare canvas, zoomed with the wheel
-about the pointer or with the zoom controls; pan and zoom are remembered
-(`nest:task-map-view`). Open Tasks wait in the **Map sidebar**; dragging one
-onto the canvas drops it wherever the pointer is, and clicking it drops it in
-view. Boxes go anywhere and may overlap. The distinction between placement and
-relationships lives in [Tasks domain](../domain/tasks.md#relationships-and-readiness). Connectors
-are solid from Parent to child, dashed from Blocker to the Task it blocks.
-Completed and Cancelled boxes stay on the Map, so a chain still reads end to
-end; drag a box back to the sidebar, or use its remove button, to take it off.
-Relations are added and removed in the detail panel, not on the Map. Positions
-live in the browser (`nest:task-map-v2`), keyed by Task id, and are dropped when
-the Task is deleted.
+Map is a manually arranged canvas. Task boxes show title, status, Scope, Value /
+Effort, and applicable Parent, Children, or Blocked by relationships. Drag bare
+canvas to pan; wheel zoom centres on the pointer, and zoom controls are available.
+Pan, zoom, and Task positions persist across launches; deleting a Task removes
+its position. Boxes may overlap.
 
-### Map sidebar
+The Map sidebar lists unplaced open Tasks. Dragging a Task places it at the
+pointer; clicking places it in view. “Add an active task” creates an unscoped
+Active Task and opens details. Collapsing the sidebar shows its Task count.
 
-The Map sidebar lists all unplaced open Tasks. "Add an active task" creates an
-unscoped Active Task and opens its details. The sidebar collapses to a button
-showing the unplaced open Task count.
+Connectors run from Parent to child (solid) and Blocker to dependent (dashed).
+Edit relationships in details; [placement is independent of relationships](../domain/tasks.md#relationships-and-readiness).
+Closed boxes remain placed. Dragging a box back to the sidebar or using Remove
+takes it off the canvas.
