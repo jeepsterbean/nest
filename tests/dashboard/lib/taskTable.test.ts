@@ -16,8 +16,8 @@ import {
 const defaultIds = TASK_TABLE_COLUMNS.map((column) => column.id);
 
 describe("task view", () => {
-  it("shows Day for a Map choice while Map is hidden", () => {
-    expect(visibleTaskViewFor("map", false)).toBe("day");
+  it("shows Table for a Map choice while Map is hidden", () => {
+    expect(visibleTaskViewFor("map", false)).toBe("table");
     expect(visibleTaskViewFor("map", true)).toBe("map");
     expect(visibleTaskViewFor("table", false)).toBe("table");
   });

@@ -78,9 +78,8 @@ portaled menu has to be scoped from a dashboard-level class, as
   Sidebar and `.dashboard__inner`. It shows the Section's name. On Recap, `RecapInsights`
   portals Insights into it under that name, and renders under the figure
   once the sidebar collapses. On Tasks, `TasksView` portals "New task" (`.task-new-button`) onto the
-  name's row and, in Table, the query (`.task-query`); in Day, `TaskDay`
-  portals its index (`.task-day-index`) into `.task-sidebar__day`. All three
-  render in the Section's main content once the sidebar collapses.
+  name's row and, in Table, the query (`.task-query`). Both render in the
+  Section's main content once the sidebar collapses.
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.
@@ -90,7 +89,7 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Away from Recap, Brain dump, Tasks, Metrics, and Phases all stay mounted
   (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
   selection, and drafts survive switches between them. Tasks alone returns to
-  Day and closes its Task detail on leaving. Opening Recap unmounts them.
+  Table and closes its Task detail on leaving. Opening Recap unmounts them.
 
 ## Shared surfaces
 
@@ -102,13 +101,12 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 ## Tasks implementation
 
-`TasksView` owns the shared header: Day's `DateNavigation` and the
-`.task-header__actions` group, with Day and Table's New task button followed by
-the button offering the other Day / Table view. `TaskDay` owns the report below
-it. Tasks resets to Day when leaving the Section; table queries and drafts stay
-mounted.
+`TasksView` owns the header's `.task-header__actions` group, with Table's New
+task button when the Section sidebar collapses and a Table / Map `ViewToggle`
+when Settings shows Map. The header appears when it has controls. Tasks resets
+to Table when leaving the Section; table queries and drafts stay mounted.
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
-edges for Day, Table, Map, and Task details. The Map draws connectors as an SVG
+edges for Table, Map, and Task details. The Map draws connectors as an SVG
 overlay. Task surface behavior lives in
 [`docs/interface/tasks.md`](docs/interface/tasks.md).

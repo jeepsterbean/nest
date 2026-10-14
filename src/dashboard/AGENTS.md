@@ -39,7 +39,7 @@ then only the surface document it routes for the task.
 - Keep shared record rules, lifecycle, and calculations in `docs/domain/`;
   use the root ownership table to choose the topic. Frontend preferences and
   interactions belong in `docs/interface/`.
-- Keep Day, Table, and Map behavior in `docs/interface/tasks.md`, Calendar behavior in
+- Keep Table and Map behavior in `docs/interface/tasks.md`, Calendar behavior in
   `docs/interface/calendar.md`, rules shared by
   time surfaces in `docs/interface/time-surfaces.md`, Metrics behavior in `docs/interface/metrics.md`, and Brain dump
   behavior in `docs/interface/brain-dump.md`.

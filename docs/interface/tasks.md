@@ -1,6 +1,6 @@
 # Tasks interface
 
-Dashboard interactions for Day, Table, Map, and Task details. Task rules live
+Dashboard interactions for Table, Map, and Task details. Task rules live
 in [Tasks domain](../domain/tasks.md); shared terminology lives in
 [`CONTEXT.md`](../../CONTEXT.md) and dashboard controls in
 [`UI.md`](../../UI.md).
@@ -8,60 +8,8 @@ in [Tasks domain](../domain/tasks.md); shared terminology lives in
 The Tasks Section icon is picked from the Sidebar and also marks Task events
 in Logs. Section icon behavior lives in [`UI.md`](../../UI.md#dashboard-shell).
 
-## Day
-
-Tasks opens in Day on each visit. The header ends with the view switch: one
-button naming the other of Day and Table, or a Day / Table / Map switch while
-Settings shows Map. Day is a task-focused
-daily report over the same 30-day history window as Calendar,
-paged with the [shared day navigation](time-surfaces.md#dates-and-ranges).
-
-The Section sidebar holds the day's index: Open on today, then the stats.
-Day shows one list at a time, the one selected in the index. Today starts on
-Open; a past day starts on the first of Worked on, Completed, Created, and
-Cancelled that has Tasks. A chosen list stays selected while paging days and
-yields to that default on a day where it is empty. A stat with no Tasks cannot
-be selected. Once the Section sidebar collapses, the index sits above the
-list.
-
-The stats form two groups, each read from one history so its stats compare.
-Status changes counts Tasks Created, Completed, and Cancelled that day, from status
-history; a Task closed with no work that day still counts. Work counts distinct
-Tasks Worked on, from Work stretches, and Incomplete as the part of Worked on
-still open when the day ended, listed as a part of Worked on.
-Worked time is shown per Task and not totalled across Tasks.
-Outcomes and clipping follow the
-[range summary rules](../domain/history.md#range-summaries) for a one-day range.
-
-A stat's list holds the Tasks that contributed to it. Created,
-Completed, and Cancelled show the recorded time; Incomplete and Worked on
-show each Task's Worked time for the day. Selecting a Task opens its
-detail panel. A Task is counted once in each lifecycle stat even if it reaches
-that outcome more than once that day. Available history follows the
-[Task history rules](../domain/tasks.md#history-and-deletion).
-
-Each stat lists the Tasks one set of [table filters](#filters) would show for
-that day, so Day and Table agree row for row:
-
-| Day stat | Table filters |
-|---|---|
-| Created | Created on the day |
-| Completed | Status Completed, Closed on the day |
-| Cancelled | Status Cancelled, Closed on the day |
-| Worked on | Worked on the day |
-| Incomplete | Worked on the day, leaving out Tasks Closed on or before it |
-
-The [lock](../domain/tasks.md#closing-and-the-lock) fixes a closed Task's
-status after its closing day, which is why its status and Closed date now
-give its outcome on that day. Incomplete has no single table query: the
-table cannot select Tasks that were still open when a past day ended.
-
-On today only, the index offers Open, which lists every open Task in Active, Up next, and Backlog
-groups; a past day's leftovers already show as Incomplete. Within a group,
-Working now Tasks lead and [Blocked](../domain/tasks.md#relationships-and-readiness)
-Tasks follow the Ready ones, muted and showing how many unresolved Blockers they
-have. Other rows show the Task's Worked time today when it has any. Selecting a
-row opens its detail panel.
+Tasks opens in Table on each visit. Settings can enable Map, which adds a
+Table / Map switch. Hiding Map returns to Table and closes Task details.
 
 ## Table
 
@@ -150,8 +98,7 @@ choosing dates and closes on an outside press, Escape, or outside scrolling.
 A Task matches
 when it has positive Worked time overlapping any part of the selected range;
 a stretch crossing midnight contributes to both days. Either bound may be
-empty. Work history for the selected range is fetched independently of Day's
-30-day window. While a newly chosen range loads, the table shows a loading
+empty. Work history for the selected range is fetched on demand for the selected dates. While a newly chosen range loads, the table shows a loading
 state; a failed fetch shows an unavailable state with Retry. When recorded
 work changes, the rows already shown stay in place until the refreshed
 history arrives.
@@ -208,7 +155,7 @@ horizontally.
 
 ## Task details
 
-Selecting a Task in Day or Table opens its detail panel as an overlay. The
+Selecting a Task in Table opens its detail panel as an overlay. The
 underlying layout ignores presses; pressing the dimmed area, Escape, or the
 panel's close control dismisses it. The Map shares the pane with the detail
 panel. Opening details focuses the panel; closing returns focus to the
@@ -254,12 +201,12 @@ in [Task history](../domain/tasks.md#history-and-deletion).
 
 ## Creating Tasks
 
-The "New task" button is available in Day and Table, beside the Section name
+The "New task" button is available in Table, beside the Section name
 in the Section sidebar and in the header once the sidebar collapses. It opens
 the new-task card as an overlay. Only the name is required; Status (default
 Backlog), Description, Scope, Parent, Value, Effort, and Blockers are optional.
 In Table, a fresh draft takes the view's Status when it shows exactly one and
-its Scope filter. In Day, a fresh draft starts unscoped with Status Backlog. Pressing
+its Scope filter. Pressing
 outside the card, Escape, or Cancel dismisses it and keeps the draft for the
 next open; adding clears the draft and opens the new Task's detail panel.
 

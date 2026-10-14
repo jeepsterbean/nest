@@ -37,9 +37,9 @@ The dashboard and Popup share the same unsaved brain dump draft, including its T
 
 ### Tasks
 
-Select **Tasks** to see the **Day** layout. On today, **Open** groups Tasks by Active, Up next, and Backlog. Select a Task to open its details. Use **New task** to add one. The daily index also lets you review Tasks worked on, created, completed, or cancelled on the selected day.
+Select **Tasks** to see the **Table** layout. Filter by Status, Scope, dates, or other Task fields, and save queries as views. Select a Task to open its details. Use **New task** to add one.
 
-Switch to **Table** to find Tasks with filters and sorting. You can save a Table query as a named view. If you enable Map in Settings, a **Map** layout is available too. **Working now** on an Active Task records a Work stretch; Task status and Working now are separate choices.
+If you enable Map in Settings, a **Map** layout is available too. **Working now** on an Active Task records a Work stretch; Task status and Working now are separate choices.
 
 ### Metrics
 
@@ -81,4 +81,4 @@ Select **Settings** at the bottom of the Sidebar. **Background** changes the vis
 - Select a date label to open the date picker. Future dates cannot be chosen.
 - Press **Escape** to close an open date picker, detail panel, or overlay.
 
-The dashboard's Recap, Tasks Day, and Timeline views use a rolling history window of about 30 days. Brain dump, Metrics, and Phases can fetch older days when you navigate to them.
+The dashboard's Recap views use a rolling history window of about 30 days. Brain dump, Metrics, and Phases can fetch older days when you navigate to them.

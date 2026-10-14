@@ -1,7 +1,6 @@
 import { moveItem } from "../../lib/reorder";
 
 export const TASK_VIEWS = [
-  { key: "day", label: "Day" },
   { key: "table", label: "Table" },
   { key: "map", label: "Map" },
 ] as const;
@@ -42,11 +41,11 @@ const isColumnId = (value: unknown): value is TaskTableColumnId =>
 const clampWidth = (minWidth: number, width: number) =>
   Math.max(minWidth, Math.round(width));
 
-/** A Map choice shows Day while Map is hidden. */
+/** A Map choice shows Table while Map is hidden. */
 export const visibleTaskViewFor = (
   taskView: TaskViewKey,
   showTaskMap: boolean,
-): TaskViewKey => (taskView === "map" && !showTaskMap ? "day" : taskView);
+): TaskViewKey => (taskView === "map" && !showTaskMap ? "table" : taskView);
 
 /** Drop unknown ids, append any new columns, and clamp widths to each min. */
 export const normalizeTaskTableLayout = (stored: unknown): TaskTableColumn[] => {

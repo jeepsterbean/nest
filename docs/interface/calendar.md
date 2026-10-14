@@ -108,9 +108,7 @@ list. An empty range shows a quiet empty message. The Phases section is
 the mix, with a row for each live Phase (0m included).
 
 The Tasks ledger counts Created, Completed, and Cancelled, always in that
-order, even at 0. All three read from status history; Insights uses no Work
-stretches, so Incomplete and Worked time appear only in
-[Tasks Day](tasks.md#day). Each row shows the title and its Task count at the
+order, even at 0. All three read from status history. Each row shows the title and its Task count at the
 right edge. Rows show summaries without expanding into individual Tasks.
 
 Metric check-ins are grouped by Pulse, with counts from

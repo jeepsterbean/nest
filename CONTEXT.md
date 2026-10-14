@@ -61,7 +61,7 @@ Surface behavior: [Metrics interface](docs/interface/metrics.md),
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.
 - **Settings** names the overlay the Sidebar opens for Background, Map, Work
   stretch, and Icons preferences.
-- Day, Table, and Map are Tasks **layouts**. A **saved view** is a named Table
+- Table and Map are Tasks **layouts**. A **saved view** is a named Table
   query.
 - **Map** names the Tasks layout; **Note Board** names the brain dump board.
 - **Timeline** lists history; **Logs** places it on Calendar beside Work stretch.

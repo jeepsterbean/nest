@@ -21,7 +21,7 @@ reference by default.
 | History ranges, Phase settling, or summary calculations | `docs/domain/history.md` |
 | Phases Section interactions | `docs/interface/phases.md` |
 | Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
-| Tasks Day, Table, Map, or detail interactions | `docs/interface/tasks.md` |
+| Tasks Table, Map, or detail interactions | `docs/interface/tasks.md` |
 | Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date and Logs kind rules |
 | Pulse membership or Metric check-in records | `CONTEXT.md`, `docs/domain/metrics.md` |
 | Metrics Section interactions | `docs/interface/metrics.md` |

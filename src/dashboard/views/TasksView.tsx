@@ -12,12 +12,8 @@ import type { TaskStatus } from "../../lib/types";
 import { plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
-import { DateNavigation } from "../components/DateNavigation";
 import { ViewToggle } from "../components/ViewToggle";
-import {
-  HISTORY_WINDOW_DAYS,
-  useDashboardData,
-} from "../context/DashboardDataContext";
+import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
 import { useMediaQuery } from "../hooks/useMediaQuery";
@@ -25,11 +21,6 @@ import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
-import {
-  boundedDayMs,
-  singleDayPicker,
-  stepSelectedDay,
-} from "../lib/dateNavigation";
 import { scopeMatches } from "../lib/scope";
 import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
 import {
@@ -51,13 +42,11 @@ import { taskMatchesTableRowFilters } from "../lib/taskTableFilter";
 import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
 import { changedTaskTableQueryFields, taskTableColumnQueryEdited, taskTableFiltersEdited, type TaskParentFilter, type TaskTableQuery } from "../lib/taskTableViews";
 import { taskMatchesWorkedTimeFilter, taskWorkedTimeFilterLabel, type TaskWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
-import { dayLabel, historyStartSec, startOfDayMs } from "../lib/time";
 import {
   EMPTY_TASK_DRAFT,
   TaskCreateCard,
   type TaskDraft,
 } from "../task/TaskCreateCard";
-import { TaskDay } from "../task/TaskDay";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
@@ -83,44 +72,27 @@ export function TasksView({
 }) {
   const {
     tasks,
-    taskWorkStretches,
     scopeTree,
     taskGraph,
     loaded,
     reload,
     setError,
   } = useDashboardData();
-  const [taskView, setTaskView] = useState<TaskViewKey>("day");
+  const [taskView, setTaskView] = useState<TaskViewKey>("table");
   const showTaskMap = useAppSettings().showTaskMap;
   const visibleTaskView = visibleTaskViewFor(taskView, showTaskMap);
   // Tasks stays mounted while hidden, so it must not fill another Section's
   // sidebar, and the collapsed sidebar is too thin for these controls.
   const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
   const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
-  const [dayIndexSlot, setDayIndexSlot] = useState<HTMLElement | null>(null);
-  // Day and Table are each other's only alternative until Settings shows Map,
-  // so one button naming the other view replaces the switch.
-  const alternativeView = TASK_VIEWS.find(
-    (view) => view.key === (visibleTaskView === "day" ? "table" : "day"),
-  )!;
-  const viewSwitch = showTaskMap ? (
+  const viewSwitch = showTaskMap && (
     <ViewToggle
       value={visibleTaskView}
       options={TASK_VIEWS}
       label="Tasks view"
       onChange={setTaskView}
     />
-  ) : (
-    <button
-      type="button"
-      className="task-view-switch"
-      aria-label={`Show ${alternativeView.label} view`}
-      onClick={() => setTaskView(alternativeView.key)}
-    >
-      {alternativeView.label}
-    </button>
   );
-  const [dayAnchorMs, setDayAnchorMs] = useState<number | null>(null);
   const taskTableViews = useTaskTableViews();
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
   const {
@@ -154,17 +126,6 @@ export function TasksView({
     || tableSort.some(rule => rule.column === "workedTime")
   );
   const dateNowMs = useCurrentTime();
-  const earliestTaskHistorySec = historyStartSec(
-    dateNowMs,
-    HISTORY_WINDOW_DAYS,
-  );
-  const selectedTaskDayMs = boundedDayMs(
-    dayAnchorMs ?? dateNowMs,
-    dateNowMs,
-    earliestTaskHistorySec,
-  );
-  const todayMs = startOfDayMs(dateNowMs / 1000);
-  const earliestTaskDayMs = startOfDayMs(earliestTaskHistorySec);
   const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
   useEffect(() => {
     if (!tickWorkedTime) return;
@@ -207,7 +168,7 @@ export function TasksView({
     }
   }, [taskGraph, selectedTaskId]);
 
-  // Hiding Map from Settings lands on Day, where a kept selection would open
+  // Hiding Map from Settings lands on Table, where a kept selection would open
   // the modal Task detail behind the Settings overlay.
   const mapHidden = taskView === "map" && !showTaskMap;
   useEffect(() => {
@@ -219,7 +180,7 @@ export function TasksView({
   // hidden, so the handler must not fire from another Section.
   useEffect(() => {
     if (!visible) {
-      setTaskView("day");
+      setTaskView("table");
       setSelectedTaskId(null);
     }
   }, [visible]);
@@ -406,30 +367,18 @@ export function TasksView({
       {sidebar && createPortal(
         <>
           {newTaskButton}
-          {loaded && visibleTaskView === "table"
-            ? tableQueryPanel
-            : <div className="task-sidebar__day" ref={setDayIndexSlot} />}
+          {loaded && visibleTaskView === "table" && tableQueryPanel}
         </>,
         sidebar,
       )}
-      <header className="dash-section__head task-header">
-        {loaded && visibleTaskView === "day" && (
-          <DateNavigation
-            label={dayLabel(selectedTaskDayMs / 1000, dateNowMs)}
-            unit="day"
-            canGoPrevious={selectedTaskDayMs > earliestTaskDayMs}
-            canGoNext={selectedTaskDayMs < todayMs}
-            onPrevious={() => setDayAnchorMs(stepSelectedDay(selectedTaskDayMs, -1, dateNowMs))}
-            onNext={() => setDayAnchorMs(stepSelectedDay(selectedTaskDayMs, 1, dateNowMs))}
-            onToday={() => setDayAnchorMs(null)}
-            picker={singleDayPicker(selectedTaskDayMs, dateNowMs, setDayAnchorMs, earliestTaskHistorySec)}
-          />
-        )}
-        <div className="task-header__actions">
-          {!sidebar && newTaskButton}
-          {viewSwitch}
-        </div>
-      </header>
+      {(!sidebar || showTaskMap) && (
+        <header className="dash-section__head task-header">
+          <div className="task-header__actions">
+            {!sidebar && newTaskButton}
+            {viewSwitch}
+          </div>
+        </header>
+      )}
 
       {!loaded ? (
         <div className="task-board__loading">Laying out the board…</div>
@@ -438,17 +387,6 @@ export function TasksView({
           className={`task-workspace${selectedTask && visibleTaskView === "map" ? " task-workspace--detail" : ""}${visibleTaskView === "map" ? " task-workspace--map" : ""}${overlayDetailOpen ? " task-workspace--overlay" : ""}`}
         >
           <div className="task-workspace__main" inert={overlayDetailOpen}>
-            {visibleTaskView === "day" && (
-              <TaskDay
-                selectedDayMs={selectedTaskDayMs}
-                nowMs={dateNowMs}
-                tasks={tasks}
-                taskGraph={taskGraph}
-                workStretches={taskWorkStretches}
-                indexSlot={dayIndexSlot}
-                onSelectTask={selectTask}
-              />
-            )}
             {visibleTaskView === "map" && (
               <TaskMap
                 tasks={tasks}

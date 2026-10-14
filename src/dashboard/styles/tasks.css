@@ -100,14 +100,6 @@
 .task-workspace--overlay { overflow: hidden; }
 .task-workspace--detail { grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); }
 
-.task-day {
-  display: flex;
-  width: min(920px, 100%);
-  flex-direction: column;
-  gap: 18px;
-  padding: 2px 0 24px;
-}
-
 /* New task shares the Section title's row. The sidebar stacks its children,
    so the button is pinned to the row's right edge instead of joining the stack. */
 .section-sidebar > .task-new-button {
@@ -116,29 +108,6 @@
   right: 12px;
 }
 
-/* Scrolls on its own so a long index never pushes past the sidebar's foot. */
-.task-sidebar__day {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.task-day-index {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 14px;
-  padding: 3px;
-}
-
-.task-day-index section {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.task-day-index h3,
 .task-query__group h3 {
   margin: 0;
   padding: 0 10px;
@@ -147,310 +116,6 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.task-day-index ul {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.task-day-index__row {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  min-height: 30px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 4px 10px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-day-index__row:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-/* Incomplete is a part of the stat above it, so it sits one step in. */
-.task-day-index__row--part { padding-left: 24px; }
-
-.task-day-index__row[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--muted) 13%, transparent);
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.task-day-index__row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.task-day-index__row:disabled {
-  cursor: default;
-  opacity: 0.62;
-}
-
-.task-day-index__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-day-index__count {
-  flex: none;
-  color: var(--ink);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* The Section sidebar collapses at this width (shell.css), so the index sits
-   above its list as side-by-side groups; keep the width in step with
-   COLLAPSED_SECTION_SIDEBAR. */
-@media (max-width: 600px) {
-  .task-day-index {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-    align-items: start;
-    padding: 0;
-  }
-}
-
-.task-day__empty {
-  margin: 0;
-  padding: 14px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.task-day__detail {
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.task-day__detail h3 {
-  margin: 0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.task-day__detail ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.task-day__detail li + li {
-  border-top: 1px solid var(--border);
-}
-
-.task-day__detail button {
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-day__detail button:hover {
-  background: var(--surface-2);
-}
-
-.task-day__detail button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.task-day__detail button span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-day__detail button span:last-child {
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.task-day-open {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 6px;
-}
-
-.task-day-open h3,
-.task-day-open h4 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.task-day-open__count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  opacity: 0.8;
-}
-
-.task-day-open h4 .task-day-open__count {
-  margin-left: auto;
-}
-
-.task-day-open__empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.task-day-open__groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  align-items: start;
-}
-
-/* Same card surface as the summary measures so Open reads as part of Day. */
-.task-day-open__group {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 6px 6px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
-}
-
-.task-day-open__group h4 {
-  padding: 0 6px 4px;
-}
-
-.task-day-open__group.is-empty {
-  opacity: 0.62;
-}
-
-.task-day-open ul {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Ready rows lead; one dashed rule marks where Blocked begins, echoing the
-   Map's dashed Blocker connectors. */
-.task-day-open li:has(> button:not(.is-blocked)) + li:has(> button.is-blocked) {
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border-strong);
-}
-
-.task-day-open li button {
-  display: flex;
-  width: 100%;
-  min-height: 34px;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 7px 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-day-open li button:hover {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border);
-}
-
-.task-day-open li button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.task-day-open li button.is-blocked .task-day-open__title {
-  color: var(--muted);
-  font-weight: 550;
-}
-
-.task-day-open__title {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  gap: 6px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-/* Two lines keeps the three columns scannable; the full title is in details. */
-.task-day-open__title > span:first-child {
-  display: -webkit-box;
-  min-width: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.task-day-open__title .working-badge {
-  flex: none;
-  margin-top: 4px;
-}
-
-.task-day-open__meta {
-  color: var(--muted);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 520px) {
-  .task-day-open__groups {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .task-table__header-controls { display: flex; align-items: center; gap: 4px; }
@@ -857,7 +522,7 @@
   flex-direction: column;
   gap: 14px;
 }
-/* Scrolls on its own, like the Day index; the inset keeps focus rings from
+/* Scrolls on its own; the inset keeps focus rings from
    being clipped by the scroll box. */
 .section-sidebar > .task-query {
   min-height: 0;
@@ -927,8 +592,7 @@
 .task-query-chip:hover { border-color: var(--border-strong); color: var(--ink); }
 .task-query-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.task-new-button,
-.task-view-switch {
+.task-new-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -945,12 +609,9 @@
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.task-view-switch { padding: 0 12px; }
 .task-new-button svg { width: 14px; height: 14px; color: var(--accent); }
-.task-new-button:hover,
-.task-view-switch:hover { border-color: var(--accent); background: var(--accent-soft); }
-.task-new-button:focus-visible,
-.task-view-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-new-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.task-new-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @keyframes task-create-fade {
   from { opacity: 0; }

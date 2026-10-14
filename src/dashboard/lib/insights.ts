@@ -223,7 +223,7 @@ export type InsightTaskCount = { change: InsightTaskChange; count: number };
 
 /** Tasks created in the range, and Tasks whose closing falls in it. The
  * closing-day lock is what lets current status and closed at stand in for a
- * past range, as on Tasks Day. Work stretches play no part, so every count
+ * past range. Work stretches play no part, so every count
  * reads from one history. All three always return, in this order. */
 export const insightTaskCounts = (
   tasks: Task[],
