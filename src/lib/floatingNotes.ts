@@ -62,7 +62,7 @@ export type FloatingNoteBoard = {
 
 export const FLOATING_NOTE_STORAGE_KEY = "nest:floating-notes";
 export const FLOATING_NOTE_BOARD_STORAGE_KEY = "nest:floating-note-board";
-// Newest first: floating notes lived under brain-dump names before Notes.
+// Read legacy storage keys newest first to preserve floating Notes.
 const LEGACY_FLOATING_NOTE_STORAGE_KEYS = [
   "nest:floating-brain-dumps",
   "nest.floating-brain-dumps",

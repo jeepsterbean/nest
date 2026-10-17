@@ -7,7 +7,7 @@ import type { Note } from "./types";
 
 const TEXT_STORAGE_KEY = "nest:note-draft";
 const TAG_IDS_STORAGE_KEY = "nest:note-draft-tags";
-// Newest first: the draft lived under brain-dump names before Notes.
+// Read legacy draft keys newest first to preserve unsaved Notes.
 const LEGACY_TEXT_STORAGE_KEYS = ["nest:brain-dump-draft", "nest.brain-dump-draft"];
 const LEGACY_TAG_IDS_STORAGE_KEYS = [
   "nest:brain-dump-draft-tags",
