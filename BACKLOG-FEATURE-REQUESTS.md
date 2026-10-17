@@ -27,16 +27,6 @@ APIs, schema, or code structure.
 ## Status
 New data model. which basically, is textual summary of what the user is doing from time A to B
 
-## insights page 
-- i want to track user usage rate. how many tasks i create, how many tasks i start using. how many tasks are allocated V/E, how many notes are created
-
-- Bring back Last hour (removed after commit 65a7391, which holds the previous version):
-  - A Last hour control on Insights summarizes the rolling 60 minutes ending now, in place of the Day or Week on screen, and shows the clock span it covers (e.g. 2:04 PM – 3:04 PM).
-  - Choosing it moves Recap to today and to Day. Calendar and Timeline keep showing that full day; only Insights reads the hour.
-  - Turning it off, paging or picking another day, or choosing Week returns Insights to the range on screen.
-  - The choice is remembered across restarts. A remembered Last hour opens on today in Day, never on a stored Week.
-  - Phase mix and the Task ledger advance with the shared minute clock. Notes and Metric check-ins follow wall-clock now, so one saved a moment ago shows immediately.
-  - Just after midnight the hour still includes the end of the previous day.
 
 ## Timeline
 - Bring back the day export (removed after commit 65a7391, which holds the previous version):

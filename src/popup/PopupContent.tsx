@@ -41,6 +41,8 @@ import { phaseName, phaseTone } from "../dashboard/lib/period";
 import { AmbientVisualizer } from "../dashboard/components/AmbientVisualizer";
 import { useBackgroundStyle } from "../dashboard/hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "../dashboard/hooks/useBackgroundTuning";
+import { useCurrentTime } from "../dashboard/hooks/useCurrentTime";
+import { formatTime } from "../dashboard/lib/time";
 import { useTileIcons } from "../dashboard/hooks/useTileIcons";
 import type { TileIcons } from "../dashboard/lib/tileIcons";
 import {
@@ -373,7 +375,7 @@ function PopupNote({
   onError: (error: string | null) => void;
 }) {
   const [draft, setDraft] = useNoteDraft();
-  const icons = useTileIcons();
+  const nowMs = useCurrentTime();
   const draftRevision = `${draft.text}\n${draft.tagIds.join(",")}`;
   const history = useRecentNoteHistory(draft.text, onError, draftRevision);
   const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingNote);
@@ -407,9 +409,13 @@ function PopupNote({
       readOnly={history.viewingHistory}
       tagsDisabled={history.viewingHistory}
       headerStart={
-        <span className="note-surface__header-icon" aria-hidden="true">
-          <NestIcon name={icons.notes} />
-        </span>
+        <time
+          className="note-history-controls__submitted"
+          dateTime={new Date(nowMs).toISOString()}
+          aria-label="Current time"
+        >
+          {formatTime(Math.floor(nowMs / 1000))}
+        </time>
       }
       textareaLabel={
         history.viewingHistory ? "Saved note, read only" : "Notes"
