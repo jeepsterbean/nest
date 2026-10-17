@@ -605,7 +605,6 @@
 }
 
 .event-note__text {
-  font-family: var(--serif);
   font-size: 14px;
   line-height: 1.55;
   overflow-wrap: anywhere;

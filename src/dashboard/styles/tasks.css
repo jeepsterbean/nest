@@ -67,7 +67,6 @@
   place-items: center;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-family: var(--serif);
   font-size: 17px;
 }
 
@@ -683,7 +682,6 @@
 }
 .task-create-card__title {
   padding: 4px 6px;
-  font-family: var(--serif);
   font-size: 19px;
   font-weight: 600;
   line-height: 1.3;

@@ -93,7 +93,7 @@
 .task-detail .task-title,
 .task-detail .rename-input {
   flex: none;
-  font-family: var(--serif);
+  font-family: inherit;
   font-size: 20px;
   font-weight: 600;
   line-height: 1.3;

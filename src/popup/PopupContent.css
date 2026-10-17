@@ -229,7 +229,6 @@
 .now-hero__title {
   overflow: hidden;
   color: var(--ink);
-  font-family: var(--serif);
   font-size: 1.12rem;
   font-weight: 650;
   letter-spacing: -0.01em;
