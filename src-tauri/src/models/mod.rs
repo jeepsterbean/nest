@@ -1,14 +1,14 @@
-mod brain_dump;
 mod metric;
+mod note;
 mod phase;
 mod task;
 mod timer;
 
-pub use brain_dump::{BrainDump, BrainDumpTag, Tag};
 pub use metric::{
     Metric, MetricCheckIn, MetricCheckInWithRatings, MetricRating, MetricRatingInput, Pulse,
     PulseMetricEntry,
 };
+pub use note::{Note, NoteTag, Tag};
 pub use phase::{Phase, PhaseCheckIn};
 pub use task::{
     Task, TaskDependency, TaskStatusEvent, TaskUpdate, TaskUpdateCursor, TaskUpdatePage,

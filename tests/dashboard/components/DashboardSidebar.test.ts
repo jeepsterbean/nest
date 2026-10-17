@@ -31,12 +31,12 @@ const renderSidebar = (section: Section) =>
   );
 
 describe("DashboardSidebar", () => {
-  it("offers Recap, Brain dump, Tasks, Metrics, and Phases as the Sections", () => {
+  it("offers Recap, Notes, Tasks, Metrics, and Phases as the Sections", () => {
     const html = renderSidebar("recap");
 
     expect(html).toContain('aria-label="Recap, choose icon"');
     expect(html).toContain('aria-current="page"');
-    const others = ["Brain dump", "Tasks", "Metrics", "Phases"].map((label) =>
+    const others = ["Notes", "Tasks", "Metrics", "Phases"].map((label) =>
       html.indexOf(`aria-label="${label}"`),
     );
     expect(others).toEqual([...others].sort((a, b) => a - b));

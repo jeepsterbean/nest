@@ -5,7 +5,7 @@ import { InsightHeading } from "../../../src/dashboard/components/InsightBoard";
 import { DEFAULT_TILE_ICONS } from "../../../src/dashboard/lib/tileIcons";
 
 const headings = [
-  { label: "Brain dumps", icon: DEFAULT_TILE_ICONS.brainDump },
+  { label: "Notes", icon: DEFAULT_TILE_ICONS.notes },
   { label: "Tasks", icon: DEFAULT_TILE_ICONS.tasks },
   { label: "Metrics", icon: DEFAULT_TILE_ICONS.metrics },
   { label: "Phases", icon: DEFAULT_TILE_ICONS.phases },

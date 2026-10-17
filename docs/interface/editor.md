@@ -1,16 +1,16 @@
-# Brain dump editor implementation
+# Note editor implementation
 
 This is the authoritative reference for editor invariants, dependency findings,
 diagnosis, and manual regression checks. Domain words live in
 [CONTEXT.md](../../CONTEXT.md); capture and Note Board behavior live in
-[docs/interface/brain-dump.md](brain-dump.md); shared dashboard controls live in [UI.md](../../UI.md).
+[docs/interface/notes.md](notes.md); shared dashboard controls live in [UI.md](../../UI.md).
 
 ## Editor ownership and synchronization
 
-`BrainDumpSurface` is the only component that mounts several times on one
+`NoteSurface` is the only component that mounts several times on one
 screen and reaches for browser singletons, which is what turns its bugs into
-cross-instance ones. Three kinds of instance exist: the Brain dump Section
-composer on Today, one per expanded `.floating-brain-dump` sticky, and the
+cross-instance ones. Three kinds of instance exist: the Notes Section
+composer on Today, one per expanded `.floating-note` sticky, and the
 popup composer. Each
 owns a separate TipTap editor with its own document, selection, and undo stack;
 there is no active-editor registry, and focus moves natively.
@@ -31,8 +31,8 @@ Process-wide resources it touches:
 - Document-level capture listeners for `pointerdown` and `focusin`, one per
   surface with `dismissPopupsOnOutsideInteraction`. Each fires for clicks
   landing in every other surface.
-- `window` `keydown`, from `useRecentBrainDumpHistory`: in the popup,
-  Cmd/Ctrl+[ and ] are global and navigate the popup dump's history.
+- `window` `keydown`, from `useRecentNoteHistory`: in the popup,
+  Cmd/Ctrl+[ and ] are global and navigate the popup note's history.
 
 Invariants that are easy to break:
 
@@ -41,7 +41,7 @@ Invariants that are easy to break:
   `setContent` throws the caret to the end of the document.
 - History browsing reuses the same editor read-only. `setEditable(!readOnly,
   false)` must keep `emitUpdate` false, or leaving history publishes the
-  displayed saved dump into the live draft.
+  displayed saved note into the live draft.
 - Minimising a sticky, docking it on the Note Board, or hiding free stickies
   unmounts the surface, destroying its editor, selection, and undo stack.
   Expanding or dragging it out rebuilds from `text` with the caret at the start.
@@ -84,7 +84,7 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
 ## Diagnosing caret and focus bugs
 
 - First decide whether it is one surface or many: hide the stickies with
-  `.floating-brain-dumps-toggle` so the Today composer is the only live editor,
+  `.floating-notes-toggle` so the Today composer is the only live editor,
   then retry. A symptom that survives is local; one that disappears is a
   cross-instance problem with a browser singleton.
 - Note whether the caret dies on a click that moves focus or on a click inside
@@ -122,10 +122,10 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
   the caret is simply not painted — a WKWebView rendering problem, so look at
   CSS rather than at handlers.
 - A caret missing only on an empty first line, with the editor still focused,
-  is that paint clip: `.brain-dump-surface__editor` uses `overflow-x: hidden`,
+  is that paint clip: `.note-surface__editor` uses `overflow-x: hidden`,
   and the panel layout of the Today composer otherwise zeros input
   padding. Keep 1px of horizontal padding on
-  `.brain-dump-surface--panel .brain-dump-surface__input`, and a line-box
+  `.note-surface--panel .note-surface__input`, and a line-box
   `min-height` on the empty first `p`.
 - The Today composer is the `layout="panel"` surface. Do not give
   its Tag strip `margin-top: auto` — that opens a dead zone under a one-line
@@ -134,7 +134,7 @@ from; re-verify them when bumping `@tiptap/*` or `prosemirror-*`.
 
 ## Verification
 
-After changing `BrainDumpSurface` or its editor helpers, run the frontend
+After changing `NoteSurface` or its editor helpers, run the frontend
 checks in [AGENTS.md](../../AGENTS.md#verification) and this manual pass in Nest's
 native Tauri/WKWebView environment:
 
@@ -144,9 +144,9 @@ native Tauri/WKWebView environment:
 3. Select text, press B, then click outside. The formatting menu closes.
 4. Select text in one sticky, then click into another. The first menu closes.
 5. Minimise and expand a sticky. Its text survives.
-6. Type in the popup with the dashboard open. The main dump mirrors it and
+6. Type in the popup with the dashboard open. The main note mirrors it and
    the popup caret stays put.
-7. Type in the Brain dump composer on Today with the popup open. The popup
+7. Type in the Notes composer on Today with the popup open. The popup
    mirrors it and both carets stay put.
 
 Vitest runs in the `node` environment, so caret placement, focus, selection,

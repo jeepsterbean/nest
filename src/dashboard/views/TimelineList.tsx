@@ -69,8 +69,8 @@ function CurrentTimeRow({
 const eventKey = (event: RawLogEvent) =>
   event.kind === "metrics"
     ? `metrics-${event.checkIn.id}`
-    : event.kind === "dump"
-      ? `dump-${event.dump.id}`
+    : event.kind === "note"
+      ? `note-${event.note.id}`
       : event.kind === "phase"
         ? `phase-${event.checkIn.id}`
         : event.kind === "task-status"
@@ -87,9 +87,9 @@ export const TimelineList = memo(function TimelineList({
   metrics,
   pulses,
   tasks,
-  expandedDumpIds,
+  expandedNoteIds,
   onDeleteCheckIn,
-  onToggleDump,
+  onToggleNote,
   nowMs,
   showCurrentTime = true,
   colorsTimeColumn = true,
@@ -100,9 +100,9 @@ export const TimelineList = memo(function TimelineList({
   metrics: Metric[];
   pulses: Pulse[];
   tasks: Task[];
-  expandedDumpIds: Set<number>;
+  expandedNoteIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
-  onToggleDump: (id: number) => void;
+  onToggleNote: (id: number) => void;
   nowMs: number;
   showCurrentTime?: boolean;
   /** Timeline with Phases filtered out keeps the quiet time column. */
@@ -170,9 +170,9 @@ export const TimelineList = memo(function TimelineList({
                     phases={phases}
                     metrics={metrics}
                     tasks={tasks}
-                    expandedDumpIds={expandedDumpIds}
+                    expandedNoteIds={expandedNoteIds}
                     onDeleteCheckIn={onDeleteCheckIn}
-                    onToggleDump={onToggleDump}
+                    onToggleNote={onToggleNote}
                   />
                 </div>
               </li>

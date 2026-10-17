@@ -44,7 +44,7 @@ export const METRIC_COLOR_FALLBACKS = [
   "var(--accent)",
   "var(--phase)",
   "var(--doing)",
-  "var(--dump)",
+  "var(--note)",
   "var(--queue)",
   "var(--rating-1)",
   "var(--rating-5)",

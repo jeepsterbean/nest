@@ -12,7 +12,7 @@ import { subscribeTauriEvent } from "../../lib/tauriListen";
 import {
   getTimerState,
   latestPhaseCheckIn,
-  listBrainDumps,
+  listNotes,
   listMetricCheckIns,
   listMetrics,
   listPulses,
@@ -25,7 +25,7 @@ import {
   listTaskWorkStretches,
 } from "../../lib/commands";
 import type {
-  BrainDump,
+  Note,
   Metric,
   MetricCheckInWithRatings,
   Phase,
@@ -56,7 +56,7 @@ export type DashboardData = {
   phases: Phase[];
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
-  brainDumps: BrainDump[];
+  notes: Note[];
   tags: Tag[];
   latestPhase: PhaseCheckIn | null;
   timerState: TimerState | null;
@@ -83,7 +83,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
-  const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [timerState, setTimerState] =
@@ -109,7 +109,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
           listPhases(true),
           listMetricCheckIns(from, to),
           listPhaseCheckIns(from, to),
-          listBrainDumps(from, to),
+          listNotes(from, to),
           listTags(),
           latestPhaseCheckIn(),
           getTimerState(),
@@ -124,7 +124,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setPhases(p);
       setCheckIns(ci);
       setPhaseCheckIns(pci);
-      setBrainDumps(bd);
+      setNotes(bd);
       setTags(tags);
       setLatestPhase(lp);
       setTimerState(timer);
@@ -178,7 +178,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       phases,
       checkIns,
       phaseCheckIns,
-      brainDumps,
+      notes,
       tags,
       latestPhase,
       timerState,
@@ -200,7 +200,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       phases,
       checkIns,
       phaseCheckIns,
-      brainDumps,
+      notes,
       tags,
       latestPhase,
       timerState,

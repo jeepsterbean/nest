@@ -1,0 +1,329 @@
+/* ---------- Notes ---------- */
+
+.dashboard__inner--notes {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dash-section--note {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.dash-section--note > .dash-section__head {
+  position: relative;
+  z-index: 20;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 22px 24px 16px;
+}
+
+.note-section__pane:not([hidden]) {
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 24px 24px;
+}
+
+/* ---------- History ---------- */
+
+.note-history__filters {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.note-history__day {
+  container: note-day / inline-size;
+}
+
+.note-history__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  grid-auto-rows: 154px;
+  gap: 14px;
+}
+
+/* The item is the sticky: text cuts off above a Tag strip pinned to its
+   bottom edge. It stays overflow-visible so the Tag menu can escape it. */
+.note-history__item {
+  position: relative;
+  display: flex;
+  height: 154px;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--note) 28%, var(--border));
+  border-radius: var(--paper-radius);
+  /* A lighter wash than the 36% floating sticky keeps a full grid calm. */
+  background: color-mix(in srgb, var(--note) 20%, var(--surface));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-history__item--composer {
+  grid-column: span 2;
+  grid-row: span 3;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--paper-radius);
+  background: color-mix(in srgb, var(--note) 6%, var(--surface));
+  box-shadow: var(--shadow);
+}
+
+.note-history__peel {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+}
+
+/* The three notes beside the composer share its leftover two-column track;
+   later rows pack at one cell each. */
+.note-history__item--wide {
+  grid-column: span 2;
+}
+
+/* The composer-plus-wide-notes layout needs four 220px tracks (4 × 220 +
+   3 × 14 gap = 922px). Narrower, a span 2 would add an implicit column or
+   leave a hole beside the composer, so the composer takes the full row and
+   every note packs at one cell. */
+@container note-day (max-width: 921px) {
+  .note-history__item--composer {
+    grid-column: 1 / -1;
+  }
+
+  .note-history__item--wide {
+    grid-column: auto;
+  }
+}
+
+.note-history__item--composer .note-surface {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Tag menus must escape the composer; the editor pane still scrolls. */
+.note-history__item--composer .note-surface__scroll {
+  overflow: visible;
+}
+
+.note-history__item--composer .note-surface__editor,
+.note-history__item--composer .note-surface__input {
+  cursor: text;
+}
+
+.note-history__item--composer .note-surface__input {
+  flex: 1 0 auto;
+}
+
+.note-history__item:hover:not(.note-history__item--composer),
+.note-history__item:has(.note-history__open:focus-visible) {
+  border-color: color-mix(in srgb, var(--note) 48%, var(--border));
+  box-shadow: var(--shadow);
+}
+
+.note-history__item:has(.note-history__open:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.note-history__open {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  /* Inset by the item's 1px border. */
+  border-radius: calc(var(--paper-radius) - 1px) calc(var(--paper-radius) - 1px) 0 0;
+  outline: none;
+  cursor: pointer;
+}
+
+.note-history__open .saved-note {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.note-history__open .saved-note > time {
+  padding-right: 28px;
+}
+
+.note-history__item .note-tags {
+  flex: none;
+  border-top-color: color-mix(in srgb, var(--note) 24%, var(--border));
+  border-radius: 0 0 calc(var(--paper-radius) - 1px) calc(var(--paper-radius) - 1px);
+  background: color-mix(in srgb, var(--note) 30%, var(--surface));
+}
+
+.note-history__item .note-tags__scroll {
+  padding: 3px 8px;
+}
+
+.note-history__item .note-tag,
+.note-history__item .note-tags__more {
+  border-color: color-mix(in srgb, var(--note) 24%, var(--border));
+  background: color-mix(in srgb, var(--note) 18%, var(--surface));
+}
+
+.note-history__item--composer .note-tags {
+  align-self: stretch;
+  /* 0, not auto: auto top in this column leaves a dead zone that looks like
+     the editor while the caret stays on a one-line field under the header. */
+  margin: 0 -18px -18px;
+  padding: 0 8px 6px;
+  height: 36px;
+  border-top-color: color-mix(in srgb, var(--note) 22%, var(--border));
+  border-radius: 0;
+  background: transparent;
+}
+
+.note-history__item--composer .note-tags__scroll {
+  padding: 5px 6px 3px;
+}
+
+.note-history__item--composer .note-tags__more {
+  margin-right: 2px;
+}
+
+/* Open downward: upward would be clipped by the pane for the first row. */
+.note-history__item .note-tags__menu {
+  top: calc(100% + 5px);
+  bottom: auto;
+}
+
+/* ---------- Day and Tag filters ---------- */
+
+.note-filter-tags:not([hidden]) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Only the list scrolls so Add tag stays at the foot of the Section sidebar. */
+.note-filter-tags__scroll {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  padding: 3px;
+}
+
+.note-filter-tags__row {
+  display: flex;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.note-filter-tags__row:hover {
+  background: var(--note-soft);
+  color: var(--ink);
+}
+
+.note-filter-tags__row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.note-filter-tags__row[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--note) 20%, transparent);
+  background: var(--note-soft);
+  color: var(--note);
+  font-weight: 600;
+}
+
+.note-filter-tags__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-filter-tags__count {
+  flex: none;
+  min-width: 24px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.note-filter-tags__add {
+  border-top-color: var(--border);
+  border-radius: 0;
+  color: var(--note);
+}
+
+/* The collapsed sidebar is too thin for tag names; keep filters available
+   above the grid with a bounded list and its own pinned Add tag row. */
+@media (max-width: 600px) {
+  .note-history__filters .note-filter-tags {
+    max-height: 220px;
+  }
+}
+
+.note-filter-popup {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.note-filter-popup > button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+
+.note-filter-popup > button:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.note-filter-popup input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.note-filter-popup form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}

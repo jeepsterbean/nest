@@ -132,8 +132,8 @@
 }
 
 .task-relation-list__remove:hover {
-  background: var(--dump-soft);
-  color: var(--dump);
+  background: var(--note-soft);
+  color: var(--note);
 }
 
 .task-relation-add {

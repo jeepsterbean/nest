@@ -78,28 +78,28 @@
   min-width: 0;
 }
 
-.log-detail--dump {
+.log-detail--note {
   display: block;
 }
 
-.log-detail--dump .event-dump {
+.log-detail--note .event-note {
   margin: 0;
   padding: 0;
   border: none;
   background: transparent;
 }
 
-.log-detail--dump .event-dump__title {
+.log-detail--note .event-note__title {
   font-size: 13px;
   font-weight: 500;
 }
 
-.log-detail--dump .event-dump__edit-title {
+.log-detail--note .event-note__edit-title {
   width: 21px;
   height: 21px;
 }
 
-.log-detail--dump .event-dump__text {
+.log-detail--note .event-note__text {
   margin: 4px 0 0;
   padding: 0;
   font-size: 13px;
@@ -349,8 +349,8 @@
   --event-color: var(--accent);
 }
 
-.logs-chrono__row--dump {
-  --event-color: var(--dump);
+.logs-chrono__row--note {
+  --event-color: var(--note);
 }
 
 .logs-chrono__row--work-start,
@@ -371,7 +371,7 @@
   background: color-mix(in srgb, var(--muted) 8%, var(--phase-gutter));
 }
 
-/* Keep Metric check-in ratings on one row at the same height as dump / work rows. */
+/* Keep Metric check-in ratings on one row at the same height as note / work rows. */
 .logs-chrono__event .log-detail--metrics .event__ratings {
   flex-wrap: nowrap;
   gap: 14px;
@@ -398,11 +398,11 @@
   font-size: 12px;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__chevron {
+.logs-chrono__event .log-detail--note .event-note__chevron {
   display: none;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__toggle {
+.logs-chrono__event .log-detail--note .event-note__toggle {
   gap: 6px;
 }
 
@@ -410,15 +410,15 @@
   min-height: 22px;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__head {
+.logs-chrono__event .log-detail--note .event-note__head {
   min-height: 22px;
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags {
+.logs-chrono__event .log-detail--note .event-note__inline-tags {
   max-width: min(50%, 18rem);
 }
 
-.logs-chrono__event .log-detail--dump .event-dump__inline-tags span {
+.logs-chrono__event .log-detail--note .event-note__inline-tags span {
   max-width: 96px;
   font-size: 10px;
 }
@@ -494,8 +494,8 @@
   --event-color: var(--accent);
 }
 
-.logs-hour__mark--dump {
-  --event-color: var(--dump);
+.logs-hour__mark--note {
+  --event-color: var(--note);
 }
 
 /* Same hue as the Task's Calendar card, so two Tasks in one hour differ at a
@@ -526,7 +526,7 @@
   pointer-events: none;
 }
 
-.logs-hour-card--dump:not(.logs-hour-card--preview) {
+.logs-hour-card--note:not(.logs-hour-card--preview) {
   padding: 0;
 }
 

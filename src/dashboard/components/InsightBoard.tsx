@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import {
   INSIGHT_TASK_CHANGE_LABEL,
-  type InsightBrainDumpSummary,
+  type InsightNoteSummary,
   type InsightTaskCount,
   type InsightPulseGroup,
 } from "../lib/insights";
@@ -63,7 +63,7 @@ export function InsightHeading({
   );
 }
 
-export function InsightBrainDumps({
+export function InsightNotes({
   summary,
   icon,
   shown,
@@ -71,7 +71,7 @@ export function InsightBrainDumps({
   onToggle,
   onOpen,
 }: {
-  summary: InsightBrainDumpSummary;
+  summary: InsightNoteSummary;
   icon: string;
   shown: boolean;
   alone: boolean;
@@ -82,9 +82,9 @@ export function InsightBrainDumps({
   const visibleTags = showAllTags ? summary.tags : summary.tags.slice(0, 3);
 
   return (
-    <section className="insight-list insight-brain-dumps" aria-label="Brain dumps">
+    <section className="insight-list insight-notes" aria-label="Notes">
       <InsightHeading
-        label="Brain dumps"
+        label="Notes"
         icon={icon}
         shown={shown}
         alone={alone}
@@ -93,17 +93,17 @@ export function InsightBrainDumps({
       />
       {shown ? (
         summary.count === 0 ? (
-          <p className="insight-quiet">No brain dumps in this period.</p>
+          <p className="insight-quiet">No notes in this period.</p>
         ) : (
           <>
-            <ul className="insight-brain-dumps__tags" aria-label="Tags">
+            <ul className="insight-notes__tags" aria-label="Tags">
               <li>
                 <span className="insight-quiet">Untagged</span>
                 <span className="insight-list__count">{summary.untaggedCount}</span>
               </li>
               {visibleTags.map((tag) => (
                 <li key={tag.id}>
-                  <span className="insight-brain-dumps__tag" title={tag.name}>{tag.name}</span>
+                  <span className="insight-notes__tag" title={tag.name}>{tag.name}</span>
                   <span className="insight-list__count">{tag.count}</span>
                 </li>
               ))}
@@ -111,7 +111,7 @@ export function InsightBrainDumps({
             {summary.tags.length > 3 ? (
               <button
                 type="button"
-                className="insight-brain-dumps__more"
+                className="insight-notes__more"
                 aria-expanded={showAllTags}
                 onClick={() => setShowAllTags((value) => !value)}
               >

@@ -43,27 +43,28 @@ A **rating** is the recorded score for one Metric.
 saved ratings for one Pulse. Check-ins are manual and have no due state.
 Use Metric check-in rather than Pulse check-in.
 
-Brain dumps are independent of Tasks and Pulses and have no title field.
-A **Tag** is a reusable label for brain dumps.
+A **Note** is captured text, independent of Tasks and Pulses, with no title
+field. The Section that holds them is **Notes**.
+A **Tag** is a reusable label for notes.
 
 Record rules: [Metrics domain](docs/domain/metrics.md),
-[Brain dump domain](docs/domain/brain-dump.md).
+[Notes domain](docs/domain/notes.md).
 Surface behavior: [Metrics interface](docs/interface/metrics.md),
-[Brain dump interface](docs/interface/brain-dump.md).
+[Notes interface](docs/interface/notes.md).
 
 ## Surface names
 
 - **Timer** names the countdown; **Popup** names the window it opens. Use
   these names in chrome, accessible names, and class names; reserve check-in
   for Metric scoring records.
-- **Section** names Recap, Brain dump, Tasks, Metrics, or Phases. Recap
+- **Section** names Recap, Notes, Tasks, Metrics, or Phases. Recap
   contains Calendar and Timeline presentations, with Insights in the Section sidebar.
 - **Sidebar** switches Sections; **Map sidebar** lists unplaced Tasks.
 - **Settings** names the overlay the Sidebar opens for Background, Map, Work
   stretch, and Icons preferences.
 - Table and Map are Tasks **layouts**. A **saved view** is a named Table
   query.
-- **Map** names the Tasks layout; **Note Board** names the brain dump board.
+- **Map** names the Tasks layout; **Note Board** names the board that docks stickies.
 - **Timeline** lists history; **Logs** places it on Calendar beside Work stretch.
 - A **pane** is a destination within Metrics; a **panel** is a content
   surface such as Task details.

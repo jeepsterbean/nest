@@ -1,6 +1,6 @@
 export const SECTIONS = [
   { key: "recap", label: "Recap" },
-  { key: "brainDump", label: "Brain dump" },
+  { key: "notes", label: "Notes" },
   { key: "tasks", label: "Tasks" },
   { key: "metrics", label: "Metrics" },
   { key: "phases", label: "Phases" },

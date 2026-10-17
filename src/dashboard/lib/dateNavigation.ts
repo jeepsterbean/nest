@@ -2,7 +2,7 @@
 import type { DayPickerProps } from "./dayPicker";
 import { shiftDayMs, startOfDayMs } from "./time";
 
-// Brain dump, Metrics, and Phases Day fetch older days on demand, so their
+// Notes, Metrics, and Phases Day fetch older days on demand, so their
 // date picker reaches back as far as the calendar can page.
 const NO_EARLIEST_DAY_SEC = 0;
 

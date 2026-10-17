@@ -164,7 +164,7 @@ describe("MetricCheckIn manual scoring", () => {
 });
 
 describe("togglePopupPanel", () => {
-  const ALL: PopupPanelId[] = ["dump", "now"];
+  const ALL: PopupPanelId[] = ["notes", "now"];
 
   it("reaches all four combinations, including none at all", () => {
     const combinations = new Set<string>();
@@ -178,45 +178,50 @@ describe("togglePopupPanel", () => {
     }
     expect(combinations.size).toBe(4);
     expect(combinations.has("")).toBe(true);
-    expect(combinations.has("dump,now")).toBe(true);
+    expect(combinations.has("notes,now")).toBe(true);
   });
 
   it("keeps sidebar order however the panels were shown", () => {
-    expect(togglePopupPanel(["now"], "dump")).toEqual(["dump", "now"]);
+    expect(togglePopupPanel(["now"], "notes")).toEqual(["notes", "now"]);
   });
 
   it("returns to the same combination on a repeated toggle", () => {
-    const visible: PopupPanelId[] = ["dump", "now"];
+    const visible: PopupPanelId[] = ["notes", "now"];
     expect(togglePopupPanel(togglePopupPanel(visible, "now"), "now")).toEqual(
       visible,
     );
-    expect(togglePopupPanel(togglePopupPanel([], "dump"), "dump")).toEqual([]);
+    expect(togglePopupPanel(togglePopupPanel([], "notes"), "notes")).toEqual([]);
   });
 });
 
 describe("initialPopupPanels", () => {
   it("restores a saved combination, empty selection included", () => {
-    expect(initialPopupPanels("now,dump", null)).toEqual(["dump", "now"]);
+    expect(initialPopupPanels("now,notes", null)).toEqual(["notes", "now"]);
     expect(initialPopupPanels("", "now")).toEqual([]);
   });
 
   it("migrates the tab preference it replaced", () => {
-    expect(initialPopupPanels(null, "overview")).toEqual(["dump", "now"]);
-    expect(initialPopupPanels(null, "dump")).toEqual(["dump"]);
+    expect(initialPopupPanels(null, "overview")).toEqual(["notes", "now"]);
+    expect(initialPopupPanels(null, "notes")).toEqual(["notes"]);
     expect(initialPopupPanels(null, "now")).toEqual(["now"]);
   });
 
-  it("drops the retired Chat assistant panel from saved preferences", () => {
-    expect(initialPopupPanels("assistant,now,dump", null)).toEqual(["dump", "now"]);
-    expect(initialPopupPanels("assistant", "now")).toEqual(["dump"]);
-    expect(initialPopupPanels(null, "assistant")).toEqual(["dump"]);
+  it("reads the Notes panel saved under its Brain dump id", () => {
+    expect(initialPopupPanels("dump,now", null)).toEqual(["notes", "now"]);
+    expect(initialPopupPanels(null, "dump")).toEqual(["notes"]);
   });
 
-  it("falls back to Brain dump when either preference is missing or invalid", () => {
-    expect(initialPopupPanels(null, null)).toEqual(["dump"]);
-    expect(initialPopupPanels(null, "nope")).toEqual(["dump"]);
-    expect(initialPopupPanels("nope", null)).toEqual(["dump"]);
-    expect(initialPopupPanels("nope", "overview")).toEqual(["dump", "now"]);
+  it("drops the retired Chat assistant panel from saved preferences", () => {
+    expect(initialPopupPanels("assistant,now,notes", null)).toEqual(["notes", "now"]);
+    expect(initialPopupPanels("assistant", "now")).toEqual(["notes"]);
+    expect(initialPopupPanels(null, "assistant")).toEqual(["notes"]);
+  });
+
+  it("falls back to Notes when either preference is missing or invalid", () => {
+    expect(initialPopupPanels(null, null)).toEqual(["notes"]);
+    expect(initialPopupPanels(null, "nope")).toEqual(["notes"]);
+    expect(initialPopupPanels("nope", null)).toEqual(["notes"]);
+    expect(initialPopupPanels("nope", "overview")).toEqual(["notes", "now"]);
   });
 });
 
@@ -235,11 +240,11 @@ describe("popup panel storage", () => {
     const storage = fakeStorage();
 
     expect(readPopupPanels(storage)).toBeNull();
-    writePopupPanels(["dump", "now"], storage);
-    expect(readPopupPanels(storage)).toBe("dump,now");
+    writePopupPanels(["notes", "now"], storage);
+    expect(readPopupPanels(storage)).toBe("notes,now");
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
-    ).toEqual(["dump", "now"]);
+    ).toEqual(["notes", "now"]);
 
     writePopupPanels([], storage);
     expect(readPopupPanels(storage)).toBe("");
@@ -255,7 +260,7 @@ describe("popup panel storage", () => {
 
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
-    ).toEqual(["dump", "now"]);
+    ).toEqual(["notes", "now"]);
     writePopupPanels(["now"], storage);
     expect(
       initialPopupPanels(readPopupPanels(storage), readLastPopupTab(storage)),
@@ -273,7 +278,7 @@ describe("popup panel storage", () => {
     };
 
     expect(readPopupPanels(blocked)).toBeNull();
-    expect(() => writePopupPanels(["dump"], blocked)).not.toThrow();
+    expect(() => writePopupPanels(["notes"], blocked)).not.toThrow();
   });
 });
 
@@ -296,7 +301,7 @@ describe("popupPanelShortcut", () => {
   });
 
   it("maps \u23181 and \u23182 to their panels in sidebar order", () => {
-    expect(popupPanelShortcut(key("1"))).toBe("dump");
+    expect(popupPanelShortcut(key("1"))).toBe("notes");
     expect(popupPanelShortcut(key("2"))).toBe("now");
     expect(popupPanelShortcut(key("3"))).toBeNull();
     expect(popupPanelShortcut(key("4"))).toBeNull();
@@ -322,9 +327,9 @@ describe("popupPanelShortcut", () => {
 });
 
 describe("PopupPanelToggles", () => {
-  const ALL: PopupPanelId[] = ["dump", "now"];
+  const ALL: PopupPanelId[] = ["notes", "now"];
   const toggleRefs = {
-    dump: createRef<HTMLButtonElement>(),
+    notes: createRef<HTMLButtonElement>(),
     now: createRef<HTMLButtonElement>(),
   };
   const render = (visible: PopupPanelId[]) =>
@@ -351,9 +356,9 @@ describe("PopupPanelToggles", () => {
   });
 
   it("names each panel and its shortcut, and stays keyboard reachable", () => {
-    const html = render(["dump"]);
+    const html = render(["notes"]);
 
-    expect(html).toContain('title="Brain dump (\u23181)"');
+    expect(html).toContain('title="Notes (\u23181)"');
     expect(html).toContain('aria-keyshortcuts="Meta+1"');
     expect(html).toContain('title="Tasks and metrics (\u23182)"');
     expect(html).toContain('aria-keyshortcuts="Meta+2"');

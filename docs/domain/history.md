@@ -7,7 +7,7 @@ and Phases Day. Navigation, clocks, filters, and presentation live in
 
 ## Records and ranges
 
-History combines brain dumps, Metric check-ins, Phase checkpoints, Task status
+History combines notes, Metric check-ins, Phase checkpoints, Task status
 events, and Work stretch boundaries. Calendar and Timeline present these
 records. Task history follows [Tasks domain](tasks.md#history-and-deletion).
 
@@ -27,8 +27,8 @@ inactivity follows [Phase derivation](phases.md#phase-derivation).
 
 ## Range summaries
 
-Saved brain dumps count by their recorded time. A dump carrying several Tags
-contributes to each Tag count and once to the total; untagged dumps have their
+Saved notes count by their recorded time. A note carrying several Tags
+contributes to each Tag count and once to the total; untagged notes have their
 own count. Phase totals sum settled sessions clipped to the range and live end.
 
 An outcome is what a Task came to within a range, so one Task can have a

@@ -18,7 +18,7 @@ const checkIn: MetricCheckInWithRatings = {
   pulseName: "Daily pulse",
   ratings: [],
 };
-const dump = { id: 1, createdAt: at(9, 40), text: "note", tags: [] };
+const note = { id: 1, createdAt: at(9, 40), text: "note", tags: [] };
 const phase: PhaseCheckIn = { id: 1, createdAt: at(9, 1), phaseId: 1, phaseLabel: null };
 const statusEvent: TaskStatusEvent = {
   id: 1,
@@ -34,7 +34,7 @@ const stretches = [
 
 const hours = () =>
   logHours(
-    buildRawLog([checkIn], [phase], [dump], stretches, [statusEvent]),
+    buildRawLog([checkIn], [phase], [note], stretches, [statusEvent]),
     DAY_FROM,
     DAY_TO,
   );
@@ -53,7 +53,7 @@ describe("logHours", () => {
       "metrics-1",
       `task-7-${at(9)}`,
       `task-8-${at(9)}`,
-      "dump-1",
+      "note-1",
     ]);
     const task7 = nine.marks[1];
     expect(task7.kind === "task" && task7.changes.map((change) => change.kind)).toEqual([
@@ -64,7 +64,7 @@ describe("logHours", () => {
   });
 
   it("leaves Phases to the wash and events outside the day out", () => {
-    const outside = { ...dump, id: 2, createdAt: DAY_TO };
+    const outside = { ...note, id: 2, createdAt: DAY_TO };
     const result = logHours(
       buildRawLog([], [phase], [outside], []),
       DAY_FROM,

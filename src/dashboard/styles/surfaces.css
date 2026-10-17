@@ -1,4 +1,4 @@
-/* ---------- Panel chrome, Note Board, and Brain dump surfaces ---------- */
+/* ---------- Panel chrome, Note Board, and Note surfaces ---------- */
 
 @media (min-width: 861px) {
   .dashboard__inner--timeline,
@@ -32,15 +32,15 @@
   margin-left: auto;
 }
 
-.brain-dump-surface--anchored {
+.note-surface--anchored {
   min-height: 100%;
 }
 
-.brain-dump-surface--compact {
+.note-surface--compact {
   height: 100%;
 }
 
-.brain-dump-surface--compact .brain-dump-surface__input {
+.note-surface--compact .note-surface__input {
   height: 100%;
   min-height: 0;
   padding: 6px 10px;
@@ -50,43 +50,43 @@
   white-space: pre;
 }
 
-.brain-dump-surface--floating .brain-dump-surface__head {
+.note-surface--floating .note-surface__head {
   min-height: 28px;
   padding: 4px 8px 0;
 }
 
-.brain-dump-surface--floating .brain-dump-surface__input {
+.note-surface--floating .note-surface__input {
   padding: 8px 12px 12px;
   font-size: 0.9rem;
 }
 
-.brain-dump-surface--floating .brain-dump-tags {
+.note-surface--floating .note-tags {
   flex: none;
   align-self: stretch;
   padding: 0;
   height: 36px;
 }
 
-.brain-dump-surface--anchored .brain-dump-tags {
+.note-surface--anchored .note-tags {
   flex: none;
 }
 
-.brain-dump-surface--panel .brain-dump-surface__scroll {
+.note-surface--panel .note-surface__scroll {
   gap: 10px;
 }
 
-.brain-dump-surface--panel .brain-dump-surface__input {
+.note-surface--panel .note-surface__input {
   /* Keep 1px so WKWebView can paint an empty-line caret. The editor clips
      overflow-x, and a caret on that edge disappears while focus stays. */
   padding: 0 1px;
 }
 
-.brain-dump-surface--panel > .brain-dump-surface__scroll > .brain-dump-tags {
+.note-surface--panel > .note-surface__scroll > .note-tags {
   flex: none;
   padding: 0;
 }
 
-.floating-brain-dumps-board {
+.floating-notes-board {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -113,40 +113,40 @@
 }
 
 .floating-note-board.is-drop-target {
-  border-color: color-mix(in srgb, var(--dump) 58%, #ece5d8);
+  border-color: color-mix(in srgb, var(--note) 58%, #ece5d8);
   box-shadow:
     var(--shadow),
-    inset 0 0 0 2px color-mix(in srgb, var(--dump) 34%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--dump) 16%, transparent);
+    inset 0 0 0 2px color-mix(in srgb, var(--note) 34%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--note) 16%, transparent);
 }
 
-.floating-note-board > .brain-dump-surface__head {
+.floating-note-board > .note-surface__head {
   min-height: 36px;
   padding: 4px 8px;
 }
 
-.floating-note-board--minimised > .brain-dump-surface__head {
+.floating-note-board--minimised > .note-surface__head {
   min-height: 100%;
 }
 
-.floating-note-board > .brain-dump-surface__head .brain-dump-surface__head-end {
+.floating-note-board > .note-surface__head .note-surface__head-end {
   flex: 0 0 34px;
   justify-content: flex-end;
   padding-right: 10px;
 }
 
-.floating-note-board > .brain-dump-surface__head .floating-brain-dump__summary,
-.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action {
+.floating-note-board > .note-surface__head .floating-note__summary,
+.floating-note-board > .note-surface__head .note-surface__action {
   color: #ece5d8;
 }
 
-.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:hover,
-.floating-note-board > .brain-dump-surface__head .brain-dump-surface__action:focus-visible {
+.floating-note-board > .note-surface__head .note-surface__action:hover,
+.floating-note-board > .note-surface__head .note-surface__action:focus-visible {
   color: #fff;
   background: color-mix(in srgb, #ece5d8 14%, transparent);
 }
 
-.floating-note-board > .floating-brain-dump__resize {
+.floating-note-board > .floating-note__resize {
   color: color-mix(in srgb, #ece5d8 70%, transparent);
 }
 
@@ -177,7 +177,7 @@
   font-size: 0.78rem;
 }
 
-.floating-brain-dumps-toggle {
+.floating-notes-toggle {
   position: fixed;
   top: 16px;
   right: 24px;
@@ -197,17 +197,17 @@
   cursor: pointer;
 }
 
-.floating-brain-dumps-toggle__note,
-.floating-brain-dumps-toggle__cross {
+.floating-notes-toggle__note,
+.floating-notes-toggle__cross {
   display: inline-flex;
 }
 
-.floating-brain-dumps-toggle__note svg {
+.floating-notes-toggle__note svg {
   width: 16px;
   height: 16px;
 }
 
-.floating-brain-dumps-toggle__cross {
+.floating-notes-toggle__cross {
   position: absolute;
   right: 3px;
   bottom: 3px;
@@ -216,23 +216,23 @@
   background: var(--surface);
 }
 
-.floating-brain-dumps-toggle__cross svg {
+.floating-notes-toggle__cross svg {
   width: 8px;
   height: 8px;
 }
 
-.floating-brain-dumps-toggle:hover,
-.floating-brain-dumps-toggle:focus-visible {
+.floating-notes-toggle:hover,
+.floating-notes-toggle:focus-visible {
   border-color: var(--border-strong);
   color: var(--text);
   outline: none;
 }
 
-.floating-brain-dumps-toggle:focus-visible {
+.floating-notes-toggle:focus-visible {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.floating-brain-dump {
+.floating-note {
   position: fixed;
   display: flex;
   width: 280px;
@@ -242,18 +242,18 @@
   border: 1px solid color-mix(in srgb, var(--sticky-tint) 28%, var(--border));
   border-radius: var(--paper-radius);
   /* Paper wash strong enough to read as a real sticky tint. */
-  --sticky-tint: var(--dump);
+  --sticky-tint: var(--note);
   background: color-mix(in srgb, var(--sticky-tint) 36%, var(--surface));
   box-shadow: var(--shadow);
   overflow: hidden;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.floating-brain-dump--minimised {
+.floating-note--minimised {
   height: 36px;
 }
 
-.floating-brain-dump.floating-brain-dump--docked {
+.floating-note.floating-note--docked {
   position: relative;
   left: auto;
   top: auto;
@@ -265,48 +265,48 @@
   box-shadow: none;
 }
 
-.floating-brain-dump--docked .brain-dump-surface__head {
+.floating-note--docked .note-surface__head {
   min-height: 100%;
   padding: 2px 6px;
 }
 
-.floating-brain-dump--docked .brain-dump-surface__head-end {
+.floating-note--docked .note-surface__head-end {
   flex: 0 0 24px;
   justify-content: flex-end;
   gap: 2px;
 }
 
-.floating-brain-dump--docked .brain-dump-surface__action {
+.floating-note--docked .note-surface__action {
   width: 20px;
   height: 20px;
 }
 
-.floating-brain-dump.floating-brain-dump--lifting {
+.floating-note.floating-note--lifting {
   position: fixed;
   box-shadow: var(--shadow);
 }
 
-.floating-brain-dump--over-board {
+.floating-note--over-board {
   visibility: hidden;
 }
 
-.floating-brain-dump[data-color="paper"] {
-  --sticky-tint: var(--dump);
+.floating-note[data-color="paper"] {
+  --sticky-tint: var(--note);
 }
 
-.floating-brain-dump[data-color="blush"] {
+.floating-note[data-color="blush"] {
   --sticky-tint: var(--rating-1);
 }
 
-.floating-brain-dump[data-color="sage"] {
+.floating-note[data-color="sage"] {
   --sticky-tint: var(--doing);
 }
 
-.floating-brain-dump[data-color="sky"] {
+.floating-note[data-color="sky"] {
   --sticky-tint: var(--accent);
 }
 
-.floating-brain-dump[data-color="lilac"] {
+.floating-note[data-color="lilac"] {
   --sticky-tint: var(--phase);
 }
 
@@ -339,7 +339,7 @@
 }
 
 .floating-sticky-colors__swatch--paper {
-  --swatch-tint: var(--dump);
+  --swatch-tint: var(--note);
 }
 
 .floating-sticky-colors__swatch--blush {
@@ -372,7 +372,7 @@
     inset 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
 }
 
-.floating-brain-dump__resize {
+.floating-note__resize {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -386,7 +386,7 @@
   touch-action: none;
 }
 
-.floating-brain-dump--minimised .floating-brain-dump__resize {
+.floating-note--minimised .floating-note__resize {
   top: 0;
   bottom: 0;
   width: 14px;
@@ -394,7 +394,7 @@
   cursor: ew-resize;
 }
 
-.floating-brain-dump__resize::after {
+.floating-note__resize::after {
   position: absolute;
   right: 5px;
   bottom: 5px;
@@ -405,7 +405,7 @@
   content: "";
 }
 
-.floating-brain-dump--minimised .floating-brain-dump__resize::after {
+.floating-note--minimised .floating-note__resize::after {
   top: 50%;
   right: 4px;
   bottom: auto;
@@ -417,7 +417,7 @@
   transform: translateY(-50%);
 }
 
-.floating-note-board--minimised .floating-brain-dump__resize {
+.floating-note-board--minimised .floating-note__resize {
   top: 0;
   bottom: 0;
   width: 14px;
@@ -425,7 +425,7 @@
   cursor: ew-resize;
 }
 
-.floating-note-board--minimised .floating-brain-dump__resize::after {
+.floating-note-board--minimised .floating-note__resize::after {
   top: 50%;
   right: 4px;
   bottom: auto;
@@ -437,41 +437,41 @@
   transform: translateY(-50%);
 }
 
-.floating-brain-dump__resize:hover,
-.floating-brain-dump__resize:focus-visible {
+.floating-note__resize:hover,
+.floating-note__resize:focus-visible {
   color: var(--ink);
   background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
-.floating-brain-dump .brain-dump-surface {
+.floating-note .note-surface {
   min-height: 0;
   flex: 1;
   background: inherit;
 }
 
-.brain-dump-surface--floating-minimised {
+.note-surface--floating-minimised {
   min-height: 0;
 }
 
-.floating-brain-dump--minimised .brain-dump-surface__head {
+.floating-note--minimised .note-surface__head {
   min-height: 100%;
   padding: 4px 8px;
 }
 
-.floating-brain-dump--minimised .brain-dump-surface__head-start {
+.floating-note--minimised .note-surface__head-start {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.floating-brain-dump--minimised .brain-dump-surface__head-end {
+.floating-note--minimised .note-surface__head-end {
   flex: 0 0 34px;
   justify-content: flex-end;
   gap: 2px;
   padding-right: 10px;
 }
 
-.floating-brain-dump__summary {
+.floating-note__summary {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -483,26 +483,26 @@
   white-space: nowrap;
 }
 
-.floating-brain-dump .brain-dump-surface__input,
-.floating-brain-dump .brain-dump-tags {
+.floating-note .note-surface__input,
+.floating-note .note-tags {
   background: transparent;
 }
 
-.floating-brain-dump .brain-dump-tags {
+.floating-note .note-tags {
   background: color-mix(in srgb, var(--sticky-tint) 22%, var(--surface));
 }
 
-.floating-brain-dump .brain-dump-tags__scroll {
+.floating-note .note-tags__scroll {
   padding: 5px 6px 3px;
 }
 
-.floating-brain-dump .brain-dump-tag,
-.floating-brain-dump .brain-dump-tags__more {
+.floating-note .note-tag,
+.floating-note .note-tags__more {
   border-color: color-mix(in srgb, var(--sticky-tint) 24%, var(--border));
   background: color-mix(in srgb, var(--sticky-tint) 18%, var(--surface));
 }
 
-.floating-brain-dump .brain-dump-tags__more {
+.floating-note .note-tags__more {
   margin-right: 24px;
 }
 
@@ -517,13 +517,13 @@
   scrollbar-gutter: stable;
 }
 
-.event-dump__head {
+.event-note__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
 }
 
-.event-dump__toggle {
+.event-note__toggle {
   display: flex;
   gap: 8px;
   width: 100%;
@@ -537,12 +537,12 @@
   cursor: pointer;
 }
 
-.event-dump__toggle:focus-visible {
+.event-note__toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.event-dump__edit-title {
+.event-note__edit-title {
   display: inline-grid;
   width: 28px;
   height: 28px;
@@ -560,30 +560,30 @@
     opacity 0.15s;
 }
 
-.event-dump__edit-title:hover {
-  background: var(--dump-soft);
-  color: var(--dump);
+.event-note__edit-title:hover {
+  background: var(--note-soft);
+  color: var(--note);
   opacity: 1;
 }
 
-.event-dump__edit-title:focus-visible {
+.event-note__edit-title:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--dump-soft);
+  box-shadow: 0 0 0 3px var(--note-soft);
   opacity: 1;
 }
 
-.event-dump__edit-title svg {
+.event-note__edit-title svg {
   width: 13px;
   height: 13px;
 }
 
-.event-dump__chevron {
-  color: var(--dump);
+.event-note__chevron {
+  color: var(--note);
   font-size: 12px;
   line-height: 1;
 }
 
-.event-dump__title {
+.event-note__title {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -592,7 +592,7 @@
   white-space: nowrap;
 }
 
-.event-dump__inline-tags {
+.event-note__inline-tags {
   display: inline-flex;
   flex: 0 0 auto;
   max-width: min(45%, 16rem);
@@ -600,39 +600,39 @@
   overflow: hidden;
 }
 
-.event-dump__title {
+.event-note__title {
   font-size: 13.5px;
 }
 
-.event-dump__text {
+.event-note__text {
   font-family: var(--serif);
   font-size: 14px;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
-.event-dump__text > * {
+.event-note__text > * {
   margin: 0;
 }
 
-.event-dump__text > * + * {
+.event-note__text > * + * {
   margin-top: 0.55em;
 }
 
-.event-dump__text ul,
-.event-dump__text ol {
+.event-note__text ul,
+.event-note__text ol {
   padding-left: 1.35em;
 }
 
-.event-dump__tags {
+.event-note__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   margin-top: 5px;
 }
 
-.event-dump__inline-tags span,
-.event-dump__tags span {
+.event-note__inline-tags span,
+.event-note__tags span {
   max-width: 130px;
   padding: 2px 8px;
   overflow: hidden;
@@ -646,18 +646,18 @@
   white-space: nowrap;
 }
 
-.event-dump__tag-editor {
+.event-note__tag-editor {
   margin-top: 6px;
 }
 
-.event-dump__tag-actions {
+.event-note__tag-actions {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
   margin-top: 5px;
 }
 
-.event-dump__tag-actions button {
+.event-note__tag-actions button {
   padding: 3px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -665,19 +665,19 @@
   font-size: 11px;
 }
 
-.event-dump {
+.event-note {
   margin-top: 8px;
   padding: 10px 14px;
-  border-left: 3px solid var(--dump);
+  border-left: 3px solid var(--note);
   border-radius: 4px 10px 10px 4px;
-  background: var(--dump-soft);
+  background: var(--note-soft);
 }
 
 
 
 
 
-.event-dump__text {
+.event-note__text {
   margin: 8px 0 0;
   padding-left: 20px;
 }

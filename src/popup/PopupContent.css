@@ -99,13 +99,13 @@
   flex: 1;
 }
 
-.popup-dump {
+.popup-note {
   position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  background: color-mix(in srgb, var(--dump-soft) 32%, var(--surface));
+  background: color-mix(in srgb, var(--note-soft) 32%, var(--surface));
 }
 
 /* ---------- Popup header ---------- */
@@ -699,14 +699,14 @@
   opacity: 0.35;
 }
 
-/* ---------- Brain dump ---------- */
+/* ---------- Notes ---------- */
 
-.brain-dump-surface--popup .brain-dump-surface__head {
+.note-surface--popup .note-surface__head {
   min-height: 36px;
   padding: 8px 14px 0;
 }
 
-.brain-dump-surface--popup .brain-dump-surface__input {
+.note-surface--popup .note-surface__input {
   padding: 24px;
 }
 

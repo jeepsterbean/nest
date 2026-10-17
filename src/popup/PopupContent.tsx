@@ -23,7 +23,7 @@ import {
   setTaskWorking,
   showDashboard,
   stopAllWorkingNow,
-  submitBrainDump,
+  submitNote,
   submitMetricCheckIn,
 } from "../lib/commands";
 import { subscribeTauriEvent } from "../lib/tauriListen";
@@ -50,20 +50,20 @@ import {
 } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
 import {
-  isBrainDumpSubmitShortcut,
-  trimBrainDumpDraft,
-  useBrainDumpDraft,
-  useRecentBrainDumpHistory,
-} from "../lib/brainDumpDraft";
-import { setContentEditableCaretToEnd } from "../lib/brainDumpRichText";
+  isNoteSubmitShortcut,
+  trimNoteDraft,
+  useNoteDraft,
+  useRecentNoteHistory,
+} from "../lib/noteDraft";
+import { setContentEditableCaretToEnd } from "../lib/noteRichText";
 import { readHiddenPulseIds } from "../lib/pulseVisibility";
 import { isTaskLocked } from "../lib/taskLock";
 import { WorkingToggle } from "../dashboard/task/TaskWorkingControl";
 import { NestIcon } from "../dashboard/components/PulseIcon";
-import { useComposerTagProps } from "../dashboard/components/BrainDumpTags";
-import { BrainDumpHistoryControls } from "../dashboard/components/BrainDumpHistoryControls";
+import { useComposerTagProps } from "../dashboard/components/NoteTags";
+import { NoteHistoryControls } from "../dashboard/components/NoteHistoryControls";
 import { MetricCheckIn } from "../dashboard/components/MetricCheckIn";
-import { BrainDumpSurface } from "../dashboard/components/BrainDumpSurface";
+import { NoteSurface } from "../dashboard/components/NoteSurface";
 import { shouldDismissOnPointerDown } from "./overlay";
 import { PopupTimerBar } from "./PopupTimerBar";
 import {
@@ -175,11 +175,11 @@ function ExpandIcon() {
   );
 }
 
-export type PopupPanelId = "dump" | "now";
+export type PopupPanelId = "notes" | "now";
 
 /** Sidebar order, which is also the left-to-right order of the panels. */
 export const POPUP_PANELS = [
-  { id: "dump", label: "Brain dump", shortcutKey: "1", tileIcon: "brainDump" },
+  { id: "notes", label: "Notes", shortcutKey: "1", tileIcon: "notes" },
   { id: "now", label: "Tasks and metrics", shortcutKey: "2", tileIcon: "tasks" },
 ] as const satisfies ReadonlyArray<{
   id: PopupPanelId;
@@ -221,8 +221,11 @@ export function writePopupPanels(
   }
 }
 
+// Notes was the "dump" panel while it was called Brain dump.
+const renamedPanelId = (id: string) => (id === "dump" ? "notes" : id);
+
 const parsePopupPanels = (stored: string) => {
-  const saved = new Set(stored.split(","));
+  const saved = new Set(stored.split(",").map(renamedPanelId));
   return POPUP_PANELS.filter((panel) => saved.has(panel.id)).map(
     (panel) => panel.id,
   );
@@ -238,10 +241,11 @@ export function initialPopupPanels(
     // An empty string is "every panel hidden"; other unreadable text is not.
     if (saved.length > 0 || stored.trim() === "") return saved;
     // The retired Chat assistant panel may be the only one saved.
-    if (stored.split(",").includes("assistant")) return ["dump"];
+    if (stored.split(",").includes("assistant")) return ["notes"];
   }
   if (lastTab === "overview") return POPUP_PANELS.map((panel) => panel.id);
-  return [POPUP_PANELS.find((panel) => panel.id === lastTab)?.id ?? "dump"];
+  const lastPanel = lastTab === null ? null : renamedPanelId(lastTab);
+  return [POPUP_PANELS.find((panel) => panel.id === lastPanel)?.id ?? "notes"];
 }
 
 /** Show or hide one panel, keeping the rest in sidebar order. */
@@ -351,11 +355,11 @@ export function PopupPanelToggles({
 }
 
 /**
- * Owns the brain dump draft so a keystroke re-renders only this section.
+ * Owns the note draft so a keystroke re-renders only this section.
  * Held by the popup shell it used to live in, every character re-rendered the
  * task board, pulse buttons and timer as well.
  */
-function PopupBrainDump({
+function PopupNote({
   tags,
   editorRef,
   busy,
@@ -368,22 +372,22 @@ function PopupBrainDump({
   onBusyChange: (busy: boolean) => void;
   onError: (error: string | null) => void;
 }) {
-  const [draft, setDraft] = useBrainDumpDraft();
+  const [draft, setDraft] = useNoteDraft();
   const icons = useTileIcons();
   const draftRevision = `${draft.text}\n${draft.tagIds.join(",")}`;
-  const history = useRecentBrainDumpHistory(draft.text, onError, draftRevision);
-  const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingDump);
+  const history = useRecentNoteHistory(draft.text, onError, draftRevision);
+  const tagProps = useComposerTagProps(tags, draft.tagIds, history.viewingNote);
   const handleTagsChange = useCallback(
     (tagIds: number[]) => setDraft((current) => ({ ...current, tagIds })),
     [setDraft],
   );
 
   const submitDraft = async () => {
-    if (busy || !trimBrainDumpDraft(draft)) return;
+    if (busy || !trimNoteDraft(draft)) return;
     onBusyChange(true);
     onError(null);
     try {
-      await submitBrainDump(draft.text, draft.tagIds);
+      await submitNote(draft.text, draft.tagIds);
       setDraft({ text: "", tagIds: [] });
       await history.refresh();
       await emit("data-changed");
@@ -395,28 +399,28 @@ function PopupBrainDump({
   };
 
   return (
-    <BrainDumpSurface
-      className="brain-dump-surface--popup"
+    <NoteSurface
+      className="note-surface--popup"
       text={history.text}
       tagIds={tagProps.selectedIds}
       tags={tagProps.tags}
       readOnly={history.viewingHistory}
       tagsDisabled={history.viewingHistory}
       headerStart={
-        <span className="brain-dump-surface__header-icon" aria-hidden="true">
-          <NestIcon name={icons.brainDump} />
+        <span className="note-surface__header-icon" aria-hidden="true">
+          <NestIcon name={icons.notes} />
         </span>
       }
       textareaLabel={
-        history.viewingHistory ? "Saved brain dump, read only" : "Brain dump"
+        history.viewingHistory ? "Saved note, read only" : "Notes"
       }
       headerEnd={
-        <BrainDumpHistoryControls
+        <NoteHistoryControls
           canViewPrevious={history.canViewPrevious}
           canViewNext={history.canViewNext}
           onPrevious={history.showPrevious}
           onNext={history.showNext}
-          submittedAt={history.viewingDump?.createdAt}
+          submittedAt={history.viewingNote?.createdAt}
         />
       }
       onTextChange={(text) => setDraft((current) => ({ ...current, text }))}
@@ -425,7 +429,7 @@ function PopupBrainDump({
       onKeyDown={(event) => {
         if (
           !history.viewingHistory &&
-          isBrainDumpSubmitShortcut({
+          isNoteSubmitShortcut({
             key: event.key,
             metaKey: event.metaKey,
             ctrlKey: event.ctrlKey,
@@ -469,13 +473,13 @@ function PopupContent({
   );
   const icons = useTileIcons();
   const taskInputRef = useRef<HTMLInputElement | null>(null);
-  const brainDumpRef = useRef<HTMLElement | null>(null);
+  const noteRef = useRef<HTMLElement | null>(null);
   const panelRefs: Record<PopupPanelId, RefObject<HTMLElement | null>> = {
-    dump: useRef<HTMLElement | null>(null),
+    notes: useRef<HTMLElement | null>(null),
     now: useRef<HTMLElement | null>(null),
   };
   const toggleRefs: Record<PopupPanelId, RefObject<HTMLButtonElement | null>> = {
-    dump: useRef<HTMLButtonElement | null>(null),
+    notes: useRef<HTMLButtonElement | null>(null),
     now: useRef<HTMLButtonElement | null>(null),
   };
   const selectedPulseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -659,15 +663,15 @@ function PopupContent({
         (selectedPulseButtonRef.current ?? timerButtonRef.current)?.focus();
         return;
       }
-      const brainDump = brainDumpRef.current;
-      if (!brainDump) {
-        // TipTap mounts a frame later (`immediatelyRender: false`), so Brain
-        // dump retries until the editor DOM exists.
+      const note = noteRef.current;
+      if (!note) {
+        // TipTap mounts a frame later (`immediatelyRender: false`), so Notes
+        // retries until the editor DOM exists.
         if (frames++ < 30) requestAnimationFrame(focusShownPanel);
         return;
       }
-      brainDump.focus();
-      setContentEditableCaretToEnd(brainDump);
+      note.focus();
+      setContentEditableCaretToEnd(note);
     };
     requestAnimationFrame(focusShownPanel);
     return () => {
@@ -1404,16 +1408,16 @@ function PopupContent({
         onToggle={togglePanel}
       />
 
-      {/* Tasks and Brain dump stay mounted so their drafts survive hiding. */}
+      {/* Tasks and Notes stay mounted so their drafts survive hiding. */}
       <section
-        ref={panelRefs.dump}
-        className="popup-pane popup-dump"
-        aria-label="Brain dump"
-        hidden={!visiblePanels.includes("dump")}
+        ref={panelRefs.notes}
+        className="popup-pane popup-note"
+        aria-label="Notes"
+        hidden={!visiblePanels.includes("notes")}
       >
-        <PopupBrainDump
+        <PopupNote
           tags={loaded?.tags ?? EMPTY_TAGS}
-          editorRef={brainDumpRef}
+          editorRef={noteRef}
           busy={submitting}
           onBusyChange={setSubmitting}
           onError={setError}

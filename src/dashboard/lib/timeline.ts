@@ -1,6 +1,6 @@
 // Behavior and invariants: docs/domain/history.md#phase-history
 import type {
-  BrainDump,
+  Note,
   MetricCheckInWithRatings,
   PhaseCheckIn,
   TaskWorkStretch,
@@ -11,7 +11,7 @@ import { dayLabel, startOfDayMs } from "./time";
 export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
-  | { kind: "dump"; at: number; dump: BrainDump };
+  | { kind: "note"; at: number; note: Note };
 
 /** Working-now boundaries derived from Work stretches (Timeline and Calendar Logs). */
 export type WorkLogEvent =
@@ -42,7 +42,7 @@ export const PHASE_SETTLE_SECONDS = 60;
 // Independent popup submissions can land in the same second; rank them so the
 // feed remains deterministic and easy to scan.
 const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
-  dump: 0,
+  note: 0,
   metrics: 1,
   phase: 2,
   "work-start": 3,
@@ -54,7 +54,7 @@ const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
 export const buildRawLog = (
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
+  notes: Note[],
   stretches: TaskWorkStretch[],
   taskStatusEvents: TaskStatusEvent[] = [],
 ): RawLogEvent[] => {
@@ -69,10 +69,10 @@ export const buildRawLog = (
       at: ci.createdAt,
       checkIn: ci,
     })),
-    ...brainDumps.map((d) => ({
-      kind: "dump" as const,
+    ...notes.map((d) => ({
+      kind: "note" as const,
       at: d.createdAt,
-      dump: d,
+      note: d,
     })),
   ];
   for (const stretch of stretches) {

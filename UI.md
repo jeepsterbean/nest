@@ -12,8 +12,8 @@ Each surface's behavior and storage keys live in its own doc: Tasks in
 [`docs/interface/time-surfaces.md`](docs/interface/time-surfaces.md); Metrics in
 [`docs/interface/metrics.md`](docs/interface/metrics.md); Timer in
 [`docs/interface/timer.md`](docs/interface/timer.md); Popup in
-[`docs/interface/popup.md`](docs/interface/popup.md); Brain dump in
-[`docs/interface/brain-dump.md`](docs/interface/brain-dump.md). Non-obvious class
+[`docs/interface/popup.md`](docs/interface/popup.md); Notes in
+[`docs/interface/notes.md`](docs/interface/notes.md). Non-obvious class
 and layout constraints are commented beside their rules in
 `src/dashboard/styles/`.
 
@@ -23,7 +23,7 @@ and layout constraints are commented beside their rules in
   `.dash-section__head` or a sibling toolbar; the Section sidebar names the
   current place.
 - Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
-  Ready, Scope, Working now, Work stretch, Pulse, Brain dump, Timeline, Logs,
+  Ready, Scope, Working now, Work stretch, Pulse, Notes, Timeline, Logs,
   Section, Sidebar, and Settings.
 
 ## Shared controls
@@ -58,7 +58,7 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Dashboard CSS enters through `src/dashboard/Dashboard.css`, whose ordered
   imports from `src/dashboard/styles/` define the cascade.
 - `DashboardSidebar` holds the five Sections in `SECTIONS` order: Recap,
-  Brain dump, Tasks, Metrics, Phases. The dashboard opens on Recap, and the
+  Notes, Tasks, Metrics, Phases. The dashboard opens on Recap, and the
   last Section is not remembered. Section icons are `NestIcon`s stored in
   `nest:overview-tile-icons`, a key kept from the retired Overview so saved
   choices carry over. Clicking an icon selects its Section; clicking the
@@ -84,10 +84,10 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.
-- `.dashboard__inner` takes the active Section's layout class (`--brainDump`,
+- `.dashboard__inner` takes the active Section's layout class (`--notes`,
   `--tasks`, `--metrics`, `--phases`; Recap uses `--calendar` or
   `--timeline`).
-- Away from Recap, Brain dump, Tasks, Metrics, and Phases all stay mounted
+- Away from Recap, Notes, Tasks, Metrics, and Phases all stay mounted
   (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
   selection, and drafts survive switches between them. Tasks alone returns to
   Table and closes its Task detail on leaving. Opening Recap unmounts them.

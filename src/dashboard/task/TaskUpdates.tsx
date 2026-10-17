@@ -51,7 +51,7 @@ export function TaskUpdates({ task }: { task: Task }) {
   const listRef = useRef<HTMLDivElement>(null);
   const [topDay, setTopDay] = useState<number | null>(null);
 
-  // The dashboard reloads for unrelated changes too (Timer due, Brain dump,
+  // The dashboard reloads for unrelated changes too (Timer due, Notes,
   // Phases), which must not refetch, so only a new History revision does.
   useEffect(() => {
     const request = ++generation.current;

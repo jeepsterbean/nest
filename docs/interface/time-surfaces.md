@@ -1,7 +1,7 @@
 # Time surfaces interface
 
 Rules shared by every surface that shows time: Calendar, Insights, and
-Timeline, plus the day navigation that Brain dump, Metrics, and Phases Day also
+Timeline, plus the day navigation that Notes, Metrics, and Phases Day also
 use. Each surface's own behavior lives in
 [`docs/interface/calendar.md`](calendar.md); the Phases Section lives in
 [Phases interface](phases.md). Range boundaries live in
@@ -15,7 +15,7 @@ The dashboard loads a 30-day history window. Day and Week are anchored to real
 dates rather than measured back from now. Today follows the clock across
 midnight; historical dates stay fixed.
 
-Day navigation (Brain dump, Calendar, Timeline, Metrics, Phases Day) and the date picker's month
+Day navigation (Notes, Calendar, Timeline, Metrics, Phases Day) and the date picker's month
 pager share one arrow control. Every surface opens on today when the app
 launches, pages one local day (or month) at a time, and never moves past Today; shared navigation logic
 enforces that limit as well as the controls. Calendar on Week pages a week at
@@ -31,12 +31,12 @@ month has one Tab stop; arrow keys move focus by a day or week, Home / End
 move to the week edges, and Enter / Space selects the focused date.
 
 The earliest day depends on the surface. Calendar and Timeline stop at loaded history: direct selections clamp to it, and paging
-stops before a page starts outside it. Brain dump, Metrics, and Phases Day have
+stops before a page starts outside it. Notes, Metrics, and Phases Day have
 no earliest day and fetch older days on demand.
 
 ## Logs kinds
 
-Insights, Timeline, and Calendar's Logs figure share four kinds: Brain dumps,
+Insights, Timeline, and Calendar's Logs figure share four kinds: Notes,
 Tasks, Metrics, and Phases. All four are shown by default. Each Insights
 heading has a hide control. Hiding a kind removes that section's body and
 that kind from Logs and Timeline. The heading stays, so the kind can be shown

@@ -48,7 +48,7 @@ export function TimelineView({
     tasks,
     checkIns,
     phaseCheckIns,
-    brainDumps,
+    notes,
     taskWorkStretches,
     taskStatusEvents,
     loaded,
@@ -58,7 +58,7 @@ export function TimelineView({
   const [visibleEventCount, setVisibleEventCount] = useState(
     LOG_EVENT_BATCH_SIZE,
   );
-  const [expandedDumpIds, setExpandedDumpIds] = useState<Set<number>>(
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(
     () => new Set(),
   );
   // Not stored: returning to Phases alone always starts on the settled rows.
@@ -74,7 +74,7 @@ export function TimelineView({
         showsEveryPhaseCheckpoint,
         checkIns,
         phaseCheckIns,
-        brainDumps,
+        notes,
         taskWorkStretches,
         historyFromSec,
         taskStatusEvents,
@@ -86,7 +86,7 @@ export function TimelineView({
       showsEveryPhaseCheckpoint,
       checkIns,
       phaseCheckIns,
-      brainDumps,
+      notes,
       taskWorkStretches,
       taskStatusEvents,
       historyFromSec,
@@ -119,8 +119,8 @@ export function TimelineView({
   const onDeleteCheckIn = (id: number) =>
     void mutate(() => deleteMetricCheckIn(id));
 
-  const toggleDumpExpanded = (id: number) => {
-    setExpandedDumpIds((prev) => {
+  const toggleNoteExpanded = (id: number) => {
+    setExpandedNoteIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -173,9 +173,9 @@ export function TimelineView({
               metrics={metrics}
               pulses={pulses}
               tasks={tasks}
-              expandedDumpIds={expandedDumpIds}
+              expandedNoteIds={expandedNoteIds}
               onDeleteCheckIn={onDeleteCheckIn}
-              onToggleDump={toggleDumpExpanded}
+              onToggleNote={toggleNoteExpanded}
               nowMs={nowMs}
               colorsTimeColumn={kinds.includes("phases")}
             />

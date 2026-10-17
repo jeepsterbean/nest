@@ -7,7 +7,7 @@ export const TILE_ICONS_KEY = "nest:overview-tile-icons";
 const CONFIGURABLE_ICON_IDS = [
   "recap",
   "tasks",
-  "brainDump",
+  "notes",
   "metrics",
   "phases",
 ] as const;
@@ -18,7 +18,7 @@ export type TileIcons = Record<ConfigurableIcon, string>;
 export const DEFAULT_TILE_ICONS: TileIcons = {
   recap: "date",
   tasks: "check",
-  brainDump: "brain",
+  notes: "notes",
   metrics: "gauge",
   phases: "activity",
 };
@@ -50,6 +50,9 @@ export function readTileIcons(
     // that id.
     const legacyRecapIcon = (parsed as { calendar?: unknown }).calendar;
     if (isNestIconKey(legacyRecapIcon)) icons.recap = legacyRecapIcon;
+    // Notes were called Brain dump, and its choice was saved under that id.
+    const legacyNotesIcon = (parsed as { brainDump?: unknown }).brainDump;
+    if (isNestIconKey(legacyNotesIcon)) icons.notes = legacyNotesIcon;
     for (const id of CONFIGURABLE_ICON_IDS) {
       const icon = parsed[id];
       if (isNestIconKey(icon)) icons[id] = icon;

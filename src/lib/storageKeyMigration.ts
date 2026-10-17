@@ -1,25 +1,33 @@
 type MigratingStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-/** Reads the current key first, then moves a legacy value without risking its loss. */
+function removeLegacyValues(storage: MigratingStorage, legacyKeys: readonly string[]) {
+  for (const key of legacyKeys) {
+    if (storage.getItem(key) === null) continue;
+    try {
+      storage.removeItem(key);
+    } catch {
+      // The current value is authoritative; cleanup can retry on the next read.
+    }
+  }
+}
+
+/** Reads the current key first, then moves the newest legacy value without risking its loss.
+ * `legacyKeys` runs newest first, since a key may have been renamed more than once. */
 export function readMigratedStorageValue(
   storage: MigratingStorage,
   currentKey: string,
-  legacyKey: string,
+  legacyKeys: readonly string[],
 ): string | null {
   const current = storage.getItem(currentKey);
   if (current !== null) {
-    if (storage.getItem(legacyKey) !== null) {
-      try {
-        storage.removeItem(legacyKey);
-      } catch {
-        // The current value remains authoritative if legacy cleanup is unavailable.
-      }
-    }
+    removeLegacyValues(storage, legacyKeys);
     return current;
   }
 
-  const legacy = storage.getItem(legacyKey);
-  if (legacy === null) return null;
+  const legacy = legacyKeys
+    .map((key) => storage.getItem(key))
+    .find((value): value is string => value !== null);
+  if (legacy === undefined) return null;
 
   try {
     storage.setItem(currentKey, legacy);
@@ -27,10 +35,6 @@ export function readMigratedStorageValue(
     // Keep the legacy value available when the migration write is refused.
     return legacy;
   }
-  try {
-    storage.removeItem(legacyKey);
-  } catch {
-    // The copied value is already authoritative; cleanup can retry on the next read.
-  }
+  removeLegacyValues(storage, legacyKeys);
   return legacy;
 }

@@ -8,7 +8,7 @@ import type { RawLogEvent } from "./timeline";
 
 export type HourMark =
   | { kind: "metrics"; key: string; event: Extract<RawLogEvent, { kind: "metrics" }> }
-  | { kind: "dump"; key: string; event: Extract<RawLogEvent, { kind: "dump" }> }
+  | { kind: "note"; key: string; event: Extract<RawLogEvent, { kind: "note" }> }
   | { kind: "task"; key: string; taskId: number; changes: TaskChangeEvent[] };
 
 export type LogHour = { from: number; to: number; marks: HourMark[] };
@@ -38,8 +38,8 @@ export function logHours(
     }
     if (event.kind === "metrics") {
       hour.marks.push({ kind: "metrics", key: `metrics-${event.checkIn.id}`, event });
-    } else if (event.kind === "dump") {
-      hour.marks.push({ kind: "dump", key: `dump-${event.dump.id}`, event });
+    } else if (event.kind === "note") {
+      hour.marks.push({ kind: "note", key: `note-${event.note.id}`, event });
     } else if (isTaskChangeEvent(event)) {
       const taskId = taskChangeTaskId(event);
       const existing = hour.marks.find(

@@ -12,7 +12,7 @@ import {
   trimQuietPhaseSessions,
 } from "../../../src/dashboard/lib/timeline";
 import type {
-  BrainDump,
+  Note,
   MetricCheckInWithRatings,
   PhaseCheckIn,
   TaskWorkStretch,
@@ -41,10 +41,10 @@ const phaseCheckIn = (
   phaseLabel: null,
 });
 
-const dump = (id: number, createdAt: number): BrainDump => ({
+const note = (id: number, createdAt: number): Note => ({
   id,
   createdAt,
-  text: `dump ${id}`,
+  text: `note ${id}`,
   tags: [],
 });
 
@@ -52,19 +52,19 @@ const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
 describe("buildRawLog ordering", () => {
   it("orders newest-first", () => {
-    const events = buildRawLog([metricCheckIn(1, 100, [])], [], [dump(1, 200)], []);
+    const events = buildRawLog([metricCheckIn(1, 100, [])], [], [note(1, 200)], []);
     expect(events.map((e) => e.at)).toEqual([200, 100]);
   });
 
-  it("breaks same-second ties as dump -> metrics -> phase -> work start -> work stop", () => {
+  it("breaks same-second ties as note -> metrics -> phase -> work start -> work stop", () => {
     const events = buildRawLog(
       [metricCheckIn(1, 1000, [])],
       [phaseCheckIn(1, 1000)],
-      [dump(1, 1000)],
+      [note(1, 1000)],
       [stretch(1, 9, 1000, 1000)],
     );
     expect(events.map((e) => e.kind)).toEqual([
-      "dump", "metrics", "phase", "work-start", "work-stop",
+      "note", "metrics", "phase", "work-start", "work-stop",
     ]);
   });
 });
@@ -81,11 +81,11 @@ describe("buildRawLog", () => {
     const events = buildRawLog(
       [metricCheckIn(1, 150, [])],
       [],
-      [dump(1, 300)],
+      [note(1, 300)],
       [stretch(1, 9, 100, 200), stretch(2, 9, 250, null)],
     );
     expect(events.map((e) => e.kind)).toEqual([
-      "dump",
+      "note",
       "work-start",
       "work-stop",
       "metrics",
@@ -111,7 +111,7 @@ describe("groupByDay", () => {
     const events = buildRawLog(
       [],
       [],
-      [dump(1, at(17, 12)), dump(2, at(17, 9)), dump(3, at(16, 12))],
+      [note(1, at(17, 12)), note(2, at(17, 9)), note(3, at(16, 12))],
       [],
     );
     const groups = groupByDay(events, now);
@@ -148,7 +148,7 @@ describe("mergePhaseCheckInsIntoEvents", () => {
     const events = buildRawLog(
       [],
       [],
-      [dump(1, 210), dump(2, 100), dump(3, 40)],
+      [note(1, 210), note(2, 100), note(3, 40)],
       [],
     );
     const paired = mergePhaseCheckInsIntoEvents(events, [

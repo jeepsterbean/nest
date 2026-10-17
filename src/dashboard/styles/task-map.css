@@ -291,7 +291,7 @@
 }
 
 .task-entity--blocked .task-entity__head {
-  background: var(--dump-soft);
+  background: var(--note-soft);
 }
 
 .task-entity--done {

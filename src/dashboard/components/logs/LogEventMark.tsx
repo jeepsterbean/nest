@@ -20,8 +20,8 @@ export function logEventLabel(
           : pulses.find((item) => item.id === event.checkIn.pulseId);
       return pulse?.name ?? event.checkIn.pulseName ?? "Metric check-in";
     }
-    case "dump":
-      return "Brain dump";
+    case "note":
+      return "Note";
     case "phase":
       return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
     case "task-status":
@@ -51,7 +51,7 @@ export function LogEventIcon({
           : pulses.find((item) => item.id === event.checkIn.pulseId);
       return <NestIcon name={pulse?.icon ?? "activity"} />;
     }
-    case "dump":
+    case "note":
       return <NestIcon name="notes" />;
     case "phase":
       return (

@@ -28,9 +28,9 @@ reference by default.
 | Timer countdown, interval, or due state | `docs/domain/timer.md` |
 | Timer controls or readouts | `docs/interface/timer.md` |
 | Popup | `docs/interface/popup.md` |
-| Brain dump records or Tag rules | `docs/domain/brain-dump.md` |
-| Brain dump capture, browsing, Note Board, or stickies | `docs/interface/brain-dump.md` |
-| Brain dump editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/brain-dump-text-editor/SKILL.md` |
+| Note records or Tag rules | `docs/domain/notes.md` |
+| Note capture, browsing, Note Board, or stickies | `docs/interface/notes.md` |
+| Note editor, caret/focus, formatting menu, draft sync, TipTap, or ProseMirror | `.agents/skills/note-editor/SKILL.md` |
 | Sidebar or Settings | `CONTEXT.md`, `UI.md` |
 | Dashboard or popup presentation | `.agents/standards/ui-standards.md`, `.impeccable.md`, `UI.md` |
 | Open product work | `BACKLOG-FEATURE-REQUESTS.md` |
@@ -52,12 +52,12 @@ reference by default.
 | Timer state and cadence | `docs/domain/timer.md` |
 | Timer controls and readouts | `docs/interface/timer.md` |
 | Popup | `docs/interface/popup.md` |
-| Brain dump records and Tag rules | `docs/domain/brain-dump.md` |
-| Brain dump capture / Note Board | `docs/interface/brain-dump.md` |
+| Note records and Tag rules | `docs/domain/notes.md` |
+| Note capture / Note Board | `docs/interface/notes.md` |
 | Design feel / brand / UX principles | `.impeccable.md` |
 | Shared dashboard controls, shell, cross-surface UI rules | `UI.md` |
 | Non-obvious CSS or layout constraint | comment beside the rule |
-| Brain dump editor invariants or library behavior | `docs/interface/editor.md` |
+| Note editor invariants or library behavior | `docs/interface/editor.md` |
 | Closing, parking, or adding durable product work | `BACKLOG-FEATURE-REQUESTS.md` |
 | Engineering backlog | `BACKLOG-BACKEND.md` |
 | Product status, setup, repo-wide guidance | `README.md` |
@@ -111,7 +111,7 @@ Follow the table above when editing a Nest doc.
 
 ## Repository-wide invariants
 
-- The dashboard has five Sections, Recap, Brain dump, Tasks, Metrics, and
+- The dashboard has five Sections, Recap, Notes, Tasks, Metrics, and
   Phases, and starts on Recap.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.

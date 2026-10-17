@@ -14,7 +14,7 @@
   min-width: 0;
 }
 
-.insight-brain-dumps__tags li {
+.insight-notes__tags li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -23,7 +23,7 @@
   font-size: 13px;
 }
 
-.insight-brain-dumps__tag {
+.insight-notes__tag {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -31,7 +31,7 @@
   color: var(--ink);
 }
 
-.insight-brain-dumps__more {
+.insight-notes__more {
   min-height: 30px;
   padding: 0;
   border: none;
@@ -42,17 +42,17 @@
   cursor: pointer;
 }
 
-.insight-brain-dumps__more:hover {
+.insight-notes__more:hover {
   color: var(--ink);
 }
 
-.insight-brain-dumps__more:focus-visible {
+.insight-notes__more:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 /* Summary rows share a 30px rhythm and the panel's right edge for values. */
-.insight-brain-dumps__tags {
+.insight-notes__tags {
   display: flex;
   flex-direction: column;
   margin: 0;
@@ -190,7 +190,7 @@
 
 /* Lists with their own layout opt out: this selector outranks a single class,
  * so it would override their gaps and their [hidden] display. */
-.insight-list ul:not(.insight-mix, .insight-brain-dumps__tags) {
+.insight-list ul:not(.insight-mix, .insight-notes__tags) {
   display: flex;
   flex-direction: column;
   gap: 4px;

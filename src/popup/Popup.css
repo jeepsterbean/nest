@@ -18,8 +18,8 @@
   --doing: #3f6b52;
   --phase: #6846a5;
   --phase-soft: rgba(138, 99, 210, 0.12);
-  --dump: #805821;
-  --dump-soft: rgba(193, 142, 67, 0.13);
+  --note: #805821;
+  --note-soft: rgba(193, 142, 67, 0.13);
   --danger: #c0392b;
   --danger-soft: rgba(220, 50, 50, 0.1);
   --rating-1: #9d4e3b;
@@ -62,8 +62,8 @@
     --doing: #7eb392;
     --phase: #a98ee6;
     --phase-soft: rgba(169, 142, 230, 0.16);
-    --dump: #d4a35c;
-    --dump-soft: rgba(212, 163, 92, 0.13);
+    --note: #d4a35c;
+    --note-soft: rgba(212, 163, 92, 0.13);
     --danger: #e07a6d;
     --danger-soft: rgba(224, 122, 109, 0.14);
     --rating-1: #d07c63;
