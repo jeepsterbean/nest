@@ -48,6 +48,7 @@ import {
   type TaskDraft,
 } from "../task/TaskCreateCard";
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
+import { TaskDayView, taskDayCounts } from "../task/TaskDayView";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
 import { useTaskStatusChanged } from "../hooks/useTaskStatusChanged";
@@ -79,10 +80,10 @@ export function TasksView({
   // sidebar, and the collapsed sidebar is too thin for these controls.
   const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
   const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
-  const viewSwitch = showTaskMap && (
+  const viewSwitch = (
     <ViewToggle
       value={visibleTaskView}
-      options={TASK_VIEWS}
+      options={TASK_VIEWS.filter(view => showTaskMap || view.key !== "map")}
       label="Tasks view"
       onChange={setTaskView}
     />
@@ -297,6 +298,22 @@ export function TasksView({
     </div>
   );
 
+  const newTaskButton = (
+    <button
+      ref={newTaskButtonRef}
+      type="button"
+      className="task-new-button"
+      aria-label="New task"
+      title="New task"
+      aria-haspopup="dialog"
+      aria-expanded={creatingTask}
+      onClick={openTaskCreate}
+    >
+      {plusIcon}
+      New task
+    </button>
+  );
+
   const tableBar = (
     <div className="task-table-bar">
       <div className="task-table-bar__result">
@@ -307,19 +324,19 @@ export function TasksView({
         </span>
         {historyFailed && <button type="button" className="task-filter-retry" onClick={retryHistory}>Retry</button>}
       </div>
-      <button
-        ref={newTaskButtonRef}
-        type="button"
-        className="task-new-button"
-        aria-label="New task"
-        title="New task"
-        aria-haspopup="dialog"
-        aria-expanded={creatingTask}
-        onClick={openTaskCreate}
-      >
-        {plusIcon}
-        New task
-      </button>
+      {newTaskButton}
+    </div>
+  );
+
+  const dayCounts = taskDayCounts(tasks, dateNowMs);
+  const dayBar = (
+    <div className="task-table-bar">
+      <div className="task-table-bar__result">
+        <span className="task-filter-result" role="status">
+          {dayCounts.open} open · {dayCounts.closed} closed today
+        </span>
+      </div>
+      {newTaskButton}
     </div>
   );
 
@@ -348,13 +365,11 @@ export function TasksView({
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded || historyLoading}>
       {sidebar && loaded && visibleTaskView === "table" && createPortal(tableQueryPanel, sidebar)}
-      {showTaskMap && (
-        <header className="dash-section__head task-header" inert={overlayDetailOpen}>
-          <div className="task-header__actions">
-            {viewSwitch}
-          </div>
-        </header>
-      )}
+      <header className="dash-section__head task-header" inert={overlayDetailOpen}>
+        <div className="task-header__actions">
+          {viewSwitch}
+        </div>
+      </header>
 
       {!loaded ? (
         <div className="task-board__loading">Laying out the board…</div>
@@ -370,6 +385,17 @@ export function TasksView({
                 composer={composerForm}
                 onSelect={selectTask}
               />
+            )}
+            {visibleTaskView === "day" && (
+              <>
+                {dayBar}
+                <TaskDayView
+                  graph={taskGraph}
+                  nowMs={dateNowMs}
+                  selectedTaskId={selectedTaskId}
+                  onSelect={selectTask}
+                />
+              </>
             )}
             {visibleTaskView === "table" && (
               <>

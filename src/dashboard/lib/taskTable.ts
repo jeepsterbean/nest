@@ -2,6 +2,7 @@ import { moveItem } from "../../lib/reorder";
 
 export const TASK_VIEWS = [
   { key: "table", label: "Table" },
+  { key: "day", label: "Day" },
   { key: "map", label: "Map" },
 ] as const;
 
