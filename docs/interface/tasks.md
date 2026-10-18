@@ -146,20 +146,31 @@ The status control offers every status for open Tasks and Tasks closed today.
 For [locked Tasks](../domain/tasks.md#closing-and-the-lock), it shows the closed
 status, closing date, and “Create follow-up”. It checks the lock when opened.
 
+The Table's Status column displays the status name alone. Elsewhere in Tasks,
+status names carry a status icon before them: dashed ring for
+Backlog, ring for Up next, half-filled ring for Active, check for Completed,
+cross for Cancelled.
 Details show creation, latest update, and closure timestamps, status, Working
 now, and all-time Worked time in whole minutes (“<1m” under a minute),
 independently of Table filters. Worked time is hidden while it is zero and the
 Task is not Working now. Work controls live in the [Popup](popup.md). Value and
-Effort are editable. Description editing saves on Enter or blur, inserts a line
+Effort each use five selectable dots, filled through the selected score. Clicking
+the selected dot clears the score. Arrow keys adjust it, number keys 1–5 set it,
+and 0, Backspace, or Delete clears it. Description editing saves on Enter or blur, inserts a line
 break on Shift+Enter, and cancels on Escape.
 
 ### Relationships
 
-Details show Parents and Children. Empty states read “No parents” or “No children”;
-populated Children lists use “Add child…”. Children supports creating a new
-Backlog Task or linking an existing Task.
+A Relationships section groups Parent and Children, with linked Tasks as rows beneath each header.
+Each header shows open / total linked Tasks as “x/y open” and a + picker.
+Completed and Cancelled count as closed. Empty groups show only their header controls.
+Each picker starts with “Create new task”, opening the New task overlay with the
+current Task prefilled as a Parent for a new Child, or as a Child for a new Parent.
+The relationship is saved when the new Task is added; dismissing preserves the draft.
 Linking adds a connection and keeps that Task’s other Parents. Each Parent and
 Child offers Unlink to remove only that connection while keeping both Tasks.
+Clicking a row’s title opens that Task’s details in place of the current ones;
+clicking its status icon opens the status menu for that Task.
 Existing relationships stay visible regardless of status or closure age.
 Add-parent pickers (including New task) and the existing-child picker default to
 open Tasks and Tasks closed within the last seven days, sorted newest updated

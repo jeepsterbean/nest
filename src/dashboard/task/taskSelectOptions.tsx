@@ -1,7 +1,7 @@
 import type { Task } from "../../lib/types";
 import type { MenuSelectOption } from "../components/MenuSelect";
 import { taskRelationshipCandidates } from "../lib/taskRelationshipCandidates";
-import { TASK_STATUS_LABEL } from "../lib/tasks";
+import { TaskStatusIcon } from "./TaskStatusIcon";
 
 /** Relationship picker options, newest first; older closed Tasks appear only in search. */
 export const taskSelectOptions = (tasks: Task[]): MenuSelectOption[] =>
@@ -11,6 +11,5 @@ export const taskSelectOptions = (tasks: Task[]): MenuSelectOption[] =>
       value: String(task.id),
       label: task.title,
       searchOnly,
-      description: TASK_STATUS_LABEL[task.status],
-      marker: <span className={`status-dot status-dot--${task.status}`} />,
+      marker: <TaskStatusIcon status={task.status} />,
     }));

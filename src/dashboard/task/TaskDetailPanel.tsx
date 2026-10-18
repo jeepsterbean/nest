@@ -15,10 +15,14 @@ import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
 export function TaskDetailPanel({
   task,
   onClose,
+  onCreateRelated,
+  onOpenTask,
   modal = false,
 }: {
   task: Task;
   onClose: () => void;
+  onCreateRelated: (direction: "parent" | "child", origin: HTMLElement | null) => void;
+  onOpenTask: (taskId: number) => void;
   modal?: boolean;
 }) {
   const { taskGraph, mutate } = useDashboardData();
@@ -74,11 +78,9 @@ export function TaskDetailPanel({
       <div className="task-detail__fields">
         <TaskScoreControls task={task} />
       </div>
-      <div className="task-detail__writing">
-        <div className="task-detail__description"><TaskDescription task={task} /></div>
-        <TaskUpdates key={task.id} task={task} />
-      </div>
-      <TaskRelations task={task} />
+      <div className="task-detail__description"><TaskDescription task={task} /></div>
+      <TaskRelations task={task} onCreateRelated={onCreateRelated} onOpenTask={onOpenTask} />
+      <TaskUpdates key={task.id} task={task} />
       <footer className="task-detail__footer">
         <div className="task-detail__dates">
           <span>Created {formatDate(task.createdAt)}</span>

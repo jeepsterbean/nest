@@ -139,6 +139,7 @@ export function TasksView({
   const [composerTitle, setComposerTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraft, setTaskDraft] = useState<TaskDraft>(EMPTY_TASK_DRAFT);
+  const createOriginRef = useRef<HTMLElement | null>(null);
   const newTaskButtonRef = useRef<HTMLButtonElement | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
@@ -148,6 +149,9 @@ export function TasksView({
     selectionOriginRef.current = origin ?? null;
     setSelectedTaskId(id);
   }, []);
+
+  // Keeps the original origin so closing still returns focus to the card that opened the first Task.
+  const openRelatedTask = useCallback((id: number) => setSelectedTaskId(id), []);
 
   const closeDetail = useCallback(() => {
     setSelectedTaskId(null);
@@ -202,7 +206,19 @@ export function TasksView({
     setCreatingTask(false);
   }, [visible, visibleTaskView]);
 
+  const openRelatedTaskCreate = (direction: "parent" | "child", origin: HTMLElement | null) => {
+    if (!selectedTask) return;
+    createOriginRef.current = origin;
+    setTaskDraft({
+      ...taskDraft,
+      parentTaskIds: direction === "child" ? [selectedTask.id] : [],
+      childTaskIds: direction === "parent" ? [selectedTask.id] : [],
+    });
+    setCreatingTask(true);
+  };
+
   const openTaskCreate = () => {
+    createOriginRef.current = newTaskButtonRef.current;
     // An untouched draft picks up the table's Status when the view shows only
     // one, so the new Task lands in the view it was added from.
     if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
@@ -214,7 +230,7 @@ export function TasksView({
 
   const closeTaskCreate = useCallback(() => {
     setCreatingTask(false);
-    newTaskButtonRef.current?.focus();
+    (createOriginRef.current ?? newTaskButtonRef.current)?.focus();
   }, []);
 
   const tableTasksWithoutWorkedTime = useMemo(
@@ -408,6 +424,8 @@ export function TasksView({
               key={selectedTask.id}
               task={selectedTask}
               onClose={closeDetail}
+              onCreateRelated={openRelatedTaskCreate}
+              onOpenTask={openRelatedTask}
             />
           )}
           {selectedTask && overlayDetailOpen && (
@@ -423,6 +441,8 @@ export function TasksView({
                 key={selectedTask.id}
                 task={selectedTask}
                 onClose={closeDetail}
+                onCreateRelated={openRelatedTaskCreate}
+              onOpenTask={openRelatedTask}
                 modal
               />
             </div>
