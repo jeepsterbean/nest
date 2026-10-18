@@ -10,7 +10,6 @@ export type TaskColumnSort = {
 
 const DIRECTION_LABELS: Record<TaskTableColumnId, { ascending: string; descending: string }> = {
   title: { ascending: "A to Z", descending: "Z to A" },
-  scope: { ascending: "A to Z", descending: "Z to A" },
   parent: { ascending: "A to Z", descending: "Z to A" },
   status: { ascending: "Backlog first", descending: "Cancelled first" },
   value: { ascending: "Lowest first", descending: "Highest first" },
@@ -31,7 +30,6 @@ export function sortTasksByColumn(tasks: Task[], sort: TaskColumnSort | TaskColu
   const value = (task: Task, sort: TaskColumnSort): string | number | null => {
     switch (sort.column) {
       case "title": return task.title;
-      case "scope": return task.scope;
       case "parent": return task.parentTaskId === null ? null : taskById?.get(task.parentTaskId)?.title ?? null;
       case "status": return TASK_STATUSES.indexOf(task.status);
       case "value": return task.value;

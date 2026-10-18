@@ -9,7 +9,7 @@ const stretch = (taskId: number, startedAt: number, endedAt: number | null): Tas
   ({ id: taskId, taskId, startedAt, endedAt });
 const task = (id: number, workedSeconds: number): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
-  workedSeconds, workStartedAt: null, scope: null, value: null, effort: null,
+  workedSeconds, workStartedAt: null, value: null, effort: null,
   parentTaskId: null, createdAt: 0, updatedAt: 0, closedAt: null, followsTaskId: null, historyRevision: 0,
 });
 

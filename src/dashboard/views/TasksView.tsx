@@ -21,7 +21,6 @@ import { useAppSettings } from "../hooks/useAppSettings";
 import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
 import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
 import { useTaskTableViews } from "../hooks/useTaskTableViews";
-import { scopeMatches } from "../lib/scope";
 import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
 import {
   canHideTaskTableColumn,
@@ -68,7 +67,6 @@ export function TasksView({
 }) {
   const {
     tasks,
-    scopeTree,
     taskGraph,
     loaded,
     reload,
@@ -93,7 +91,6 @@ export function TasksView({
   const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
   const {
     statuses: tableStatuses,
-    scope: selectedTaskScope,
     parent: selectedParent,
     workedOn: workedOnFilter,
     statusChanged: statusChangedFilter,
@@ -101,7 +98,6 @@ export function TasksView({
     sort: tableSort,
   } = tableQuery;
   const patchTableQuery = (patch: Partial<TaskTableQuery>) => setTableQuery(q => ({ ...q, ...patch }));
-  const setSelectedTaskScope = (scope: string | null) => patchTableQuery({ scope });
   const setSelectedParent = (parent: TaskParentFilter) => patchTableQuery({ parent });
   const setTableSort = (sort: TaskColumnSort[]) => patchTableQuery({ sort });
   // One table clock keeps displayed, filtered, and sorted live totals aligned.
@@ -146,7 +142,7 @@ export function TasksView({
   const newTaskButtonRef = useRef<HTMLButtonElement | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
-  const { statusMenu, scopeMenu } = useTaskMenus();
+  const { statusMenu } = useTaskMenus();
 
   const selectTask = useCallback((id: number, origin?: HTMLElement) => {
     selectionOriginRef.current = origin ?? null;
@@ -190,7 +186,7 @@ export function TasksView({
     if (selectedTaskId === null || !visible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (statusMenu || scopeMenu || creatingTask) return;
+      if (statusMenu || creatingTask) return;
       if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) {
@@ -200,18 +196,18 @@ export function TasksView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTaskId, visible, statusMenu, scopeMenu, creatingTask, closeDetail]);
+  }, [selectedTaskId, visible, statusMenu, creatingTask, closeDetail]);
 
   useEffect(() => {
     setCreatingTask(false);
   }, [visible, visibleTaskView]);
 
   const openTaskCreate = () => {
-    // An untouched draft picks up the table's Scope, and its Status when the
+    // An untouched draft picks up the table's Status when the
     // view shows only one, so the new Task lands in the view it was added from.
     if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
       const status = tableStatuses.length === 1 ? tableStatuses[0]! : EMPTY_TASK_DRAFT.status;
-      setTaskDraft({ ...EMPTY_TASK_DRAFT, scope: selectedTaskScope, status });
+      setTaskDraft({ ...EMPTY_TASK_DRAFT, status });
     }
     setCreatingTask(true);
   };
@@ -221,16 +217,6 @@ export function TasksView({
     newTaskButtonRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (loaded && selectedTaskScope !== null && !scopeTree.paths.has(selectedTaskScope)) {
-      setSelectedTaskScope(null);
-    }
-  }, [loaded, scopeTree.paths, selectedTaskScope]);
-
-  const scopedTasks = useMemo(
-    () => tasks.filter((task) => scopeMatches(task.scope, selectedTaskScope)),
-    [tasks, selectedTaskScope],
-  );
   const tableTasksWithoutWorkedTime = useMemo(
     () => tasks.filter((task) => taskMatchesTableRowFilters(task, tableQuery, historyMatches, dateNowMs)),
     [tasks, tableQuery, historyMatches, dateNowMs],
@@ -244,9 +230,7 @@ export function TasksView({
       : historyFailed ? `${historyName} could not be loaded.`
       : tasks.length === 0
       ? "Nothing on the board yet — add the first task."
-      : scopedTasks.length === 0
-        ? "No tasks in this scope yet."
-        : tableStatuses.length === 0
+      : tableStatuses.length === 0
           ? "Choose at least one status."
           : "No tasks match these filters.";
 
@@ -255,8 +239,7 @@ export function TasksView({
     const title = composerTitle.trim();
     if (!title) return;
     try {
-      // The Map is never scope-filtered, so its composer adds unscoped Tasks.
-      const created = await createTask(title, "", "active", null);
+      const created = await createTask(title, "", "active");
       await reload();
       setComposerTitle("");
       selectTask(created.id);
@@ -273,7 +256,6 @@ export function TasksView({
   const filtersEdited = taskTableFiltersEdited(taskTableViews.selected.query, tableQuery);
   const filterContext: TaskFilterContext = {
     tasks,
-    scopeTree,
     workedTimeCandidates: tableTasksWithoutWorkedTime,
     workedSecondsByTask,
     workHistoryStatus: historyStatus,
@@ -433,7 +415,7 @@ export function TasksView({
             <div
               className="task-detail-overlay"
               onMouseDown={(e) => {
-                // Status and Scope menus portal out of the panel; only a press
+                // Status menus portal out of the panel; only a press
                 // on the scrim itself dismisses.
                 if (e.target === e.currentTarget) closeDetail();
               }}

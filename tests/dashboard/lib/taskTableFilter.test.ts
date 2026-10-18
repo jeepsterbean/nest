@@ -14,7 +14,7 @@ const nowMs = at(20, 12) * 1000;
 
 const task = (id: number, fields: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
-  workedSeconds: 0, workStartedAt: null, scope: null, value: null, effort: null,
+  workedSeconds: 0, workStartedAt: null, value: null, effort: null,
   parentTaskId: null, createdAt: at(1, 9), updatedAt: at(1, 9), closedAt: null,
   followsTaskId: null, historyRevision: 0, ...fields,
 });
@@ -27,7 +27,7 @@ const matchingIds = (tasks: Task[], filters: Partial<TaskTableRowFilters>, histo
 describe("table row filters", () => {
   const tasks = [
     task(1),
-    task(2, { status: "completed", closedAt: at(8, 11), scope: "Health" }),
+    task(2, { status: "completed", closedAt: at(8, 11) }),
     task(3, { status: "cancelled", closedAt: at(9, 0), parentTaskId: 1, value: 4 }),
   ];
 
@@ -42,8 +42,8 @@ describe("table row filters", () => {
     expect(matchingIds(tasks, { closed: { kind: "range", fromDay: null, toDay: "2026-01-09" } })).toEqual([2, 3]);
   });
 
-  it("combines status, scope, parent, score, Worked on, and Status changed", () => {
-    expect(matchingIds(tasks, { statuses: ["completed", "cancelled"], scope: "Health" })).toEqual([2]);
+  it("combines status, parent, score, Worked on, and Status changed", () => {
+    expect(matchingIds(tasks, { statuses: ["completed", "cancelled"], parent: "none" })).toEqual([2]);
     expect(matchingIds(tasks, { parent: "none" })).toEqual([1, 2]);
     expect(matchingIds(tasks, { value: { kind: "scores", scores: [4] } })).toEqual([3]);
     expect(matchingIds(tasks, {}, { workedOn: new Set([1, 3]) })).toEqual([1, 3]);

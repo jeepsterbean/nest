@@ -18,7 +18,7 @@ const task = (id: number, title = `Task ${id}`): Task => ({
   workingNow: false,
   workedSeconds: 0,
   workStartedAt: null,
-  scope: null,
+
   value: null,
   effort: null,
   parentTaskId: null,

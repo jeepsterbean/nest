@@ -22,8 +22,8 @@ and layout constraints are commented beside their rules in
 - Section main content has no title and starts with its controls, in
   `.dash-section__head` or a sibling toolbar; the Section sidebar names the
   current place.
-- Prefer domain words from `CONTEXT.md` in user-facing copy: Task, Blocker,
-  Ready, Scope, Working now, Work stretch, Pulse, Notes, Timeline, Logs,
+- Prefer domain words from `CONTEXT.md` in user-facing copy: Task,
+  Working now, Work stretch, Pulse, Notes, Timeline, Logs,
   Section, Sidebar, and Settings.
 
 ## Shared controls
@@ -110,7 +110,7 @@ on every Section. In Table's query (`.task-query`), each filter and sort row is 
 same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows. Tasks resets
 to Table when leaving the Section; table queries and drafts stay mounted.
 
-`taskGraph` / `TaskGraphProjection` indexes Parent/Child and Blocker/Dependent
+`taskGraph` / `TaskGraphProjection` indexes Parent/Child
 edges for Table, Map, and Task details. The Map draws connectors as an SVG
 overlay. Task surface behavior lives in
 [`docs/interface/tasks.md`](docs/interface/tasks.md).

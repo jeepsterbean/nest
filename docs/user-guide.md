@@ -37,7 +37,7 @@ The dashboard and Popup share the same unsaved note draft, including its Tags. Y
 
 ### Tasks
 
-Select **Tasks** to see the **Table** layout. Filter by Status, Scope, dates, or other Task fields, and save queries as views. Select a Task to open its details. Use **New task** to add one.
+Select **Tasks** to see the **Table** layout. Filter by Status, dates, or other Task fields, and save queries as views. Select a Task to open its details. Use **New task** to add one.
 
 If you enable Map in Settings, a **Map** layout is available too. **Working now** on an Active Task records a Work stretch; Task status and Working now are separate choices.
 

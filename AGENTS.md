@@ -16,11 +16,11 @@ reference by default.
 | Rust, SQLite, or Tauri backend implementation | `src-tauri/AGENTS.md` |
 | Schema, migration, command payload, or shared DTO change | `.agents/skills/schema-ipc-change/SKILL.md` |
 | Phase derivation, Working now, lifecycle, lock/sleep, or quit behavior | `docs/domain/phases.md`, then `.agents/skills/phase-lifecycle/SKILL.md` |
-| Domain words, Ready/Blocked | `CONTEXT.md` |
+| Domain words | `CONTEXT.md` |
 | Terminology or documentation consistency audit | `.agents/skills/terminology-docs-audit/SKILL.md` |
 | History ranges, Phase settling, or summary calculations | `docs/domain/history.md` |
 | Phases Section interactions | `docs/interface/phases.md` |
-| Task rules, relationships, readiness, or history | `docs/domain/tasks.md` |
+| Task rules, relationships, or history | `docs/domain/tasks.md` |
 | Tasks Table, Map, or detail interactions | `docs/interface/tasks.md` |
 | Calendar, Insights, or Timeline interactions | `docs/interface/calendar.md` (Insights: `#insights`, Timeline: `#timeline`), then `docs/interface/time-surfaces.md` for shared date and Logs kind rules |
 | Pulse membership or Metric check-in records | `CONTEXT.md`, `docs/domain/metrics.md` |
@@ -42,7 +42,7 @@ reference by default.
 | Product language, shared domain distinctions | `CONTEXT.md` |
 | Phase derivation, work recording lifecycle | `docs/domain/phases.md` |
 | Phases Section interactions | `docs/interface/phases.md` |
-| Task fields, relationships, readiness, history, deletion | `docs/domain/tasks.md` |
+| Task fields, relationships, history, deletion | `docs/domain/tasks.md` |
 | Tasks dashboard interactions | `docs/interface/tasks.md` |
 | History ranges, Phase settling, range summary calculations | `docs/domain/history.md` |
 | Calendar, Insights, Timeline interactions | `docs/interface/calendar.md` |
@@ -93,7 +93,7 @@ Follow the table above when editing a Nest doc.
 - When one sentence mixes a behavior rule with placement or paint, keep the
   rule.
 - A negative earns its place when it settles a mix-up the other docs would
-  leave open, such as the Tasks table having no scope sidebar. Skip a negative
+  leave open, such as saved views applying only to Table. Skip a negative
   that repeats a positive rule already written beside it.
 - Copy the interface must say stays in the surface doc. Class names, component
   names, and file paths stay in `UI.md` and `docs/interface/editor.md`.
@@ -115,10 +115,7 @@ Follow the table above when editing a Nest doc.
   Phases, and starts on Recap.
 - Prefer domain vocabulary from `CONTEXT.md`. Do not invent synonyms in
   user-facing copy or new domain types.
-- Distinguish persisted Task statuses (`backlog`, `up_next`, `active`,
-  `completed`, `cancelled`) from derived readiness (`Ready` / `Blocked`).
-  Ready/Blocked come from unresolved Blockers; they are not stored status
-  values.
+- Task statuses are `backlog`, `up_next`, `active`, `completed`, and `cancelled`.
 - Do not introduce `any` when an existing or inferred type can express the
   value. Keep TypeScript `strict` clean.
 - At application seams, trim and reject empty names or titles in Tauri

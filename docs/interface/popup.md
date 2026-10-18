@@ -33,7 +33,7 @@ have Up next and Complete.
 
 Double-clicking any task row, including working and Done rows, opens an input
 inside that row to name a Child. Enter creates the Child with the Parent's
-status and Scope, as its own row directly below the Parent; Done rows keep
+status, as its own row directly below the Parent; Done rows keep
 their close-time order instead. ⌘↵ also starts Working now on the Child, but
 only under an Active Parent; elsewhere it acts like Enter. The Parent keeps
 working either way, and the Child shares no status or Worked time with it after

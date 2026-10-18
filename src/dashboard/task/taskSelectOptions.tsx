@@ -1,7 +1,7 @@
 import type { Task } from "../../lib/types";
 import type { MenuSelectOption } from "../components/MenuSelect";
 
-/** Alphabetical Task options shared by Parent and Blocker pickers. */
+/** Alphabetical Task options for Parent pickers. */
 export const taskSelectOptions = (tasks: Task[]): MenuSelectOption[] =>
   [...tasks]
     .sort((left, right) => left.title.localeCompare(right.title))

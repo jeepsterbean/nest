@@ -26,18 +26,9 @@
 .dashboard--tasks .task-column-trigger,
 .dashboard--tasks .task-column-menu,
 .dashboard--tasks .task-query,
-.dashboard--tasks .task-views__changes .task-views__link,
-.dashboard--tasks .task-card__scope {
+.dashboard--tasks .task-views__changes .task-views__link {
   --accent: var(--ink);
   --accent-soft: color-mix(in srgb, var(--muted) 13%, transparent);
-}
-
-.dashboard--tasks .task-card__scope:not(.task-card__scope--empty) {
-  border-color: var(--border);
-}
-
-.dashboard--tasks .task-card__scope:not(.task-card__scope--empty):hover {
-  border-color: var(--border-strong);
 }
 
 .dashboard--tasks .task-table th.task-table__col--over {

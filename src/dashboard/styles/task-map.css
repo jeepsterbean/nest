@@ -46,10 +46,6 @@
   stroke-width: 1.5;
 }
 
-.task-map__edge--blocks {
-  stroke-dasharray: 4 3;
-}
-
 .task-map__edge--done {
   opacity: 0.4;
 }
@@ -288,10 +284,6 @@
 
 .task-entity--active {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-}
-
-.task-entity--blocked .task-entity__head {
-  background: var(--note-soft);
 }
 
 .task-entity--done {

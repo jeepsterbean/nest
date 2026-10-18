@@ -1258,6 +1258,17 @@ CREATE INDEX idx_notes_created_at ON notes(created_at);
 DROP INDEX IF EXISTS idx_brain_dump_tags_tag_id;
 CREATE INDEX idx_note_tags_tag_id ON note_tags(tag_id);
 "#),
+        // Retire Task categorization and execution dependencies together with
+        // their history entries; all remaining Task records keep their ids.
+        M::up(r#"
+DROP TRIGGER task_history_scope;
+DROP TRIGGER task_history_dependency_added;
+DROP TRIGGER task_history_dependency_removed;
+DROP TABLE task_dependencies;
+ALTER TABLE tasks DROP COLUMN scope;
+DELETE FROM task_edit_history
+WHERE kind IN ('scope','blocker_added','blocker_removed','dependent_added','dependent_removed');
+"#),
     ])
 }
 
@@ -1270,6 +1281,71 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn retiring_scopes_and_blockers_preserves_tasks_and_remaining_history() {
+        let mut probe = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut probe).unwrap();
+        let latest: i64 = probe
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations()
+            .to_version(&mut conn, (latest - 1) as usize)
+            .unwrap();
+        conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at,scope) VALUES(1,'Parent','active',1,1,'Work'),(2,'Child','backlog',1,1,'Home')", []).unwrap();
+        conn.execute(
+            "UPDATE tasks SET parent_task_id=1,title='Renamed',scope='Elsewhere' WHERE id=2",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO task_dependencies VALUES(1,2,2)", [])
+            .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events(task_id,to_status,created_at) VALUES(1,'active',1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_work_stretches(task_id,started_at,ended_at) VALUES(1,2,12)",
+            [],
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let child: (String, i64) = conn
+            .query_row(
+                "SELECT title,parent_task_id FROM tasks WHERE id=2",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(child, ("Renamed".into(), 1));
+        let retired: i64 = conn.query_row("SELECT COUNT(*) FROM task_edit_history WHERE kind IN ('scope','blocker_added','blocker_removed','dependent_added','dependent_removed')", [], |row| row.get(0)).unwrap();
+        assert_eq!(retired, 0);
+        let dependencies: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='task_dependencies'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(dependencies, 0);
+        let counts: (i64,i64,i64) = conn.query_row("SELECT (SELECT COUNT(*) FROM task_status_events),(SELECT COUNT(*) FROM task_work_stretches),(SELECT COUNT(*) FROM task_edit_history WHERE kind='title')", [], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?))).unwrap();
+        assert_eq!(counts, (1, 1, 1));
+        conn.execute("UPDATE tasks SET value=3 WHERE id=2", [])
+            .unwrap();
+        crate::task_graph::TaskGraph::delete_task(&mut conn, 1).unwrap();
+        assert!(conn.prepare("SELECT scope FROM tasks").is_err());
+        assert!(conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none());
+    }
 
     #[test]
     fn edit_history_upgrade_keeps_existing_records_and_starts_empty() {
@@ -1896,7 +1972,7 @@ CREATE TABLE phase_check_ins (
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(scope_column_count, 1);
+        assert_eq!(scope_column_count, 0);
     }
 
     #[test]
@@ -1922,16 +1998,9 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
-        let task: (
-            String,
-            String,
-            String,
-            Option<i64>,
-            Option<i64>,
-            Option<String>,
-        ) = conn
+        let task: (String, String, String, Option<i64>, Option<i64>) = conn
             .query_row(
-                "SELECT title, status, description, value, effort, scope FROM tasks WHERE id = 1",
+                "SELECT title, status, description, value, effort FROM tasks WHERE id = 1",
                 [],
                 |row| {
                     Ok((
@@ -1940,7 +2009,6 @@ CREATE TABLE phase_check_ins (
                         row.get(2)?,
                         row.get(3)?,
                         row.get(4)?,
-                        row.get(5)?,
                     ))
                 },
             )
@@ -1953,7 +2021,6 @@ CREATE TABLE phase_check_ins (
                 "Keep me".into(),
                 Some(5),
                 Some(2),
-                Some("Work".into()),
             )
         );
 

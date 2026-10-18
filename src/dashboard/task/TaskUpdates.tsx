@@ -6,10 +6,8 @@ import { RECORDED_TASK_STATUS_LABEL } from "../lib/tasks";
 
 const labels: Record<TaskUpdateKind, string> = {
   created: "Task created", status: "Status changed", title: "Renamed", description: "Description updated",
-  scope: "Scope", value: "Value", effort: "Effort", parent_set: "Parent set",
+  value: "Value", effort: "Effort", parent_set: "Parent set",
   parent_removed: "Parent removed", child_added: "Child added", child_removed: "Child removed",
-  blocker_added: "Blocker added", blocker_removed: "Blocker removed",
-  dependent_added: "Dependent added", dependent_removed: "Dependent removed",
   follows: "Follows task", follow_up: "Follow-up created",
   follows_removed: "Follows link removed", follow_up_removed: "Follow-up removed", work_started: "Started work",
   work_stopped: "Stopped work", work_corrected: "Work corrected", work_removed: "Work removed",

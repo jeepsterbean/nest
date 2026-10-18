@@ -300,7 +300,7 @@ const task = (
   workingNow: false,
   workedSeconds: 0,
   workStartedAt: null,
-  scope: null,
+
   value: null,
   effort: null,
   parentTaskId: null,

@@ -10,7 +10,7 @@ import type { Task } from "../../lib/types";
 import { chevronRightIcon, xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { startPointerDrag } from "../lib/pointerDrag";
-import { childProgress, isTaskBlocked, unresolvedBlockers } from "../lib/taskGraph";
+import { childProgress } from "../lib/taskGraph";
 import {
   cascadeSpot,
   clampMapView,
@@ -33,7 +33,7 @@ import {
 } from "../lib/taskMap";
 import { TASK_STATUS_LABEL, WORKING_STATUSES } from "../lib/tasks";
 
-const EDGE_KINDS = ["blocks", "parent"] as const;
+const EDGE_KINDS = ["parent"] as const;
 type EdgeKind = (typeof EDGE_KINDS)[number];
 /** Used until a box has been measured, so first-paint lines land close. */
 const FALLBACK_CARD_HEIGHT = 128;
@@ -59,7 +59,7 @@ type Drag = {
 type Attribute = { name: string; value: string; muted?: boolean };
 
 /** Open Tasks wait in the Map sidebar; dropped ones become entity boxes placed
- * freely on a big pan/zoom canvas, wired by Parent and Blocker connectors. */
+ * freely on a big pan/zoom canvas, wired by Parent connectors. */
 export function TaskMap({
   tasks,
   selectedTaskId,
@@ -330,12 +330,7 @@ export function TaskMap({
     for (const task of placedTasks) {
       const target = boxOf(task.id);
       if (!target) continue;
-      const relations: { id: number; kind: EdgeKind }[] = [
-        ...(taskGraph.blockersByTask.get(task.id) ?? []).map((blocker) => ({
-          id: blocker.id,
-          kind: "blocks" as const,
-        })),
-      ];
+      const relations: { id: number; kind: EdgeKind }[] = [];
       if (task.parentTaskId !== null) {
         relations.push({ id: task.parentTaskId, kind: "parent" });
       }
@@ -365,12 +360,10 @@ export function TaskMap({
 
   const attributesOf = (task: Task): Attribute[] => {
     const progress = childProgress(taskGraph, task.id);
-    const blockers = unresolvedBlockers(taskGraph, task.id);
     const parent =
       task.parentTaskId === null ? null : taskGraph.byId.get(task.parentTaskId);
     return [
       { name: "status", value: TASK_STATUS_LABEL[task.status] },
-      { name: "scope", value: task.scope ?? "—", muted: task.scope === null },
       {
         name: "value / effort",
         value: `${task.value ?? "—"} / ${task.effort ?? "—"}`,
@@ -379,9 +372,6 @@ export function TaskMap({
       ...(parent ? [{ name: "parent", value: parent.title }] : []),
       ...(progress.total > 0
         ? [{ name: "children", value: `${progress.completed} / ${progress.total}` }]
-        : []),
-      ...(blockers.length > 0 && !isClosed(task)
-        ? [{ name: "blocked by", value: `${blockers.length} open` }]
         : []),
     ];
   };
@@ -438,15 +428,12 @@ export function TaskMap({
 
           {placedTasks.map((task) => {
             const point = boardLayout[task.id];
-            const blocked = isTaskBlocked(taskGraph, task.id);
             return (
               <div
                 key={task.id}
                 ref={measureCard}
                 data-task-id={task.id}
-                className={`task-entity task-entity--${task.status}${
-                  blocked ? " task-entity--blocked" : ""
-                }${isClosed(task) ? " task-entity--done" : ""}${
+                className={`task-entity task-entity--${task.status}${isClosed(task) ? " task-entity--done" : ""}${
                   selectedTaskId === task.id ? " task-entity--selected" : ""
                 }${drag?.taskId === task.id ? " task-entity--dragging" : ""}`}
                 style={{ left: point.x, top: point.y, width: MAP_CARD_WIDTH }}
@@ -490,8 +477,7 @@ export function TaskMap({
 
         {placedTasks.length === 0 && !drag && (
           <div className="task-map__hint">
-            Drag an open task anywhere here. Solid lines run Parent → child,
-            dashed lines run Blocker → blocked.
+            Drag an open task anywhere here. Connectors run Parent → Child.
           </div>
         )}
       </div>

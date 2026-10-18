@@ -10,7 +10,6 @@ import { ViewToggle } from "./components/ViewToggle";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
-import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { CalendarView } from "./views/CalendarView";
 import { TimelineView } from "./views/TimelineView";
@@ -158,7 +157,6 @@ function DashboardInner() {
             </>
           )}
         </div>
-        <ScopeMenu />
         <StatusMenu />
       </FloatingNotesProvider>
     </main>

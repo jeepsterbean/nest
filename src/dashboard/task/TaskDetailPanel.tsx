@@ -8,7 +8,6 @@ import { StatusTrigger } from "./StatusTrigger";
 import { TaskUpdates } from "./TaskUpdates";
 import { TaskDescription } from "./TaskDescription";
 import { TaskRelations } from "./TaskRelations";
-import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
 import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
@@ -74,15 +73,6 @@ export function TaskDetailPanel({
       </header>
       <TaskTitle task={task} />
       <div className="task-detail__fields">
-        <div className="task-detail__field">
-          <span className="task-detail__label">Scope</span>
-          <TaskScopeButton
-            task={task}
-            display="leaf"
-            emptyLabel="Set scope…"
-            showChevron
-          />
-        </div>
         <TaskScoreControls task={task} />
       </div>
       <div className="task-detail__writing">

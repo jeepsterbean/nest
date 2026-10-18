@@ -5,17 +5,11 @@ lives in the docs routed by [`AGENTS.md`](AGENTS.md).
 
 ## Tasks and work
 
-**Parent / Child** describes work breakdown. **Blocker / Dependent** determines
-readiness. The two relationships are independent.
-
-**Ready / Blocked** is readiness derived for open Tasks; it is never a
-persisted status.
-
-**Scope** categorizes Tasks by path.
+**Parent / Child** describes work breakdown.
 
 A closed Task is **locked** once the local day it closed has ended; its status
 is then fixed. A **Follow-up** is a new Task created from a locked one. It is a
-record of origin, separate from Parent / Child and Blocker / Dependent.
+record of origin, separate from Parent / Child.
 
 An **outcome** is what a Task came to within a date range: Completed,
 Cancelled, or Incomplete. It is derived from history and is never a persisted

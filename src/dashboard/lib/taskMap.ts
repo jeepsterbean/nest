@@ -1,7 +1,7 @@
 /** Map layout: where each placed Task's entity box sits on the board, in board
  * pixels from the top-left, plus the pan/zoom the board is viewed through.
  * Free-form — boxes go wherever they are dropped and may overlap. Relation
- * lines and Blocked styling come from the task graph, never from where a box
+ * lines come from the task graph, never from where a box
  * sits. */
 
 export const MAP_CARD_WIDTH = 216;

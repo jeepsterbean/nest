@@ -18,7 +18,6 @@ export type Task = {
   workingNow: boolean;
   workedSeconds: number;
   workStartedAt: number | null;
-  scope: string | null;
   value: RatingValue | null;
   effort: RatingValue | null;
   parentTaskId: number | null;
@@ -40,12 +39,6 @@ export type TaskWorkStretch = {
   endedAt: number | null;
 };
 
-export type TaskDependency = {
-  blockerTaskId: number;
-  blockedTaskId: number;
-  createdAt: number;
-};
-
 export type TaskStatusEvent = {
   id: number;
   taskId: number;
@@ -59,9 +52,8 @@ export type TaskUpdateCursor = { time: number; source: number; id: number };
 export type TaskWorkInterval = { startedAt: number; endedAt: number | null };
 /** Every kind History records, from Rust, SQL triggers, and derived rows. */
 export type TaskUpdateKind =
-  | "created" | "status" | "title" | "description" | "scope" | "value" | "effort"
+  | "created" | "status" | "title" | "description" | "value" | "effort"
   | "parent_set" | "parent_removed" | "child_added" | "child_removed"
-  | "blocker_added" | "blocker_removed" | "dependent_added" | "dependent_removed"
   | "follows" | "follow_up" | "follows_removed" | "follow_up_removed"
   | "work_started" | "work_stopped" | "work_corrected" | "work_removed";
 export type TaskUpdate = {
