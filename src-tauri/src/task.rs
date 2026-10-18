@@ -19,7 +19,9 @@ pub(crate) const TASK_COLUMNS: &str = "t.id, t.title, t.description, t.status, \
               WHERE s.task_id = t.id AND s.ended_at IS NOT NULL), 0), \
     (SELECT s.started_at FROM task_work_stretches s \
      WHERE s.task_id = t.id AND s.ended_at IS NULL), \
-    t.value, t.effort, t.parent_task_id, t.created_at, t.updated_at, \
+    t.value, t.effort, \
+    (SELECT json_group_array(parent_task_id) FROM (SELECT parent_task_id FROM task_parents WHERE child_task_id=t.id ORDER BY parent_task_id)), \
+    t.created_at, t.updated_at, \
     (SELECT MAX(e.created_at) FROM task_status_events e \
      WHERE e.task_id = t.id AND e.to_status = t.status \
        AND t.status IN ('completed', 'cancelled')), \
@@ -36,7 +38,13 @@ pub(crate) fn map_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         work_started_at: row.get(6)?,
         value: row.get(7)?,
         effort: row.get(8)?,
-        parent_task_id: row.get(9)?,
+        parent_task_ids: serde_json::from_str(&row.get::<_, String>(9)?).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                9,
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
         closed_at: row.get(12)?,

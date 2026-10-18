@@ -31,7 +31,8 @@ export function TaskDetailPanel({
     panelRef.current?.focus();
   }, []);
 
-  const childCount = (taskGraph.childrenByParent.get(task.id) ?? []).length;
+  const orphanedChildCount = (taskGraph.childrenByParent.get(task.id) ?? [])
+    .filter((child) => child.parentTaskIds.length === 1).length;
 
   const confirmDelete = () => {
     void mutate(() => deleteTask(task.id)).then((deleted) => {
@@ -104,11 +105,11 @@ export function TaskDetailPanel({
           <div className="task-detail__confirm">
             <p>
               Removes this task for good.
-              {childCount > 0 &&
-                ` Its ${
-                  childCount === 1
-                    ? "child task becomes"
-                    : `${childCount} child tasks become`
+              {orphanedChildCount > 0 &&
+                ` ${
+                  orphanedChildCount === 1
+                    ? "A child task with no other Parent becomes"
+                    : `${orphanedChildCount} child tasks with no other Parent become`
                 } top-level.`}
             </p>
             <div className="task-detail__confirm-actions">

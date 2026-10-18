@@ -69,7 +69,6 @@ describe("task table layout", () => {
     expect(
       moveTaskTableColumn(columns, "title", "status").map((column) => column.id),
     ).toEqual([
-      "parent",
       "status",
       "title",
       "value",
@@ -121,7 +120,7 @@ describe("task table fill", () => {
   it("scales visible columns so they fill the available width", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 200, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 100, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 100, minWidth: 88 },
     ];
     const fitted = fitTaskTableColumns(columns, 600);
     expect(fitted.map((column) => column.width)).toEqual([400, 200]);
@@ -139,7 +138,7 @@ describe("task table fill", () => {
   it("gives every visible column its min when the pane is narrower than the mins", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 200, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 100, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 100, minWidth: 88 },
     ];
     const fitted = fitTaskTableColumns(columns, 150);
     expect(fitted.map((column) => column.width)).toEqual([120, 88]);
@@ -148,7 +147,7 @@ describe("task table fill", () => {
   it("locks a column at min and gives the rest of the slack to its neighbors", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 200, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 100, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 100, minWidth: 88 },
     ];
     const fitted = fitTaskTableColumns(columns, 220);
     expect(fitted[1]?.width).toBe(88);
@@ -158,7 +157,7 @@ describe("task table fill", () => {
   it("returns the same array when visible widths already fill the pane", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 400, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 200, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 200, minWidth: 88 },
     ];
     expect(fitTaskTableColumns(columns, 600)).toBe(columns);
   });
@@ -174,17 +173,17 @@ describe("task table neighbor split", () => {
   });
 
   it("skips a hidden neighbor and trades with the next visible column", () => {
-    const columns = setTaskTableColumnHidden(normalizeTaskTableLayout(null), "parent", true);
+    const columns = setTaskTableColumnHidden(normalizeTaskTableLayout(null), "updated", true);
     const split = splitTaskTableColumn(columns, "title", 16);
     expect(split.find((column) => column.id === "title")?.width).toBe(256);
-    expect(split.find((column) => column.id === "parent")?.width).toBe(140);
+    expect(split.find((column) => column.id === "updated")?.width).toBe(100);
     expect(split.find((column) => column.id === "status")?.width).toBe(112);
   });
 
   it("stops when the neighbor is at its min", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 200, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 88, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 88, minWidth: 88 },
     ];
     expect(splitTaskTableColumn(columns, "title", 40)).toBe(columns);
   });
@@ -192,7 +191,7 @@ describe("task table neighbor split", () => {
   it("stops when the resized column is at its min", () => {
     const columns: TaskTableColumn[] = [
       { id: "title", label: "Title", width: 120, minWidth: 120 },
-      { id: "parent", label: "Scope", width: 140, minWidth: 88 },
+      { id: "updated", label: "Updated", width: 140, minWidth: 88 },
     ];
     expect(splitTaskTableColumn(columns, "title", -40)).toBe(columns);
   });

@@ -362,7 +362,7 @@ export function TasksView({
                 <TaskTable
                 wrapRef={tableColumns.wrapRef}
                 columns={tableColumns.visibleColumns}
-                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask)}
+                tasks={sortTasksByColumn(tableTasks, tableSort, nowMs, workedSecondsByTask)}
                 headerSort={tableSort[0]}
                 renderHeader={(column) => (
                   <TaskTableHeaderMenu
@@ -376,7 +376,6 @@ export function TasksView({
                     onHide={canHideTaskTableColumn(column.id) ? () => tableColumns.hideColumn(column.id) : undefined}
                   />
                 )}
-                taskGraph={taskGraph}
                 nowMs={nowMs}
                 workedSecondsByTask={workedSecondsByTask}
                 selectedTaskId={selectedTaskId}

@@ -5,7 +5,7 @@ import { sortTasksByColumn } from "../../../src/dashboard/lib/taskColumnSort";
 const task = (id: number, fields: Partial<Task>): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds: 0, workStartedAt: null, value: null, effort: null,
-  parentTaskId: null, createdAt: id, updatedAt: id, closedAt: null,
+  parentTaskIds: [], createdAt: id, updatedAt: id, closedAt: null,
   followsTaskId: null, historyRevision: 0, ...fields,
 });
 
@@ -36,16 +36,9 @@ describe("column sorting", () => {
       task(1, { workedSeconds: 60 }),
       task(2, { workedSeconds: 0, workingNow: true, workStartedAt: nowMs / 1000 - 120 }),
     ];
-    expect(sortTasksByColumn(tasks, { column: "workedTime", direction: "ascending" }, undefined, nowMs).map(t => t.id)).toEqual([1, 2]);
+    expect(sortTasksByColumn(tasks, { column: "workedTime", direction: "ascending" }, nowMs).map(t => t.id)).toEqual([1, 2]);
   });
 
-  it("sorts Parent by the parent's title, even when the parent row is filtered out", () => {
-    const parents = [task(10, { title: "Zebra" }), task(11, { title: "Apple" })];
-    const tasks = [task(1, { parentTaskId: 10 }), task(2, { parentTaskId: null }), task(3, { parentTaskId: 11 })];
-    const byId = new Map([...parents, ...tasks].map(t => [t.id, t]));
-    expect(sortTasksByColumn(tasks, { column: "parent", direction: "ascending" }, byId).map(t => t.id)).toEqual([3, 1, 2]);
-    expect(sortTasksByColumn(tasks, { column: "parent", direction: "descending" }, byId).map(t => t.id)).toEqual([1, 3, 2]);
-  });
   it("breaks ties with subsequent rules, including two empty values", () => {
     const tasks = [task(1, { value: 5, effort: 3 }), task(2, { value: 5, effort: 1 }),
       task(3, { value: null, effort: 2 }), task(4, { value: null, effort: 1 })];

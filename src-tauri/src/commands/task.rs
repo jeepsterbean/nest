@@ -85,7 +85,7 @@ pub fn create_task(
     title: String,
     description: String,
     status: String,
-    parent_task_id: Option<i64>,
+    parent_task_ids: Vec<i64>,
 ) -> Result<Task> {
     let title = title.trim().to_string();
     if title.is_empty() {
@@ -96,24 +96,17 @@ pub fn create_task(
     let mut conn = state.lock().unwrap();
     let now = now_unix_secs();
     let tx = conn.transaction()?;
-    if let Some(parent_id) = parent_task_id {
-        let parent_exists: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?1)",
-            params![parent_id],
-            |row| row.get(0),
-        )?;
-        if !parent_exists {
-            return Err(AppError::NotFound(format!("task {parent_id}")));
-        }
-    }
     tx.execute(
         "INSERT INTO tasks \
-         (title, description, status, parent_task_id, created_at, updated_at, sort_order) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, \
+         (title, description, status, created_at, updated_at, sort_order) \
+         VALUES (?1, ?2, ?3, ?4, ?5, \
            COALESCE((SELECT MIN(sort_order) FROM tasks), 0) - 1)",
-        params![title, description, status, parent_task_id, now, now],
+        params![title, description, status, now, now],
     )?;
     let id = tx.last_insert_rowid();
+    for parent_id in parent_task_ids {
+        TaskGraph::add_parent_in(&tx, id, parent_id)?;
+    }
     tx.execute(
         "INSERT INTO task_status_events (task_id, from_status, to_status, created_at) \
          VALUES (?1, NULL, ?2, ?3)",
@@ -226,14 +219,27 @@ pub fn set_task_description(
 }
 
 #[tauri::command]
-pub fn set_task_parent(
+pub fn add_task_parent(
     app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     id: i64,
-    parent_task_id: Option<i64>,
+    parent_task_id: i64,
 ) -> Result<Task> {
     let mut conn = state.lock().unwrap();
-    TaskGraph::set_parent(&mut conn, id, parent_task_id)?;
+    TaskGraph::add_parent(&mut conn, id, parent_task_id)?;
+    announce_task_change(&app);
+    fetch_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn remove_task_parent(
+    app: AppHandle,
+    state: State<'_, Mutex<Connection>>,
+    id: i64,
+    parent_task_id: i64,
+) -> Result<Task> {
+    let mut conn = state.lock().unwrap();
+    TaskGraph::remove_parent(&mut conn, id, parent_task_id)?;
     announce_task_change(&app);
     fetch_task(&conn, id)
 }
@@ -833,10 +839,12 @@ pub(crate) mod tests {
         .unwrap();
         conn.execute(
             "UPDATE tasks SET description = 'Notes', value = 4, \
-             effort = 2, parent_task_id = 2 WHERE id = 1",
+             effort = 2 WHERE id = 1",
             [],
         )
         .unwrap();
+        TaskGraph::add_parent_in(&conn, 1, 2).unwrap();
+        TaskGraph::add_parent_in(&conn, 1, 3).unwrap();
         seed_work(&conn, 1, 600, None);
 
         // An open Task can still change status, so it has nothing to follow up.
@@ -852,7 +860,7 @@ pub(crate) mod tests {
         assert_eq!(follow_up.status, "backlog");
         assert_eq!((follow_up.value, follow_up.effort), (Some(4), Some(2)));
         assert_eq!(follow_up.follows_task_id, Some(1));
-        assert_eq!(follow_up.parent_task_id, None);
+        assert!(follow_up.parent_task_ids.is_empty());
         assert_eq!(follow_up.worked_seconds, 0);
         assert_eq!(follow_up.created_at, 500);
 
@@ -1206,8 +1214,8 @@ mod update_history_tests {
     #[test]
     fn deletion_preserves_relationship_snapshots_on_survivors() {
         let mut conn = database();
-        TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
-        TaskGraph::set_parent(&mut conn, 3, Some(2)).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
         TaskGraph::delete_task(&mut conn, 2).unwrap();
         for (id, kind) in [(1, "child_removed"), (3, "parent_removed")] {
             let page = read_task_updates(&conn, id, None).unwrap();
@@ -1223,18 +1231,21 @@ mod update_history_tests {
             .unwrap();
         assert_eq!(own, 0);
         let parent: Option<i64> = conn
-            .query_row("SELECT parent_task_id FROM tasks WHERE id=3", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT (SELECT parent_task_id FROM task_parents WHERE child_task_id=3)",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(parent, None);
     }
 
     #[test]
-    fn reparenting_and_follow_ups_record_both_sides() {
+    fn relationship_changes_and_follow_ups_record_both_sides() {
         let mut conn = database();
-        TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
-        TaskGraph::set_parent(&mut conn, 2, Some(3)).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 1).unwrap();
+        TaskGraph::remove_parent(&mut conn, 2, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 3).unwrap();
         assert!(read_task_updates(&conn, 1, None)
             .unwrap()
             .updates
@@ -1247,7 +1258,7 @@ mod update_history_tests {
             .any(|u| u.kind == "child_added"));
         let child = read_task_updates(&conn, 2, None).unwrap();
         assert_eq!(child.updates.len(), 3);
-        TaskGraph::set_parent(&mut conn, 2, Some(3)).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 3).unwrap();
         assert_eq!(read_task_updates(&conn, 2, None).unwrap().updates.len(), 3);
         conn.execute("UPDATE tasks SET status='completed' WHERE id=1", [])
             .unwrap();

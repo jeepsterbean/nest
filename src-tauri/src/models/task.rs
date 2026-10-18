@@ -12,7 +12,7 @@ pub struct Task {
     pub work_started_at: Option<i64>,
     pub value: Option<i64>,
     pub effort: Option<i64>,
-    pub parent_task_id: Option<i64>,
+    pub parent_task_ids: Vec<i64>,
     pub created_at: i64,
     pub updated_at: i64,
     /// None while the Task is open.

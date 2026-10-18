@@ -106,10 +106,9 @@ export const changedTaskTableQueryFields = (saved: TaskTableQuery, query: TaskTa
 /** Query fields that select rows. */
 export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "columns">;
 
-/** The filter each column header edits; Worked on and Status changed have no column. */
+/** The filter each column header edits; Parent, Worked on and Status changed have no column. */
 export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTableFilterField>> = {
   status: "statuses",
-  parent: "parent",
   created: "created",
   updated: "updated",
   closed: "closed",

@@ -9,53 +9,49 @@ use crate::time::now_unix_secs;
 pub struct TaskGraph;
 
 impl TaskGraph {
-    pub fn set_parent(
-        conn: &mut Connection,
-        task_id: i64,
-        parent_task_id: Option<i64>,
-    ) -> Result<()> {
+    pub fn add_parent(conn: &mut Connection, task_id: i64, parent_id: i64) -> Result<()> {
         let tx = conn.transaction()?;
-        Self::require_task(&tx, task_id)?;
-        let current: Option<i64> = tx.query_row(
-            "SELECT parent_task_id FROM tasks WHERE id=?1",
-            params![task_id],
+        Self::add_parent_in(&tx, task_id, parent_id)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn add_parent_in(conn: &Connection, task_id: i64, parent_id: i64) -> Result<()> {
+        Self::require_task(conn, task_id)?;
+        Self::require_task(conn, parent_id)?;
+        if parent_id == task_id {
+            return Err(AppError::InvalidInput(
+                "a task cannot be its own parent".into(),
+            ));
+        }
+        let creates_cycle: bool = conn.query_row(
+            "WITH RECURSIVE ancestors(id) AS (
+               SELECT ?1 UNION
+               SELECT p.parent_task_id FROM task_parents p JOIN ancestors a ON p.child_task_id=a.id
+             ) SELECT EXISTS(SELECT 1 FROM ancestors WHERE id=?2)",
+            params![parent_id, task_id],
             |row| row.get(0),
         )?;
-        if current == parent_task_id {
-            return Ok(());
+        if creates_cycle {
+            return Err(AppError::InvalidInput(
+                "that parent would create a task hierarchy cycle".into(),
+            ));
         }
+        conn.execute(
+            "INSERT INTO task_parents(child_task_id,parent_task_id,created_at) VALUES(?1,?2,?3)
+             ON CONFLICT(child_task_id,parent_task_id) DO NOTHING",
+            params![task_id, parent_id, now_unix_secs()],
+        )?;
+        Ok(())
+    }
 
-        if let Some(parent_id) = parent_task_id {
-            Self::require_task(&tx, parent_id)?;
-            if parent_id == task_id {
-                return Err(AppError::InvalidInput(
-                    "a task cannot be its own parent".into(),
-                ));
-            }
-
-            let creates_cycle: bool = tx.query_row(
-                "WITH RECURSIVE ancestors(id) AS ( \
-                   SELECT ?1 \
-                   UNION \
-                   SELECT t.parent_task_id \
-                   FROM tasks t \
-                   JOIN ancestors a ON t.id = a.id \
-                   WHERE t.parent_task_id IS NOT NULL \
-                 ) \
-                 SELECT EXISTS(SELECT 1 FROM ancestors WHERE id = ?2)",
-                params![parent_id, task_id],
-                |row| row.get(0),
-            )?;
-            if creates_cycle {
-                return Err(AppError::InvalidInput(
-                    "that parent would create a task hierarchy cycle".into(),
-                ));
-            }
-        }
-
+    pub fn remove_parent(conn: &mut Connection, task_id: i64, parent_id: i64) -> Result<()> {
+        let tx = conn.transaction()?;
+        Self::require_task(&tx, task_id)?;
+        Self::require_task(&tx, parent_id)?;
         tx.execute(
-            "UPDATE tasks SET parent_task_id = ?1, updated_at = ?2 WHERE id = ?3",
-            params![parent_task_id, now_unix_secs(), task_id],
+            "DELETE FROM task_parents WHERE child_task_id=?1 AND parent_task_id=?2",
+            params![task_id, parent_id],
         )?;
         tx.commit()?;
         Ok(())
@@ -79,10 +75,8 @@ impl TaskGraph {
             params![now, id],
         )?;
         tx.execute(
-            "UPDATE tasks SET parent_task_id = NULL, updated_at = ?1 \
-             WHERE parent_task_id = ?2 \
-                OR (id = ?2 AND parent_task_id IS NOT NULL)",
-            params![now, id],
+            "DELETE FROM task_parents WHERE child_task_id=?1 OR parent_task_id=?1",
+            params![id],
         )?;
         tx.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
         Ok(())
@@ -127,18 +121,140 @@ mod tests {
     }
 
     #[test]
+    fn multiple_parents_unlink_independently_and_skip_duplicate_history() {
+        let mut conn = database();
+        TaskGraph::add_parent(&mut conn, 3, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
+        assert_eq!(
+            crate::task::fetch_task(&conn, 3).unwrap().parent_task_ids,
+            vec![1, 2]
+        );
+        let before = crate::task::fetch_task(&conn, 3).unwrap().history_revision;
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
+        assert_eq!(
+            crate::task::fetch_task(&conn, 3).unwrap().history_revision,
+            before
+        );
+        TaskGraph::remove_parent(&mut conn, 3, 1).unwrap();
+        assert_eq!(
+            crate::task::fetch_task(&conn, 3).unwrap().parent_task_ids,
+            vec![2]
+        );
+        let after = crate::task::fetch_task(&conn, 3).unwrap().history_revision;
+        TaskGraph::remove_parent(&mut conn, 3, 1).unwrap();
+        assert_eq!(
+            crate::task::fetch_task(&conn, 3).unwrap().history_revision,
+            after
+        );
+        let removals: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM task_edit_history WHERE (task_id=1 AND kind='child_removed') OR (task_id=3 AND kind='parent_removed')",
+            [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(removals, 2);
+        let unrelated_removals: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM task_edit_history WHERE task_id=2 AND kind='child_removed'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(unrelated_removals, 0);
+    }
+
+    #[test]
+    fn cycles_are_rejected_across_every_parent_branch_and_in_sqlite() {
+        let mut conn = database();
+        TaskGraph::add_parent(&mut conn, 3, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
+        TaskGraph::add_parent(&mut conn, 4, 3).unwrap();
+        assert!(TaskGraph::add_parent(&mut conn, 2, 4).is_err());
+        assert!(TaskGraph::add_parent(&mut conn, 1, 4).is_err());
+        assert!(TaskGraph::add_parent(&mut conn, 4, 4).is_err());
+        assert!(TaskGraph::add_parent(&mut conn, 4, 99).is_err());
+        assert!(TaskGraph::add_parent(&mut conn, 99, 1).is_err());
+        assert!(conn
+            .execute("INSERT INTO task_parents VALUES(2,4,1)", [])
+            .is_err());
+        assert!(conn
+            .execute("INSERT INTO task_parents VALUES(1,1,1)", [])
+            .is_err());
+        assert!(conn
+            .execute("INSERT INTO task_parents VALUES(1,99,1)", [])
+            .is_err());
+        assert!(conn
+            .execute("INSERT INTO task_parents VALUES(3,1,1)", [])
+            .is_err());
+        assert!(conn
+            .execute(
+                "UPDATE task_parents SET parent_task_id=4 WHERE child_task_id=3",
+                []
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn deleting_one_parent_keeps_other_connections_and_records_removals() {
+        let mut conn = database();
+        TaskGraph::add_parent(&mut conn, 3, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
+        TaskGraph::add_parent(&mut conn, 4, 1).unwrap();
+        TaskGraph::delete_task(&mut conn, 1).unwrap();
+        assert_eq!(
+            crate::task::fetch_task(&conn, 3).unwrap().parent_task_ids,
+            vec![2]
+        );
+        assert!(crate::task::fetch_task(&conn, 4)
+            .unwrap()
+            .parent_task_ids
+            .is_empty());
+        let snapshots: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM task_edit_history WHERE kind='parent_removed' AND related_title='A'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(snapshots, 2);
+        TaskGraph::delete_task(&mut conn, 3).unwrap();
+        let removal: String = conn.query_row(
+            "SELECT related_title FROM task_edit_history WHERE task_id=2 AND kind='child_removed'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(removal, "C");
+        assert!(conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn failed_relationship_batch_rolls_back_edges_and_history() {
+        let mut conn = database();
+        let before = crate::task::fetch_task(&conn, 3).unwrap().history_revision;
+        {
+            let tx = conn.transaction().unwrap();
+            TaskGraph::add_parent_in(&tx, 3, 1).unwrap();
+            assert!(TaskGraph::add_parent_in(&tx, 3, 99).is_err());
+        }
+        let task = crate::task::fetch_task(&conn, 3).unwrap();
+        assert!(task.parent_task_ids.is_empty());
+        assert_eq!(task.history_revision, before);
+    }
+
+    #[test]
     fn hierarchy_allows_nesting_and_rejects_cycles() {
         let mut conn = database();
-        TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
-        TaskGraph::set_parent(&mut conn, 3, Some(2)).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
 
-        let error = TaskGraph::set_parent(&mut conn, 1, Some(3)).unwrap_err();
+        let error = TaskGraph::add_parent(&mut conn, 1, 3).unwrap_err();
         assert!(error.to_string().contains("hierarchy cycle"));
 
         let parent: Option<i64> = conn
-            .query_row("SELECT parent_task_id FROM tasks WHERE id = 1", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT (SELECT parent_task_id FROM task_parents WHERE child_task_id=1)",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(parent, None);
     }
@@ -146,22 +262,26 @@ mod tests {
     #[test]
     fn deleting_a_parent_promotes_children_but_keeps_grandchildren_nested() {
         let mut conn = database();
-        TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
-        TaskGraph::set_parent(&mut conn, 3, Some(2)).unwrap();
+        TaskGraph::add_parent(&mut conn, 2, 1).unwrap();
+        TaskGraph::add_parent(&mut conn, 3, 2).unwrap();
 
         TaskGraph::delete_task(&mut conn, 1).unwrap();
 
         let child_parent: Option<i64> = conn
-            .query_row("SELECT parent_task_id FROM tasks WHERE id = 2", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT (SELECT parent_task_id FROM task_parents WHERE child_task_id=2)",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(child_parent, None);
 
         let grandchild_parent: Option<i64> = conn
-            .query_row("SELECT parent_task_id FROM tasks WHERE id = 3", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT (SELECT parent_task_id FROM task_parents WHERE child_task_id=3)",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(grandchild_parent, Some(2));
     }

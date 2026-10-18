@@ -16,7 +16,7 @@ const task = (
   workStartedAt: null,
   value: null,
   effort: null,
-  parentTaskId,
+  parentTaskIds: parentTaskId === null ? [] : [parentTaskId],
   closedAt: null,
   followsTaskId: null,
   historyRevision: 0,
@@ -26,8 +26,8 @@ const task = (
 
 const nowSeconds = 2_000_000;
 const cutoff = nowSeconds - 7 * 24 * 60 * 60;
-const candidates = (tasks: Task[], selectedId: number | null = null) =>
-  taskRelationshipCandidates(tasks, selectedId, nowSeconds * 1000);
+const candidates = (tasks: Task[]) =>
+  taskRelationshipCandidates(tasks, nowSeconds * 1000);
 
 describe("relationship suggestions", () => {
   it("includes open and recently closed Tasks and puts older closures after them", () => {
@@ -37,12 +37,6 @@ describe("relationship suggestions", () => {
     expect(result.map(({ task, searchOnly }) => [task.id, searchOnly])).toEqual([
       [3, false], [2, false], [1, true],
     ]);
-  });
-
-  it("keeps an older selected Parent in the default list", () => {
-    const old = { ...task(1, "completed"), closedAt: cutoff - 1 };
-    expect(candidates([old], 1)[0].searchOnly).toBe(false);
-    expect(candidates([old])[0].searchOnly).toBe(true);
   });
 
   it("keeps closed Tasks without a closure timestamp available through search", () => {

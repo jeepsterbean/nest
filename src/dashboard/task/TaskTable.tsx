@@ -1,7 +1,6 @@
 import type { ReactNode, Ref, PointerEvent as ReactPointerEvent } from "react";
 import type { Task } from "../../lib/types";
 import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
-import type { TaskGraphProjection } from "../lib/taskGraph";
 import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
 import { TaskScoreControls } from "./TaskScoreControls";
@@ -23,14 +22,12 @@ export type TaskTableColumnInteraction = {
 function TaskTableCell({
   id,
   task,
-  taskGraph,
   nowMs,
   workedSeconds,
 }: {
   id: TaskTableColumnId;
   workedSeconds?: number;
   task: Task;
-  taskGraph: TaskGraphProjection;
   nowMs?: number;
 }) {
   switch (id) {
@@ -41,14 +38,6 @@ function TaskTableCell({
             <span title={task.title}>{task.title}</span>
             {task.workingNow && <WorkingBadge />}
           </div>
-        </td>
-      );
-    case "parent":
-      return (
-        <td className="task-table__col task-table__col--parent">
-          {task.parentTaskId === null
-            ? "—"
-            : taskGraph.byId.get(task.parentTaskId)?.title ?? "—"}
         </td>
       );
     case "status":
@@ -100,7 +89,6 @@ function TaskTableCell({
 export function TaskTable({
   columns,
   tasks,
-  taskGraph,
   emptyCopy,
   selectedTaskId = null,
   onSelect,
@@ -115,7 +103,6 @@ export function TaskTable({
   headerSort?: { column: TaskTableColumnId; direction: "ascending" | "descending" };
   columns: TaskTableColumn[];
   tasks: Task[];
-  taskGraph: TaskGraphProjection;
   emptyCopy: string;
   selectedTaskId?: number | null;
   onSelect?: (id: number, origin: HTMLElement) => void;
@@ -228,7 +215,6 @@ export function TaskTable({
                     key={column.id}
                     id={column.id}
                     task={task}
-                    taskGraph={taskGraph}
                     nowMs={nowMs}
                     workedSeconds={workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : undefined}
                   />

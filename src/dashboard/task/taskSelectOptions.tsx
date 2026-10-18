@@ -4,9 +4,9 @@ import { taskRelationshipCandidates } from "../lib/taskRelationshipCandidates";
 import { TASK_STATUS_LABEL } from "../lib/tasks";
 
 /** Relationship picker options, newest first; older closed Tasks appear only in search. */
-export const taskSelectOptions = (tasks: Task[], selectedId: number | null = null): MenuSelectOption[] =>
+export const taskSelectOptions = (tasks: Task[]): MenuSelectOption[] =>
   // The seven-day window needs only day precision, so render time is close enough.
-  taskRelationshipCandidates(tasks, selectedId, Date.now())
+  taskRelationshipCandidates(tasks, Date.now())
     .map(({ task, searchOnly }) => ({
       value: String(task.id),
       label: task.title,

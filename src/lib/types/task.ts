@@ -20,7 +20,7 @@ export type Task = {
   workStartedAt: number | null;
   value: RatingValue | null;
   effort: RatingValue | null;
-  parentTaskId: number | null;
+  parentTaskIds: number[];
   createdAt: number;
   updatedAt: number;
   /** When the Task entered the closed status it holds now; null while open. */

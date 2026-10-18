@@ -9,7 +9,7 @@ export const TASK_TABLE_FILTERS: readonly { field: TaskTableFilterField; name: s
   { field: "workedOn", name: "Worked on", unsetLabel: "-", standalone: true },
   { field: "statusChanged", name: "Status changed", unsetLabel: "-", standalone: true },
   { field: "statuses", name: "Status", unsetLabel: "All statuses" },
-  { field: "parent", name: "Parent", unsetLabel: "All parents" },
+  { field: "parent", name: "Parent", unsetLabel: "All parents", standalone: true },
   { field: "created", name: "Created", unsetLabel: "-" },
   { field: "updated", name: "Updated", unsetLabel: "-" },
   { field: "closed", name: "Closed", unsetLabel: "-" },

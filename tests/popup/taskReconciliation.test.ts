@@ -17,7 +17,7 @@ const task = (id: number, title = `Task ${id}`): Task => ({
 
   value: null,
   effort: null,
-  parentTaskId: null,
+  parentTaskIds: [],
   createdAt: 1,
   updatedAt: 1,
   closedAt: null,
@@ -48,7 +48,7 @@ describe("popup task reconciliation", () => {
 
   it("places a child below its parent once while preserving refreshed tasks", () => {
     const parent = task(1);
-    const child = { ...task(3), parentTaskId: parent.id };
+    const child = { ...task(3), parentTaskIds: [parent.id] };
     const refreshedChild = { ...child, title: "Renamed child" };
     const fromAnotherWindow = task(4);
 

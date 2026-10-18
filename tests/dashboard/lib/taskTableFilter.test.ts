@@ -15,7 +15,7 @@ const nowMs = at(20, 12) * 1000;
 const task = (id: number, fields: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds: 0, workStartedAt: null, value: null, effort: null,
-  parentTaskId: null, createdAt: at(1, 9), updatedAt: at(1, 9), closedAt: null,
+  parentTaskIds: [], createdAt: at(1, 9), updatedAt: at(1, 9), closedAt: null,
   followsTaskId: null, historyRevision: 0, ...fields,
 });
 
@@ -28,8 +28,16 @@ describe("table row filters", () => {
   const tasks = [
     task(1),
     task(2, { status: "completed", closedAt: at(8, 11) }),
-    task(3, { status: "cancelled", closedAt: at(9, 0), parentTaskId: 1, value: 4 }),
+    task(3, { status: "cancelled", closedAt: at(9, 0), parentTaskIds: [1], value: 4 }),
   ];
+
+  it("matches a shared child under either Parent and excludes it from No parent", () => {
+    const shared = [task(4, { parentTaskIds: [1, 2] }), task(5)];
+    expect(matchingIds(shared, { parent: 1 })).toEqual([4]);
+    expect(matchingIds(shared, { parent: 2 })).toEqual([4]);
+    expect(matchingIds(shared, { parent: 3 })).toEqual([]);
+    expect(matchingIds(shared, { parent: "none" })).toEqual([5]);
+  });
 
   it("matches every Task with no filters", () => {
     expect(matchingIds(tasks, {})).toEqual([1, 2, 3]);

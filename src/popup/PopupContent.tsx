@@ -940,7 +940,7 @@ function PopupContent({
         title,
         "",
         parent.status,
-        parent.id,
+        [parent.id],
       );
       // Status groups render in array order, so splicing after the Parent shows the
       // child directly below it before the order is persisted.
