@@ -8,6 +8,7 @@ import {
   formatRangeDate,
   formatRangeDay,
   formatTime,
+  formatWorkedMinutes,
   formatWorkedTime,
   historyStartSec,
   shiftDayMs,
@@ -193,5 +194,13 @@ describe("worked time", () => {
     expect(formatWorkedTime(60)).toBe("1m 0s");
     expect(formatWorkedTime(330)).toBe("5m 30s");
     expect(formatWorkedTime(3_661)).toBe("1h 1m 1s");
+  });
+
+  it("formats worked time to whole minutes", () => {
+    expect(formatWorkedMinutes(0)).toBe("<1m");
+    expect(formatWorkedMinutes(59)).toBe("<1m");
+    expect(formatWorkedMinutes(84)).toBe("1m");
+    expect(formatWorkedMinutes(3_600)).toBe("1h");
+    expect(formatWorkedMinutes(8_079)).toBe("2h 14m");
   });
 });

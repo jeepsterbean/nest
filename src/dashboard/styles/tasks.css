@@ -439,7 +439,6 @@
   font-size: 12px;
 }
 .task-column-menu__search:focus-visible { border-color: var(--accent); outline: none; }
-.task-column-menu__empty { padding: 6px 8px; color: var(--muted); font-size: 12px; }
 /* Dark rows share --surface with the menu, so lift the menu a step and give it
    a shadow dark enough to read on near-black. */
 @media (prefers-color-scheme: dark) {

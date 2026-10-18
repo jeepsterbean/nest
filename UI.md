@@ -33,6 +33,8 @@ Reuse these before adding a control:
 - `ViewToggle` (`.view-toggle`): segmented control for single-select choices,
   one size everywhere. No per-Section size overrides.
 - `MenuSelect`, task menus, `NestIcon`, and the shared icons in `icons.tsx`.
+  Searchable `MenuSelect` menus size to their current results and the available
+  viewport space as the query changes.
 - `IconPickerButton`: the only way to open an icon picker. It closes after a
   pick, on Escape, and on an outside press; `controlClassName` /
   `triggerClassName` restyle it and `color` / `onColorChange` add Metric color

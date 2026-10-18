@@ -48,6 +48,19 @@ export function descendantIds(
   return descendants;
 }
 
+export function ancestorIds(
+  graph: TaskGraphProjection,
+  taskId: number,
+): Set<number> {
+  const ancestors = new Set<number>();
+  let parentId = graph.byId.get(taskId)?.parentTaskId ?? null;
+  while (parentId !== null && !ancestors.has(parentId)) {
+    ancestors.add(parentId);
+    parentId = graph.byId.get(parentId)?.parentTaskId ?? null;
+  }
+  return ancestors;
+}
+
 export function childProgress(graph: TaskGraphProjection, taskId: number) {
   const children = graph.childrenByParent.get(taskId) ?? [];
   return {

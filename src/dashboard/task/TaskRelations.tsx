@@ -7,7 +7,7 @@ import type { Task } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { enterIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { childProgress, descendantIds } from "../lib/taskGraph";
+import { ancestorIds, childProgress, descendantIds } from "../lib/taskGraph";
 import { taskSelectOptions } from "./taskSelectOptions";
 
 /** Parent and Children relationships. */
@@ -26,6 +26,15 @@ export function TaskRelations({ task }: { task: Task }) {
   );
   const parentCandidates = tasks
     .filter((candidate) => candidate.id !== task.id && !descendants.has(candidate.id));
+  const ancestors = useMemo(
+    () => ancestorIds(taskGraph, task.id),
+    [taskGraph, task.id],
+  );
+  const childCandidates = tasks.filter((candidate) =>
+    candidate.id !== task.id &&
+    candidate.parentTaskId !== task.id &&
+    !ancestors.has(candidate.id),
+  );
   const addChild = (event: FormEvent) => {
     event.preventDefault();
     const title = childTitle.trim();
@@ -45,11 +54,12 @@ export function TaskRelations({ task }: { task: Task }) {
           value={parent ? String(parent.id) : ""}
           placeholder="No parent"
           ariaLabel={`Parent for ${task.title}`}
+          searchPlaceholder="Find a parent…"
           // The clearing option is offered only while a Parent is set, so an
           // unset Parent renders as the muted placeholder, not a chosen value.
           options={[
             ...(parent ? [{ value: "", label: "No parent" }] : []),
-            ...taskSelectOptions(parentCandidates),
+            ...taskSelectOptions(parentCandidates, task.parentTaskId),
           ]}
           onChange={(value) => {
             void mutate(() =>
@@ -78,10 +88,31 @@ export function TaskRelations({ task }: { task: Task }) {
                 <li key={child.id}>
                   <span className={`status-dot status-dot--${child.status}`} />
                   <span>{child.title}</span>
+                  <button
+                    type="button"
+                    className="task-relation-remove"
+                    aria-label={`Unlink ${child.title}`}
+                    title="Unlink"
+                    onClick={() => {
+                      void mutate(() => setTaskParent(child.id, null));
+                    }}
+                  >
+                    Unlink
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+          <MenuSelect
+            value=""
+            placeholder="Link existing child…"
+            ariaLabel={`Link existing child to ${task.title}`}
+            searchPlaceholder="Find a task…"
+            options={taskSelectOptions(childCandidates)}
+            onChange={(value) => {
+              void mutate(() => setTaskParent(Number(value), task.id));
+            }}
+          />
           <form className="task-child-create" onSubmit={addChild}>
             <input
               value={childTitle}

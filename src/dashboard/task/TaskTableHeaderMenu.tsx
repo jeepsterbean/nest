@@ -275,7 +275,6 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
           onClick={() => { onQueryChange({ parent: option.value }); onDone(); }}>
           {option.label}
         </MenuOption>)}
-        {visible.length === 0 && <div className="task-column-menu__empty">No matching parents</div>}
       </>;
     }
     case "created":

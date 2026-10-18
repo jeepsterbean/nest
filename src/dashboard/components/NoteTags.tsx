@@ -199,9 +199,7 @@ export function NoteTags({
                 </button>
               );
             })}
-            {filteredTags.length === 0 && (
-              <p>{tags.length ? "No matching tags" : "No tags yet"}</p>
-            )}
+            {tags.length === 0 && <p>No tags yet</p>}
           </div>
         </div>
       )}

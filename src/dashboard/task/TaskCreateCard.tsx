@@ -157,9 +157,10 @@ export function TaskCreateCard({
               value={draft.parentTaskId === null ? "" : String(draft.parentTaskId)}
               placeholder="No parent"
               ariaLabel="Parent"
+              searchPlaceholder="Find a parent…"
               options={[
                 { value: "", label: "No parent" },
-                ...taskSelectOptions(tasks),
+                ...taskSelectOptions(tasks, draft.parentTaskId),
               ]}
               onChange={(value) =>
                 update({ parentTaskId: value ? Number(value) : null })

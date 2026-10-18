@@ -344,6 +344,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.task-detail__dates .worked-time {
+  color: inherit;
+  font-size: inherit;
+}
+
 .task-detail__date-divider {
   width: 1px;
   height: 12px;
@@ -1101,4 +1106,21 @@
   position: relative;
   z-index: 1;
   background: var(--surface);
+}
+
+.task-relation-remove {
+  min-height: 28px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-relation-remove:hover,
+.task-relation-remove:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
 }

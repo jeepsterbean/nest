@@ -139,16 +139,31 @@ The status control offers every status for open Tasks and Tasks closed today.
 For [locked Tasks](../domain/tasks.md#closing-and-the-lock), it shows the closed
 status, closing date, and “Create follow-up”. It checks the lock when opened.
 
-Details show creation, latest update, and closure timestamps, status, Working now,
-and Worked time labelled “all time”, independently of Table filters. Work controls
-live in the [Popup](popup.md). Value and Effort are editable. Description
-editing saves on Enter or blur, inserts a line break on Shift+Enter, and cancels
-on Escape.
+Details show creation, latest update, and closure timestamps, status, Working
+now, and all-time Worked time in whole minutes (“<1m” under a minute),
+independently of Table filters. Worked time is hidden while it is zero and the
+Task is not Working now. Work controls live in the [Popup](popup.md). Value and
+Effort are editable. Description editing saves on Enter or blur, inserts a line
+break on Shift+Enter, and cancels on Escape.
 
 ### Relationships
 
 Details show Parent and Children. Empty states read “No parent” or “No children”;
-populated Children lists use “Add child…”.
+populated Children lists use “Add child…”. Children supports creating a new
+Backlog Task or linking an existing Task; linking moves that Task from its
+previous Parent when one exists. Each Child offers Unlink to clear its Parent
+while keeping both Tasks. Choosing “No parent” in the Parent picker clears the
+current Task’s Parent.
+
+Parent pickers (including New task) and the existing-child picker default to
+open Tasks and Tasks closed within the last seven days, sorted newest updated
+first. Recency uses closure time, so editing an older closed Task keeps it
+outside the default list; the current Parent stays in the default list even
+when closed. Title search adds older closed Tasks after open and recently
+closed matches, and Enter in the search chooses the first match. Options show
+status. Relationship pickers use all Tasks independently of Table filters.
+Pickers exclude the Task itself and choices that would create a cycle; the
+child picker also excludes existing direct Children.
 The panel scrolls to keep relationships and controls accessible.
 
 ### History

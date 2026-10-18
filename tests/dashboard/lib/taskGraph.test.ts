@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ancestorIds,
   buildTaskGraph,
   childProgress,
   descendantIds,
@@ -43,5 +44,7 @@ describe("task graph projection", () => {
     );
     expect([...descendantIds(graph, 1)].sort()).toEqual([2, 3, 4]);
     expect(childProgress(graph, 1)).toEqual({ completed: 1, total: 2 });
+    expect([...ancestorIds(graph, 3)].sort()).toEqual([1, 2]);
+    expect(ancestorIds(graph, 1).size).toBe(0);
   });
 });
