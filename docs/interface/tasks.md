@@ -114,8 +114,7 @@ discarded. Saved views apply only to Table; Map remains unfiltered.
 
 Missing Parent filters are dropped after Tasks load, leaving the saved
 view unchanged and the query marked changed. Revert restores the missing filter,
-which is dropped again. Stored views discard retired Scope filters, sorts, and columns.
-Older views default Worked on and Status changed to unset
+which is dropped again. Older views default Worked on and Status changed to unset
 and load a legacy single sort as the first rule.
 
 ## Creating Tasks

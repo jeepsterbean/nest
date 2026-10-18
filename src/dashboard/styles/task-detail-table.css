@@ -304,8 +304,8 @@
   font-size: 12.5px;
 }
 
-/* The Tasks Section hides status dots; here a Blocker's dot is the only sign of
-   whether it still holds the Task back. */
+/* The Tasks Section hides status dots; here a Child's dot is the only sign of
+   how far it has come without opening it. */
 .dashboard--tasks .task-detail .task-relation-list .status-dot {
   display: block;
 }

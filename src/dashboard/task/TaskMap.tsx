@@ -33,8 +33,6 @@ import {
 } from "../lib/taskMap";
 import { TASK_STATUS_LABEL, WORKING_STATUSES } from "../lib/tasks";
 
-const EDGE_KINDS = ["parent"] as const;
-type EdgeKind = (typeof EDGE_KINDS)[number];
 /** Used until a box has been measured, so first-paint lines land close. */
 const FALLBACK_CARD_HEIGHT = 128;
 /** Wheel deltas are far coarser than trackpad pinch deltas; scale them apart. */
@@ -326,31 +324,24 @@ export function TaskMap({
             height: heights[id] ?? FALLBACK_CARD_HEIGHT,
           };
     };
-    const result: { key: string; d: string; kind: EdgeKind; state: string }[] = [];
+    const result: { key: string; d: string; state: string }[] = [];
     for (const task of placedTasks) {
+      const parentId = task.parentTaskId;
+      if (parentId === null) continue;
       const target = boxOf(task.id);
-      if (!target) continue;
-      const relations: { id: number; kind: EdgeKind }[] = [];
-      if (task.parentTaskId !== null) {
-        relations.push({ id: task.parentTaskId, kind: "parent" });
-      }
-      for (const relation of relations) {
-        const source = boxOf(relation.id);
-        if (!source) continue;
-        const selected =
-          selectedTaskId === task.id || selectedTaskId === relation.id;
-        const other = taskGraph.byId.get(relation.id);
-        result.push({
-          key: `${relation.kind}-${relation.id}-${task.id}`,
-          kind: relation.kind,
-          d: connectorPath(source, target).d,
-          state: selected
-            ? "selected"
-            : isClosed(task) || (other !== undefined && isClosed(other))
-              ? "done"
-              : "plain",
-        });
-      }
+      const source = boxOf(parentId);
+      if (!target || !source) continue;
+      const selected = selectedTaskId === task.id || selectedTaskId === parentId;
+      const parent = taskGraph.byId.get(parentId);
+      result.push({
+        key: `${parentId}-${task.id}`,
+        d: connectorPath(source, target).d,
+        state: selected
+          ? "selected"
+          : isClosed(task) || (parent !== undefined && isClosed(parent))
+            ? "done"
+            : "plain",
+      });
     }
     return result;
   }, [heights, boardLayout, placedTasks, selectedTaskId, taskGraph]);
@@ -419,7 +410,7 @@ export function TaskMap({
             {edges.map((edge) => (
               <path
                 key={edge.key}
-                className={`task-map__edge task-map__edge--${edge.kind} task-map__edge--${edge.state}`}
+                className={`task-map__edge task-map__edge--${edge.state}`}
                 d={edge.d}
                 markerEnd={`url(#task-map-arrow-${edge.state})`}
               />
@@ -433,9 +424,11 @@ export function TaskMap({
                 key={task.id}
                 ref={measureCard}
                 data-task-id={task.id}
-                className={`task-entity task-entity--${task.status}${isClosed(task) ? " task-entity--done" : ""}${
-                  selectedTaskId === task.id ? " task-entity--selected" : ""
-                }${drag?.taskId === task.id ? " task-entity--dragging" : ""}`}
+                className={`task-entity task-entity--${task.status}${
+                  isClosed(task) ? " task-entity--done" : ""
+                }${selectedTaskId === task.id ? " task-entity--selected" : ""}${
+                  drag?.taskId === task.id ? " task-entity--dragging" : ""
+                }`}
                 style={{ left: point.x, top: point.y, width: MAP_CARD_WIDTH }}
                 onPointerDown={beginDrag(task, false)}
                 onClickCapture={onClickCapture}

@@ -203,8 +203,8 @@ export function TasksView({
   }, [visible, visibleTaskView]);
 
   const openTaskCreate = () => {
-    // An untouched draft picks up the table's Status when the
-    // view shows only one, so the new Task lands in the view it was added from.
+    // An untouched draft picks up the table's Status when the view shows only
+    // one, so the new Task lands in the view it was added from.
     if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
       const status = tableStatuses.length === 1 ? tableStatuses[0]! : EMPTY_TASK_DRAFT.status;
       setTaskDraft({ ...EMPTY_TASK_DRAFT, status });
@@ -231,8 +231,8 @@ export function TasksView({
       : tasks.length === 0
       ? "Nothing on the board yet — add the first task."
       : tableStatuses.length === 0
-          ? "Choose at least one status."
-          : "No tasks match these filters.";
+      ? "Choose at least one status."
+      : "No tasks match these filters.";
 
   const onComposerSubmit = async (e: FormEvent) => {
     e.preventDefault();

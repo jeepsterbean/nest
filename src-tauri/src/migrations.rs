@@ -1964,15 +1964,6 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(terminal_timestamp_columns, 0);
-
-        let scope_column_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'scope'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(scope_column_count, 0);
     }
 
     #[test]
