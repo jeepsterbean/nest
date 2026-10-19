@@ -106,7 +106,6 @@ export function TasksView({
   const tickWorkedTime = visibleTaskView === "table" && (
     tasks.some(task => task.workingNow)
     || workedTimeFilter !== null
-    || tableSort.some(rule => rule.column === "workedTime")
   );
   const dateNowMs = useCurrentTime();
   const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
@@ -236,8 +235,8 @@ export function TasksView({
     });
   }, []);
   const sortedTableTasks = useMemo(
-    () => sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask),
-    [tableTasks, tableSort, taskGraph, nowMs, workedSecondsByTask],
+    () => sortTasksByColumn(tableTasks, tableSort),
+    [tableTasks, tableSort],
   );
   const nestedRows = useMemo(
     () => (tableNested ? nestTaskRows(sortedTableTasks, collapsedTaskIds) : null),
@@ -295,7 +294,7 @@ export function TasksView({
       <TaskHiddenColumnRules columns={tableColumns.hiddenColumns} savedHiddenIds={savedHiddenColumnIds}
         onShow={tableColumns.showColumn} onShowAll={tableColumns.showAllColumns} />
       {!taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, tableQuery) && tableSort.length === 0 && tableColumns.hiddenColumns.length === 0
-        && <p className="task-query__hint">Filter and sort from the column headers.</p>}
+        && <p className="task-query__hint">Add filters with +, and sort from the column headers.</p>}
     </div>
   );
 
@@ -403,9 +402,6 @@ export function TasksView({
                     onHide={canHideTaskTableColumn(column.id) ? () => tableColumns.hideColumn(column.id) : undefined}
                   />
                 )}
-                taskGraph={taskGraph}
-                nowMs={nowMs}
-                workedSecondsByTask={workedSecondsByTask}
                 selectedTaskId={selectedTaskId}
                 emptyCopy={emptyListCopy}
                 onSelect={selectTask}

@@ -129,14 +129,6 @@
   cursor: pointer;
 }
 .task-column-trigger > span:first-child { min-width: 0; overflow: hidden; }
-/* Keep the active time period readable in a resized Worked time column. */
-.task-column-period {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 450;
-  line-height: 1.2;
-}
 .task-column-trigger svg { width: 12px; height: 12px; }
 .task-column-trigger.is-active { color: var(--accent); }
 .task-column-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -554,7 +546,11 @@
   font-size: 12px;
   cursor: pointer;
 }
-.task-query__action:hover { color: var(--ink); }
+.task-query__tools { display: flex; align-items: center; gap: 6px; }
+.task-query__add { display: inline-flex; align-items: center; padding: 2px; }
+.task-query__add svg { width: 14px; height: 14px; }
+.task-query__action:disabled { opacity: 0.4; cursor: default; }
+.task-query__action:hover:not(:disabled) { color: var(--ink); }
 .task-query__action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .task-query__hint {
   margin: 0;
@@ -564,8 +560,9 @@
   line-height: 1.45;
 }
 /* Above the table the column headers sit right below, so the hint and
-   empty groups are noise; the sidebar keeps every group in place. */
-.task-workspace__main > .task-query :is(.task-query__hint, .task-query__group.is-empty) { display: none; }
+   empty groups are noise; the sidebar keeps every group in place. A group with
+   an add control stays, since that control is the only way to add a row. */
+.task-workspace__main > .task-query :is(.task-query__hint, .task-query__group.is-empty:not(.has-adder)) { display: none; }
 .task-table-bar {
   display: flex;
   flex: none;

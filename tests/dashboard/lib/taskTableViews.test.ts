@@ -87,13 +87,13 @@ describe("saved task views", () => {
 
   it("marks a column edited only when its own filter or sort differs from the saved view", () => {
     const saved = query({
-      parent: 1,
+      value: { kind: "scores", scores: [4] },
       sort: [{ column: "title", direction: "ascending" }, { column: "status", direction: "descending" }],
     });
-    expect(taskTableColumnQueryEdited("parent", saved, saved)).toBe(false);
+    expect(taskTableColumnQueryEdited("value", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("title", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("status", saved, saved)).toBe(false);
-    expect(taskTableColumnQueryEdited("parent", saved, query({ ...saved, parent: 2 }))).toBe(true);
+    expect(taskTableColumnQueryEdited("value", saved, query({ ...saved, value: { kind: "scores", scores: [5] } }))).toBe(true);
     expect(taskTableColumnQueryEdited("title", saved, query({
       ...saved,
       sort: [{ column: "title", direction: "descending" }, { column: "status", direction: "descending" }],
@@ -102,19 +102,19 @@ describe("saved task views", () => {
       ...saved,
       sort: [{ column: "status", direction: "descending" }, { column: "title", direction: "ascending" }],
     }))).toBe(true);
-    expect(taskTableColumnQueryEdited("title", saved, query({ ...saved, parent: 2 }))).toBe(false);
+    expect(taskTableColumnQueryEdited("title", saved, query({ ...saved, value: { kind: "scores", scores: [5] } }))).toBe(false);
   });
 
   it("keeps filter changes visible when a saved filter is cleared", () => {
-    const saved = query({ parent: 1 });
-    const cleared = query({ ...saved, parent: null });
+    const saved = query({ effort: { kind: "scores", scores: [2] } });
+    const cleared = query({ ...saved, effort: null });
     expect(taskTableFiltersEdited(saved, cleared)).toBe(true);
-    expect(taskTableColumnQueryEdited("parent", saved, cleared)).toBe(true);
+    expect(taskTableColumnQueryEdited("effort", saved, cleared)).toBe(true);
   });
 
   it("does not treat sort or column-only edits as filter changes", () => {
     const sorted = query({ sort: [{ column: "title", direction: "ascending" }] });
-    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true);
+    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "created", true);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, sorted)).toBe(false);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, query({ columns: hidden }))).toBe(false);
   });
@@ -220,7 +220,7 @@ describe("saved task views", () => {
   it("round-trips through storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
-    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true), "title", 40);
+    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "created", true), "title", 40);
     const views = viewsOf(createSavedTaskView(raw, query({ parent: "none", sort: [{ column: "updated", direction: "descending" }], columns }), "Loose", 2));
     writeSavedTaskViews({ views, selectedId: "view-2" }, storage);
     expect(readSavedTaskViews(storage)).toEqual({ views, selectedId: "view-2" });
@@ -263,7 +263,6 @@ describe("Worked on and Status changed saved views", () => {
       const filtered = query({ [field]: { kind: "preset", preset: "today" } });
       expect(changedTaskTableQueryFields(saved, filtered)).toEqual(new Set([field]));
       expect(taskTableFiltersEdited(saved, filtered)).toBe(true);
-      expect(taskTableColumnQueryEdited("workedTime", saved, filtered)).toBe(false);
       expect(taskTableColumnQueryEdited("updated", saved, filtered)).toBe(false);
       expect(sameTaskTableQuery(saved, filtered)).toBe(false);
     }

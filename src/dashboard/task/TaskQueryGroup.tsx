@@ -2,21 +2,26 @@ import type { ReactNode } from "react";
 
 /** One Tasks sidebar query group; every group keeps its bulk action in the same heading slot.
  * Groups stay listed while empty so Filters, Sort, and Hidden never shift position. */
-export function TaskQueryGroup({ label, icon, title, count, action, isEmpty, children }: {
+export function TaskQueryGroup({ label, icon, title, count, action, adder, isEmpty, children }: {
   label: string;
   icon: ReactNode;
   title: string;
   /** Rules in the group; left out for a group that is a control rather than a list. */
   count?: number;
   action?: { label: string; ariaLabel: string; onClick: () => void } | null;
+  /** Control flushed to the heading's right edge, after the bulk action. */
+  adder?: ReactNode;
   isEmpty: boolean;
   children: ReactNode;
 }) {
-  return <section className={`task-query__group${isEmpty ? " is-empty" : ""}`} aria-label={label}>
+  return <section className={`task-query__group${isEmpty ? " is-empty" : ""}${adder ? " has-adder" : ""}`} aria-label={label}>
     <div className="task-query__head">
       <h3>{icon} {title}{count ? <span className="task-query__count">{count}</span> : null}</h3>
-      {action && <button type="button" className="task-query__action" aria-label={action.ariaLabel}
-        onClick={action.onClick}>{action.label}</button>}
+      {(action || adder) && <div className="task-query__tools">
+        {action && <button type="button" className="task-query__action" aria-label={action.ariaLabel}
+          onClick={action.onClick}>{action.label}</button>}
+        {adder}
+      </div>}
     </div>
     {!isEmpty && children}
   </section>;

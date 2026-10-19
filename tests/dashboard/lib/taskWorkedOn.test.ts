@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { Task, TaskWorkStretch } from "../../../src/lib/types";
 import { taskWorkedSecondsInRange } from "../../../src/dashboard/lib/taskWorkedOn";
 import { resolveTaskDateFilter } from "../../../src/dashboard/lib/taskDateFilter";
-import { sortTasksByColumn } from "../../../src/dashboard/lib/taskColumnSort";
 import { taskMatchesWorkedTimeFilter } from "../../../src/dashboard/lib/taskWorkedTimeFilter";
 
 const stretch = (taskId: number, startedAt: number, endedAt: number | null): TaskWorkStretch =>
@@ -50,14 +49,11 @@ describe("Worked on range", () => {
       .toEqual([[1, 50], [2, 120]]);
   });
 
-  it("uses range time for duration filtering and sorting, then restores all-time behavior", () => {
+  it("uses range time for duration filtering, then restores all-time behavior", () => {
     const tasks = [task(1, 36_000), task(2, 7_200)];
     const totals = new Map([[1, 1_200], [2, 3_600]]);
     const filter = { comparator: "more", seconds: 3_600 } as const;
     expect(tasks.filter(t => taskMatchesWorkedTimeFilter(t, filter, 0, totals.get(t.id))).map(t => t.id)).toEqual([2]);
     expect(tasks.filter(t => taskMatchesWorkedTimeFilter(t, filter, 0)).map(t => t.id)).toEqual([1, 2]);
-    const sort = { column: "workedTime", direction: "descending" } as const;
-    expect(sortTasksByColumn(tasks, sort, undefined, 0, totals).map(t => t.id)).toEqual([2, 1]);
-    expect(sortTasksByColumn(tasks, sort, undefined, 0).map(t => t.id)).toEqual([1, 2]);
   });
 });

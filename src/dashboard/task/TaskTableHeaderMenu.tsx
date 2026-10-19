@@ -491,11 +491,8 @@ export function TaskTableHeaderMenu({ column, query, onQueryChange, filterContex
       <span className="task-column-menu__chevron" aria-hidden="true">{chevronRightIcon}</span>
     </button>;
 
-  const inWorkedOnRange = column.id === "workedTime" && filterContext.workedSecondsByTask !== null;
-  const columnHeading = inWorkedOnRange
-    ? <>{column.label}<span className="task-column-period">in range</span></>
-    : column.label;
-  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}${inWorkedOnRange ? " in range" : ""}`;
+  const columnHeading = column.label;
+  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}`;
   return <>
     <button ref={triggerRef} type="button" className={`task-column-trigger${edited ? " is-active" : ""}`}
       aria-label={`${menuLabel}${filterLabel ? `, ${filterLabel}` : ""}${sorted ? `, sorted ${columnSort?.direction}` : ""}`}

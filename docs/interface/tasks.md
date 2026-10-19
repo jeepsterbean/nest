@@ -32,8 +32,12 @@ Headers show sort direction and highlight filter or sort changes from the saved 
 
 ### Filters
 
-Filters combine. Worked on and Status changed have no columns: they remain the
-first two Filters rows, reading “-” when unset.
+Filters combine. Parent, Worked on, Status changed, and Worked time have no
+columns, so they cannot be sorted or hidden; they exist only as Filters. The
+Filters heading's “+” lists every filter without a row. Picking one adds its
+row and opens its editor; closing the editor with nothing set removes the row
+again. “+” is disabled once every filter has a row, and stays above the table
+when the sidebar is collapsed.
 
 | Filter | Choices and matching |
 |---|---|
@@ -49,8 +53,7 @@ Last 7 days, Last 30 days, and From / To calendar days. Either bound can be empt
 the date picker writes the active bound, starting with From. Presets move with
 the calendar; explicit dates stay fixed.
 
-Worked on changes the column label to “Worked time in range”. Its values, sorting,
-and duration filter use time clipped to the range under
+With Worked on set, the Worked time filter measures time clipped to the range under
 [history range rules](../domain/history.md#records-and-ranges). Clearing Worked on
 restores all-time totals. Other date filters only select rows.
 
@@ -66,8 +69,8 @@ or unavailable with Retry; refreshing the current range keeps existing rows visi
 ### Sorting
 
 Every column sorts in either direction, with empty values last at each level:
-text alphabetically (Parent by title), Status in lifecycle order, scores and
-displayed Worked time numerically, and dates chronologically.
+text alphabetically, Status in lifecycle order, scores numerically, and dates
+chronologically.
 
 New columns append sort rules; changing direction preserves priority, and choosing
 the active direction removes the rule. Rules break ties in order. Drag rules to
@@ -79,7 +82,7 @@ clearing it restores incoming order.
 “Nest by Parent” regroups the rows the current filters and sorts produce, each
 Task under its [Parent](../domain/tasks.md#relationships), indented, with a
 chevron to collapse or expand its Children. It changes display only: the result
-count, filters, and Worked time ranges stay as they are. A Task whose Parent is
+count, filters, and Worked time filter stays as it is. A Task whose Parent is
 not in the result shows at top level, so every filter still lists all its
 matches. Sorting orders siblings within each Parent and roots among themselves
 rather than the whole list. All Tasks start expanded, and collapse state resets
@@ -93,10 +96,10 @@ the simple count.
 
 Filters, Sort, and Hidden list rules with active counts. Empty groups retain their
 headings in the sidebar and disappear above the table. With no filters, sorts, or
-hidden columns, the sidebar says “Filter and sort from the column headers.”
+hidden columns, the sidebar says “Add filters with +, and sort from the column headers.”
 
 Filter rows open the same editor as column menus, with Reset when set. Clearing
-a column filter keeps its row until the editor closes. Sort rows offer both
+a filter keeps its row until the editor closes. Sort rows offer both
 directions; choosing the active direction removes the rule. Remove clears one
 rule (Status returns to All); Filters and Sort offer Clear at two or more rules.
 Hidden rows restore individual columns; Show all appears at two or more.

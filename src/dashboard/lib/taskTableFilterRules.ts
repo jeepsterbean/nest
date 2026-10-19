@@ -4,10 +4,10 @@ import { matchingTaskStatusPreset, taskStatusFilterLabel } from "./tasks";
 import { DEFAULT_TASK_TABLE_QUERY, type TaskTableFilterField, type TaskTableQuery } from "./taskTableViews";
 import { taskWorkedTimeFilterLabel } from "./taskWorkedTimeFilter";
 
-/** Sidebar order: the history filters lead because no column header reaches them. */
-export const TASK_TABLE_FILTERS: readonly { field: TaskTableFilterField; name: string; unsetLabel: string; standalone?: true }[] = [
-  { field: "workedOn", name: "Worked on", unsetLabel: "-", standalone: true },
-  { field: "statusChanged", name: "Status changed", unsetLabel: "-", standalone: true },
+/** Sidebar order, which the add menu also follows. */
+export const TASK_TABLE_FILTERS: readonly { field: TaskTableFilterField; name: string; unsetLabel: string }[] = [
+  { field: "workedOn", name: "Worked on", unsetLabel: "-" },
+  { field: "statusChanged", name: "Status changed", unsetLabel: "-" },
   { field: "statuses", name: "Status", unsetLabel: "All statuses" },
   { field: "parent", name: "Parent", unsetLabel: "All parents" },
   { field: "created", name: "Created", unsetLabel: "-" },
