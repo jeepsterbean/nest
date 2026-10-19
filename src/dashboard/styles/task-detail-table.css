@@ -803,6 +803,26 @@
   text-overflow: ellipsis;
 }
 
+.task-table__fold,
+.task-table__fold-spacer {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.task-table__fold {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.task-table__fold:hover { color: var(--ink); background: color-mix(in srgb, var(--muted) 12%, transparent); }
+.task-table__fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.task-table__fold svg { width: 12px; height: 12px; }
+
 /* Keeps the Working now badge visible when the title truncates. */
 .task-table__title .working-badge {
   flex: none;

@@ -28,6 +28,8 @@ export type TaskTableQuery = {
   effort: TaskScoreFilter;
   workedTime: TaskWorkedTimeFilter;
   sort: TaskColumnSort[];
+  /** Display only: groups the result under Parents without changing which Tasks match. */
+  nested: boolean;
   columns: TaskTableColumn[];
 };
 
@@ -69,6 +71,7 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   effort: null,
   workedTime: null,
   sort: [],
+  nested: false,
   columns: normalizeTaskTableLayout(null),
 };
 
@@ -94,6 +97,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
   effort: sameScoreFilter,
   workedTime: sameWorkedTimeFilter,
   sort: (a, b) => a.length === b.length && a.every((rule, index) => rule.column === b[index]?.column && rule.direction === b[index]?.direction),
+  nested: (a, b) => a === b,
   columns: sameTaskTableLayout,
 };
 
@@ -104,7 +108,7 @@ export const changedTaskTableQueryFields = (saved: TaskTableQuery, query: TaskTa
   new Set(QUERY_FIELDS.filter((field) => !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(saved[field], query[field])));
 
 /** Query fields that select rows. */
-export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "columns">;
+export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "nested" | "columns">;
 
 /** The filter each column header edits; Worked on and Status changed have no column. */
 export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTableFilterField>> = {
@@ -119,7 +123,7 @@ export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTab
 };
 
 // Includes Worked on and Status changed, which have no column of their own.
-const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "columns");
+const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "nested" && field !== "columns");
 
 /** Whether any row-selection filter differs from the saved view.
  * Column layout and sorting do not affect filtered-result count copy. */
@@ -258,6 +262,7 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
       .map(normalizeSort)
       .filter((rule): rule is TaskColumnSort => rule !== null)
       .filter((rule, index, rules) => rules.findIndex(other => other.column === rule.column) === index),
+    nested: value.nested === true,
     columns: normalizeTaskTableLayout(value.columns),
   };
 };

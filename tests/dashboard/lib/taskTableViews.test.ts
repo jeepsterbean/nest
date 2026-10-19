@@ -76,6 +76,7 @@ describe("saved task views", () => {
   it("compares statuses as a set", () => {
     expect(sameTaskTableQuery(query({ statuses: ["active", "backlog"] }), query({ statuses: ["backlog", "active"] }))).toBe(true);
     expect(sameTaskTableQuery(query({ sort: [{ column: "value", direction: "ascending" }] }), query({}))).toBe(false);
+    expect(sameTaskTableQuery(query({ nested: true }), query({}))).toBe(false);
   });
 
   it("names only the fields that differ from the saved query", () => {
@@ -162,7 +163,7 @@ describe("saved task views", () => {
     expect(state.views[1]!.query).toEqual({
       statuses: ["active"], parent: null, created: null,
       updated: { kind: "range", fromDay: "2026-01-01", toDay: null },
-      closed: null, value: null, effort: null, workedOn: null, statusChanged: null, workedTime: null, sort: [],
+      closed: null, value: null, effort: null, workedOn: null, statusChanged: null, workedTime: null, sort: [], nested: false,
       columns: DEFAULT_TASK_TABLE_QUERY.columns,
     });
   });

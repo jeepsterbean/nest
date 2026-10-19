@@ -50,6 +50,7 @@ import {
 import { TaskDetailPanel } from "../task/TaskDetailPanel";
 import { TaskMap } from "../task/TaskMap";
 import { TaskTable } from "../task/TaskTable";
+import { nestTaskRows } from "../lib/taskNesting";
 import { useTaskStatusChanged } from "../hooks/useTaskStatusChanged";
 import { TaskViewPicker } from "../task/TaskViewPicker";
 import type { TaskTableColumnId } from "../lib/taskTable";
@@ -96,6 +97,7 @@ export function TasksView({
     statusChanged: statusChangedFilter,
     workedTime: workedTimeFilter,
     sort: tableSort,
+    nested: tableNested,
   } = tableQuery;
   const patchTableQuery = (patch: Partial<TaskTableQuery>) => setTableQuery(q => ({ ...q, ...patch }));
   const setSelectedParent = (parent: TaskParentFilter) => patchTableQuery({ parent });
@@ -225,6 +227,22 @@ export function TasksView({
     () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs, workedSecondsByTask?.get(task.id))),
     [tableTasksWithoutWorkedTime, workedTimeFilter, nowMs, workedSecondsByTask],
   );
+  const [collapsedTaskIds, setCollapsedTaskIds] = useState<ReadonlySet<number>>(() => new Set());
+  const toggleTaskFold = useCallback((id: number) => {
+    setCollapsedTaskIds((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
+  const sortedTableTasks = useMemo(
+    () => sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask),
+    [tableTasks, tableSort, taskGraph, nowMs, workedSecondsByTask],
+  );
+  const nestedRows = useMemo(
+    () => (tableNested ? nestTaskRows(sortedTableTasks, collapsedTaskIds) : null),
+    [tableNested, sortedTableTasks, collapsedTaskIds],
+  );
   const emptyListCopy =
     historyLoading ? `Loading ${historyName.toLowerCase()}…`
       : historyFailed ? `${historyName} could not be loaded.`
@@ -291,6 +309,14 @@ export function TasksView({
         </span>
         {historyFailed && <button type="button" className="task-filter-retry" onClick={retryHistory}>Retry</button>}
       </div>
+      <button
+        type="button"
+        className={`task-nest-toggle${tableNested ? " is-on" : ""}${changedFields.has("nested") ? " is-edited" : ""}`}
+        aria-pressed={tableNested}
+        onClick={() => patchTableQuery({ nested: !tableNested })}
+      >
+        Nest by Parent
+      </button>
       <button
         ref={newTaskButtonRef}
         type="button"
@@ -362,7 +388,8 @@ export function TasksView({
                 <TaskTable
                 wrapRef={tableColumns.wrapRef}
                 columns={tableColumns.visibleColumns}
-                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask)}
+                tasks={nestedRows?.tasks ?? sortedTableTasks}
+                nesting={nestedRows ? { depthById: nestedRows.depthById, childCountById: nestedRows.childCountById, collapsedIds: collapsedTaskIds, onToggle: toggleTaskFold } : undefined}
                 headerSort={tableSort[0]}
                 renderHeader={(column) => (
                   <TaskTableHeaderMenu

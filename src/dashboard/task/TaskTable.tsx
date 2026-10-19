@@ -3,6 +3,7 @@ import type { Task } from "../../lib/types";
 import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
 import type { TaskGraphProjection } from "../lib/taskGraph";
 import { formatDate } from "../lib/time";
+import { chevronDownIcon, chevronRightIcon } from "../components/icons";
 import { StatusTrigger } from "./StatusTrigger";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
@@ -20,13 +21,25 @@ export type TaskTableColumnInteraction = {
   ) => void;
 };
 
+/** Row depth and expand state when the table is grouped under Parents. */
+export type TaskTableNesting = {
+  depthById: ReadonlyMap<number, number>;
+  childCountById: ReadonlyMap<number, number>;
+  collapsedIds: ReadonlySet<number>;
+  onToggle: (id: number) => void;
+};
+
+const NESTING_INDENT_PX = 18;
+
 function TaskTableCell({
   id,
   task,
   taskGraph,
   nowMs,
   workedSeconds,
+  nesting,
 }: {
+  nesting?: TaskTableNesting;
   id: TaskTableColumnId;
   workedSeconds?: number;
   task: Task;
@@ -34,15 +47,34 @@ function TaskTableCell({
   nowMs?: number;
 }) {
   switch (id) {
-    case "title":
+    case "title": {
+      const childCount = nesting?.childCountById.get(task.id) ?? 0;
+      const collapsed = nesting?.collapsedIds.has(task.id) ?? false;
       return (
         <td className="task-table__col task-table__col--title task-table__title">
-          <div className="task-table__title-content">
+          <div
+            className="task-table__title-content"
+            style={nesting ? { paddingLeft: (nesting.depthById.get(task.id) ?? 0) * NESTING_INDENT_PX } : undefined}
+          >
+            {nesting && (childCount > 0 ? (
+              <button
+                type="button"
+                className="task-table__fold"
+                aria-expanded={!collapsed}
+                aria-label={`${collapsed ? "Expand" : "Collapse"} ${task.title}`}
+                onClick={() => nesting.onToggle(task.id)}
+              >
+                {collapsed ? chevronRightIcon : chevronDownIcon}
+              </button>
+            ) : (
+              <span className="task-table__fold-spacer" aria-hidden="true" />
+            ))}
             <span title={task.title}>{task.title}</span>
             {task.workingNow && <WorkingBadge />}
           </div>
         </td>
       );
+    }
     case "parent":
       return (
         <td className="task-table__col task-table__col--parent">
@@ -110,7 +142,10 @@ export function TaskTable({
   wrapRef,
   workedSecondsByTask,
   nowMs,
+  nesting,
 }: {
+  /** Rows in `tasks` are already ordered for nesting; this only adds depth and folding. */
+  nesting?: TaskTableNesting;
   renderHeader?: (column: TaskTableColumn) => ReactNode;
   headerSort?: { column: TaskTableColumnId; direction: "ascending" | "descending" };
   columns: TaskTableColumn[];
@@ -229,6 +264,7 @@ export function TaskTable({
                     id={column.id}
                     task={task}
                     taskGraph={taskGraph}
+                    nesting={nesting}
                     nowMs={nowMs}
                     workedSeconds={workedSecondsByTask ? workedSecondsByTask.get(task.id) ?? 0 : undefined}
                   />

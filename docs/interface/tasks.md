@@ -74,6 +74,17 @@ the active direction removes the rule. Rules break ties in order. Drag rules to
 reorder them, or use Up / Down on the focused grip. Sorting starts unset;
 clearing it restores incoming order.
 
+### Nest by Parent
+
+“Nest by Parent” regroups the rows the current filters and sorts produce, each
+Task under its [Parent](../domain/tasks.md#relationships), indented, with a
+chevron to collapse or expand its Children. It changes display only: the result
+count, filters, and Worked time ranges stay as they are. A Task whose Parent is
+not in the result shows at top level, so every filter still lists all its
+matches. Sorting orders siblings within each Parent and roots among themselves
+rather than the whole list. All Tasks start expanded, and collapse state resets
+on reload.
+
 ### Active rules and result count
 
 The count sits left above the table and reads `42 tasks`, or `42 out of 380 tasks`
@@ -97,8 +108,8 @@ status (`≠ Cancelled`). Truncated values expose their full text in a tooltip.
 
 ### Saved views
 
-A saved view keeps all filters, ordered sorts, and column order, widths, and
-visibility. Up to five views, including Raw, appear in creation order; names are
+A saved view keeps all filters, ordered sorts, Nest by Parent, and column order,
+widths, and visibility. Up to five views, including Raw, appear in creation order; names are
 unique ignoring case. Raw always loads all statuses, no filters or sorts, and
 default columns. It cannot be renamed, overwritten, or deleted.
 
@@ -114,7 +125,7 @@ discarded. Saved views apply only to Table; Map remains unfiltered.
 
 Missing Parent filters are dropped after Tasks load, leaving the saved
 view unchanged and the query marked changed. Revert restores the missing filter,
-which is dropped again. Older views default Worked on and Status changed to unset
+which is dropped again. Older views default Nest by Parent off, Worked on and Status changed to unset
 and load a legacy single sort as the first rule.
 
 ## Creating Tasks

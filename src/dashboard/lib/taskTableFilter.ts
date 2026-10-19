@@ -7,7 +7,7 @@ import { DEFAULT_TASK_TABLE_QUERY, type TaskTableQuery } from "./taskTableViews"
  * The row filters that hold for a whole clock day. The Worked time duration
  * filter is applied separately because it follows the live clock.
  */
-export type TaskTableRowFilters = Omit<TaskTableQuery, "sort" | "columns" | "workedTime">;
+export type TaskTableRowFilters = Omit<TaskTableQuery, "sort" | "nested" | "columns" | "workedTime">;
 
 export const DEFAULT_TASK_TABLE_ROW_FILTERS: TaskTableRowFilters = DEFAULT_TASK_TABLE_QUERY;
 
