@@ -1269,6 +1269,98 @@ ALTER TABLE tasks DROP COLUMN scope;
 DELETE FROM task_edit_history
 WHERE kind IN ('scope','blocker_added','blocker_removed','dependent_added','dependent_removed');
 "#),
+        // Preserve existing edges before retiring the single-Parent column.
+        M::up(r#"
+CREATE TABLE task_parents (
+ child_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ parent_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ created_at INTEGER NOT NULL,
+ PRIMARY KEY (child_task_id, parent_task_id),
+ CHECK (child_task_id <> parent_task_id)
+);
+CREATE INDEX idx_task_parents_parent ON task_parents(parent_task_id);
+INSERT INTO task_parents(child_task_id,parent_task_id,created_at)
+SELECT id,parent_task_id,created_at FROM tasks
+WHERE parent_task_id <> id AND parent_task_id IN (SELECT id FROM tasks);
+DROP TRIGGER task_history_parent_remove;
+DROP TRIGGER task_history_parent_add;
+DROP TRIGGER task_history_initial_parent;
+DROP INDEX idx_tasks_parent_task_id;
+ALTER TABLE tasks DROP COLUMN parent_task_id;
+CREATE TRIGGER task_parents_cycle BEFORE INSERT ON task_parents
+WHEN EXISTS (
+ WITH RECURSIVE ancestors(id) AS (
+  SELECT NEW.parent_task_id
+  UNION
+  SELECT p.parent_task_id FROM task_parents p JOIN ancestors a ON p.child_task_id=a.id
+ ) SELECT 1 FROM ancestors WHERE id=NEW.child_task_id
+)
+BEGIN
+ SELECT RAISE(ABORT,'task hierarchy cycle');
+END;
+CREATE TRIGGER task_parents_immutable BEFORE UPDATE ON task_parents
+BEGIN
+ SELECT RAISE(ABORT,'unlink and add a Task relationship instead of updating it');
+END;
+CREATE TRIGGER task_history_parent_add AFTER INSERT ON task_parents
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.child_task_id,'parent_set',id,title,NEW.created_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.parent_task_id,'child_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.child_task_id;
+END;
+CREATE TRIGGER task_history_parent_remove AFTER DELETE ON task_parents
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.child_task_id,'parent_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.parent_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.child_task_id);
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.parent_task_id,'child_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.child_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.parent_task_id);
+END;
+"#),
+        // Multiple Parents were retired. A Task with several Parents keeps its
+        // earliest-linked one; the other edges are dropped. The migration above
+        // stays because databases that ran it are already past that version.
+        M::up(r#"
+ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+UPDATE tasks SET parent_task_id = (
+ SELECT p.parent_task_id FROM task_parents p
+ WHERE p.child_task_id = tasks.id
+ ORDER BY p.created_at, p.rowid
+ LIMIT 1
+);
+DROP TRIGGER task_history_parent_add;
+DROP TRIGGER task_history_parent_remove;
+DROP TRIGGER task_parents_cycle;
+DROP TRIGGER task_parents_immutable;
+DROP TABLE task_parents;
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
+CREATE TRIGGER task_history_parent_remove AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND OLD.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_removed',id,title,NEW.updated_at FROM tasks WHERE id=OLD.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.parent_task_id,'child_removed',NEW.id,NEW.title,NEW.updated_at
+ WHERE EXISTS(SELECT 1 FROM tasks WHERE id=OLD.parent_task_id);
+END;
+CREATE TRIGGER task_history_parent_add AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.updated_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.updated_at);
+END;
+CREATE TRIGGER task_history_initial_parent AFTER INSERT ON tasks WHEN NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.created_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.created_at);
+END;
+"#),
     ])
 }
 
@@ -1283,7 +1375,7 @@ mod tests {
     const SORT_ORDER_VERSION: usize = 34;
 
     #[test]
-    fn retiring_scopes_and_blockers_preserves_tasks_and_remaining_history() {
+    fn retiring_multiple_parents_keeps_the_earliest_parent_and_all_tasks() {
         let mut probe = Connection::open_in_memory().unwrap();
         migrations().to_latest(&mut probe).unwrap();
         let latest: i64 = probe
@@ -1293,6 +1385,50 @@ mod tests {
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations()
             .to_version(&mut conn, (latest - 1) as usize)
+            .unwrap();
+        conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at) VALUES(1,'A','active',1,1),(2,'B','backlog',1,1),(3,'C','backlog',1,1),(4,'D','backlog',1,1)", []).unwrap();
+        conn.execute(
+            "INSERT INTO task_parents VALUES(3,2,20),(3,1,10),(4,1,5)",
+            [],
+        )
+        .unwrap();
+        let history_before: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let parents: Vec<(i64, Option<i64>)> = conn
+            .prepare("SELECT id,parent_task_id FROM tasks ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(
+            parents,
+            vec![(1, None), (2, None), (3, Some(1)), (4, Some(1))]
+        );
+        let history_after: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(history_after, history_before);
+        assert!(conn.prepare("SELECT 1 FROM task_parents").is_err());
+    }
+
+    #[test]
+    fn retiring_scopes_and_blockers_preserves_tasks_and_remaining_history() {
+        let mut probe = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut probe).unwrap();
+        let latest: i64 = probe
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations()
+            .to_version(&mut conn, (latest - 3) as usize)
             .unwrap();
         conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at,scope) VALUES(1,'Parent','active',1,1,'Work'),(2,'Child','backlog',1,1,'Home')", []).unwrap();
         conn.execute(
