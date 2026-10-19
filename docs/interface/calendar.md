@@ -81,18 +81,18 @@ its full height, quiet ones included, and Calendar opens on now or else the
 first logged hour. While Phases is shown, it paints the Phase wash in each
 column and the Phase rail on Day; everything else lands as icons in the hour it happened, in
 time order. Each
-Metric check-in and brain dump is its own icon. A Task changed in that hour
+Metric check-in and note is its own icon. A Task changed in that hour
 (created, status change, Working now start or stop) gets one icon, tinted like
 its Calendar card and using the configured Tasks icon; a Task Working now through an
 hour without a change has no icon there. Hover previews an icon: Pulse and
-scores, brain dump summary, or Task title and latest change. A click pins the
+scores, note summary, or Task title and latest change. A click pins the
 full view: the read-only sticky, the check-in with delete, or every change the
 Task had that hour with times. Busy hours scroll horizontally to keep every icon
 reachable.
 
 ## Insights
 
-Insights sits in Recap's Section sidebar, for Calendar and for Timeline. It shows Brain dumps, Tasks,
+Insights sits in Recap's Section sidebar, for Calendar and for Timeline. It shows Notes, Tasks,
 Metrics, and Phases, in that order, matching the Sidebar. Each heading shows
 that kind's Section icon beside the title; the title opens that Section. Each
 heading has a hide control; the heading stays so the kind can be shown again.
@@ -101,8 +101,8 @@ The last shown kind stays shown. That choice is the
 
 Range membership, Tag counts, Phase totals, and Task counts follow
 [History domain](../domain/history.md#range-summaries). Untagged leads the
-Brain dumps list, including at 0; Tags follow in frequency then name order.
-The Brain dumps summary initially shows Untagged and the three most frequent
+Notes list, including at 0; Tags follow in frequency then name order.
+The Notes summary initially shows Untagged and the three most frequent
 Tags. Show more reveals the remaining Tags; Show less returns to that compact
 list. An empty range shows a quiet empty message. The Phases section is
 the mix, with a row for each live Phase (0m included).
@@ -122,10 +122,20 @@ reloads.
 
 ## Timeline
 
-The history presentation inside Recap, one day at a time. Not a stored record: Metric check-ins, brain dumps, and
+The history presentation inside Recap, one day at a time. Not a stored record: Metric check-ins, notes, and
 Phase checkpoints each stand on their own. Its [Logs kinds](time-surfaces.md#logs-kinds)
 are the same selection Calendar's Logs figure and Insights use. Insights
 reviews the same day.
+
+Task entries include the existing [Task History](tasks.md#history) edits alongside
+creation, status changes, and work starts and stops. Each recorded edit is its
+own entry, using its recorded timestamp and the current Task title. Change
+details show previous and new values, related title snapshots, or corrected
+work times when recorded. Description edits say “Description updated”; their
+text is absent from history. Older edits appear only from when edit recording
+began. Deleting a Task removes its entries; ordering and Map placement remain
+outside Task History. Calendar’s Logs and Insights keep their existing activity
+and counting rules.
 
 The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
@@ -144,5 +154,5 @@ Timeline shows no Phase totals.
 When the selected range includes now, today opens with the current time and an
 empty event cell, including when today has no visible entries. Timeline does
 not show the day strip or outcome stats. Metric check-ins show the Pulse icon
-and Metric scores. Pulse, Metric, and brain dump icons stand in for names.
+and Metric scores. Pulse, Metric, and note icons stand in for names.
 

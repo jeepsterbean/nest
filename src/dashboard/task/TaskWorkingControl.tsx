@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Task } from "../../lib/types";
 import {
   formatClockedTime,
+  formatWorkedMinutes,
   formatWorkedTime,
   taskWorkStretchSeconds,
 } from "../lib/time";
@@ -133,23 +134,26 @@ export function WorkedTime({
   task,
   nowMs,
   rangeSeconds,
+  precision = "seconds",
 }: {
   task: Task;
   nowMs?: number;
   rangeSeconds?: number;
+  precision?: "seconds" | "minutes";
 }) {
   const allTimeSeconds = task.workedSeconds + (useWorkSessionSeconds(task, nowMs) ?? 0);
   const seconds = rangeSeconds ?? allTimeSeconds;
   const period = rangeSeconds === undefined ? "Worked time, all time" : "Worked time in range";
+  const formatted = precision === "minutes" ? formatWorkedMinutes(seconds) : formatWorkedTime(seconds);
 
   return (
     <time
       className="worked-time"
       dateTime={`PT${seconds}S`}
       title={period}
-      aria-label={`${formatWorkedTime(seconds)} ${period}`}
+      aria-label={`${formatted} ${period}`}
     >
-      {formatWorkedTime(seconds)}
+      {formatted}
     </time>
   );
 }

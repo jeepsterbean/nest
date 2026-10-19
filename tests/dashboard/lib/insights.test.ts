@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  insightBrainDumps,
+  insightNotes,
   insightCheckInClosedTo,
   insightCheckIns,
   insightColumns,
@@ -17,11 +17,11 @@ import {
   writeRecapDateRangeMode,
 } from "../../../src/dashboard/lib/insights";
 
-describe("insightBrainDumps", () => {
-  it("counts dumps within the range and groups overlapping Tags by frequency", () => {
+describe("insightNotes", () => {
+  it("counts notes within the range and groups overlapping Tags by frequency", () => {
     const work = { id: 1, name: "Work" };
     const ideas = { id: 2, name: "Ideas" };
-    expect(insightBrainDumps([
+    expect(insightNotes([
       { id: 1, createdAt: 9, text: "Before", tags: [work] },
       { id: 2, createdAt: 10, text: "Start", tags: [work, ideas] },
       { id: 3, createdAt: 15, text: "Middle", tags: [work] },
@@ -35,7 +35,7 @@ describe("insightBrainDumps", () => {
   });
 
   it("returns an empty summary for a quiet range", () => {
-    expect(insightBrainDumps([], { from: 10, to: 20 })).toEqual({
+    expect(insightNotes([], { from: 10, to: 20 })).toEqual({
       count: 0, tags: [], untaggedCount: 0,
     });
   });
@@ -74,7 +74,7 @@ describe("rangeInsight", () => {
     checkIns: [],
     phaseCheckIns: [],
     phases,
-    brainDumps: [],
+    notes: [],
   };
   const clockAt = (nowSec: number, checkInNowSec = nowSec) => ({
     nowSec,
@@ -108,7 +108,7 @@ describe("rangeInsight", () => {
       { from: 6_400, to: 10_000 },
       clockAt(10_000),
     );
-    expect(insight.brainDumps).toEqual({ count: 0, tags: [], untaggedCount: 0 });
+    expect(insight.notes).toEqual({ count: 0, tags: [], untaggedCount: 0 });
     expect(insight.taskCounts.map(({ count }) => count)).toEqual([0, 0, 0]);
     expect(insight.checkIns).toEqual([]);
   });
@@ -300,7 +300,7 @@ const task = (
   workingNow: false,
   workedSeconds: 0,
   workStartedAt: null,
-  scope: null,
+
   value: null,
   effort: null,
   parentTaskId: null,

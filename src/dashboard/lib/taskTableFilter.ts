@@ -1,5 +1,4 @@
 import type { Task } from "../../lib/types";
-import { scopeMatches } from "./scope";
 import { taskMatchesDateFilter } from "./taskDateFilter";
 import { taskMatchesScoreFilter } from "./taskScoreFilter";
 import { DEFAULT_TASK_TABLE_QUERY, type TaskTableQuery } from "./taskTableViews";
@@ -28,7 +27,6 @@ export const taskMatchesTableRowFilters = (
   historyMatches: TaskTableHistoryMatches,
   nowMs: number = Date.now(),
 ): boolean =>
-  scopeMatches(task.scope, filters.scope) &&
   (historyMatches.workedOn === null || historyMatches.workedOn.has(task.id)) &&
   (historyMatches.statusChanged === null || historyMatches.statusChanged.has(task.id)) &&
   filters.statuses.includes(task.status) &&

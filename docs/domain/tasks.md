@@ -7,11 +7,10 @@ Rules shared by every Task surface. Dashboard interactions live in
 ## Fields and status
 
 A Task has a required, non-empty title and a description, which may be
-empty. Scope, Parent, Value, and Effort are optional. Value and Effort are 1–5 scores.
+empty. Parent, Value, and Effort are optional. Value and Effort are 1–5 scores.
 
 Task statuses are Backlog, Up next, Active, Completed, and Cancelled.
 Completed and Cancelled are closed; the others are open.
-Readiness is separate from status.
 
 ## Closing and the lock
 
@@ -24,25 +23,15 @@ again takes the later time; an open Task has none. Locked is derived from
 closed at and the clock and is never stored.
 
 A locked Task offers a Follow-up: a new Backlog Task copying its title,
-description, Scope, Value, and Effort and recording which Task it follows. It
+description, Value, and Effort and recording which Task it follows. It
 takes no relationships, Worked time, or history from the original, and stays
-when the original is deleted. A locked Cancelled Blocker keeps blocking until
-that relationship is removed.
+when the original is deleted.
 
-## Relationships and readiness
+## Relationships
 
 Parent / Child describes work breakdown. A Task has at most one Parent and
 can have several Children; the hierarchy must be acyclic.
 
-Blocker / Dependent describes readiness independently of the hierarchy.
-A Task can have several Blockers and Dependents; these relationships must
-also be acyclic. Making a Task a Child creates no Blocker relationship.
-
-An open Task is Ready when all its Blockers are Completed, otherwise Blocked.
-A Cancelled Blocker still blocks its Dependents. Closed Tasks have no
-Ready / Blocked classification.
-
-Scope categorizes Tasks by path independently of their relationships.
 Map placement creates no Task relationships.
 
 ## Work
@@ -63,7 +52,7 @@ Recording, recovery, and Phase behavior live in [Phases](phases.md).
 Task creation and status changes are recorded as status events. Work stretches
 record when work happened; correcting or removing them changes the work entries
 shown in a Task's [History](../interface/tasks.md#history). Separate
-append-only edit records preserve title, Scope, Value, Effort, description
+append-only edit records preserve title, Value, Effort, description
 changes (without description text), relationships, Follow-up links, and work
 corrections and removals. Corrections retain old and new times and are dated
 when made. Reordering is excluded.
@@ -74,6 +63,5 @@ renaming and deletion. Deletion records relationship removals on surviving
 Tasks, including either side of a Follow-up link. Existing Tasks retain their status and work history; edit recording
 starts at the upgrade, whose time is saved. Unchanged saves add no edit record.
 
-Deleting a Task removes its own edit records, status events, Work stretches, and Blocker /
-Dependent relationships. Its Children remain and become Tasks with no Parent.
+Deleting a Task removes its own edit records, status events, and Work stretches. Its Children remain and become Tasks with no Parent.
 Deleted Task history therefore disappears from Day, Calendar, and Timeline.

@@ -5,7 +5,6 @@ import { DayCalendar } from "../components/DayPicker";
 import { checkIcon, chevronDownIcon, chevronRightIcon, eyeOffIcon, filterIcon, sortIcon, xIcon } from "../components/icons";
 import { useDismiss } from "../hooks/useDismiss";
 import { placeMenuSelect, placeSubmenu, type MenuSelectBox, type SubmenuBox } from "../lib/placeMenuSelect";
-import { type ScopeTree } from "../lib/scope";
 import {
   formatTaskDateDay,
   matchingTaskDatePreset,
@@ -225,7 +224,6 @@ function TaskWorkedTimeFilterFields({ filter, onChange, candidates, workedSecond
 /** What a filter editor needs beyond the query itself. */
 export type TaskFilterContext = {
   tasks: Task[];
-  scopeTree: ScopeTree;
   workedTimeCandidates: Task[];
   workedSecondsByTask: ReadonlyMap<number, number> | null;
   workHistoryStatus: string | null;
@@ -259,11 +257,6 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
         </MenuOption>)}
       </>;
     }
-    case "scope":
-      return <>{[null, ...[...context.scopeTree.byPath.keys()].sort((a, b) => a.localeCompare(b))].map(path =>
-        <MenuOption key={path ?? "all"} selected={query.scope === path} onClick={() => { onQueryChange({ scope: path }); onDone(); }}>
-          {path ?? "All scopes"}
-        </MenuOption>)}</>;
     case "parent": {
       const options: { value: TaskParentFilter; label: string }[] = [
         { value: null, label: "All parents" },
@@ -282,7 +275,6 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
           onClick={() => { onQueryChange({ parent: option.value }); onDone(); }}>
           {option.label}
         </MenuOption>)}
-        {visible.length === 0 && <div className="task-column-menu__empty">No matching parents</div>}
       </>;
     }
     case "created":

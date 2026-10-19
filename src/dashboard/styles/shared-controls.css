@@ -213,7 +213,6 @@
 
 .dash-empty strong {
   color: var(--ink);
-  font-family: var(--serif);
   font-size: 15.5px;
   font-weight: 600;
 }
@@ -410,4 +409,25 @@
 .date-navigation > button svg {
   width: 14px;
   height: 14px;
+}
+
+.menu-select__search {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 6px 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.menu-select__description {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
 }

@@ -1,6 +1,6 @@
 // Behavior and invariants: docs/domain/history.md#range-summaries
 import type {
-  BrainDump,
+  Note,
   Metric,
   MetricCheckInWithRatings,
   Phase,
@@ -17,33 +17,33 @@ import {
 } from "./timeline";
 import { dayLabel, shiftDayMs, startOfDayMs } from "./time";
 
-export type InsightBrainDumpSummary = {
+export type InsightNoteSummary = {
   count: number;
   tags: { id: number; name: string; count: number }[];
   untaggedCount: number;
 };
 
-export function insightBrainDumps(
-  brainDumps: BrainDump[],
+export function insightNotes(
+  notes: Note[],
   period: Period,
-): InsightBrainDumpSummary {
-  const dumps = brainDumps.filter(
-    (dump) => dump.createdAt >= period.from && dump.createdAt < period.to,
+): InsightNoteSummary {
+  const notesInPeriod = notes.filter(
+    (note) => note.createdAt >= period.from && note.createdAt < period.to,
   );
-  const tags = new Map<number, InsightBrainDumpSummary["tags"][number]>();
-  for (const dump of dumps) {
-    for (const tag of dump.tags) {
+  const tags = new Map<number, InsightNoteSummary["tags"][number]>();
+  for (const note of notesInPeriod) {
+    for (const tag of note.tags) {
       const existing = tags.get(tag.id);
       if (existing) existing.count += 1;
       else tags.set(tag.id, { ...tag, count: 1 });
     }
   }
   return {
-    count: dumps.length,
+    count: notesInPeriod.length,
     tags: [...tags.values()].sort(
       (a, b) => b.count - a.count || a.name.localeCompare(b.name),
     ),
-    untaggedCount: dumps.filter((dump) => dump.tags.length === 0).length,
+    untaggedCount: notesInPeriod.filter((note) => note.tags.length === 0).length,
   };
 }
 
@@ -346,11 +346,11 @@ export type InsightData = {
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
   phases: Phase[];
-  brainDumps: BrainDump[];
+  notes: Note[];
 };
 
 /** `nowSec` is the clock the Phase mix stops at;
- * `checkInNowMs` is the wall clock check-ins and brain dumps stop at, so a
+ * `checkInNowMs` is the wall clock check-ins and notes stop at, so a
  * just-saved one shows without waiting on that clock. */
 export type InsightClock = {
   nowSec: number;
@@ -359,7 +359,7 @@ export type InsightClock = {
 
 export type RangeInsight = {
   sessions: PhaseSession[];
-  brainDumps: InsightBrainDumpSummary;
+  notes: InsightNoteSummary;
   taskCounts: InsightTaskCount[];
   checkIns: InsightPulseGroup[];
 };
@@ -378,7 +378,7 @@ export const rangeInsight = (
       from,
       Math.min(to, nowSec),
     ),
-    brainDumps: insightBrainDumps(data.brainDumps, { from, to: checkInTo }),
+    notes: insightNotes(data.notes, { from, to: checkInTo }),
     taskCounts: insightTaskCounts(data.tasks, { from, to }),
     checkIns: insightCheckIns(data.checkIns, data.metrics, data.pulses, {
       from,

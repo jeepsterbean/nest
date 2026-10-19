@@ -36,7 +36,6 @@
 
 .popup-timer__value {
   color: var(--accent);
-  font-family: var(--serif);
   font-size: 30px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;

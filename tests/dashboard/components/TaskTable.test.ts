@@ -8,11 +8,11 @@ import { TASK_TABLE_COLUMNS } from "../../../src/dashboard/lib/taskTable";
 
 const task: Task = {
   id: 1, title: "Bookshelf", description: "", status: "active", workingNow: true,
-  workedSeconds: 36_000, workStartedAt: 0, scope: null, value: null, effort: null,
+  workedSeconds: 36_000, workStartedAt: 0, value: null, effort: null,
   parentTaskId: null, createdAt: 0, updatedAt: 0, closedAt: null, followsTaskId: null, historyRevision: 0,
 };
 const props = {
-  tasks: [task], taskGraph: buildTaskGraph([task], []), emptyCopy: "No tasks",
+  tasks: [task], taskGraph: buildTaskGraph([task]), emptyCopy: "No tasks",
   columns: TASK_TABLE_COLUMNS.filter(c => c.id === "title" || c.id === "workedTime"),
   nowMs: 60_000,
 };

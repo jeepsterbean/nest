@@ -1,12 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
-  addTaskDependency,
   createTask,
   setTaskScore,
 } from "../../lib/commands";
 import type { RatingValue, Task, TaskStatus } from "../../lib/types";
-import { MenuSelect, type MenuSelectOption } from "../components/MenuSelect";
+import { MenuSelect } from "../components/MenuSelect";
 import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
@@ -17,22 +16,18 @@ export type TaskDraft = {
   title: string;
   description: string;
   status: TaskStatus;
-  scope: string | null;
   parentTaskId: number | null;
   value: RatingValue | null;
   effort: RatingValue | null;
-  blockerIds: number[];
 };
 
 export const EMPTY_TASK_DRAFT: TaskDraft = {
   title: "",
   description: "",
   status: "backlog",
-  scope: null,
   parentTaskId: null,
   value: null,
   effort: null,
-  blockerIds: [],
 };
 
 // The draft lives in the caller so a click-away keeps what was typed for the
@@ -48,7 +43,7 @@ export function TaskCreateCard({
   onClose: () => void;
   onCreated: (task: Task) => void;
 }) {
-  const { tasks, scopeTree, reload, setError } = useDashboardData();
+  const { tasks, reload, setError } = useDashboardData();
   const [saving, setSaving] = useState(false);
   const update = (patch: Partial<TaskDraft>) =>
     onDraftChange({ ...draft, ...patch });
@@ -66,16 +61,6 @@ export function TaskCreateCard({
   }, [onClose]);
 
   const title = draft.title.trim();
-  const blockers = draft.blockerIds
-    .map((id) => tasks.find((task) => task.id === id))
-    .filter((task): task is Task => task !== undefined);
-  const scopeOptions: MenuSelectOption[] = [
-    { value: "", label: "No scope" },
-    ...[...scopeTree.byPath.keys()]
-      .sort((a, b) => a.localeCompare(b))
-      .map((path) => ({ value: path, label: path })),
-  ];
-
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!title || saving) return;
@@ -86,14 +71,10 @@ export function TaskCreateCard({
         title,
         draft.description.trim(),
         draft.status,
-        draft.scope,
         draft.parentTaskId,
       );
       if (draft.value !== null || draft.effort !== null) {
         await setTaskScore(created.id, draft.value, draft.effort);
-      }
-      for (const blockerId of draft.blockerIds) {
-        await addTaskDependency(blockerId, created.id);
       }
     } catch (error) {
       setError(String(error));
@@ -171,24 +152,15 @@ export function TaskCreateCard({
 
         <div className="task-create-card__fields">
           <div className="task-relation-field">
-            <span className="task-relation-field__label">Scope</span>
-            <MenuSelect
-              value={draft.scope ?? ""}
-              placeholder="No scope"
-              ariaLabel="Scope"
-              options={scopeOptions}
-              onChange={(value) => update({ scope: value || null })}
-            />
-          </div>
-          <div className="task-relation-field">
             <span className="task-relation-field__label">Parent</span>
             <MenuSelect
               value={draft.parentTaskId === null ? "" : String(draft.parentTaskId)}
               placeholder="No parent"
               ariaLabel="Parent"
+              searchPlaceholder="Find a parent…"
               options={[
                 { value: "", label: "No parent" },
-                ...taskSelectOptions(tasks),
+                ...taskSelectOptions(tasks, draft.parentTaskId),
               ]}
               onChange={(value) =>
                 update({ parentTaskId: value ? Number(value) : null })
@@ -211,50 +183,6 @@ export function TaskCreateCard({
             ariaLabel="Effort"
             current={draft.effort}
             onChange={(effort) => update({ effort })}
-          />
-        </div>
-
-        <div className="task-relation-group">
-          <div className="task-relation-group__head">
-            <span>Blocked by</span>
-            {blockers.length > 0 && <span>{blockers.length}</span>}
-          </div>
-          {blockers.length > 0 && (
-            <ul className="task-relation-list">
-              {blockers.map((blocker) => (
-                <li key={blocker.id}>
-                  <span className={`status-dot status-dot--${blocker.status}`} />
-                  <span>{blocker.title}</span>
-                  <button
-                    type="button"
-                    className="task-relation-list__remove"
-                    aria-label={`Remove ${blocker.title} as a blocker`}
-                    title="Remove blocker"
-                    onClick={() =>
-                      update({
-                        blockerIds: draft.blockerIds.filter(
-                          (id) => id !== blocker.id,
-                        ),
-                      })
-                    }
-                  >
-                    {xIcon}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <MenuSelect
-            className="task-relation-add"
-            value=""
-            placeholder="Add blocker…"
-            ariaLabel="Add blocker"
-            options={taskSelectOptions(
-              tasks.filter((task) => !draft.blockerIds.includes(task.id)),
-            )}
-            onChange={(value) => {
-              if (value) update({ blockerIds: [...draft.blockerIds, Number(value)] });
-            }}
           />
         </div>
 

@@ -24,7 +24,7 @@ vi.mock("react", async (importOriginal) => ({
 
 const task: Task = {
   id: 1, title: "Bookshelf", description: "", status: "active", workingNow: false,
-  workedSeconds: 0, workStartedAt: null, scope: null, value: null, effort: null,
+  workedSeconds: 0, workStartedAt: null, value: null, effort: null,
   parentTaskId: null, createdAt: 1, updatedAt: 10, closedAt: null,
   followsTaskId: null, historyRevision: 2,
 };

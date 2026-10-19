@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { PhaseMix } from "../components/DayReflection";
 import {
   InsightCheckIns,
-  InsightBrainDumps,
+  InsightNotes,
   InsightHeading,
   InsightLedger,
 } from "../components/InsightBoard";
@@ -51,7 +51,7 @@ export function RecapInsights({
   return sectionSidebar ? createPortal(insights, sectionSidebar) : null;
 }
 
-/** The review of a range: Brain dumps, Tasks, Metrics, and Phases, stacked in
+/** The review of a range: Notes, Tasks, Metrics, and Phases, stacked in
  * Sidebar order. Each heading shows that kind's Section icon; the title opens
  * that Section. Each heading hides that kind for Insights, Logs, and Timeline. */
 export function InsightsPanel({
@@ -76,7 +76,7 @@ export function InsightsPanel({
     checkIns,
     phaseCheckIns,
     phases,
-    brainDumps,
+    notes,
   } = useDashboardData();
   const icons = useTileIcons();
 
@@ -90,13 +90,13 @@ export function InsightsPanel({
           checkIns,
           phaseCheckIns,
           phases,
-          brainDumps,
+          notes,
         },
         { from, to },
         { nowSec, checkInNowMs: Date.now() },
       ),
     [
-      brainDumps,
+      notes,
       tasks,
       metrics,
       pulses,
@@ -114,13 +114,13 @@ export function InsightsPanel({
 
   return (
     <div className="insights-body">
-      <InsightBrainDumps
-        summary={insight.brainDumps}
-        icon={icons.brainDump}
-        shown={shown("dumps")}
-        alone={alone("dumps")}
-        onToggle={() => onToggleKind("dumps")}
-        onOpen={() => onOpenSection("brainDump")}
+      <InsightNotes
+        summary={insight.notes}
+        icon={icons.notes}
+        shown={shown("notes")}
+        alone={alone("notes")}
+        onToggle={() => onToggleKind("notes")}
+        onOpen={() => onOpenSection("notes")}
       />
       <InsightSection
         label="Tasks"

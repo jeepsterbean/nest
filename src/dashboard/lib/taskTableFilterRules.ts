@@ -9,7 +9,6 @@ export const TASK_TABLE_FILTERS: readonly { field: TaskTableFilterField; name: s
   { field: "workedOn", name: "Worked on", unsetLabel: "-", standalone: true },
   { field: "statusChanged", name: "Status changed", unsetLabel: "-", standalone: true },
   { field: "statuses", name: "Status", unsetLabel: "All statuses" },
-  { field: "scope", name: "Scope", unsetLabel: "All scopes" },
   { field: "parent", name: "Parent", unsetLabel: "All parents" },
   { field: "created", name: "Created", unsetLabel: "-" },
   { field: "updated", name: "Updated", unsetLabel: "-" },
@@ -29,8 +28,6 @@ export const taskTableFilterLabel = (
   switch (field) {
     case "statuses":
       return matchingTaskStatusPreset(query.statuses) === "all" ? null : taskStatusFilterLabel(query.statuses);
-    case "scope":
-      return query.scope;
     case "parent":
       return query.parent === null ? null : query.parent === "none" ? "No parent" : taskTitle(query.parent) ?? "Parent";
     case "created":

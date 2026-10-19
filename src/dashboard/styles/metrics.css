@@ -109,7 +109,6 @@
   margin: 0;
   overflow: hidden;
   color: var(--ink);
-  font-family: var(--serif);
   font-size: 16px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -156,7 +155,6 @@
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-family: var(--serif);
   font-size: 16px;
   font-weight: 600;
   text-align: left;
@@ -376,7 +374,6 @@
 
 .metric-row__latest {
   color: var(--muted);
-  font-family: var(--serif);
   font-size: 20px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

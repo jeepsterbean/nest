@@ -10,7 +10,7 @@ describe("readMigratedStorageValue", () => {
       removeItem: (key: string) => values.delete(key),
     };
 
-    expect(readMigratedStorageValue(storage, "nest:current", "nest.legacy"))
+    expect(readMigratedStorageValue(storage, "nest:current", ["nest.legacy"]))
       .toBe("saved");
     expect(values.get("nest:current")).toBe("saved");
     expect(values.has("nest.legacy")).toBe(false);
@@ -27,7 +27,7 @@ describe("readMigratedStorageValue", () => {
       removeItem: (key: string) => values.delete(key),
     };
 
-    expect(readMigratedStorageValue(storage, "nest:current", "nest.legacy"))
+    expect(readMigratedStorageValue(storage, "nest:current", ["nest.legacy"]))
       .toBe("current");
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(values.has("nest.legacy")).toBe(false);
@@ -43,9 +43,29 @@ describe("readMigratedStorageValue", () => {
       removeItem: vi.fn(),
     };
 
-    expect(readMigratedStorageValue(storage, "nest:current", "nest.legacy"))
+    expect(readMigratedStorageValue(storage, "nest:current", ["nest.legacy"]))
       .toBe("saved");
     expect(values.get("nest.legacy")).toBe("saved");
     expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("moves the newest legacy value and clears every older key", () => {
+    const values = new Map([
+      ["nest:renamed", "newer"],
+      ["nest.original", "older"],
+    ]);
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    };
+
+    expect(
+      readMigratedStorageValue(storage, "nest:current", [
+        "nest:renamed",
+        "nest.original",
+      ]),
+    ).toBe("newer");
+    expect([...values]).toEqual([["nest:current", "newer"]]);
   });
 });

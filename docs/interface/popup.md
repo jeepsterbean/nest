@@ -17,7 +17,7 @@ Popup's other behavior does not depend on why it was summoned.
 
 ## Panels
 
-Brain dump and Tasks and metrics each have a toggle. Each toggle shows or hides
+Notes and Tasks and metrics each have a toggle. Each toggle shows or hides
 its panel, so any combination can be visible, including none.
 
 Tasks and metrics holds Metric scoring and the Active / Up next task list;
@@ -33,7 +33,7 @@ have Up next and Complete.
 
 Double-clicking any task row, including working and Done rows, opens an input
 inside that row to name a Child. Enter creates the Child with the Parent's
-status and Scope, as its own row directly below the Parent; Done rows keep
+status, as its own row directly below the Parent; Done rows keep
 their close-time order instead. ⌘↵ also starts Working now on the Child, but
 only under an Active Parent; elsewhere it acts like Enter. The Parent keeps
 working either way, and the Child shares no status or Worked time with it after
@@ -41,9 +41,9 @@ creation. Escape or clicking outside discards the input. Child rows look like
 any other row.
 
 Every summon restores `nest:popup-panels`, even if the Timer is still paused at
-zero. Brain dump shows on first use. A saved selection naming the retired Chat
-panel drops it, and one naming only Chat falls back to Brain dump; an
-explicitly empty selection still hides every panel. Showing Brain dump focuses
+zero. Notes shows on first use. A saved selection naming the retired Chat
+panel drops it, and one naming only Chat falls back to Notes; an
+explicitly empty selection still hides every panel. Showing Notes focuses
 its editor, and Tasks and metrics the Metric control. Hiding the panel
 that holds focus returns focus to its toggle.
 
@@ -59,8 +59,8 @@ The scoring controls have no due glow or due dot.
 
 ## Keyboard and focus
 
-⌘1 and ⌘2 toggle Brain dump and Tasks and metrics in sidebar order, including
-while typing in Brain dump. A held key repeats but toggles once. Copy, Cut, and Paste retain their normal behavior.
+⌘1 and ⌘2 toggle Notes and Tasks and metrics in sidebar order, including
+while typing in Notes. A held key repeats but toggles once. Copy, Cut, and Paste retain their normal behavior.
 
 The chords apply only when the Popup has the keystroke; with the Dashboard
 focused they belong to the Dashboard. Tab and Shift+Tab provide ordinary focus

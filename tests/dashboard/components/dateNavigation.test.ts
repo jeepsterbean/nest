@@ -23,8 +23,8 @@ describe("date navigation and empty Timeline", () => {
   it.each([true, false])("shows an empty current-time row only when enabled (%s)", (showCurrentTime) => {
     const markup = renderToStaticMarkup(createElement(TimelineList, {
       events: [], phaseCheckIns: [], phases: [], metrics: [], pulses: [], tasks: [],
-      expandedDumpIds: new Set<number>(), onDeleteCheckIn: () => {},
-      onToggleDump: () => {}, nowMs, showCurrentTime,
+      expandedNoteIds: new Set<number>(), onDeleteCheckIn: () => {},
+      onToggleNote: () => {}, nowMs, showCurrentTime,
     }));
     expect(markup.includes("logs-chrono__row--now")).toBe(showCurrentTime);
     expect(markup).not.toContain("day-group__label");
@@ -34,7 +34,7 @@ describe("date navigation and empty Timeline", () => {
 
 
 describe("shared date control", () => {
-  it("disables forward navigation on Today and includes the Brain dump shortcut", () => {
+  it("disables forward navigation on Today and includes the Notes shortcut", () => {
     const markup = renderToStaticMarkup(createElement(DateNavigation, {
       label: "Today", unit: "day", canGoNext: false,
       onPrevious: () => {}, onNext: () => {}, onToday: () => {},

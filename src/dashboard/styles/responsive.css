@@ -68,13 +68,13 @@
     padding: 18px;
   }
 
-  .dash-section--brain-dump,
+  .dash-section--note,
   .dash-section--metrics,
   .dash-section--phases {
     padding: 0;
   }
 
-  .dash-section--brain-dump > .dash-section__head,
+  .dash-section--note > .dash-section__head,
   .dash-section--metrics > .dash-section__head,
   .dash-section--phases > .dash-section__head {
     padding: 18px 18px 16px;
@@ -84,7 +84,7 @@
     padding: 0 18px 18px;
   }
 
-  .brain-dump-section__pane:not([hidden]) {
+  .note-section__pane:not([hidden]) {
     padding: 0 18px 18px;
   }
 

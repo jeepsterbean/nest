@@ -32,8 +32,8 @@ its rendering or behavior before reporting it. Search matches are leads.
 
 Prioritize distinctions that change the reader's understanding:
 
-- persisted Task status versus derived Ready/Blocked and Working now;
-- Parent/Child hierarchy versus Blocker/Dependent readiness and Scope;
+- persisted Task status versus derived Working now;
+- Parent/Child hierarchy versus Follow-up origin;
 - Work stretch, Worked time, Timer, Popup, Pulse, and Metric check-in;
 - live Phase derivation versus historical display labels and recovery rules;
 - formal **Section** destinations, layouts, saved views, Recap presentations,

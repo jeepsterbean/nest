@@ -151,6 +151,15 @@ export const formatWorkedTime = (seconds: number) => {
   return `${remainder}s`;
 };
 
+/** Whole-minute Worked time for summaries where a ticking seconds digit would distract. */
+export const formatWorkedMinutes = (seconds: number) => {
+  if (seconds < 60) return "<1m";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours === 0) return `${minutes}m`;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+};
+
 /** Clock face / header elapsed time: always `m:ss`, then `h:mm:ss` after an hour. */
 export const formatClockedTime = (seconds: number) => {
   const safe = Math.max(0, Math.floor(seconds));

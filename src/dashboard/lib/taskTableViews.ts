@@ -18,7 +18,6 @@ export type TaskParentFilter = number | "none" | null;
 /** Which Tasks the table shows, in what order, and through which columns: order, widths, and hidden. */
 export type TaskTableQuery = {
   statuses: TaskStatus[];
-  scope: string | null;
   parent: TaskParentFilter;
   created: TaskDateFilter;
   updated: TaskDateFilter;
@@ -60,7 +59,6 @@ const RETIRED_OPEN_TASK_VIEW_ID = "open";
 
 export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   statuses: TASK_STATUSES,
-  scope: null,
   parent: null,
   created: null,
   updated: null,
@@ -86,7 +84,6 @@ const sameDateFilter = (a: TaskDateFilter, b: TaskDateFilter) =>
 const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Field], b: TaskTableQuery[Field]) => boolean } = {
   // Status order is irrelevant: the filter is a set.
   statuses: (a, b) => a.length === b.length && a.every((status) => b.includes(status)),
-  scope: (a, b) => a === b,
   parent: (a, b) => a === b,
   created: sameDateFilter,
   updated: sameDateFilter,
@@ -112,7 +109,6 @@ export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "colum
 /** The filter each column header edits; Worked on and Status changed have no column. */
 export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTableFilterField>> = {
   status: "statuses",
-  scope: "scope",
   parent: "parent",
   created: "created",
   updated: "updated",
@@ -249,7 +245,6 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
   const parent = value.parent;
   return {
     statuses,
-    scope: typeof value.scope === "string" && value.scope.trim() ? value.scope : null,
     parent: parent === "none" || (typeof parent === "number" && Number.isInteger(parent)) ? parent : null,
     created: normalizeDateFilter(value.created),
     updated: normalizeDateFilter(value.updated),

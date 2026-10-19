@@ -1,12 +1,10 @@
-import type { Task, TaskDependency } from "../../lib/types";
+import type { Task } from "../../lib/types";
 
-/** In-memory indexes for Parent/Child and Blocker/Dependent edges.
+/** In-memory indexes for Parent/Child relationships.
  * Used by map, table, and detail — not a visual graph canvas. */
 export type TaskGraphProjection = {
   byId: Map<number, Task>;
   childrenByParent: Map<number, Task[]>;
-  blockersByTask: Map<number, Task[]>;
-  dependentsByTask: Map<number, Task[]>;
 };
 
 const push = (map: Map<number, Task[]>, id: number, task: Task) => {
@@ -20,52 +18,19 @@ const byUpdatedAt = (a: Task, b: Task) =>
 
 export function buildTaskGraph(
   tasks: Task[],
-  dependencies: TaskDependency[],
 ): TaskGraphProjection {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const childrenByParent = new Map<number, Task[]>();
-  const blockersByTask = new Map<number, Task[]>();
-  const dependentsByTask = new Map<number, Task[]>();
 
   for (const task of tasks) {
     if (task.parentTaskId !== null) {
       push(childrenByParent, task.parentTaskId, task);
     }
   }
-  for (const dependency of dependencies) {
-    const blocker = byId.get(dependency.blockerTaskId);
-    const blocked = byId.get(dependency.blockedTaskId);
-    if (!blocker || !blocked) continue;
-    push(blockersByTask, blocked.id, blocker);
-    push(dependentsByTask, blocker.id, blocked);
-  }
 
-  for (const collection of [
-    childrenByParent,
-    blockersByTask,
-    dependentsByTask,
-  ]) {
-    for (const values of collection.values()) values.sort(byUpdatedAt);
-  }
+  for (const children of childrenByParent.values()) children.sort(byUpdatedAt);
 
-  return { byId, childrenByParent, blockersByTask, dependentsByTask };
-}
-
-export function unresolvedBlockers(
-  graph: TaskGraphProjection,
-  taskId: number,
-): Task[] {
-  return (graph.blockersByTask.get(taskId) ?? []).filter(
-    (task) => task.status !== "completed",
-  );
-}
-
-export function isTaskBlocked(graph: TaskGraphProjection, taskId: number) {
-  const task = graph.byId.get(taskId);
-  if (!task || task.status === "completed" || task.status === "cancelled") {
-    return false;
-  }
-  return unresolvedBlockers(graph, taskId).length > 0;
+  return { byId, childrenByParent };
 }
 
 export function descendantIds(
@@ -81,6 +46,19 @@ export function descendantIds(
     pending.push(...(graph.childrenByParent.get(child.id) ?? []));
   }
   return descendants;
+}
+
+export function ancestorIds(
+  graph: TaskGraphProjection,
+  taskId: number,
+): Set<number> {
+  const ancestors = new Set<number>();
+  let parentId = graph.byId.get(taskId)?.parentTaskId ?? null;
+  while (parentId !== null && !ancestors.has(parentId)) {
+    ancestors.add(parentId);
+    parentId = graph.byId.get(parentId)?.parentTaskId ?? null;
+  }
+  return ancestors;
 }
 
 export function childProgress(graph: TaskGraphProjection, taskId: number) {

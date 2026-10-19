@@ -23,7 +23,7 @@ const memory = () => {
   };
 };
 
-const ALL_KINDS = ["dumps", "phases", "metrics", "tasks"];
+const ALL_KINDS = ["notes", "phases", "metrics", "tasks"];
 
 describe("Logs preferences", () => {
   it("defaults to every kind", () => {
@@ -44,10 +44,10 @@ describe("Logs preferences", () => {
     const storage = memory();
     storage.setItem(
       "nest:logs-preferences",
-      JSON.stringify({ kinds: ["tasks", "cards", "dumps", "tasks"] }),
+      JSON.stringify({ kinds: ["tasks", "cards", "notes", "tasks"] }),
     );
     expect(readLogsPreferences(storage)).toEqual({
-      kinds: ["dumps", "tasks"],
+      kinds: ["notes", "tasks"],
     });
   });
 
@@ -60,6 +60,15 @@ describe("Logs preferences", () => {
     expect(readLogsPreferences(storage)).toEqual({
       kinds: ALL_KINDS,
     });
+  });
+
+  it("reads Notes saved as the brain dump kind", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:logs-preferences",
+      JSON.stringify({ kinds: ["tasks", "dumps"] }),
+    );
+    expect(readLogsPreferences(storage)).toEqual({ kinds: ["notes", "tasks"] });
   });
 
   it("ignores a retired List / Hours scale", () => {
@@ -90,8 +99,8 @@ describe("Logs preferences", () => {
 
 describe("Logs kind selection", () => {
   it("toggles a kind on in filter order and off again", () => {
-    expect(toggleLogKind(["tasks"], "dumps")).toEqual(["dumps", "tasks"]);
-    expect(toggleLogKind(["dumps", "tasks"], "dumps")).toEqual(["tasks"]);
+    expect(toggleLogKind(["tasks"], "notes")).toEqual(["notes", "tasks"]);
+    expect(toggleLogKind(["notes", "tasks"], "notes")).toEqual(["tasks"]);
   });
 
   it("keeps the last shown kind on", () => {
@@ -115,15 +124,15 @@ describe("Logs feed", () => {
     pulseName: "Daily pulse",
     ratings: [],
   };
-  const dump = { id: 1, createdAt: 180, text: "note", tags: [] };
+  const note = { id: 1, createdAt: 180, text: "note", tags: [] };
   const stretch = { id: 1, taskId: 1, startedAt: 160, endedAt: 190 };
   const feed = (kinds: Parameters<typeof buildLogsEvents>[0], every = false) =>
-    buildLogsEvents(kinds, every, [checkIn], phaseCheckIns, [dump], [stretch], 0);
+    buildLogsEvents(kinds, every, [checkIn], phaseCheckIns, [note], [stretch], 0);
 
   it("includes only the selected kinds", () => {
-    expect(feed(["dumps", "tasks"]).map((event) => event.kind)).toEqual([
+    expect(feed(["notes", "tasks"]).map((event) => event.kind)).toEqual([
       "work-stop",
-      "dump",
+      "note",
       "work-start",
     ]);
     expect(feed(["metrics"]).map((event) => event.kind)).toEqual(["metrics"]);
@@ -178,11 +187,11 @@ describe("every Logs kind together", () => {
     expect(events.filter((event) => event.kind === "phase")).toHaveLength(1);
 
     expect(new Set(events.map((event) => event.kind))).toEqual(
-      new Set(["phase", "metrics", "dump", "work-start", "work-stop"]),
+      new Set(["phase", "metrics", "note", "work-start", "work-stop"]),
     );
   });
 
-  it("keeps settled Resting so Scoping-only dumps cannot hide away time", () => {
+  it("keeps settled Resting so Scoping-only notes cannot hide away time", () => {
     const phase = (
       id: number,
       createdAt: number,
@@ -249,7 +258,7 @@ describe("Task lifecycle history", () => {
     const events = buildLogsEvents(["tasks"], false, [], [], [], [], 0, history);
     expect(events.map((event) => event.kind === "task-status" ? event.statusEvent.id : null))
       .toEqual([5, 4, 3, 2, 1]);
-    expect(buildLogsEvents(["dumps"], false, [], [], [], [], 0, history)).toEqual([]);
+    expect(buildLogsEvents(["notes"], false, [], [], [], [], 0, history)).toEqual([]);
   });
 
   it("labels creation, completion, reopening, cancellation and retired statuses", () => {

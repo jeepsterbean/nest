@@ -8,12 +8,12 @@ The dashboard opens in **Recap**. With default preferences, Recap shows **Calend
 
 | Area | What it shows | What to do |
 | --- | --- | --- |
-| Sidebar | Recap, Brain dump, Tasks, Metrics, and Phases | Select a section to open it. Select **Settings** at the bottom to change dashboard preferences. |
+| Sidebar | Recap, Notes, Tasks, Metrics, and Phases | Select a section to open it. Select **Settings** at the bottom to change dashboard preferences. |
 | Date controls | The day currently on screen | Use the arrows to move between days, select the date to pick a day, or use **Go to today** to return to today. |
 | Calendar | Activity placed at the time it happened | Hover over an icon for a preview. Select it to open its details. |
-| Insights | Summaries for the selected day | Review Brain dumps, Tasks, Metrics, and Phases. Select a heading to open that section. |
+| Insights | Summaries for the selected day | Review Notes, Tasks, Metrics, and Phases. Select a heading to open that section. |
 
-Calendar's Logs include brain dumps, Task activity, Metric check-ins, and Phases. Select an eye control beside an Insights heading to hide or show that kind in Insights, Calendar Logs, and Timeline. At least one kind stays visible. A quiet day can have an empty Calendar; the date controls still let you review another day.
+Calendar's Logs include notes, Task activity, Metric check-ins, and Phases. Select an eye control beside an Insights heading to hide or show that kind in Insights, Calendar Logs, and Timeline. At least one kind stays visible. A quiet day can have an empty Calendar; the date controls still let you review another day.
 
 ### Change the Recap view
 
@@ -25,19 +25,19 @@ Recap returns to today when you relaunch the app. Your Calendar or Timeline choi
 
 ## Use the other sections
 
-### Brain dump
+### Notes
 
-Select **Brain dump** to write a thought without creating a Task. To save one from the dashboard:
+Select **Notes** to write a thought without creating a Task. To save one from the dashboard:
 
 1. Return to **Today** and select the writing area at the top of the page.
 2. Write your thought and, if useful, select Tags below the writing area.
-3. Press **⌘ Enter** to save. The entry appears with today's saved brain dumps, and the writing area clears.
+3. Press **⌘ Enter** to save. The entry appears with today's saved notes, and the writing area clears.
 
-The dashboard and Popup share the same unsaved brain dump draft, including its Tags. You can switch between them and continue writing. On the dashboard, **Shift Enter** or the floating draft button moves the current draft into a movable sticky without saving it. Select the date to browse a different day; the section shows saved entries for that day, and its Tag list filters them. Select a saved entry to read it, or copy it into a new draft to build on it.
+The dashboard and Popup share the same unsaved note draft, including its Tags. You can switch between them and continue writing. On the dashboard, **Shift Enter** or the floating draft button moves the current draft into a movable sticky without saving it. Select the date to browse a different day; the section shows saved entries for that day, and its Tag list filters them. Select a saved entry to read it, or copy it into a new draft to build on it.
 
 ### Tasks
 
-Select **Tasks** to see the **Table** layout. Filter by Status, Scope, dates, or other Task fields, and save queries as views. Select a Task to open its details. Use **New task** to add one.
+Select **Tasks** to see the **Table** layout. Filter by Status, dates, or other Task fields, and save queries as views. Select a Task to open its details. Use **New task** to add one.
 
 If you enable Map in Settings, a **Map** layout is available too. **Working now** on an Active Task records a Work stretch; Task status and Working now are separate choices.
 
@@ -51,15 +51,15 @@ Select **Phases** to see how the day was spent in **Doing**, **Scoping**, **Rest
 
 ## Use the Popup for quick actions
 
-Press **⌘⇧E** to open the Popup. It also opens when the Timer reaches zero. The two icons on its left show or hide **Brain dump** and **Tasks and metrics** independently, so you can see either panel or both. Press **⌘1** and **⌘2** to toggle them from the keyboard. The Popup remembers which panels were shown last time.
+Press **⌘⇧E** to open the Popup. It also opens when the Timer reaches zero. The two icons on its left show or hide **Notes** and **Tasks and metrics** independently, so you can see either panel or both. Press **⌘1** and **⌘2** to toggle them from the keyboard. The Popup remembers which panels were shown last time.
 
-### Capture a brain dump
+### Capture a note
 
-1. Show **Brain dump** with its left-side icon or **⌘1**.
+1. Show **Notes** with its left-side icon or **⌘1**.
 2. Write in the editor and add Tags if you want them.
-3. Press **⌘ Enter** to save. Your saved entry is available in Brain dump, Recap Logs, and Timeline.
+3. Press **⌘ Enter** to save. Your saved entry is available in Notes, Recap Logs, and Timeline.
 
-The arrows in the brain dump header browse your five most recent saved entries. Those entries open for reading; return to the live draft to keep writing. Your unsaved text stays available when you hide the panel or close the Popup.
+The arrows in the note header browse your five most recent saved entries. Those entries open for reading; return to the live draft to keep writing. Your unsaved text stays available when you hide the panel or close the Popup.
 
 ### Rate Metrics and manage Tasks
 
@@ -81,4 +81,4 @@ Select **Settings** at the bottom of the Sidebar. **Background** changes the vis
 - Select a date label to open the date picker. Future dates cannot be chosen.
 - Press **Escape** to close an open date picker, detail panel, or overlay.
 
-The dashboard's Recap views use a rolling history window of about 30 days. Brain dump, Metrics, and Phases can fetch older days when you navigate to them.
+The dashboard's Recap views use a rolling history window of about 30 days. Notes, Metrics, and Phases can fetch older days when you navigate to them.

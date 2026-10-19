@@ -1247,6 +1247,120 @@ BEGIN
  SELECT NEW.blocker_task_id,'dependent_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.blocked_task_id;
 END;
 "#),
+        // Brain dumps are renamed Notes. RENAME keeps every row and rewrites
+        // note_tags' foreign key to the new table name.
+        M::up(r#"
+ALTER TABLE brain_dumps RENAME TO notes;
+ALTER TABLE brain_dump_tags RENAME TO note_tags;
+ALTER TABLE note_tags RENAME COLUMN brain_dump_id TO note_id;
+DROP INDEX IF EXISTS idx_brain_dumps_created_at;
+CREATE INDEX idx_notes_created_at ON notes(created_at);
+DROP INDEX IF EXISTS idx_brain_dump_tags_tag_id;
+CREATE INDEX idx_note_tags_tag_id ON note_tags(tag_id);
+"#),
+        // Retire Task categorization and execution dependencies together with
+        // their history entries; all remaining Task records keep their ids.
+        M::up(r#"
+DROP TRIGGER task_history_scope;
+DROP TRIGGER task_history_dependency_added;
+DROP TRIGGER task_history_dependency_removed;
+DROP TABLE task_dependencies;
+ALTER TABLE tasks DROP COLUMN scope;
+DELETE FROM task_edit_history
+WHERE kind IN ('scope','blocker_added','blocker_removed','dependent_added','dependent_removed');
+"#),
+        // Preserve existing edges before retiring the single-Parent column.
+        M::up(r#"
+CREATE TABLE task_parents (
+ child_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ parent_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ created_at INTEGER NOT NULL,
+ PRIMARY KEY (child_task_id, parent_task_id),
+ CHECK (child_task_id <> parent_task_id)
+);
+CREATE INDEX idx_task_parents_parent ON task_parents(parent_task_id);
+INSERT INTO task_parents(child_task_id,parent_task_id,created_at)
+SELECT id,parent_task_id,created_at FROM tasks
+WHERE parent_task_id <> id AND parent_task_id IN (SELECT id FROM tasks);
+DROP TRIGGER task_history_parent_remove;
+DROP TRIGGER task_history_parent_add;
+DROP TRIGGER task_history_initial_parent;
+DROP INDEX idx_tasks_parent_task_id;
+ALTER TABLE tasks DROP COLUMN parent_task_id;
+CREATE TRIGGER task_parents_cycle BEFORE INSERT ON task_parents
+WHEN EXISTS (
+ WITH RECURSIVE ancestors(id) AS (
+  SELECT NEW.parent_task_id
+  UNION
+  SELECT p.parent_task_id FROM task_parents p JOIN ancestors a ON p.child_task_id=a.id
+ ) SELECT 1 FROM ancestors WHERE id=NEW.child_task_id
+)
+BEGIN
+ SELECT RAISE(ABORT,'task hierarchy cycle');
+END;
+CREATE TRIGGER task_parents_immutable BEFORE UPDATE ON task_parents
+BEGIN
+ SELECT RAISE(ABORT,'unlink and add a Task relationship instead of updating it');
+END;
+CREATE TRIGGER task_history_parent_add AFTER INSERT ON task_parents
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.child_task_id,'parent_set',id,title,NEW.created_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.parent_task_id,'child_added',id,title,NEW.created_at FROM tasks WHERE id=NEW.child_task_id;
+END;
+CREATE TRIGGER task_history_parent_remove AFTER DELETE ON task_parents
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.child_task_id,'parent_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.parent_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.child_task_id);
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.parent_task_id,'child_removed',id,title,CAST(strftime('%s','now') AS INTEGER) FROM tasks
+ WHERE id=OLD.child_task_id AND EXISTS(SELECT 1 FROM tasks WHERE id=OLD.parent_task_id);
+END;
+"#),
+        // Multiple Parents were retired. A Task with several Parents keeps its
+        // earliest-linked one; the other edges are dropped. The migration above
+        // stays because databases that ran it are already past that version.
+        M::up(r#"
+ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+UPDATE tasks SET parent_task_id = (
+ SELECT p.parent_task_id FROM task_parents p
+ WHERE p.child_task_id = tasks.id
+ ORDER BY p.created_at, p.rowid
+ LIMIT 1
+);
+DROP TRIGGER task_history_parent_add;
+DROP TRIGGER task_history_parent_remove;
+DROP TRIGGER task_parents_cycle;
+DROP TRIGGER task_parents_immutable;
+DROP TABLE task_parents;
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
+CREATE TRIGGER task_history_parent_remove AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND OLD.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_removed',id,title,NEW.updated_at FROM tasks WHERE id=OLD.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT OLD.parent_task_id,'child_removed',NEW.id,NEW.title,NEW.updated_at
+ WHERE EXISTS(SELECT 1 FROM tasks WHERE id=OLD.parent_task_id);
+END;
+CREATE TRIGGER task_history_parent_add AFTER UPDATE OF parent_task_id ON tasks
+WHEN OLD.parent_task_id IS NOT NEW.parent_task_id AND NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.updated_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.updated_at);
+END;
+CREATE TRIGGER task_history_initial_parent AFTER INSERT ON tasks WHEN NEW.parent_task_id IS NOT NULL
+BEGIN
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ SELECT NEW.id,'parent_set',id,title,NEW.created_at FROM tasks WHERE id=NEW.parent_task_id;
+ INSERT INTO task_edit_history(task_id,kind,related_task_id,related_title,created_at)
+ VALUES(NEW.parent_task_id,'child_added',NEW.id,NEW.title,NEW.created_at);
+END;
+"#),
     ])
 }
 
@@ -1259,6 +1373,115 @@ mod tests {
     /// repair hook that follows it fixes up. Bump only if a migration is ever
     /// inserted at or before that slot.
     const SORT_ORDER_VERSION: usize = 34;
+
+    #[test]
+    fn retiring_multiple_parents_keeps_the_earliest_parent_and_all_tasks() {
+        let mut probe = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut probe).unwrap();
+        let latest: i64 = probe
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations()
+            .to_version(&mut conn, (latest - 1) as usize)
+            .unwrap();
+        conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at) VALUES(1,'A','active',1,1),(2,'B','backlog',1,1),(3,'C','backlog',1,1),(4,'D','backlog',1,1)", []).unwrap();
+        conn.execute(
+            "INSERT INTO task_parents VALUES(3,2,20),(3,1,10),(4,1,5)",
+            [],
+        )
+        .unwrap();
+        let history_before: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let parents: Vec<(i64, Option<i64>)> = conn
+            .prepare("SELECT id,parent_task_id FROM tasks ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(
+            parents,
+            vec![(1, None), (2, None), (3, Some(1)), (4, Some(1))]
+        );
+        let history_after: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_edit_history", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(history_after, history_before);
+        assert!(conn.prepare("SELECT 1 FROM task_parents").is_err());
+    }
+
+    #[test]
+    fn retiring_scopes_and_blockers_preserves_tasks_and_remaining_history() {
+        let mut probe = Connection::open_in_memory().unwrap();
+        migrations().to_latest(&mut probe).unwrap();
+        let latest: i64 = probe
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations()
+            .to_version(&mut conn, (latest - 3) as usize)
+            .unwrap();
+        conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at,scope) VALUES(1,'Parent','active',1,1,'Work'),(2,'Child','backlog',1,1,'Home')", []).unwrap();
+        conn.execute(
+            "UPDATE tasks SET parent_task_id=1,title='Renamed',scope='Elsewhere' WHERE id=2",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO task_dependencies VALUES(1,2,2)", [])
+            .unwrap();
+        conn.execute(
+            "INSERT INTO task_status_events(task_id,to_status,created_at) VALUES(1,'active',1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO task_work_stretches(task_id,started_at,ended_at) VALUES(1,2,12)",
+            [],
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let child: (String, i64) = conn
+            .query_row(
+                "SELECT title,parent_task_id FROM tasks WHERE id=2",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(child, ("Renamed".into(), 1));
+        let retired: i64 = conn.query_row("SELECT COUNT(*) FROM task_edit_history WHERE kind IN ('scope','blocker_added','blocker_removed','dependent_added','dependent_removed')", [], |row| row.get(0)).unwrap();
+        assert_eq!(retired, 0);
+        let dependencies: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='task_dependencies'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(dependencies, 0);
+        let counts: (i64,i64,i64) = conn.query_row("SELECT (SELECT COUNT(*) FROM task_status_events),(SELECT COUNT(*) FROM task_work_stretches),(SELECT COUNT(*) FROM task_edit_history WHERE kind='title')", [], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?))).unwrap();
+        assert_eq!(counts, (1, 1, 1));
+        conn.execute("UPDATE tasks SET value=3 WHERE id=2", [])
+            .unwrap();
+        crate::task_graph::TaskGraph::delete_task(&mut conn, 1).unwrap();
+        assert!(conn.prepare("SELECT scope FROM tasks").is_err());
+        assert!(conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none());
+    }
 
     #[test]
     fn edit_history_upgrade_keeps_existing_records_and_starts_empty() {
@@ -1559,12 +1782,12 @@ mod tests {
     }
 
     #[test]
-    fn tag_deletion_removes_associations_and_keeps_brain_dumps() {
+    fn tag_deletion_removes_associations_and_keeps_notes() {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations().to_latest(&mut conn).unwrap();
         conn.execute(
-            "INSERT INTO brain_dumps (id, created_at, text) VALUES (1, 10, 'Keep me')",
+            "INSERT INTO notes (id, created_at, text) VALUES (1, 10, 'Keep me')",
             [],
         )
         .unwrap();
@@ -1579,21 +1802,60 @@ mod tests {
                 [],
             )
             .is_err());
-        conn.execute(
-            "INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (1, 1)",
-            [],
-        )
-        .unwrap();
+        conn.execute("INSERT INTO note_tags (note_id, tag_id) VALUES (1, 1)", [])
+            .unwrap();
 
         conn.execute("DELETE FROM tags WHERE id = 1", []).unwrap();
 
-        let dump_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM brain_dumps", [], |row| row.get(0))
+        let note_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0))
             .unwrap();
         let association_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM brain_dump_tags", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM note_tags", [], |row| row.get(0))
             .unwrap();
-        assert_eq!((dump_count, association_count), (1, 0));
+        assert_eq!((note_count, association_count), (1, 0));
+    }
+
+    #[test]
+    fn renaming_brain_dumps_to_notes_keeps_rows_tags_and_cascades() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 59).unwrap();
+        conn.execute_batch(
+            "INSERT INTO brain_dumps (id, created_at, text) VALUES (1, 10, 'Kept');
+             INSERT INTO tags (id, name, created_at) VALUES (1, 'Work', 10);
+             INSERT INTO brain_dump_tags (brain_dump_id, tag_id) VALUES (1, 1);",
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let (text, tag_id): (String, i64) = conn
+            .query_row(
+                "SELECT n.text, nt.tag_id FROM notes n \
+                 JOIN note_tags nt ON nt.note_id = n.id",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((text.as_str(), tag_id), ("Kept", 1));
+
+        let old_tables: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master \
+                 WHERE name IN ('brain_dumps', 'brain_dump_tags', \
+                 'idx_brain_dumps_created_at', 'idx_brain_dump_tags_tag_id')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(old_tables, 0);
+
+        conn.execute("DELETE FROM notes WHERE id = 1", []).unwrap();
+        let associations: i64 = conn
+            .query_row("SELECT COUNT(*) FROM note_tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(associations, 0);
     }
 
     #[test]
@@ -1699,7 +1961,7 @@ mod tests {
     }
 
     #[test]
-    fn repairs_database_missing_brain_dumps_after_mid_list_migration_insert() {
+    fn repairs_database_missing_notes_after_mid_list_migration_insert() {
         let mut conn = Connection::open_in_memory().unwrap();
         // A real version-10 database has task_check_ins (created at version 9);
         // later migrations rely on it.
@@ -1753,7 +2015,7 @@ CREATE TABLE phase_check_ins (
 
         let table_count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'brain_dumps'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'notes'",
                 [],
                 |row| row.get(0),
             )
@@ -1762,7 +2024,7 @@ CREATE TABLE phase_check_ins (
 
         let title_column_count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('brain_dumps') \
+                "SELECT COUNT(*) FROM pragma_table_info('notes') \
                  WHERE name = 'title'",
                 [],
                 |row| row.get(0),
@@ -1771,7 +2033,7 @@ CREATE TABLE phase_check_ins (
         assert_eq!(title_column_count, 0);
 
         conn.execute(
-            "INSERT INTO brain_dumps (created_at, text) VALUES (?1, ?2)",
+            "INSERT INTO notes (created_at, text) VALUES (?1, ?2)",
             (123_i64, "works"),
         )
         .unwrap();
@@ -1838,15 +2100,6 @@ CREATE TABLE phase_check_ins (
             )
             .unwrap();
         assert_eq!(terminal_timestamp_columns, 0);
-
-        let scope_column_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'scope'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(scope_column_count, 1);
     }
 
     #[test]
@@ -1872,16 +2125,9 @@ CREATE TABLE phase_check_ins (
 
         migrations().to_latest(&mut conn).unwrap();
 
-        let task: (
-            String,
-            String,
-            String,
-            Option<i64>,
-            Option<i64>,
-            Option<String>,
-        ) = conn
+        let task: (String, String, String, Option<i64>, Option<i64>) = conn
             .query_row(
-                "SELECT title, status, description, value, effort, scope FROM tasks WHERE id = 1",
+                "SELECT title, status, description, value, effort FROM tasks WHERE id = 1",
                 [],
                 |row| {
                     Ok((
@@ -1890,7 +2136,6 @@ CREATE TABLE phase_check_ins (
                         row.get(2)?,
                         row.get(3)?,
                         row.get(4)?,
-                        row.get(5)?,
                     ))
                 },
             )
@@ -1903,7 +2148,6 @@ CREATE TABLE phase_check_ins (
                 "Keep me".into(),
                 Some(5),
                 Some(2),
-                Some("Work".into()),
             )
         );
 

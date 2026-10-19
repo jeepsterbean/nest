@@ -30,7 +30,7 @@ describe("tile icons", () => {
         assistant: "moon",
         timeline: "calendar",
         tasks: "unknown",
-        brainDump: 42,
+        notes: 42,
         metrics: "heart",
       }),
     );
@@ -77,5 +77,17 @@ describe("tile icons", () => {
 
     writeTileIcon("recap", "moon", storage);
     expect(readTileIcons(storage).recap).toBe("moon");
+  });
+
+  it("carries over the Notes icon saved when the Section was named Brain dump", () => {
+    const storage = memory();
+    storage.setItem(
+      "nest:overview-tile-icons",
+      JSON.stringify({ brainDump: "brain" }),
+    );
+    expect(readTileIcons(storage).notes).toBe("brain");
+
+    writeTileIcon("notes", "idea", storage);
+    expect(readTileIcons(storage).notes).toBe("idea");
   });
 });

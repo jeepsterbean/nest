@@ -2,7 +2,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardDataProvider, useDashboardData } from "./context/DashboardDataContext";
-import { FloatingBrainDumpsProvider } from "./context/FloatingBrainDumpsContext";
+import { FloatingNotesProvider } from "./context/FloatingNotesContext";
 import { TaskMenuProvider } from "./context/TaskMenuContext";
 import { AmbientVisualizer } from "./components/AmbientVisualizer";
 import { DashboardSidebar } from "./components/DashboardSidebar";
@@ -10,11 +10,10 @@ import { ViewToggle } from "./components/ViewToggle";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { useBackgroundStyle } from "./hooks/useBackgroundStyle";
 import { useBackgroundTuning } from "./hooks/useBackgroundTuning";
-import { ScopeMenu } from "./task/ScopeMenu";
 import { StatusMenu } from "./task/StatusMenu";
 import { CalendarView } from "./views/CalendarView";
 import { TimelineView } from "./views/TimelineView";
-import { BrainDumpView } from "./views/BrainDumpView";
+import { NotesView } from "./views/NotesView";
 import { MetricsView } from "./views/MetricsView";
 import { PhasesView } from "./views/PhasesView";
 import { TasksView } from "./views/TasksView";
@@ -106,8 +105,8 @@ function DashboardInner() {
       className={`dashboard${section === "tasks" ? " dashboard--tasks" : ""}`}
     >
       {/* Provider (and sticky board) must live under .dashboard so theme
-          tokens like --surface / --dump resolve on the notes. */}
-      <FloatingBrainDumpsProvider>
+          tokens like --surface / --note resolve on the notes. */}
+      <FloatingNotesProvider>
         <AmbientVisualizer
           active={isDoing}
           style={backgroundStyle}
@@ -143,8 +142,8 @@ function DashboardInner() {
               returns to Day and closes its Task detail on leaving. */}
           {!onRecap && (
             <>
-              <div className="section-slot" hidden={section !== "brainDump"}>
-                <BrainDumpView sectionSidebar={sectionSidebar} visible={section === "brainDump"} />
+              <div className="section-slot" hidden={section !== "notes"}>
+                <NotesView sectionSidebar={sectionSidebar} visible={section === "notes"} />
               </div>
               <div className="section-slot" hidden={section !== "tasks"}>
                 <TasksView sectionSidebar={sectionSidebar} visible={section === "tasks"} />
@@ -158,9 +157,8 @@ function DashboardInner() {
             </>
           )}
         </div>
-        <ScopeMenu />
         <StatusMenu />
-      </FloatingBrainDumpsProvider>
+      </FloatingNotesProvider>
     </main>
   );
 }

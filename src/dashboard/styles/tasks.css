@@ -26,18 +26,9 @@
 .dashboard--tasks .task-column-trigger,
 .dashboard--tasks .task-column-menu,
 .dashboard--tasks .task-query,
-.dashboard--tasks .task-views__changes .task-views__link,
-.dashboard--tasks .task-card__scope {
+.dashboard--tasks .task-views__changes .task-views__link {
   --accent: var(--ink);
   --accent-soft: color-mix(in srgb, var(--muted) 13%, transparent);
-}
-
-.dashboard--tasks .task-card__scope:not(.task-card__scope--empty) {
-  border-color: var(--border);
-}
-
-.dashboard--tasks .task-card__scope:not(.task-card__scope--empty):hover {
-  border-color: var(--border-strong);
 }
 
 .dashboard--tasks .task-table th.task-table__col--over {
@@ -67,7 +58,6 @@
   place-items: center;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-family: var(--serif);
   font-size: 17px;
 }
 
@@ -449,7 +439,6 @@
   font-size: 12px;
 }
 .task-column-menu__search:focus-visible { border-color: var(--accent); outline: none; }
-.task-column-menu__empty { padding: 6px 8px; color: var(--muted); font-size: 12px; }
 /* Dark rows share --surface with the menu, so lift the menu a step and give it
    a shadow dark enough to read on near-black. */
 @media (prefers-color-scheme: dark) {
@@ -683,7 +672,6 @@
 }
 .task-create-card__title {
   padding: 4px 6px;
-  font-family: var(--serif);
   font-size: 19px;
   font-weight: 600;
   line-height: 1.3;

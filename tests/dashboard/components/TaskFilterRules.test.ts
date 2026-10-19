@@ -3,14 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { TaskFilterRules } from "../../../src/dashboard/task/TaskFilterRules";
 import { DEFAULT_TASK_TABLE_QUERY, type TaskTableQuery } from "../../../src/dashboard/lib/taskTableViews";
-import { buildScopeTree } from "../../../src/dashboard/lib/scope";
 
 const render = (query: Partial<TaskTableQuery>, extra: { changedFields?: Set<string>; openField?: "value" | null } = {}) =>
   renderToStaticMarkup(createElement(TaskFilterRules, {
     query: { ...DEFAULT_TASK_TABLE_QUERY, ...query },
     onQueryChange: () => {},
     changedFields: extra.changedFields ?? new Set(),
-    context: { tasks: [], scopeTree: buildScopeTree([]), workedTimeCandidates: [], workedSecondsByTask: null, workHistoryStatus: null },
+    context: { tasks: [], workedTimeCandidates: [], workedSecondsByTask: null, workHistoryStatus: null },
     nowMs: new Date(2026, 9, 13, 12).getTime(),
     openField: extra.openField ?? null,
     onOpenFieldChange: () => {},

@@ -1,11 +1,12 @@
 // Behavior and invariants: docs/interface/time-surfaces.md#logs-kinds
 import type {
-  BrainDump,
+  Note,
   MetricCheckInWithRatings,
   PhaseCheckIn,
   Task,
   TaskWorkStretch,
   TaskStatusEvent,
+  TaskEditEvent,
 } from "../../lib/types";
 import { TASK_STATUS_LABEL } from "./tasks";
 import {
@@ -16,7 +17,7 @@ import {
 } from "./timeline";
 
 export const LOG_KINDS = [
-  { key: "dumps", label: "Brain dumps" },
+  { key: "notes", label: "Notes" },
   { key: "phases", label: "Phases" },
   { key: "metrics", label: "Metrics" },
   { key: "tasks", label: "Tasks" },
@@ -27,14 +28,14 @@ export const ALL_LOG_KINDS: LogKindKey[] = LOG_KINDS.map(({ key }) => key);
 
 export const MIXED_LOG_EMPTY_COPY = {
   title: "Nothing here yet",
-  body: "Metric check-ins, brain dumps, Phase changes, and task activity will land here.",
+  body: "Metric check-ins, notes, Phase changes, and task activity will land here.",
 };
 
 export const LOG_EMPTY_COPY: Record<LogKindKey, { title: string; body: string }> =
   {
-    dumps: {
-      title: "No brain dumps yet",
-      body: "Capture a thought from Brain dump or the popup.",
+    notes: {
+      title: "No notes yet",
+      body: "Capture a thought from Notes or the popup.",
     },
     phases: {
       title: "No Phase changes yet",
@@ -68,6 +69,10 @@ type LogsStorage = Pick<Storage, "getItem" | "setItem">;
 const inKindOrder = (kinds: readonly unknown[]): LogKindKey[] =>
   ALL_LOG_KINDS.filter((key) => kinds.includes(key));
 
+// Notes were saved as the "dumps" kind while they were called brain dumps.
+const withRenamedKinds = (kinds: readonly unknown[]) =>
+  kinds.map((kind) => (kind === "dumps" ? "notes" : kind));
+
 /** Show or hide one kind. The last shown kind stays on so the history filter always includes a kind. */
 export function toggleLogKind(
   kinds: LogKindKey[],
@@ -86,7 +91,9 @@ export function readLogsPreferences(
     const stored = JSON.parse(storage.getItem(LOGS_PREFERENCES_KEY) ?? "null");
     const isObject = stored !== null && typeof stored === "object";
     const kinds =
-      isObject && Array.isArray(stored.kinds) ? inKindOrder(stored.kinds) : [];
+      isObject && Array.isArray(stored.kinds)
+        ? inKindOrder(withRenamedKinds(stored.kinds))
+        : [];
     return {
       kinds: kinds.length > 0 ? kinds : DEFAULT_LOGS_PREFERENCES.kinds,
     };
@@ -109,10 +116,11 @@ export function buildLogsEvents(
   everyPhaseCheckpoint: boolean,
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
+  notes: Note[],
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
   taskStatusEvents: TaskStatusEvent[] = [],
+  taskEditEvents: TaskEditEvent[] = [],
 ): RawLogEvent[] {
   // Collapse runs before the range cut so a settle matching the Phase already
   // active at the window start is omitted along with that carry-in.
@@ -127,9 +135,10 @@ export function buildLogsEvents(
   return buildRawLog(
     kinds.includes("metrics") ? checkIns : [],
     phaseRows,
-    kinds.includes("dumps") ? brainDumps : [],
+    kinds.includes("notes") ? notes : [],
     kinds.includes("tasks") ? taskWorkStretches : [],
     kinds.includes("tasks") ? taskStatusEvents : [],
+    kinds.includes("tasks") ? taskEditEvents : [],
   );
 }
 

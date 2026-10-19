@@ -2,21 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   RatingValue,
   Task,
-  TaskDependency,
   TaskStatus,
   TaskStatusEvent,
   TaskWorkStretch,
   TaskUpdateCursor,
   TaskUpdatePage,
+  TaskEditEvent,
 } from "../types";
 import { isTaskLocked, localDayStartSec } from "../taskLock";
 
 export function listTasks(): Promise<Task[]> {
   return invoke("list_tasks");
-}
-
-export function listTaskDependencies(): Promise<TaskDependency[]> {
-  return invoke("list_task_dependencies");
 }
 
 export function listTaskStatusEvents(
@@ -30,14 +26,12 @@ export function createTask(
   title: string,
   description: string,
   status: TaskStatus,
-  scope: string | null = null,
   parentTaskId: number | null = null,
 ): Promise<Task> {
   return invoke("create_task", {
     title,
     description,
     status,
-    scope,
     parentTaskId,
   });
 }
@@ -53,29 +47,11 @@ export function setTaskDescription(
   return invoke("set_task_description", { id, description });
 }
 
-export function setTaskScope(id: number, scope: string | null): Promise<Task> {
-  return invoke("set_task_scope", { id, scope });
-}
-
 export function setTaskParent(
   id: number,
   parentTaskId: number | null,
 ): Promise<Task> {
   return invoke("set_task_parent", { id, parentTaskId });
-}
-
-export function addTaskDependency(
-  blockerTaskId: number,
-  blockedTaskId: number,
-): Promise<void> {
-  return invoke("add_task_dependency", { blockerTaskId, blockedTaskId });
-}
-
-export function removeTaskDependency(
-  blockerTaskId: number,
-  blockedTaskId: number,
-): Promise<void> {
-  return invoke("remove_task_dependency", { blockerTaskId, blockedTaskId });
 }
 
 export function deleteTask(id: number): Promise<void> {
@@ -167,4 +143,8 @@ export function listTaskUpdates(
   cursor: TaskUpdateCursor | null = null,
 ): Promise<TaskUpdatePage> {
   return invoke("list_task_updates", { id, cursor });
+}
+
+export function listTaskEditEvents(from: number, to: number): Promise<TaskEditEvent[]> {
+  return invoke("list_task_edit_events", { from, to });
 }

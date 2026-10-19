@@ -12,7 +12,7 @@ import { subscribeTauriEvent } from "../../lib/tauriListen";
 import {
   getTimerState,
   latestPhaseCheckIn,
-  listBrainDumps,
+  listNotes,
   listMetricCheckIns,
   listMetrics,
   listPulses,
@@ -20,25 +20,24 @@ import {
   listPhases,
   listTasks,
   listTags,
-  listTaskDependencies,
   listTaskStatusEvents,
+  listTaskEditEvents,
   listTaskWorkStretches,
 } from "../../lib/commands";
 import type {
-  BrainDump,
+  Note,
   Metric,
   MetricCheckInWithRatings,
   Phase,
   PhaseCheckIn,
   Pulse,
   Task,
-  TaskDependency,
   TaskStatusEvent,
+  TaskEditEvent,
   TaskWorkStretch,
   TimerState,
   Tag,
 } from "../../lib/types";
-import { buildScopeTree, type ScopeTree } from "../lib/scope";
 import { buildTaskGraph, type TaskGraphProjection } from "../lib/taskGraph";
 import { historyStartSec } from "../lib/time";
 
@@ -47,8 +46,8 @@ export const HISTORY_WINDOW_DAYS = 30;
 
 export type DashboardData = {
   tasks: Task[];
-  taskDependencies: TaskDependency[];
   taskStatusEvents: TaskStatusEvent[];
+  taskEditEvents: TaskEditEvent[];
   taskWorkStretches: TaskWorkStretch[];
   taskGraph: TaskGraphProjection;
   metrics: Metric[];
@@ -56,11 +55,10 @@ export type DashboardData = {
   phases: Phase[];
   checkIns: MetricCheckInWithRatings[];
   phaseCheckIns: PhaseCheckIn[];
-  brainDumps: BrainDump[];
+  notes: Note[];
   tags: Tag[];
   latestPhase: PhaseCheckIn | null;
   timerState: TimerState | null;
-  scopeTree: ScopeTree;
   loaded: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -75,7 +73,7 @@ const DashboardDataContext = createContext<DashboardData | null>(null);
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
+  const [taskEditEvents, setTaskEditEvents] = useState<TaskEditEvent[]>([]);
   const [taskStatusEvents, setTaskStatusEvents] = useState<TaskStatusEvent[]>([]);
   const [taskWorkStretches, setTaskWorkStretches] = useState<TaskWorkStretch[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
@@ -83,7 +81,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [phases, setPhases] = useState<Phase[]>([]);
   const [checkIns, setCheckIns] = useState<MetricCheckInWithRatings[]>([]);
   const [phaseCheckIns, setPhaseCheckIns] = useState<PhaseCheckIn[]>([]);
-  const [brainDumps, setBrainDumps] = useState<BrainDump[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [latestPhase, setLatestPhase] = useState<PhaseCheckIn | null>(null);
   const [timerState, setTimerState] =
@@ -98,10 +96,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = historyStartSec(now * 1000, HISTORY_WINDOW_DAYS);
       const to = now + 1;
-      const [t, td, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] =
+      const [t, taskEdits, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] =
         await Promise.all([
           listTasks(),
-          listTaskDependencies(),
+          listTaskEditEvents(from, to),
           listTaskStatusEvents(from, to),
           listTaskWorkStretches(from, to),
           listMetrics(),
@@ -109,14 +107,14 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
           listPhases(true),
           listMetricCheckIns(from, to),
           listPhaseCheckIns(from, to),
-          listBrainDumps(from, to),
+          listNotes(from, to),
           listTags(),
           latestPhaseCheckIn(),
           getTimerState(),
         ]);
       if (request !== reloadRequest.current) return;
       setTasks(t);
-      setTaskDependencies(td);
+      setTaskEditEvents(taskEdits);
       setTaskStatusEvents(tse);
       setTaskWorkStretches(tws);
       setMetrics(m);
@@ -124,7 +122,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       setPhases(p);
       setCheckIns(ci);
       setPhaseCheckIns(pci);
-      setBrainDumps(bd);
+      setNotes(bd);
       setTags(tags);
       setLatestPhase(lp);
       setTimerState(timer);
@@ -160,17 +158,13 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     return () => stops.forEach((stop) => stop());
   }, [reload]);
 
-  const scopeTree = useMemo(() => buildScopeTree(tasks), [tasks]);
-  const taskGraph = useMemo(
-    () => buildTaskGraph(tasks, taskDependencies),
-    [tasks, taskDependencies],
-  );
+  const taskGraph = useMemo(() => buildTaskGraph(tasks), [tasks]);
 
   const value = useMemo<DashboardData>(
     () => ({
       tasks,
-      taskDependencies,
       taskStatusEvents,
+      taskEditEvents,
       taskWorkStretches,
       taskGraph,
       metrics,
@@ -178,11 +172,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       phases,
       checkIns,
       phaseCheckIns,
-      brainDumps,
+      notes,
       tags,
       latestPhase,
       timerState,
-      scopeTree,
       loaded,
       error,
       reload,
@@ -191,8 +184,8 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     }),
     [
       tasks,
-      taskDependencies,
       taskStatusEvents,
+      taskEditEvents,
       taskWorkStretches,
       taskGraph,
       metrics,
@@ -200,11 +193,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       phases,
       checkIns,
       phaseCheckIns,
-      brainDumps,
+      notes,
       tags,
       latestPhase,
       timerState,
-      scopeTree,
       loaded,
       error,
       reload,

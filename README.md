@@ -1,7 +1,7 @@
 # Nest
 
 A private desktop self-care workspace for quick check-ins, personal tasks, and
-brain dumps. Built with Tauri, React, TypeScript, SQLite, and Rust.
+notes. Built with Tauri, React, TypeScript, SQLite, and Rust.
 
 ```sh
 npm install

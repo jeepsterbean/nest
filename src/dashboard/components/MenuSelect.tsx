@@ -10,10 +10,17 @@ import { createPortal } from "react-dom";
 import { placeMenuSelect, type MenuSelectBox } from "../lib/placeMenuSelect";
 import { checkIcon, chevronDownIcon } from "./icons";
 
+// A described option wraps to a second line, and the search field is about two
+// option rows tall; placement needs both to size the menu before it renders.
+const DESCRIBED_OPTION_ROWS = 1.5;
+const SEARCH_ROWS = 2;
+
 export type MenuSelectOption = {
   value: string;
   label: string;
   marker?: ReactNode;
+  searchOnly?: boolean;
+  description?: string;
 };
 
 export function MenuSelect({
@@ -23,6 +30,7 @@ export function MenuSelect({
   ariaLabel,
   className = "",
   menuMinWidth,
+  searchPlaceholder,
   onChange,
 }: {
   value: string;
@@ -31,13 +39,32 @@ export function MenuSelect({
   ariaLabel: string;
   className?: string;
   menuMinWidth?: number;
+  searchPlaceholder?: string;
   onChange: (value: string) => void;
 }) {
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<MenuSelectBox | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const visibleOptions = options.filter((option) =>
+    query.trim()
+      ? option.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+      : !option.searchOnly,
+  );
   const selected = options.find((option) => option.value === value);
+  const placementRows =
+    visibleOptions.reduce(
+      (rows, option) => rows + (option.description ? DESCRIBED_OPTION_ROWS : 1),
+      0,
+    ) +
+    (searchPlaceholder ? SEARCH_ROWS : 0);
+
+  const choose = (optionValue: string) => {
+    onChange(optionValue);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   const updateBox = useCallback(() => {
     const trigger = triggerRef.current;
@@ -46,11 +73,11 @@ export function MenuSelect({
       placeMenuSelect(
         trigger.getBoundingClientRect(),
         { width: window.innerWidth, height: window.innerHeight },
-        options.length,
+        placementRows,
         menuMinWidth === undefined ? undefined : { minWidth: menuMinWidth },
       ),
     );
-  }, [menuMinWidth, options.length]);
+  }, [menuMinWidth, placementRows]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -107,7 +134,7 @@ export function MenuSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={options.length === 0}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => { setQuery(""); setOpen((current) => !current); }}
       >
         {selected?.marker && (
           <span className="menu-select__marker" aria-hidden="true">
@@ -135,8 +162,6 @@ export function MenuSelect({
             <div
               ref={menuRef}
               className={`menu-select__menu${box.openUp ? " menu-select__menu--up" : ""}`}
-              role="listbox"
-              aria-label={ariaLabel}
               style={{
                 top: box.top,
                 left: box.left,
@@ -144,41 +169,58 @@ export function MenuSelect({
                 maxHeight: box.maxHeight,
               }}
             >
-              {options.map((option) => {
-                const optionSelected = option.value === value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="option"
-                    aria-selected={optionSelected}
-                    className={`menu-select__option${
-                      optionSelected ? " is-selected" : ""
-                    }`}
-                    onMouseDown={(event) => {
-                      // WebKit blurs before click; without this the menu closes and the click is lost.
-                      event.preventDefault();
-                    }}
-                    onClick={() => {
-                      onChange(option.value);
-                      setOpen(false);
-                      triggerRef.current?.focus();
-                    }}
-                  >
-                    {option.marker && (
-                      <span className="menu-select__marker" aria-hidden="true">
-                        {option.marker}
+              {searchPlaceholder && (
+                <input
+                  className="menu-select__search"
+                  autoFocus
+                  aria-label={searchPlaceholder}
+                  placeholder={searchPlaceholder}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    const firstMatch = visibleOptions[0];
+                    if (firstMatch) choose(firstMatch.value);
+                  }}
+                />
+              )}
+              <div role="listbox" aria-label={ariaLabel}>
+                {visibleOptions.map((option) => {
+                  const optionSelected = option.value === value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={optionSelected}
+                      className={`menu-select__option${
+                        optionSelected ? " is-selected" : ""
+                      }`}
+                      onMouseDown={(event) => {
+                        // WebKit blurs before click; without this the menu closes and the click is lost.
+                        event.preventDefault();
+                      }}
+                      onClick={() => choose(option.value)}
+                    >
+                      {option.marker && (
+                        <span className="menu-select__marker" aria-hidden="true">
+                          {option.marker}
+                        </span>
+                      )}
+                      <span>
+                        {option.label}
+                        {option.description && <small className="menu-select__description">{option.description}</small>}
                       </span>
-                    )}
-                    <span>{option.label}</span>
-                    {optionSelected && (
-                      <span className="menu-select__check" aria-hidden="true">
-                        {checkIcon}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                      {optionSelected && (
+                        <span className="menu-select__check" aria-hidden="true">
+                          {checkIcon}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </>,
           triggerRef.current?.closest(".dashboard, .popup") ?? document.body,

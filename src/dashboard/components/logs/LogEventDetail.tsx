@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metric, Phase, Task } from "../../../lib/types";
 import type { RawLogEvent } from "../../lib/timeline";
-import { BrainDumpEntry } from "./BrainDumpEntry";
+import { NoteEntry } from "./NoteEntry";
 import { MetricCheckInDetail } from "./MetricCheckInDetail";
 import { PhaseEventDetail } from "./PhaseEventDetail";
+import { TaskEditLogDetail } from "./TaskEditLogDetail";
 import { TaskLogDetail } from "./TaskLogDetail";
 
 /** Event body beside the timeline mark, which already carries the event's icon. */
@@ -12,17 +13,17 @@ export function LogEventDetail({
   phases,
   metrics,
   tasks,
-  expandedDumpIds,
+  expandedNoteIds,
   onDeleteCheckIn,
-  onToggleDump,
+  onToggleNote,
 }: {
   event: RawLogEvent;
   phases: Phase[];
   metrics: Metric[];
   tasks: Task[];
-  expandedDumpIds: Set<number>;
+  expandedNoteIds: Set<number>;
   onDeleteCheckIn: (id: number) => void;
-  onToggleDump: (id: number) => void;
+  onToggleNote: (id: number) => void;
 }): ReactNode {
   switch (event.kind) {
     case "metrics":
@@ -35,13 +36,13 @@ export function LogEventDetail({
           />
         </div>
       );
-    case "dump":
+    case "note":
       return (
-        <div className="log-detail log-detail--dump">
-          <BrainDumpEntry
-            dump={event.dump}
-            expanded={expandedDumpIds.has(event.dump.id)}
-            onToggle={() => onToggleDump(event.dump.id)}
+        <div className="log-detail log-detail--note">
+          <NoteEntry
+            note={event.note}
+            expanded={expandedNoteIds.has(event.note.id)}
+            onToggle={() => onToggleNote(event.note.id)}
           />
         </div>
       );
@@ -55,6 +56,8 @@ export function LogEventDetail({
           />
         </div>
       );
+    case "task-edit":
+      return <TaskEditLogDetail event={event.editEvent} tasks={tasks} />;
     case "task-status":
     case "work-start":
     case "work-stop":

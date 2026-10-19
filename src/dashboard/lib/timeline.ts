@@ -1,17 +1,18 @@
 // Behavior and invariants: docs/domain/history.md#phase-history
 import type {
-  BrainDump,
+  Note,
   MetricCheckInWithRatings,
   PhaseCheckIn,
   TaskWorkStretch,
   TaskStatusEvent,
+  TaskEditEvent,
 } from "../../lib/types";
 import { dayLabel, startOfDayMs } from "./time";
 
 export type TimelineEvent =
   | { kind: "metrics"; at: number; checkIn: MetricCheckInWithRatings }
   | { kind: "phase"; at: number; checkIn: PhaseCheckIn }
-  | { kind: "dump"; at: number; dump: BrainDump };
+  | { kind: "note"; at: number; note: Note };
 
 /** Working-now boundaries derived from Work stretches (Timeline and Calendar Logs). */
 export type WorkLogEvent =
@@ -19,6 +20,7 @@ export type WorkLogEvent =
   | { kind: "work-stop"; at: number; stretch: TaskWorkStretch };
 
 export type RawLogEvent = TimelineEvent | WorkLogEvent
+  | { kind: "task-edit"; at: number; editEvent: TaskEditEvent }
   | { kind: "task-status"; at: number; statusEvent: TaskStatusEvent };
 
 export type DayGroup<T extends { at: number } = TimelineEvent> = {
@@ -42,21 +44,23 @@ export const PHASE_SETTLE_SECONDS = 60;
 // Independent popup submissions can land in the same second; rank them so the
 // feed remains deterministic and easy to scan.
 const RAW_KIND_RANK: Record<RawLogEvent["kind"], number> = {
-  dump: 0,
+  note: 0,
   metrics: 1,
   phase: 2,
   "work-start": 3,
   "work-stop": 4,
   "task-status": 5,
+  "task-edit": 6,
 };
 
 /** Newest-first event feed with optional Task lifecycle history. */
 export const buildRawLog = (
   checkIns: MetricCheckInWithRatings[],
   phaseCheckIns: PhaseCheckIn[],
-  brainDumps: BrainDump[],
+  notes: Note[],
   stretches: TaskWorkStretch[],
   taskStatusEvents: TaskStatusEvent[] = [],
+  taskEditEvents: TaskEditEvent[] = [],
 ): RawLogEvent[] => {
   const events: RawLogEvent[] = [
     ...checkIns.map((ci) => ({
@@ -69,10 +73,10 @@ export const buildRawLog = (
       at: ci.createdAt,
       checkIn: ci,
     })),
-    ...brainDumps.map((d) => ({
-      kind: "dump" as const,
+    ...notes.map((d) => ({
+      kind: "note" as const,
       at: d.createdAt,
-      dump: d,
+      note: d,
     })),
   ];
   for (const stretch of stretches) {
@@ -84,10 +88,15 @@ export const buildRawLog = (
   for (const statusEvent of taskStatusEvents) {
     events.push({ kind: "task-status", at: statusEvent.createdAt, statusEvent });
   }
+  for (const editEvent of taskEditEvents) {
+    events.push({ kind: "task-edit", at: editEvent.update.cursor.time, editEvent });
+  }
   return events.sort(
     (a, b) => b.at - a.at || RAW_KIND_RANK[a.kind] - RAW_KIND_RANK[b.kind] ||
       (a.kind === "task-status" && b.kind === "task-status"
-        ? b.statusEvent.id - a.statusEvent.id : 0),
+        ? b.statusEvent.id - a.statusEvent.id
+        : a.kind === "task-edit" && b.kind === "task-edit"
+          ? b.editEvent.update.cursor.id - a.editEvent.update.cursor.id : 0),
   );
 };
 

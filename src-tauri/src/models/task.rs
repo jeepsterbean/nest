@@ -10,7 +10,6 @@ pub struct Task {
     pub working_now: bool,
     pub worked_seconds: i64,
     pub work_started_at: Option<i64>,
-    pub scope: Option<String>,
     pub value: Option<i64>,
     pub effort: Option<i64>,
     pub parent_task_id: Option<i64>,
@@ -23,14 +22,6 @@ pub struct Task {
     /// Changes whenever an entry joins or leaves the Task's History, even
     /// within the second updated_at resolves to.
     pub history_revision: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskDependency {
-    pub blocker_task_id: i64,
-    pub blocked_task_id: i64,
-    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,4 +81,11 @@ pub struct TaskUpdatePage {
     pub updates: Vec<TaskUpdate>,
     pub has_more: bool,
     pub recording_started_at: i64,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEditEvent {
+    pub task_id: i64,
+    pub update: TaskUpdate,
 }

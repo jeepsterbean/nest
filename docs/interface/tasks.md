@@ -12,8 +12,7 @@ hiding Map returns to Table and closes Task details.
 First visit selects Raw. The Section sidebar holds saved views and
 [active rules](#active-rules-and-result-count); collapsing it moves the query
 above the table. The result count sits left above the table, New task right.
-Scope is a column filter; Table has no scope sidebar. Table rows indicate
-Working now.
+Table rows indicate Working now.
 
 ### Columns and menus
 
@@ -25,7 +24,7 @@ their minimum widths exceed it.
 Headers offer Sort, supported Filters, Hide column, and Reset for an active
 filter or sort. Title opens sort options directly. Sort and Filter options open
 on hover or click. Only one column or rule menu opens at a time; outside press,
-Escape, or outside scrolling dismisses it. Scope, Parent, and sort selections
+Escape, or outside scrolling dismisses it. Parent and sort selections
 close the menu; other column filter selections keep it open.
 Choosing a sidebar option or pressing Escape returns focus to its rule trigger;
 if the rule disappears, focus moves to a surviving nearby query control.
@@ -39,7 +38,6 @@ first two Filters rows, reading “-” when unset.
 | Filter | Choices and matching |
 |---|---|
 | Status | Open / Closed / All presets, or a set of individual statuses. |
-| Scope | All scopes or a scope path, including descendants. |
 | Parent | All parents, No parent, or a Task with direct children. Search appears above eight options. |
 | Created / Updated / Closed | Creation, latest update, or [latest closure](../domain/tasks.md#closing-and-the-lock). A Closed filter excludes open Tasks. |
 | Value / Effort | All, None (unscored), or a set of scores 1–5. All ticks every score and includes unscored Tasks. |
@@ -114,7 +112,7 @@ Custom views support Rename and inline-confirmed Delete. Deleting the selected
 view loads Raw. Views and selection persist across launches; unsaved changes are
 discarded. Saved views apply only to Table; Map remains unfiltered.
 
-Missing Scope or Parent filters are dropped after Tasks load, leaving the saved
+Missing Parent filters are dropped after Tasks load, leaving the saved
 view unchanged and the query marked changed. Revert restores the missing filter,
 which is dropped again. Older views default Worked on and Status changed to unset
 and load a legacy single sort as the first rule.
@@ -122,8 +120,8 @@ and load a legacy single sort as the first rule.
 ## Creating Tasks
 
 Table’s “New task” opens an overlay. Only the name is required; Status defaults
-to Backlog, with Description, Scope, Parent, Value, Effort, and Blockers optional.
-A fresh draft inherits the view’s Scope and its Status when exactly one is selected.
+to Backlog, with Description, Parent, Value, and Effort optional.
+A fresh draft inherits the view’s Status when exactly one is selected.
 Outside press, Escape, or Cancel closes the card and preserves the draft.
 Adding clears the draft and opens the new Task’s details.
 
@@ -141,17 +139,31 @@ The status control offers every status for open Tasks and Tasks closed today.
 For [locked Tasks](../domain/tasks.md#closing-and-the-lock), it shows the closed
 status, closing date, and “Create follow-up”. It checks the lock when opened.
 
-Details show creation, latest update, and closure timestamps, status, Working now,
-and Worked time labelled “all time”, independently of Table filters. Work controls
-live in the [Popup](popup.md). Scope, Value, and Effort are editable. Description
-editing saves on Enter or blur, inserts a line break on Shift+Enter, and cancels
-on Escape.
+Details show creation, latest update, and closure timestamps, status, Working
+now, and all-time Worked time in whole minutes (“<1m” under a minute),
+independently of Table filters. Worked time is hidden while it is zero and the
+Task is not Working now. Work controls live in the [Popup](popup.md). Value and
+Effort are editable. Description editing saves on Enter or blur, inserts a line
+break on Shift+Enter, and cancels on Escape.
 
 ### Relationships
 
-Details show Parent, Children, Blocked by, and Blocks when the Task blocks others.
-Empty states read “No parent”, “No children”, or “No blockers”; populated lists
-use “Add child…” or “Add blocker…”. Blocker status indicators show completion.
+Details show Parent and Children. Empty states read “No parent” or “No children”;
+populated Children lists use “Add child…”. Children supports creating a new
+Backlog Task or linking an existing Task; linking moves that Task from its
+previous Parent when one exists. Each Child offers Unlink to clear its Parent
+while keeping both Tasks. Choosing “No parent” in the Parent picker clears the
+current Task’s Parent.
+
+Parent pickers (including New task) and the existing-child picker default to
+open Tasks and Tasks closed within the last seven days, sorted newest updated
+first. Recency uses closure time, so editing an older closed Task keeps it
+outside the default list; the current Parent stays in the default list even
+when closed. Title search adds older closed Tasks after open and recently
+closed matches, and Enter in the search chooses the first match. Options show
+status. Relationship pickers use all Tasks independently of Table filters.
+Pickers exclude the Task itself and choices that would create a cycle; the
+child picker also excludes existing direct Children.
 The panel scrolls to keep relationships and controls accessible.
 
 ### History
@@ -170,17 +182,17 @@ The end reads “Beginning of history.” Tasks predating edit recording also sh
 
 ## Map
 
-Map is a manually arranged canvas. Task boxes show title, status, Scope, Value /
-Effort, and applicable Parent, Children, or Blocked by relationships. Drag bare
+Map is a manually arranged canvas. Task boxes show title, status, Value /
+Effort, and applicable Parent or Children relationships. Drag bare
 canvas to pan; wheel zoom centres on the pointer, and zoom controls are available.
 Pan, zoom, and Task positions persist across launches; deleting a Task removes
 its position. Boxes may overlap.
 
 The Map sidebar lists unplaced open Tasks. Dragging a Task places it at the
-pointer; clicking places it in view. “Add an active task” creates an unscoped
+pointer; clicking places it in view. “Add an active task” creates an
 Active Task and opens details. Collapsing the sidebar shows its Task count.
 
-Connectors run from Parent to child (solid) and Blocker to dependent (dashed).
-Edit relationships in details; [placement is independent of relationships](../domain/tasks.md#relationships-and-readiness).
+Connectors run from Parent to Child.
+Edit relationships in details; [placement is independent of relationships](../domain/tasks.md#relationships).
 Closed boxes remain placed. Dragging a box back to the sidebar or using Remove
 takes it off the canvas.

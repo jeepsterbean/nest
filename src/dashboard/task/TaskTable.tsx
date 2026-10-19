@@ -4,7 +4,6 @@ import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
 import type { TaskGraphProjection } from "../lib/taskGraph";
 import { formatDate } from "../lib/time";
 import { StatusTrigger } from "./StatusTrigger";
-import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
 
@@ -42,12 +41,6 @@ function TaskTableCell({
             <span title={task.title}>{task.title}</span>
             {task.workingNow && <WorkingBadge />}
           </div>
-        </td>
-      );
-    case "scope":
-      return (
-        <td className="task-table__col task-table__col--scope">
-          <TaskScopeButton task={task} />
         </td>
       );
     case "parent":

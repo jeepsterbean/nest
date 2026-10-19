@@ -1,0 +1,398 @@
+.note-surface {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.note-surface__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 8px 10px 0;
+}
+
+.note-surface__head-start,
+.note-surface__head-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.note-surface__head-start {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.note-surface__header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--note);
+}
+
+.note-surface__header-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.note-surface__head-end {
+  flex: none;
+  margin-left: auto;
+}
+
+.note-surface__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.note-surface__action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.note-surface__action:hover,
+.note-surface__action:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.note-surface__action--danger:hover,
+.note-surface__action--danger:focus-visible {
+  color: var(--danger, #b42318);
+}
+
+.note-surface__head--draggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.note-surface__head--draggable:active {
+  cursor: grabbing;
+}
+
+.note-surface__scroll {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  position: relative;
+}
+
+.note-surface__editor {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  cursor: text;
+}
+
+.note-surface__input {
+  flex: 1 0 auto;
+  max-width: 100%;
+  width: 100%;
+  min-height: 100%;
+  padding: 16px 24px 24px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  caret-color: var(--ink);
+  font: inherit;
+  font-size: 12.6px;
+  line-height: 1.55;
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.note-surface__input > * {
+  margin: 0;
+}
+
+/* Empty first line needs a line box or WKWebView has nothing to paint the caret in. */
+.note-surface__input > p {
+  min-height: 1.55em;
+}
+
+.note-surface__input > * + * {
+  margin-top: 0.55em;
+}
+
+.note-surface__input ul,
+.note-surface__input ol {
+  padding-left: 1.35em;
+}
+
+.note-surface__input ul[data-type="taskList"] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.note-surface__input ul[data-type="taskList"] > li + li {
+  margin-top: 0.28rem;
+}
+
+.note-surface__input li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.note-surface__input li[data-type="taskItem"] > label {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.18em;
+}
+
+.note-surface__input li[data-type="taskItem"] > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-surface__input li[data-type="taskItem"] > div > p {
+  margin: 0;
+}
+
+.note-surface__input li[data-type="taskItem"] input[type="checkbox"] {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.note-surface__input div[data-type="details"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.55rem;
+  align-items: start;
+}
+
+.note-surface__input .note-details__toggle {
+  display: inline-grid;
+  width: 1rem;
+  min-width: 1rem;
+  height: 1.2rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.note-surface__input .note-details__toggle:hover,
+.note-surface__input .note-details__toggle:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
+.note-surface__input div[data-type="details"] > div {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
+.note-surface__input .note-details__summary {
+  list-style: none;
+}
+
+.note-surface__input .note-details__summary p,
+.note-surface__input .note-details__content p {
+  margin: 0;
+}
+
+.note-surface__input a,
+.note-surface__input a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.note-surface__input .note-details__content {
+  padding-left: 0.2rem;
+}
+
+.note-surface__input li + li {
+  margin-top: 0.18em;
+}
+
+.note-toolbar {
+  display: grid;
+  gap: 1px;
+  min-width: 164px;
+  width: min(18rem, calc(100vw - 24px));
+  max-width: min(18rem, calc(100vw - 24px));
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  background: rgba(36, 36, 36, 0.96);
+  box-shadow:
+    0 18px 42px -30px rgba(0, 0, 0, 0.75),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.note-toolbar__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.note-toolbar button,
+.note-toolbar__dropdown-trigger,
+.note-toolbar__dropdown-menu button {
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.note-toolbar button {
+  padding: 0 9px;
+}
+
+.note-toolbar__row > button {
+  display: inline-grid;
+  min-width: 28px;
+  place-items: center;
+}
+
+.note-toolbar__dropdown {
+  position: relative;
+  min-width: 0;
+}
+
+.note-toolbar__dropdown-trigger {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+.note-toolbar__row > .note-toolbar__dropdown {
+  flex: 1 1 5.5rem;
+  min-width: 5.5rem;
+}
+
+.note-toolbar__dropdown-icon,
+.note-toolbar__dropdown-chevron,
+.note-toolbar__dropdown-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.note-toolbar__dropdown-icon svg,
+.note-toolbar__dropdown-chevron svg,
+.note-toolbar__dropdown-option-icon svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2;
+}
+
+.note-toolbar__dropdown-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-toolbar__dropdown.is-open .note-toolbar__dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.note-toolbar__dropdown-menu {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  min-width: 100%;
+  max-width: min(15rem, calc(100vw - 24px));
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(36, 36, 36, 0.98);
+  box-shadow:
+    0 18px 42px -30px rgba(0, 0, 0, 0.75),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.note-toolbar__dropdown-menu button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+.note-toolbar__dropdown--end .note-toolbar__dropdown-menu {
+  right: 0;
+  left: auto;
+}
+
+.note-toolbar__dropdown--upward .note-toolbar__dropdown-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.note-toolbar__underline-label {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.note-toolbar button:hover,
+.note-toolbar button:focus-visible,
+.note-toolbar button.is-active,
+.note-toolbar__dropdown-trigger:hover,
+.note-toolbar__dropdown-trigger:focus-visible,
+.note-toolbar__dropdown-menu button:hover,
+.note-toolbar__dropdown-menu button:focus-visible,
+.note-toolbar__dropdown-menu button.is-active {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.note-toolbar button:focus-visible,
+.note-toolbar__dropdown-trigger:focus-visible,
+.note-toolbar__dropdown-menu button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.12);
+}

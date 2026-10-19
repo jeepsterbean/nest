@@ -8,7 +8,6 @@ import { StatusTrigger } from "./StatusTrigger";
 import { TaskUpdates } from "./TaskUpdates";
 import { TaskDescription } from "./TaskDescription";
 import { TaskRelations } from "./TaskRelations";
-import { TaskScopeButton } from "./TaskScopeButton";
 import { TaskScoreControls } from "./TaskScoreControls";
 import { TaskTitle } from "./TaskTitle";
 import { WorkedTime, WorkingBadge } from "./TaskWorkingControl";
@@ -59,8 +58,6 @@ export function TaskDetailPanel({
         <div className="task-detail__state">
           <StatusTrigger task={task} />
           {task.workingNow && <WorkingBadge />}
-          {/* The readout's accessible name already says all time. */}
-          <span><WorkedTime task={task} /><span aria-hidden="true"> all time</span></span>
         </div>
         <button
           type="button"
@@ -74,15 +71,6 @@ export function TaskDetailPanel({
       </header>
       <TaskTitle task={task} />
       <div className="task-detail__fields">
-        <div className="task-detail__field">
-          <span className="task-detail__label">Scope</span>
-          <TaskScopeButton
-            task={task}
-            display="leaf"
-            emptyLabel="Set scope…"
-            showChevron
-          />
-        </div>
         <TaskScoreControls task={task} />
       </div>
       <div className="task-detail__writing">
@@ -95,6 +83,13 @@ export function TaskDetailPanel({
           <span>Created {formatDate(task.createdAt)}</span>
           <span className="task-detail__date-divider" aria-hidden="true" />
           <span>Updated {formatDate(task.updatedAt)}</span>
+          {(task.workedSeconds > 0 || task.workingNow) && (
+            <>
+              <span className="task-detail__date-divider" aria-hidden="true" />
+              {/* The readout's accessible name already says Worked time. */}
+              <span><span aria-hidden="true">Worked </span><WorkedTime task={task} precision="minutes" /></span>
+            </>
+          )}
           {task.closedAt !== null && (
             <>
               <span className="task-detail__date-divider" aria-hidden="true" />

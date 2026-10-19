@@ -7,7 +7,7 @@ then only the surface document it routes for the task.
 
 - Dashboard code is grouped into `views/`, `task/`, `context/`, `lib/`,
   `components/`, `hooks/`, and `styles/`.
-- Sections are Recap, Brain dump, Tasks, Metrics, and Phases. Recap switches
+- Sections are Recap, Notes, Tasks, Metrics, and Phases. Recap switches
   between Calendar and Timeline, with Insights in the Section sidebar. The Sidebar's
   Settings button opens the Settings overlay.
 - Keep view files focused on composition. Load and mutate shared application
@@ -41,10 +41,10 @@ then only the surface document it routes for the task.
   interactions belong in `docs/interface/`.
 - Keep Table and Map behavior in `docs/interface/tasks.md`, Calendar behavior in
   `docs/interface/calendar.md`, rules shared by
-  time surfaces in `docs/interface/time-surfaces.md`, Metrics behavior in `docs/interface/metrics.md`, and Brain dump
-  behavior in `docs/interface/brain-dump.md`.
+  time surfaces in `docs/interface/time-surfaces.md`, Metrics behavior in `docs/interface/metrics.md`, and Notes
+  behavior in `docs/interface/notes.md`.
 - For editor selection, focus, draft synchronization, TipTap, or ProseMirror,
-  follow `.agents/skills/brain-dump-text-editor/SKILL.md`.
+  follow `.agents/skills/note-editor/SKILL.md`.
 
 ## Verification
 

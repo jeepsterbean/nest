@@ -101,7 +101,6 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-family: var(--serif);
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: -0.02em;

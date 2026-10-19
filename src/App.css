@@ -36,13 +36,13 @@ button {
   cursor: pointer;
 }
 
-.brain-dump-history-controls {
+.note-history-controls {
   display: flex;
   align-items: center;
   gap: 3px;
 }
 
-.brain-dump-history-controls__submitted {
+.note-history-controls__submitted {
   margin-right: 4px;
   color: var(--muted);
   font-size: 0.75rem;
@@ -51,7 +51,7 @@ button {
   white-space: nowrap;
 }
 
-.brain-dump-history-controls button {
+.note-history-controls button {
   display: grid;
   width: 22px;
   height: 22px;
@@ -65,24 +65,24 @@ button {
   line-height: 1;
 }
 
-.brain-dump-history-controls button:hover:not(:disabled),
-.brain-dump-history-controls button:focus-visible {
+.note-history-controls button:hover:not(:disabled),
+.note-history-controls button:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: var(--accent-soft);
 }
 
-.brain-dump-history-controls button:disabled {
+.note-history-controls button:disabled {
   cursor: default;
   opacity: 0.3;
 }
 
-.brain-dump-history-controls button svg {
+.note-history-controls button svg {
   width: 13px;
   height: 13px;
 }
 
-.brain-dump-tags {
+.note-tags {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -93,7 +93,7 @@ button {
   background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
-.brain-dump-tags__scroll {
+.note-tags__scroll {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -105,12 +105,12 @@ button {
   scrollbar-width: none;
 }
 
-.brain-dump-tags__scroll::-webkit-scrollbar {
+.note-tags__scroll::-webkit-scrollbar {
   display: none;
 }
 
-.brain-dump-tag,
-.brain-dump-tags__more {
+.note-tag,
+.note-tags__more {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -125,7 +125,7 @@ button {
   vertical-align: middle;
 }
 
-.brain-dump-tag {
+.note-tag {
   max-width: 130px;
   padding: 1px 9px;
   overflow: hidden;
@@ -133,13 +133,13 @@ button {
   white-space: nowrap;
 }
 
-.brain-dump-tag.is-selected {
+.note-tag.is-selected {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.brain-dump-tags__more {
+.note-tags__more {
   width: 31px;
   min-width: 31px;
   margin: 0 4px 0 0;
@@ -149,13 +149,13 @@ button {
   place-self: center end;
 }
 
-.brain-dump-tag:disabled,
-.brain-dump-tags__more:disabled {
+.note-tag:disabled,
+.note-tags__more:disabled {
   cursor: default;
   opacity: 0.72;
 }
 
-.brain-dump-tags__menu {
+.note-tags__menu {
   position: absolute;
   z-index: 30;
   right: 3px;
@@ -168,7 +168,7 @@ button {
   box-shadow: 0 12px 30px color-mix(in srgb, #000 18%, transparent);
 }
 
-.brain-dump-tags__menu input {
+.note-tags__menu input {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -177,18 +177,18 @@ button {
   background: var(--surface-2);
 }
 
-.brain-dump-tags__menu input:focus {
+.note-tags__menu input:focus {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
-.brain-dump-tags__options {
+.note-tags__options {
   display: grid;
   max-height: 190px;
   margin-top: 5px;
   overflow-y: auto;
 }
 
-.brain-dump-tags__options button {
+.note-tags__options button {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -199,14 +199,14 @@ button {
   text-align: left;
 }
 
-.brain-dump-tags__options button:hover,
-.brain-dump-tags__options button:focus-visible,
-.brain-dump-tags__options button.is-selected {
+.note-tags__options button:hover,
+.note-tags__options button:focus-visible,
+.note-tags__options button.is-selected {
   outline: none;
   background: var(--accent-soft);
 }
 
-.brain-dump-tags__options p {
+.note-tags__options p {
   margin: 8px;
   color: var(--muted);
   font-size: 12px;

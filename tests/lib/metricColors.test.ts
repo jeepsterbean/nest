@@ -18,7 +18,7 @@ describe("resolveMetricColor", () => {
 
   it("falls back to palette by index when color is null", () => {
     expect(resolveMetricColor(metric(), 0)).toBe("var(--accent)");
-    expect(resolveMetricColor(metric(), 3)).toBe("var(--dump)");
+    expect(resolveMetricColor(metric(), 3)).toBe("var(--note)");
   });
 
   it("resolves color from the metrics list by id", () => {

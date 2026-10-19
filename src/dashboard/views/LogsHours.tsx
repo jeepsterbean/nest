@@ -9,11 +9,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Metric, Phase, Pulse, Task } from "../../lib/types";
-import { brainDumpSummary } from "../../lib/brainDumpRichText";
+import { noteSummary } from "../../lib/noteRichText";
 import { TimelineFrame, type FrameColumn } from "../components/TimelineFrame";
 import { LogEventIcon, logEventLabel, TaskLogIcon } from "../components/logs/LogEventMark";
 import { MetricCheckInDetail } from "../components/logs/MetricCheckInDetail";
-import { SavedBrainDump } from "../components/SavedBrainDump";
+import { SavedNote } from "../components/SavedNote";
 import { taskHue } from "../lib/period";
 import { formatTime } from "../lib/time";
 import { taskChangeLabel, taskTitle } from "../lib/logs";
@@ -41,7 +41,7 @@ const markLabel = (mark: HourMark, { phases, pulses, tasks }: MarkContext) =>
 
 /** Calendar's Logs figure: the selected range on one grid. Week is a column
  * per day under a shared hour gutter. Each hour holds an icon per Metric
- * check-in, brain dump, and Task changed in that hour; Phase is the wash
+ * check-in, note, and Task changed in that hour; Phase is the wash
  * behind them. */
 export function LogsHours({
   columns,
@@ -257,8 +257,8 @@ function LogHourCard({
           : { top: 0, left: 0, visibility: "hidden" }
       }
     >
-      {mark.kind === "dump" && pinned ? (
-        <SavedBrainDump dump={mark.event.dump} />
+      {mark.kind === "note" && pinned ? (
+        <SavedNote note={mark.event.note} />
       ) : (
         <>
           <header className="logs-hour-card__head">
@@ -273,9 +273,9 @@ function LogHourCard({
                 onDelete={pinned ? onDeleteCheckIn : undefined}
               />
             </div>
-          ) : mark.kind === "dump" ? (
+          ) : mark.kind === "note" ? (
             <p className="logs-hour-card__summary">
-              {brainDumpSummary(mark.event.dump.text)}
+              {noteSummary(mark.event.note.text)}
             </p>
           ) : pinned ? (
             <ol className="logs-hour-card__changes">

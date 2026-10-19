@@ -1,33 +1,14 @@
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::error::{AppError, Result};
-use crate::models::TaskDependency;
 use crate::time::now_unix_secs;
 
-/// Owns the invariants for Task hierarchy and execution dependencies.
+/// Owns the invariants for Task hierarchy.
 /// Callers do not need to know how cycles are detected or how relationship
 /// changes are made atomic.
 pub struct TaskGraph;
 
 impl TaskGraph {
-    pub fn list_dependencies(conn: &Connection) -> Result<Vec<TaskDependency>> {
-        let mut stmt = conn.prepare(
-            "SELECT blocker_task_id, blocked_task_id, created_at \
-             FROM task_dependencies \
-             ORDER BY created_at ASC, blocker_task_id ASC, blocked_task_id ASC",
-        )?;
-        let dependencies = stmt
-            .query_map([], |row| {
-                Ok(TaskDependency {
-                    blocker_task_id: row.get(0)?,
-                    blocked_task_id: row.get(1)?,
-                    created_at: row.get(2)?,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        Ok(dependencies)
-    }
-
     pub fn set_parent(
         conn: &mut Connection,
         task_id: i64,
@@ -80,78 +61,6 @@ impl TaskGraph {
         Ok(())
     }
 
-    pub fn add_dependency(
-        conn: &mut Connection,
-        blocker_task_id: i64,
-        blocked_task_id: i64,
-    ) -> Result<()> {
-        let tx = conn.transaction()?;
-        Self::require_task(&tx, blocker_task_id)?;
-        Self::require_task(&tx, blocked_task_id)?;
-        let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM task_dependencies WHERE blocker_task_id=?1 AND blocked_task_id=?2)",params![blocker_task_id,blocked_task_id],|row|row.get(0))?;
-        if exists {
-            return Ok(());
-        }
-
-        if blocker_task_id == blocked_task_id {
-            return Err(AppError::InvalidInput("a task cannot block itself".into()));
-        }
-
-        let creates_cycle: bool = tx.query_row(
-            "WITH RECURSIVE reachable(id) AS ( \
-               SELECT ?1 \
-               UNION \
-               SELECT d.blocked_task_id \
-               FROM task_dependencies d \
-               JOIN reachable r ON d.blocker_task_id = r.id \
-             ) \
-             SELECT EXISTS(SELECT 1 FROM reachable WHERE id = ?2)",
-            params![blocked_task_id, blocker_task_id],
-            |row| row.get(0),
-        )?;
-        if creates_cycle {
-            return Err(AppError::InvalidInput(
-                "that dependency would create a cycle".into(),
-            ));
-        }
-
-        tx.execute(
-            "INSERT OR IGNORE INTO task_dependencies \
-             (blocker_task_id, blocked_task_id, created_at) VALUES (?1, ?2, ?3)",
-            params![blocker_task_id, blocked_task_id, now_unix_secs()],
-        )?;
-        tx.execute(
-            "UPDATE tasks SET updated_at = ?1 WHERE id IN (?2, ?3)",
-            params![now_unix_secs(), blocker_task_id, blocked_task_id],
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    pub fn remove_dependency(
-        conn: &mut Connection,
-        blocker_task_id: i64,
-        blocked_task_id: i64,
-    ) -> Result<()> {
-        let tx = conn.transaction()?;
-        let removed = tx.execute(
-            "DELETE FROM task_dependencies \
-             WHERE blocker_task_id = ?1 AND blocked_task_id = ?2",
-            params![blocker_task_id, blocked_task_id],
-        )?;
-        if removed == 0 {
-            return Err(AppError::NotFound(format!(
-                "dependency {blocker_task_id} -> {blocked_task_id}"
-            )));
-        }
-        tx.execute(
-            "UPDATE tasks SET updated_at = ?1 WHERE id IN (?2, ?3)",
-            params![now_unix_secs(), blocker_task_id, blocked_task_id],
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
-
     pub(crate) fn delete_task_in(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
         Self::require_task(tx, id)?;
         // Unlink before deleting so the edit-history triggers record each
@@ -174,11 +83,6 @@ impl TaskGraph {
              WHERE parent_task_id = ?2 \
                 OR (id = ?2 AND parent_task_id IS NOT NULL)",
             params![now, id],
-        )?;
-        tx.execute(
-            "DELETE FROM task_dependencies \
-             WHERE blocker_task_id = ?1 OR blocked_task_id = ?1",
-            params![id],
         )?;
         tx.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
         Ok(())
@@ -240,31 +144,6 @@ mod tests {
     }
 
     #[test]
-    fn dependencies_allow_diamonds_and_reject_indirect_cycles() {
-        let mut conn = database();
-        TaskGraph::add_dependency(&mut conn, 1, 2).unwrap();
-        TaskGraph::add_dependency(&mut conn, 1, 3).unwrap();
-        TaskGraph::add_dependency(&mut conn, 2, 4).unwrap();
-        TaskGraph::add_dependency(&mut conn, 3, 4).unwrap();
-        assert_eq!(TaskGraph::list_dependencies(&conn).unwrap().len(), 4);
-
-        let error = TaskGraph::add_dependency(&mut conn, 4, 1).unwrap_err();
-        assert!(error.to_string().contains("create a cycle"));
-        assert_eq!(TaskGraph::list_dependencies(&conn).unwrap().len(), 4);
-    }
-
-    #[test]
-    fn duplicate_dependencies_are_idempotent_and_removable() {
-        let mut conn = database();
-        TaskGraph::add_dependency(&mut conn, 1, 2).unwrap();
-        TaskGraph::add_dependency(&mut conn, 1, 2).unwrap();
-        assert_eq!(TaskGraph::list_dependencies(&conn).unwrap().len(), 1);
-
-        TaskGraph::remove_dependency(&mut conn, 1, 2).unwrap();
-        assert!(TaskGraph::list_dependencies(&conn).unwrap().is_empty());
-    }
-
-    #[test]
     fn deleting_a_parent_promotes_children_but_keeps_grandchildren_nested() {
         let mut conn = database();
         TaskGraph::set_parent(&mut conn, 2, Some(1)).unwrap();
@@ -285,19 +164,6 @@ mod tests {
             })
             .unwrap();
         assert_eq!(grandchild_parent, Some(2));
-    }
-
-    #[test]
-    fn deleting_a_blocker_dissolves_its_dependencies() {
-        let mut conn = database();
-        TaskGraph::add_dependency(&mut conn, 1, 2).unwrap();
-        TaskGraph::add_dependency(&mut conn, 3, 2).unwrap();
-
-        TaskGraph::delete_task(&mut conn, 1).unwrap();
-
-        let remaining = TaskGraph::list_dependencies(&conn).unwrap();
-        assert_eq!(remaining.len(), 1);
-        assert_eq!(remaining[0].blocker_task_id, 3);
     }
 
     #[test]
