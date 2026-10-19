@@ -64,4 +64,4 @@ Tasks, including either side of a Follow-up link. Existing Tasks retain their st
 starts at the upgrade, whose time is saved. Unchanged saves add no edit record.
 
 Deleting a Task removes its own edit records, status events, and Work stretches. Its Children remain and become Tasks with no Parent.
-Deleted Task history therefore disappears from Day, Calendar, and Timeline.
+Deleted Task history therefore disappears from Calendar and Timeline.
