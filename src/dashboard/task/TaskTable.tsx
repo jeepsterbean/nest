@@ -43,7 +43,7 @@ function TaskTableCell({
     case "status":
       return (
         <td className="task-table__col task-table__col--status">
-          <StatusTrigger task={task} showIcon={false} />
+          <StatusTrigger task={task} />
         </td>
       );
     case "value":

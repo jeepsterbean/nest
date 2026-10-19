@@ -2,25 +2,21 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   createTask,
-  addTaskParent,
   setTaskScore,
 } from "../../lib/commands";
 import type { RatingValue, Task, TaskStatus } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { ancestorIds } from "../lib/taskGraph";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
 import { RatingDotScale } from "./RatingDotScale";
 import { taskSelectOptions } from "./taskSelectOptions";
-import { TaskStatusIcon } from "./TaskStatusIcon";
 
 export type TaskDraft = {
   title: string;
   description: string;
   status: TaskStatus;
   parentTaskIds: number[];
-  childTaskIds: number[];
   value: RatingValue | null;
   effort: RatingValue | null;
 };
@@ -30,7 +26,6 @@ export const EMPTY_TASK_DRAFT: TaskDraft = {
   description: "",
   status: "backlog",
   parentTaskIds: [],
-  childTaskIds: [],
   value: null,
   effort: null,
 };
@@ -48,7 +43,7 @@ export function TaskCreateCard({
   onClose: () => void;
   onCreated: (task: Task) => void;
 }) {
-  const { tasks, taskGraph, reload, setError } = useDashboardData();
+  const { tasks, reload, setError } = useDashboardData();
   const [saving, setSaving] = useState(false);
   const update = (patch: Partial<TaskDraft>) =>
     onDraftChange({ ...draft, ...patch });
@@ -84,11 +79,6 @@ export function TaskCreateCard({
         draft.status,
         parents.map((parent) => parent.id),
       );
-      for (const childId of draft.childTaskIds) {
-        if (tasks.some((task) => task.id === childId)) {
-          await addTaskParent(childId, created.id);
-        }
-      }
       if (draft.value !== null || draft.effort !== null) {
         await setTaskScore(created.id, draft.value, draft.effort);
       }
@@ -127,7 +117,7 @@ export function TaskCreateCard({
             options={TASK_STATUSES.map((status) => ({
               value: status,
               label: TASK_STATUS_LABEL[status],
-              marker: <TaskStatusIcon status={status} />,
+              marker: <span className={`status-dot status-dot--${status}`} />,
             }))}
             onChange={(value) => update({ status: value as TaskStatus })}
           />
@@ -167,25 +157,6 @@ export function TaskCreateCard({
         />
 
         <div className="task-create-card__fields">
-          {draft.childTaskIds.length > 0 && (
-            <div className="task-relation-field">
-              <span className="task-relation-field__label">Children</span>
-              <ul className="task-relation-list">
-                {tasks.filter((task) => draft.childTaskIds.includes(task.id)).map((child) => (
-                  <li key={child.id}>
-                    <TaskStatusIcon status={child.status} />
-                    <span>{child.title}</span>
-                    <button type="button" className="task-relation-remove"
-                      aria-label={`Unlink child ${child.title}`}
-                      onClick={() => update({ childTaskIds: draft.childTaskIds.filter((id) => id !== child.id) })}>
-                      Unlink
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           <div className="task-relation-field">
             <span className="task-relation-field__label">Parents</span>
             <div className="task-detail__stack">
@@ -193,7 +164,7 @@ export function TaskCreateCard({
                 <ul className="task-relation-list">
                   {parents.map((parent) => (
                     <li key={parent.id}>
-                      <TaskStatusIcon status={parent.status} />
+                      <span className={`status-dot status-dot--${parent.status}`} />
                       <span>{parent.title}</span>
                       <button
                         type="button"
@@ -212,7 +183,7 @@ export function TaskCreateCard({
                 placeholder={parents.length > 0 ? "Add parent…" : "No parents"}
                 ariaLabel="Add parent"
                 searchPlaceholder="Find a parent…"
-                options={taskSelectOptions(tasks.filter((task) => !draft.parentTaskIds.includes(task.id) && !draft.childTaskIds.some((id) => id === task.id || ancestorIds(taskGraph, task.id).has(id))))}
+                options={taskSelectOptions(tasks.filter((task) => !draft.parentTaskIds.includes(task.id)))}
                 onChange={(value) => update({ parentTaskIds: [...draft.parentTaskIds, Number(value)] })}
               />
             </div>

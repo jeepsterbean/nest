@@ -1,8 +1,16 @@
 import { setTaskScoreField } from "../../lib/commands";
 import type { Task } from "../../lib/types";
-import { RatingDotScale } from "./RatingDotScale";
+import { MenuSelect } from "../components/MenuSelect";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { parseRatingValue } from "../lib/tasks";
+
+const SCORE_OPTIONS = [
+  { value: "", label: "None" },
+  ...([1, 2, 3, 4, 5] as const).map((value) => ({
+    value: String(value),
+    label: String(value),
+  })),
+];
 
 export function TaskScoreControls({
   task,
@@ -59,17 +67,23 @@ export function TaskScoreControls({
       {(["value", "effort"] as const).map((field) => {
         const label = field === "value" ? "Value" : "Effort";
         return (
-          <RatingDotScale
+          <div
             key={field}
-            kind={field}
-            label={label}
-            current={task[field]}
-            ariaLabel={`${label} for ${task.title}`}
-            onChange={(next) => {
-              if (next === task[field]) return;
-              void mutate(() => setTaskScoreField(task.id, field, next));
-            }}
-          />
+            className="task-detail__field task-detail__field--score"
+          >
+            <span className="task-detail__label">{label}</span>
+            <MenuSelect
+              value={task[field]?.toString() ?? ""}
+              options={SCORE_OPTIONS}
+              placeholder="None"
+              ariaLabel={`${label} for ${task.title}`}
+              onChange={(value) => {
+                const next = parseRatingValue(value);
+                if (next === undefined || next === task[field]) return;
+                void mutate(() => setTaskScoreField(task.id, field, next));
+              }}
+            />
+          </div>
         );
       })}
     </>

@@ -50,7 +50,6 @@ export function RatingDotScale({
               key={n}
               type="button"
               role="radio"
-              aria-label={`${n} out of 5`}
               aria-checked={current === n}
               data-value={n}
               tabIndex={current === n || (current === null && n === 1) ? 0 : -1}

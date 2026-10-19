@@ -32,7 +32,6 @@ import {
   type TaskMapLayout,
 } from "../lib/taskMap";
 import { TASK_STATUS_LABEL, WORKING_STATUSES } from "../lib/tasks";
-import { TaskStatusIcon } from "./TaskStatusIcon";
 
 /** Used until a box has been measured, so first-paint lines land close. */
 const FALLBACK_CARD_HEIGHT = 128;
@@ -437,7 +436,7 @@ export function TaskMap({
                 onClickCapture={onClickCapture}
               >
                 <div className="task-entity__head">
-                  <TaskStatusIcon status={task.status} />
+                  <span className={`status-dot status-dot--${task.status}`} />
                   <button
                     type="button"
                     className="task-entity__title"
@@ -532,7 +531,7 @@ export function TaskMap({
                         )
                       }
                     >
-                      <TaskStatusIcon status={task.status} />
+                      <span className={`status-dot status-dot--${task.status}`} />
                       <span className="task-map__tray-title">{task.title}</span>
                     </button>
                   </li>

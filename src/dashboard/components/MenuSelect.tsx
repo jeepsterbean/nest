@@ -30,7 +30,6 @@ export function MenuSelect({
   ariaLabel,
   className = "",
   menuMinWidth,
-  triggerContent,
   searchPlaceholder,
   onChange,
 }: {
@@ -40,7 +39,6 @@ export function MenuSelect({
   ariaLabel: string;
   className?: string;
   menuMinWidth?: number;
-  triggerContent?: ReactNode;
   searchPlaceholder?: string;
   onChange: (value: string) => void;
 }) {
@@ -138,21 +136,17 @@ export function MenuSelect({
         disabled={options.length === 0}
         onClick={() => { setQuery(""); setOpen((current) => !current); }}
       >
-        {triggerContent ?? (
-          <>
-            {selected?.marker && (
-              <span className="menu-select__marker" aria-hidden="true">
-                {selected.marker}
-              </span>
-            )}
-            <span className={selected ? "menu-select__value" : "menu-select__placeholder"}>
-              {selected?.label ?? placeholder}
-            </span>
-            <span className="menu-select__chevron" aria-hidden="true">
-              {chevronDownIcon}
-            </span>
-          </>
+        {selected?.marker && (
+          <span className="menu-select__marker" aria-hidden="true">
+            {selected.marker}
+          </span>
         )}
+        <span className={selected ? "menu-select__value" : "menu-select__placeholder"}>
+          {selected?.label ?? placeholder}
+        </span>
+        <span className="menu-select__chevron" aria-hidden="true">
+          {chevronDownIcon}
+        </span>
       </button>
       {open &&
         box &&

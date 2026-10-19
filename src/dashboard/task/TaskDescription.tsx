@@ -5,7 +5,7 @@ import { useDashboardData } from "../context/DashboardDataContext";
 
 /**
  * In-place description editor for the Task detail panel. Enter saves and
- * Shift+Enter breaks the line. It grows with its text up to a maximum height.
+ * Shift+Enter breaks the line. The detail panel bounds the writing area.
  */
 export function TaskDescription({ task }: { task: Task }) {
   const { mutate } = useDashboardData();
@@ -16,13 +16,6 @@ export function TaskDescription({ task }: { task: Task }) {
   // Set only by keyboard exits; a blur save must leave focus where it went.
   const refocusDisplayRef = useRef(false);
   const editing = editingId === task.id;
-
-  // Grows with the text; the stylesheet's max-height takes over with a scrollbar.
-  const fitToContent = (input: HTMLTextAreaElement | null) => {
-    if (!input) return;
-    input.style.height = "auto";
-    input.style.height = `${input.scrollHeight}px`;
-  };
 
   useEffect(() => {
     if (editing || !refocusDisplayRef.current) return;
@@ -45,19 +38,14 @@ export function TaskDescription({ task }: { task: Task }) {
 
   return editing ? (
     <textarea
-      ref={(input) => {
-        inputRef.current = input;
-        fitToContent(input);
-      }}
+      ref={inputRef}
       className="task-card__description-input"
       value={draft}
       autoFocus
+      rows={1}
       aria-label="Description"
-      placeholder="Add description…"
-      onChange={(e) => {
-        setDraft(e.target.value);
-        fitToContent(e.target);
-      }}
+      placeholder="Add a description…"
+      onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
         if (
@@ -87,7 +75,7 @@ export function TaskDescription({ task }: { task: Task }) {
       onClick={start}
       title="Click to edit description"
     >
-      {task.description || "Add description…"}
+      {task.description || "Add a description…"}
     </button>
   );
 }

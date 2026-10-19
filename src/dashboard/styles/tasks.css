@@ -1,5 +1,23 @@
 /* ---------- Tasks ---------- */
 
+/* Menus portal to the dashboard, so the active-Section class also scopes them. */
+.dashboard--tasks .status-dot,
+.dashboard--tasks .menu-select__marker:has(> .status-dot) {
+  display: none;
+}
+
+.dashboard--tasks .task-status-menu__option {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.dashboard--tasks .menu-select__option:has(.status-dot) {
+  grid-template-columns: minmax(0, 1fr) 12px;
+}
+
+.dashboard--tasks .task-create-card .task-relation-list li {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .dashboard--tasks .task-dots--value {
   --dot-fill: var(--muted);
   --accent-soft: color-mix(in srgb, var(--muted) 13%, transparent);

@@ -1,33 +1,27 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
+  createTask,
   addTaskParent,
   removeTaskParent,
 } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
-import { plusIcon } from "../components/icons";
+import { enterIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { useTaskMenus } from "../context/TaskMenuContext";
-import { ancestorIds, descendantIds } from "../lib/taskGraph";
-import { CLOSED_STATUSES, TASK_STATUS_LABEL } from "../lib/tasks";
+import { ancestorIds, childProgress, descendantIds } from "../lib/taskGraph";
 import { taskSelectOptions } from "./taskSelectOptions";
-import { TaskStatusIcon } from "./TaskStatusIcon";
 
 /** Parent and Children relationships. */
-export function TaskRelations({ task, onCreateRelated, onOpenTask }: {
-  task: Task;
-  onOpenTask: (taskId: number) => void;
-  onCreateRelated: (direction: "parent" | "child", origin: HTMLElement | null) => void;
-}) {
-  const sectionRef = useRef<HTMLElement>(null);
+export function TaskRelations({ task }: { task: Task }) {
   const { tasks, taskGraph, mutate } = useDashboardData();
-  const { openStatusMenu } = useTaskMenus();
+  const [childTitle, setChildTitle] = useState("");
 
   const children = taskGraph.childrenByParent.get(task.id) ?? [];
   const parents = task.parentTaskIds.flatMap((id) => {
     const parent = taskGraph.byId.get(id);
     return parent ? [parent] : [];
   });
+  const progress = childProgress(taskGraph, task.id);
 
   const descendants = useMemo(
     () => descendantIds(taskGraph, task.id),
@@ -47,76 +41,35 @@ export function TaskRelations({ task, onCreateRelated, onOpenTask }: {
     !candidate.parentTaskIds.includes(task.id) &&
     !ancestors.has(candidate.id),
   );
+  const addChild = (event: FormEvent) => {
+    event.preventDefault();
+    const title = childTitle.trim();
+    if (!title) return;
+    void mutate(() => createTask(title, "", "backlog", [task.id])).then(
+      (created) => {
+        if (created) setChildTitle("");
+      },
+    );
+  };
+
   return (
-    <section ref={sectionRef} className="task-relations" aria-label={`Relations for ${task.title}`}>
-      <h3 className="task-relations__title">Relationships</h3>
-      {([
-        { direction: "parent", label: "Parent", related: parents, candidates: parentCandidates },
-        { direction: "child", label: "Children", related: children, candidates: childCandidates },
-      ] as const).map(({ direction, label, related, candidates }) => (
-        <section className="task-relations__group" key={direction} data-relation={direction} aria-label={label}>
-          <header className="task-relations__head">
-            <h4>{label}</h4>
-            <span className="task-relations__count">
-              {related.filter((item) => !CLOSED_STATUSES.includes(item.status)).length}/{related.length} open
-            </span>
-            <MenuSelect
-              className="task-relations__add"
-              value=""
-              placeholder="+"
-              triggerContent={plusIcon}
-              ariaLabel={`Link ${direction} to ${task.title}`}
-              menuMinWidth={240}
-              searchPlaceholder="Find a task…"
-              options={[
-                { value: "create", label: "Create new task", marker: plusIcon },
-                ...taskSelectOptions(candidates),
-              ]}
-              onChange={(value) => {
-                if (value === "create") {
-                  onCreateRelated(direction, sectionRef.current?.querySelector<HTMLButtonElement>(
-                    `[data-relation="${direction}"] .menu-select__trigger`,
-                  ) ?? null);
-                } else {
-                  const id = Number(value);
-                  void mutate(() => direction === "parent"
-                    ? addTaskParent(task.id, id)
-                    : addTaskParent(id, task.id));
-                }
-              }}
-            />
-          </header>
-          {related.length > 0 && (
+    <section className="task-relations" aria-label={`Relations for ${task.title}`}>
+      <div className="task-detail__field">
+        <span className="task-detail__label">Parents</span>
+        <div className="task-detail__stack">
+          {parents.length > 0 && (
             <ul className="task-relation-list">
-              {related.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className="task-relation-status"
-                    aria-haspopup="listbox"
-                    aria-label={`Status for ${item.title}: ${TASK_STATUS_LABEL[item.status]}`}
-                    title={TASK_STATUS_LABEL[item.status]}
-                    onClick={(e) => openStatusMenu(item, e.currentTarget)}
-                  >
-                    <TaskStatusIcon status={item.status} />
-                  </button>
-                  <button
-                    type="button"
-                    className="task-relation-open"
-                    title={item.title}
-                    onClick={() => onOpenTask(item.id)}
-                  >
-                    {item.title}
-                  </button>
+              {parents.map((parent) => (
+                <li key={parent.id}>
+                  <span className={`status-dot status-dot--${parent.status}`} />
+                  <span>{parent.title}</span>
                   <button
                     type="button"
                     className="task-relation-remove"
-                    aria-label={`Unlink ${direction} ${item.title}`}
+                    aria-label={`Unlink parent ${parent.title}`}
                     title="Unlink"
                     onClick={() => {
-                      void mutate(() => direction === "parent"
-                        ? removeTaskParent(task.id, item.id)
-                        : removeTaskParent(item.id, task.id));
+                      void mutate(() => removeTaskParent(task.id, parent.id));
                     }}
                   >
                     Unlink
@@ -125,8 +78,81 @@ export function TaskRelations({ task, onCreateRelated, onOpenTask }: {
               ))}
             </ul>
           )}
-        </section>
-      ))}
+          <MenuSelect
+            value=""
+            placeholder={parents.length > 0 ? "Add parent…" : "No parents"}
+            ariaLabel={`Add parent to ${task.title}`}
+            searchPlaceholder="Find a parent…"
+            options={taskSelectOptions(parentCandidates)}
+            onChange={(value) => {
+              void mutate(() => addTaskParent(task.id, Number(value)));
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="task-detail__field">
+        <span className="task-detail__label">
+          Children
+          {progress.total > 0 && (
+            <span
+              className="task-detail__label-count"
+              title={`${progress.completed} of ${progress.total} complete`}
+            >
+              {progress.completed}/{progress.total}
+            </span>
+          )}
+        </span>
+        <div className="task-detail__stack">
+          {children.length > 0 && (
+            <ul className="task-relation-list">
+              {children.map((child) => (
+                <li key={child.id}>
+                  <span className={`status-dot status-dot--${child.status}`} />
+                  <span>{child.title}</span>
+                  <button
+                    type="button"
+                    className="task-relation-remove"
+                    aria-label={`Unlink ${child.title}`}
+                    title="Unlink"
+                    onClick={() => {
+                      void mutate(() => removeTaskParent(child.id, task.id));
+                    }}
+                  >
+                    Unlink
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <MenuSelect
+            value=""
+            placeholder="Link existing child…"
+            ariaLabel={`Link existing child to ${task.title}`}
+            searchPlaceholder="Find a task…"
+            options={taskSelectOptions(childCandidates)}
+            onChange={(value) => {
+              void mutate(() => addTaskParent(Number(value), task.id));
+            }}
+          />
+          <form className="task-child-create" onSubmit={addChild}>
+            <input
+              value={childTitle}
+              placeholder={children.length > 0 ? "Add child…" : "No children"}
+              aria-label={`New child of ${task.title}`}
+              onChange={(event) => setChildTitle(event.target.value)}
+            />
+            <button
+              type="submit"
+              aria-label="Add child task"
+              title="Add child task"
+              disabled={!childTitle.trim()}
+            >
+              {enterIcon}
+            </button>
+          </form>
+        </div>
+      </div>
     </section>
   );
 }

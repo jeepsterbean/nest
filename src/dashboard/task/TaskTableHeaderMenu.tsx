@@ -35,7 +35,6 @@ import {
   type TaskWorkedTimeComparator,
   type TaskWorkedTimeFilter,
 } from "../lib/taskWorkedTimeFilter";
-import { TaskStatusIcon } from "./TaskStatusIcon";
 
 type MenuPane = "sort" | "filter";
 
@@ -252,7 +251,7 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
         <div className="task-column-menu__presets">{TASK_STATUS_PRESETS.map(item => <button key={item.key} type="button" aria-pressed={preset === item.key}
           onClick={() => onQueryChange({ statuses: [...item.statuses] })}>{item.label}</button>)}</div>
         {TASK_STATUSES.map(status => <MenuOption key={status} selected={query.statuses.includes(status)}
-          marker={<TaskStatusIcon status={status} />}
+          marker={<span className={`status-dot status-dot--${status}`}/>}
           onClick={() => onQueryChange({ statuses: toggleTaskStatusFilter(query.statuses, status) })}>
           {TASK_STATUS_LABEL[status]}
         </MenuOption>)}

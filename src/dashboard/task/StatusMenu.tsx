@@ -7,7 +7,6 @@ import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
 import { formatDate } from "../lib/time";
-import { TaskStatusIcon } from "./TaskStatusIcon";
 
 // Fixed-position overlay rendered once at the dashboard root. Its open state and
 // position come from TaskMenuContext; any task card or table row can trigger it.
@@ -32,7 +31,10 @@ export function StatusMenu() {
           style={{ left: statusMenu.left, top: statusMenu.top }}
         >
           <p className="task-status-menu__locked">
-            <TaskStatusIcon status={task.status} />
+            <span
+              className={`status-dot status-dot--${task.status}`}
+              aria-hidden="true"
+            />
             <span>
               {TASK_STATUS_LABEL[task.status]}
               {task.closedAt !== null && ` ${formatDate(task.closedAt)}`}
@@ -99,7 +101,10 @@ export function StatusMenu() {
                 closeStatusMenu();
               }}
             >
-              <TaskStatusIcon status={status} />
+              <span
+                className={`status-dot status-dot--${status}`}
+                aria-hidden="true"
+              />
               <span
                 className={`task-status-menu__text task-status-menu__text--${status}`}
               >
