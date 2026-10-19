@@ -12,7 +12,7 @@ import { plusIcon } from "../components/icons";
 import { TaskFilterRules } from "../task/TaskFilterRules";
 import { TaskSortRules } from "../task/TaskSortRules";
 import { TaskHiddenColumnRules } from "../task/TaskHiddenColumnRules";
-import { MenuSelect } from "../components/MenuSelect";
+import { ViewToggle } from "../components/ViewToggle";
 import { useDashboardData } from "../context/DashboardDataContext";
 import { useTaskMenus } from "../context/TaskMenuContext";
 import { useCurrentTime } from "../hooks/useCurrentTime";
@@ -80,18 +80,12 @@ export function TasksView({
   // sidebar, and the collapsed sidebar is too thin for these controls.
   const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
   const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
-  // The switch sits beside the Section title in the sidebar; without a
-  // sidebar it falls back to the Section header.
-  const sidebarHead = sidebar?.querySelector<HTMLElement>(".section-sidebar__head") ?? null;
   const viewSwitch = (
-    <MenuSelect
-      className="task-view-select"
+    <ViewToggle
       value={visibleTaskView}
-      options={TASK_VIEWS.filter(view => showTaskMap || view.key !== "map").map(view => ({ value: view.key, label: view.label }))}
-      placeholder="View"
-      ariaLabel="Tasks view"
-      menuMinWidth={120}
-      onChange={value => setTaskView(value as TaskViewKey)}
+      options={TASK_VIEWS.filter(view => showTaskMap || view.key !== "map")}
+      label="Tasks view"
+      onChange={setTaskView}
     />
   );
   const taskTableViews = useTaskTableViews();
@@ -371,14 +365,11 @@ export function TasksView({
   return (
     <section className="dash-section dash-section--tasks" aria-busy={!loaded || historyLoading}>
       {sidebar && loaded && visibleTaskView === "table" && createPortal(tableQueryPanel, sidebar)}
-      {sidebarHead && createPortal(viewSwitch, sidebarHead)}
-      {!sidebarHead && (
-        <header className="dash-section__head task-header" inert={overlayDetailOpen}>
-          <div className="task-header__actions">
-            {viewSwitch}
-          </div>
-        </header>
-      )}
+      <header className="dash-section__head task-header" inert={overlayDetailOpen}>
+        <div className="task-header__actions">
+          {viewSwitch}
+        </div>
+      </header>
 
       {!loaded ? (
         <div className="task-board__loading">Laying out the board…</div>

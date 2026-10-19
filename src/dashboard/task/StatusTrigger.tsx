@@ -11,7 +11,7 @@ export function StatusTrigger({
   showIcon = true,
 }: {
   task: Task;
-  // Compact shows the bare status icon for tight spots where the
+  // Compact drops the label to dot + chevron for tight spots where the
   // surroundings already name the status.
   compact?: boolean;
   showIcon?: boolean;
@@ -36,11 +36,9 @@ export function StatusTrigger({
           {TASK_STATUS_LABEL[task.status]}
         </span>
       )}
-      {!compact && (
-        <span className="task-status-trigger__chevron" aria-hidden="true">
-          {chevronDownIcon}
-        </span>
-      )}
+      <span className="task-status-trigger__chevron" aria-hidden="true">
+        {chevronDownIcon}
+      </span>
     </button>
   );
 }
