@@ -4,15 +4,51 @@ Table, Map, and Task details interactions. Records and lifecycle rules live in
 [Tasks domain](../domain/tasks.md), shared terminology in
 [`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-Tasks opens in Table on each visit. Settings can enable the Table / Map switch;
-hiding Map returns to Table and closes Task details.
+Each pane opens in Table on each visit. Settings can enable the Table / Map switch
+for the selected pane; hiding Map returns panes to Table and closes Task details.
 
 ## Table
 
-First visit selects Raw. The Section sidebar holds saved views and
-[active rules](#active-rules-and-result-count); collapsing it moves the query
-above the table. The result count sits left above the table, New task right.
-Table rows indicate Working now.
+First visit selects Raw in a single pane. The Section sidebar lists saved views
+as rows, followed by Nest by Parent and New task. Those actions apply to the
+selected pane, whose heading is highlighted. Collapsing the sidebar moves its
+controls into the selected pane; saved-view creation remains available in the
+pane heading's view menu. Each pane's heading shows its view and result count.
+Filters, Sort, and Hidden open rule menus in a row above its table. Table rows
+indicate Working now.
+
+### Split panes
+
+Drag a saved-view row onto a pane's left, right, top, or bottom edge to open it
+in a new split. A preview shows the destination before release. Splits can be
+nested in either direction. Dropping a saved view in the center loads it in that
+pane, discarding that pane's unsaved query changes. Clicking a saved-view row
+also loads it in the selected pane. Each pane's heading offers a view picker.
+
+Drag a pane's grip to an edge of another pane to move it, or to the center to
+swap their positions. Moving preserves its query, drafts, and table scroll
+position. Dropping outside the workspace or onto the source pane leaves the
+layout unchanged. Escape cancels a view drag.
+
+Each pane keeps independent filters, sorts, columns, Nest by Parent, collapsed
+Parents, and scrolling. Task edits update shared records in every pane; a Task
+may appear in several panes when it matches their filters. Saving a view updates
+its definition everywhere: other panes with that view refresh when their query
+is unchanged, while panes with unsaved changes keep their local query. Revert
+loads the latest saved definition. Deleting a view returns every pane showing
+it to Raw.
+
+Clicking or focusing a pane selects it. Drag dividers to resize; double-click a
+divider to balance its split. Focused dividers support arrow keys and Home to
+balance. Alt + an arrow key on a saved-view row or pane grip opens that view in
+a split in the chosen direction. Escape during a divider drag restores the
+previous proportions. Closing a pane expands its neighbor; the final
+pane stays open. A workspace holds at most 16 panes; splitting past that does nothing. On narrow windows, the workspace scrolls to retain readable
+pane sizes.
+
+The layout, divider proportions, each pane's selected view, and selected pane
+persist in `nest:task-pane-workspace`. Reload restores saved queries and discards
+unsaved query changes. Pane state stays mounted across layout rearrangements.
 
 ### Columns and menus
 
@@ -23,10 +59,10 @@ their minimum widths exceed it.
 
 Headers offer Sort, supported Filters, Hide column, and Reset for an active
 filter or sort. Title opens sort options directly. Sort and Filter options open
-on hover or click. Only one column or rule menu opens at a time; outside press,
+on hover or click. Only one column or rule editor opens per pane at a time; outside press,
 Escape, or outside scrolling dismisses it. Parent and sort selections
 close the menu; other column filter selections keep it open.
-Choosing a sidebar option or pressing Escape returns focus to its rule trigger;
+Choosing a rule option or pressing Escape returns focus to its rule trigger;
 if the rule disappears, focus moves to a surviving nearby query control.
 Headers show sort direction and highlight filter or sort changes from the saved view.
 
@@ -90,7 +126,7 @@ on reload.
 
 ### Active rules and result count
 
-The count sits left above the table and reads `42 tasks`, or `42 out of 380 tasks`
+The count sits in each pane heading and reads `42 tasks`, or `42 out of 380 tasks`
 when an active filter differs from the saved view. Sort and column changes keep
 the simple count.
 
@@ -123,8 +159,8 @@ matches the selected view or five views exist. Duplicate queries are refused
 with a link to the matching view.
 
 Custom views support Rename and inline-confirmed Delete. Deleting the selected
-view loads Raw. Views and selection persist across launches; unsaved changes are
-discarded. Saved views apply only to Table; Map remains unfiltered.
+view loads Raw. Saved views persist across launches; pane selection and query restoration follow
+[Split panes](#split-panes). Saved views apply only to Table; Map remains unfiltered.
 
 Missing Parent filters are dropped after Tasks load, leaving the saved
 view unchanged and the query marked changed. Revert restores the missing filter,
@@ -137,13 +173,15 @@ Table’s “New task” opens an overlay. Only the name is required; Status def
 to Backlog, with Description, Parent, Value, and Effort optional.
 A fresh draft inherits the view’s Status when exactly one is selected.
 Outside press, Escape, or Cancel closes the card and preserves the draft.
-Adding clears the draft and opens the new Task’s details.
+Adding clears the draft and opens the new Task’s details. Each pane keeps its
+own creation draft; New task uses the selected pane.
 
 ## Task details
 
 ### Opening and closing
 
-Table details open as a modal overlay; Map shares its pane with details.
+Table details open as a modal overlay across the Tasks workspace, making the
+other panes and sidebar controls inert; Map shares its pane with details.
 Outside press, Escape, or Close dismisses the overlay. Opening focuses details;
 closing restores focus to the originating control when available.
 

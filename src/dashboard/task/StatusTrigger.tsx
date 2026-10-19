@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { isTaskLocked } from "../../lib/taskLock";
 import type { Task } from "../../lib/types";
 import { chevronDownIcon } from "../components/icons";
@@ -14,7 +15,8 @@ export function StatusTrigger({
   compact?: boolean;
 }) {
   const { statusMenu, openStatusMenu } = useTaskMenus();
-  const open = statusMenu?.taskId === task.id;
+  const anchorId = useId();
+  const open = statusMenu?.anchorId === anchorId;
   return (
     <button
       type="button"
@@ -25,7 +27,7 @@ export function StatusTrigger({
       aria-expanded={open}
       aria-label={`Status for ${task.title}: ${TASK_STATUS_LABEL[task.status]}`}
       title={compact ? TASK_STATUS_LABEL[task.status] : undefined}
-      onClick={(e) => openStatusMenu(task, e.currentTarget)}
+      onClick={(e) => openStatusMenu(task, e.currentTarget, anchorId)}
     >
       <span
         className={`status-dot status-dot--${task.status}`}

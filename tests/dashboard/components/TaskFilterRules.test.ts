@@ -1,8 +1,16 @@
-import { createElement } from "react";
+import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TaskFilterRules } from "../../../src/dashboard/task/TaskFilterRules";
 import { DEFAULT_TASK_TABLE_QUERY, type TaskTableQuery } from "../../../src/dashboard/lib/taskTableViews";
+
+// Exercise the filter rows independently of the toolbar's collapsed popover.
+vi.mock("../../../src/dashboard/task/TaskQueryGroup", () => ({
+  TaskQueryGroup: ({ action, adder, children }: ComponentProps<typeof import("../../../src/dashboard/task/TaskQueryGroup").TaskQueryGroup>) =>
+    createElement("section", null,
+      action && createElement("button", { "aria-label": action.ariaLabel, onClick: action.onClick }, action.label),
+      adder, children),
+}));
 
 const render = (query: Partial<TaskTableQuery>, extra: { changedFields?: Set<string>; openField?: "value" | null } = {}) =>
   renderToStaticMarkup(createElement(TaskFilterRules, {

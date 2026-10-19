@@ -12,6 +12,7 @@ import type { Task } from "../../lib/types";
 import { TASK_STATUSES } from "../lib/tasks";
 
 type StatusMenuState = {
+  anchorId: string;
   taskId: number;
   left: number;
   top: number;
@@ -20,7 +21,7 @@ type StatusMenuState = {
 
 type TaskMenus = {
   statusMenu: StatusMenuState | null;
-  openStatusMenu: (task: Task, anchor: HTMLElement) => void;
+  openStatusMenu: (task: Task, anchor: HTMLElement, anchorId: string) => void;
   closeStatusMenu: () => void;
 };
 
@@ -36,8 +37,8 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openStatusMenu = useCallback(
-    (task: Task, anchor: HTMLElement) => {
-      if (statusMenu?.taskId === task.id) {
+    (task: Task, anchor: HTMLElement, anchorId: string) => {
+      if (statusMenu?.anchorId === anchorId) {
         closeStatusMenu();
         return;
       }
@@ -50,6 +51,7 @@ export function TaskMenuProvider({ children }: { children: ReactNode }) {
       const up =
         window.innerHeight - rect.bottom < estHeight && rect.top > estHeight;
       setStatusMenu({
+        anchorId,
         taskId: task.id,
         left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
         top: up ? rect.top - 6 : rect.bottom + 6,

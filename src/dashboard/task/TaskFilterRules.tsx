@@ -23,7 +23,7 @@ export function TaskFilterRules({ query, onQueryChange, changedFields, context, 
   const listed = rules.filter(rule => rule.value !== null || openField === rule.field);
   const addable = rules.filter(rule => !listed.includes(rule));
   const clearAll = () => onQueryChange(Object.assign({}, ...active.map(rule => clearedTaskTableFilter(rule.field))));
-  return <TaskQueryGroup label="Filters" icon={filterIcon} title="Filters" count={active.length} isEmpty={listed.length === 0}
+  return <TaskQueryGroup label="Filters" icon={filterIcon} title="Filters" count={active.length} isEmpty={listed.length === 0} emptyHint="Add a filter with +."
     action={active.length > 1 ? { label: "Clear", ariaLabel: "Clear filters", onClick: clearAll } : null}
     adder={<TaskFilterAddMenu options={addable} onPick={onOpenFieldChange} />}>
     <ul>{listed.map(rule => {

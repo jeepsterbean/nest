@@ -1018,3 +1018,135 @@
 .task-views__field input:focus-visible { border-color: var(--accent); outline: none; }
 
 .dash-section--tasks > .task-header { flex-wrap: wrap; }
+
+/* Panes are flat siblings over a measured split tree, so rearranging them
+   preserves mounted editors, table scroll positions, and unsaved queries. */
+.task-split-workspace {
+  position: relative;
+  padding: 10px;
+}
+.task-split-viewport { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
+.task-split-canvas { position: relative; }
+.task-pane-slot { position: absolute; min-width: 0; min-height: 0; }
+.task-pane.dash-section {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 9px;
+  box-shadow: none;
+  background: transparent;
+}
+.task-pane.is-active { border-color: var(--border-strong); }
+.task-pane__heading {
+  display: flex;
+  flex: none;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 8px;
+}
+.task-pane.is-active .task-pane__heading { box-shadow: 0 1px var(--border-strong); }
+.task-pane__heading .task-views__control { flex: 1; min-width: 50px; }
+.task-pane__heading .task-views__name { text-align: left; }
+.task-pane__heading .task-filter-result { white-space: nowrap; font-size: 11px; }
+.task-pane__heading .task-table-bar__result { flex: none; gap: 2px; }
+.task-pane__move, .task-pane__close {
+  display: grid;
+  flex: none;
+  width: 24px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.task-pane__move { cursor: grab; touch-action: none; }
+.task-pane__move svg, .task-pane__close svg { width: 14px; height: 14px; }
+.task-pane__move:hover, .task-pane__close:hover { color: var(--ink); background: var(--surface-2); }
+.task-pane :is(.task-pane__move, .task-pane__close):focus-visible { outline: 2px solid var(--accent); }
+.task-pane .task-workspace__main > .task-query {
+  display: flex;
+  flex: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-block: 8px;
+  margin: 0;
+}
+.task-pane .task-query__group { padding: 0; border: 0; }
+.task-query__group-trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.task-query__group-trigger svg { width: 12px; height: 12px; }
+.task-query__group-trigger:is(:hover, [aria-expanded="true"]) { color: var(--ink); background: var(--surface-2); }
+.task-query__group-trigger:focus-visible { outline: 2px solid var(--accent); }
+.task-query__popover { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.task-query__popover :is(ul, ol) { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.task-query__popover .task-query__head { padding: 0 4px; font-size: 12px; }
+.task-query__popover .task-query__hint { padding: 4px; }
+.task-pane-divider { position: absolute; display: grid; place-items: center; touch-action: none; }
+.task-pane-divider::after { content: ""; width: 2px; height: 30px; border-radius: 2px; background: var(--border-strong); }
+.task-pane-divider--horizontal { cursor: col-resize; }
+.task-pane-divider--vertical { cursor: row-resize; }
+.task-pane-divider--vertical::after { width: 30px; height: 2px; }
+.task-pane-divider:is(:hover, :focus-visible)::after { background: var(--accent); }
+.task-pane-divider:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.task-pane-drop { position: absolute; z-index: 60; pointer-events: none; padding: 4px; box-sizing: border-box; display: flex; }
+.task-pane-drop > div {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent));
+  color: var(--ink);
+  font-size: 12px;
+}
+/* Percent padding uses the containing canvas width; fractional children keep
+   each preview aligned to its target pane in mixed horizontal/vertical splits. */
+.task-pane-drop--left, .task-pane-drop--right, .task-pane-drop--top, .task-pane-drop--bottom { padding: 4px; }
+.task-pane-drop--left > div, .task-pane-drop--right > div { flex: 0 0 calc(50% - 3px); box-sizing: border-box; }
+.task-pane-drop--right { justify-content: flex-end; }
+.task-pane-drop--top, .task-pane-drop--bottom { flex-direction: column; }
+.task-pane-drop--top > div, .task-pane-drop--bottom > div { flex: 0 0 calc(50% - 3px); box-sizing: border-box; }
+.task-pane-drop--bottom { justify-content: flex-end; }
+.task-pane-drag-in-progress, .task-pane-drag-in-progress * { cursor: grabbing !important; user-select: none !important; }
+.task-workspace-overlays { position: absolute; inset: 0; z-index: 70; pointer-events: none; }
+.task-workspace-overlays > * { pointer-events: auto; }
+.task-pane-sidebar { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 14px; overflow-y: auto; padding: 3px; }
+.task-saved-views__create { margin-top: 10px; }
+.task-saved-views__create > button { width: 100%; font-size: 12px; }
+.task-saved-views .task-views__option { min-width: 0; touch-action: none; }
+.task-saved-views .task-views__option > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-saved-views .task-views__note { padding: 4px 8px; }
+.task-pane-sidebar__actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.task-pane-sidebar__actions .task-nest-toggle { margin: 0; }
+.task-pane-sidebar__actions .task-new-button { justify-content: center; }
+.task-pane > .task-pane-sidebar { flex: none; max-height: 80px; gap: 4px; padding: 0 0 4px; }
+.task-pane > .task-pane-sidebar .task-saved-views__create { display: none; }
+.task-pane > .task-pane-sidebar .task-views__list { display: flex; flex-wrap: wrap; }
+.task-pane > .task-pane-sidebar .task-pane-sidebar__actions { flex-direction: row; padding-top: 0; border: 0; }
+.task-pane-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Below the dashboard's fixed-height breakpoint, keep a bounded workspace
+   so nested panes retain independent scrolling instead of stretching the page. */
+@media (max-width: 860px) {
+  .task-split-workspace { flex: none; height: calc(100dvh - 120px); min-height: 360px; padding: 6px; }
+}
+.task-pane__map-title { flex: 1; padding-left: 8px; font-size: 12.5px; }

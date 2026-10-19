@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { checkIcon, chevronDownIcon, editIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
+import { taskPaneEdgeForArrow, type TaskPaneEdge } from "../lib/taskPaneLayout";
 import type { TaskTableViews } from "../hooks/useTaskTableViews";
 import { placeMenuSelect, type MenuSelectBox } from "../lib/placeMenuSelect";
 import {
@@ -66,7 +67,12 @@ function NameField({ text, label, onChange, onSubmit, onCancel }: {
 }
 
 /** Saved-view picker for the Tasks table query. */
-export function TaskViewPicker({ views }: { views: TaskTableViews }) {
+export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit }: {
+  views: TaskTableViews;
+  presentation: "sidebar" | "heading";
+  onViewPointerDown?: (event: ReactPointerEvent<HTMLElement>, viewId: string) => void;
+  onSplit?: (viewId: string, edge: TaskPaneEdge) => void;
+}) {
   const [saveProblem, setSaveProblem] = useState<SavedTaskViewProblem | null>(null);
   const menuId = useId();
   const [open, setOpen] = useState(false);
@@ -86,8 +92,8 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
   };
 
   useEffect(() => {
-    if (!open) setRowEdit(null);
-  }, [open]);
+    if (presentation === "heading" && !open) setRowEdit(null);
+  }, [open, presentation]);
 
   // Revert (or matching the saved query again) means there is nothing new to
   // name, so drop a half-finished create field rather than let it submit a duplicate.
@@ -172,7 +178,13 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
     }
     return <li key={view.id} className="task-views__row">
       <button type="button" className="menu-select__option task-views__option" aria-pressed={isSelected}
-        onClick={() => switchTo(view)}>
+        onClick={() => switchTo(view)}
+        title={presentation === "sidebar" ? "Drag to an edge to split; Alt + arrow key to split with the keyboard" : undefined}
+        onPointerDown={event => onViewPointerDown?.(event, view.id)}
+        onKeyDown={event => {
+          const edge = taskPaneEdgeForArrow(event.key);
+          if (event.altKey && edge && onSplit) { event.preventDefault(); onSplit(view.id, edge); }
+        }}>
         <span>{view.name}</span>
         {isSelected && <span className="menu-select__check" aria-hidden="true">{checkIcon}</span>}
       </button>
@@ -185,6 +197,28 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
     </li>;
   };
 
+  const createControl = (
+    rowEdit?.kind === "create" ? <div className="task-views__create">
+            <NameField text={rowEdit.text} label="New view name"
+              onChange={text => setRowEdit({ ...rowEdit, text, problem: null })}
+              onSubmit={() => keepOpenOnFailure(views.create(rowEdit.text), problem => setRowEdit({ ...rowEdit, problem }))}
+              onCancel={() => setRowEdit(null)}/>
+            <ProblemNote problem={rowEdit.problem} onSwitch={switchTo}/>
+          </div> : <button type="button" className="menu-select__option task-column-menu__row--action"
+            disabled={!canSaveAs}
+            title={!edited ? "No changes from this view" : atCap ? `${MAX_SAVED_TASK_VIEWS} views saved. Delete one first` : undefined}
+            onClick={() => setRowEdit({ kind: "create", text: "", problem: null })}>
+            <span>Save current as view</span>
+          </button>
+  );
+
+  if (presentation === "sidebar") return <div className="task-saved-views">
+    <ul className="task-views__list" aria-label="Saved task views">{views.views.map(viewRow)}</ul>
+    <div className="task-saved-views__create">
+      {createControl}
+    </div>
+  </div>;
+
   return <>
     <div className={`task-views__control${edited ? " is-edited" : ""}`}>
     <button ref={triggerRef} type="button" className="task-views__trigger"
@@ -192,7 +226,6 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
       aria-label={`Task view: ${selected.name}${edited ? ", unsaved changes" : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onClick={() => setOpen(!open)}>
-      <span className="task-views__label" aria-hidden="true">View</span>
       <span className="task-views__name">{selected.name}</span>
       {!edited && <span className="task-views__chevron" aria-hidden="true">{chevronDownIcon}</span>}
     </button>
@@ -213,18 +246,7 @@ export function TaskViewPicker({ views }: { views: TaskTableViews }) {
           <ul className="task-views__list">{views.views.map(viewRow)}</ul>
         </div>
         <div className="task-column-menu__section">
-          {rowEdit?.kind === "create" ? <div className="task-views__create">
-            <NameField text={rowEdit.text} label="New view name"
-              onChange={text => setRowEdit({ ...rowEdit, text, problem: null })}
-              onSubmit={() => keepOpenOnFailure(views.create(rowEdit.text), problem => setRowEdit({ ...rowEdit, problem }))}
-              onCancel={() => setRowEdit(null)}/>
-            <ProblemNote problem={rowEdit.problem} onSwitch={switchTo}/>
-          </div> : <button type="button" className="menu-select__option task-column-menu__row--action"
-            disabled={!canSaveAs}
-            title={!edited ? "No changes from this view" : atCap ? `${MAX_SAVED_TASK_VIEWS} views saved. Delete one first` : undefined}
-            onClick={() => setRowEdit({ kind: "create", text: "", problem: null })}>
-            <span>Save current as view</span>
-          </button>}
+          {createControl}
         </div>
       </div>,
       triggerRef.current?.closest(".dashboard") ?? document.body,

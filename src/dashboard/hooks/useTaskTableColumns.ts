@@ -69,7 +69,8 @@ export function useTaskTableColumns(
     const header = document
       .elementFromPoint(clientX, clientY)
       ?.closest<HTMLElement>("[data-task-col]");
-    const id = header?.dataset.taskCol;
+    if (!header || !wrap?.contains(header)) return null;
+    const id = header.dataset.taskCol;
     return columnsRef.current.some((column) => column.id === id)
       ? (id as TaskTableColumnId)
       : null;
