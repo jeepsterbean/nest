@@ -1,12 +1,11 @@
 # Tasks interface
 
-Table, Day, Map, and Task details interactions. Records and lifecycle rules live in
+Table, Map, and Task details interactions. Records and lifecycle rules live in
 [Tasks domain](../domain/tasks.md), shared terminology in
 [`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-Tasks opens in Table on each visit. The header switches between Table and Day;
-Settings can add Map to the switch, and hiding Map returns to Table and closes
-Task details.
+Tasks opens in Table on each visit. Settings can enable the Table / Map switch;
+hiding Map returns to Table and closes Task details.
 
 ## Table
 
@@ -197,24 +196,6 @@ existing entries and retries that page.
 
 The end reads “Beginning of history.” Tasks predating edit recording also show
 “Edits recorded since [date]”; earlier status and work entries remain available.
-
-## Day
-
-Day outlines the Tasks of the local day as a Parent / Child tree: every open
-Task and every Task [closed today](../domain/tasks.md#closing-and-the-lock).
-Day follows the clock, so Tasks closed yesterday leave at midnight, and no
-filter, sort, or saved view applies.
-
-A Task whose Parent is also in the day nests under that Parent. A Parent closed
-before today stays as dimmed context while any descendant is in the day, and
-leaves once none remains. Root Tasks and siblings list open work first, in
-status order (Active, Up next, Backlog), then Tasks closed today by closing
-time. A closed Parent holding open Children sorts with its open work.
-
-A Child with several Parents shows in full under its first Parent in this order
-and as a dimmed “also shown above” row under the others. Each Parent shows
-“x/y open” for its direct Children. Rows offer the status menu and open Task
-details on a title click; New task works as in Table.
 
 ## Map
 

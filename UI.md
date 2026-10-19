@@ -104,8 +104,8 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 ## Tasks implementation
 
-`TasksView` owns the header's `.task-header__actions` group with a Table / Day / Map
-`ViewToggle` whose Map option appears only when Settings shows Map.
+`TasksView` owns the header's `.task-header__actions` group with a Table / Map
+`ViewToggle` when Settings shows Map; with Map hidden, the header is left out.
 Table's saved-view picker (`TaskViewPicker`) is the query's first row, above
 Filters, Sort, and Hidden, so the Section sidebar head keeps only the title as
 on every Section. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
