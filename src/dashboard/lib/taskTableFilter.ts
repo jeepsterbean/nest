@@ -31,7 +31,7 @@ export const taskMatchesTableRowFilters = (
   (historyMatches.statusChanged === null || historyMatches.statusChanged.has(task.id)) &&
   filters.statuses.includes(task.status) &&
   (filters.parent === null ||
-    (filters.parent === "none" ? task.parentTaskIds.length === 0 : task.parentTaskIds.includes(filters.parent))) &&
+    (filters.parent === "none" ? task.parentTaskId === null : task.parentTaskId === filters.parent)) &&
   taskMatchesDateFilter(task.createdAt, filters.created, nowMs) &&
   taskMatchesDateFilter(task.updatedAt, filters.updated, nowMs) &&
   // An open Task has no closing day, so any Closed filter leaves it out.

@@ -9,6 +9,7 @@ export type TaskViewKey = (typeof TASK_VIEWS)[number]["key"];
 
 export const TASK_TABLE_COLUMNS = [
   { id: "title", label: "Title", width: 240, minWidth: 120 },
+  { id: "parent", label: "Parent", width: 140, minWidth: 72 },
   { id: "status", label: "Status", width: 128, minWidth: 96 },
   { id: "value", label: "Value", width: 72, minWidth: 56 },
   { id: "effort", label: "Effort", width: 72, minWidth: 56 },

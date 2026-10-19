@@ -25,13 +25,13 @@ export function createTask(
   title: string,
   description: string,
   status: TaskStatus,
-  parentTaskIds: number[] = [],
+  parentTaskId: number | null = null,
 ): Promise<Task> {
   return invoke("create_task", {
     title,
     description,
     status,
-    parentTaskIds,
+    parentTaskId,
   });
 }
 
@@ -46,12 +46,11 @@ export function setTaskDescription(
   return invoke("set_task_description", { id, description });
 }
 
-export function addTaskParent(id: number, parentTaskId: number): Promise<Task> {
-  return invoke("add_task_parent", { id, parentTaskId });
-}
-
-export function removeTaskParent(id: number, parentTaskId: number): Promise<Task> {
-  return invoke("remove_task_parent", { id, parentTaskId });
+export function setTaskParent(
+  id: number,
+  parentTaskId: number | null,
+): Promise<Task> {
+  return invoke("set_task_parent", { id, parentTaskId });
 }
 
 export function deleteTask(id: number): Promise<void> {

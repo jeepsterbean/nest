@@ -808,6 +808,11 @@
   flex: none;
 }
 
+.task-table__col--parent {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task-table__col--workedTime,
 .task-table__col--created,
 .task-table__col--updated,

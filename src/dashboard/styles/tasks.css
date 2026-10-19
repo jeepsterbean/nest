@@ -14,7 +14,7 @@
   grid-template-columns: minmax(0, 1fr) 12px;
 }
 
-.dashboard--tasks .task-create-card .task-relation-list li {
+.dashboard--tasks .task-relation-list li {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 

@@ -326,22 +326,22 @@ export function TaskMap({
     };
     const result: { key: string; d: string; state: string }[] = [];
     for (const task of placedTasks) {
-      for (const parentId of task.parentTaskIds) {
-        const target = boxOf(task.id);
-        const source = boxOf(parentId);
-        if (!target || !source) continue;
-        const selected = selectedTaskId === task.id || selectedTaskId === parentId;
-        const parent = taskGraph.byId.get(parentId);
-        result.push({
-          key: `${parentId}-${task.id}`,
-          d: connectorPath(source, target).d,
-          state: selected
-            ? "selected"
-            : isClosed(task) || (parent !== undefined && isClosed(parent))
-              ? "done"
-              : "plain",
-        });
-      }
+      const parentId = task.parentTaskId;
+      if (parentId === null) continue;
+      const target = boxOf(task.id);
+      const source = boxOf(parentId);
+      if (!target || !source) continue;
+      const selected = selectedTaskId === task.id || selectedTaskId === parentId;
+      const parent = taskGraph.byId.get(parentId);
+      result.push({
+        key: `${parentId}-${task.id}`,
+        d: connectorPath(source, target).d,
+        state: selected
+          ? "selected"
+          : isClosed(task) || (parent !== undefined && isClosed(parent))
+            ? "done"
+            : "plain",
+      });
     }
     return result;
   }, [heights, boardLayout, placedTasks, selectedTaskId, taskGraph]);
@@ -351,10 +351,8 @@ export function TaskMap({
 
   const attributesOf = (task: Task): Attribute[] => {
     const progress = childProgress(taskGraph, task.id);
-    const parents = task.parentTaskIds.flatMap((id) => {
-      const parent = taskGraph.byId.get(id);
-      return parent ? [parent.title] : [];
-    });
+    const parent =
+      task.parentTaskId === null ? null : taskGraph.byId.get(task.parentTaskId);
     return [
       { name: "status", value: TASK_STATUS_LABEL[task.status] },
       {
@@ -362,7 +360,7 @@ export function TaskMap({
         value: `${task.value ?? "—"} / ${task.effort ?? "—"}`,
         muted: task.value === null && task.effort === null,
       },
-      ...(parents.length > 0 ? [{ name: "parents", value: parents.join(", ") }] : []),
+      ...(parent ? [{ name: "parent", value: parent.title }] : []),
       ...(progress.total > 0
         ? [{ name: "children", value: `${progress.completed} / ${progress.total}` }]
         : []),

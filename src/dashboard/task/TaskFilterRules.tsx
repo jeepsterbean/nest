@@ -17,7 +17,7 @@ export function TaskFilterRules({ query, onQueryChange, changedFields, context, 
   const taskTitle = (id: number) => context.tasks.find(task => task.id === id)?.title;
   const rules = TASK_TABLE_FILTERS.map(filter => ({ ...filter, value: taskTableFilterLabel(filter.field, query, taskTitle, nowMs) }));
   const active = rules.filter(rule => rule.value !== null);
-  // Parent and the history filters have no column header, so they always keep a
+  // Worked on and Status changed have no column header, so they always keep a
   // row. A column filter keeps its row while its menu is open, so clearing it
   // from that menu does not pull the menu away.
   const listed = rules.filter(rule => rule.value !== null || rule.standalone || openField === rule.field);

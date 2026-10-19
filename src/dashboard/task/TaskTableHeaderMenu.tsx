@@ -261,7 +261,7 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
       const options: { value: TaskParentFilter; label: string }[] = [
         { value: null, label: "All parents" },
         { value: "none", label: "No parent" },
-        ...context.tasks.filter(task => context.tasks.some(child => child.parentTaskIds.includes(task.id)))
+        ...context.tasks.filter(task => context.tasks.some(child => child.parentTaskId === task.id))
           .sort((a, b) => a.title.localeCompare(b.title))
           .map(task => ({ value: task.id, label: task.title })),
       ];

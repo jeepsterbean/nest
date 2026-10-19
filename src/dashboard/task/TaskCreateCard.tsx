@@ -16,7 +16,7 @@ export type TaskDraft = {
   title: string;
   description: string;
   status: TaskStatus;
-  parentTaskIds: number[];
+  parentTaskId: number | null;
   value: RatingValue | null;
   effort: RatingValue | null;
 };
@@ -25,7 +25,7 @@ export const EMPTY_TASK_DRAFT: TaskDraft = {
   title: "",
   description: "",
   status: "backlog",
-  parentTaskIds: [],
+  parentTaskId: null,
   value: null,
   effort: null,
 };
@@ -61,12 +61,6 @@ export function TaskCreateCard({
   }, [onClose]);
 
   const title = draft.title.trim();
-  // The draft outlives the card, so a Parent deleted in the meantime is
-  // dropped here instead of failing the whole create.
-  const parents = draft.parentTaskIds.flatMap((id) => {
-    const parent = tasks.find((task) => task.id === id);
-    return parent ? [parent] : [];
-  });
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!title || saving) return;
@@ -77,7 +71,7 @@ export function TaskCreateCard({
         title,
         draft.description.trim(),
         draft.status,
-        parents.map((parent) => parent.id),
+        draft.parentTaskId,
       );
       if (draft.value !== null || draft.effort !== null) {
         await setTaskScore(created.id, draft.value, draft.effort);
@@ -158,35 +152,20 @@ export function TaskCreateCard({
 
         <div className="task-create-card__fields">
           <div className="task-relation-field">
-            <span className="task-relation-field__label">Parents</span>
-            <div className="task-detail__stack">
-              {parents.length > 0 && (
-                <ul className="task-relation-list">
-                  {parents.map((parent) => (
-                    <li key={parent.id}>
-                      <span className={`status-dot status-dot--${parent.status}`} />
-                      <span>{parent.title}</span>
-                      <button
-                        type="button"
-                        className="task-relation-remove"
-                        aria-label={`Unlink parent ${parent.title}`}
-                        onClick={() => update({ parentTaskIds: draft.parentTaskIds.filter((parentId) => parentId !== parent.id) })}
-                      >
-                        Unlink
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <MenuSelect
-                value=""
-                placeholder={parents.length > 0 ? "Add parent…" : "No parents"}
-                ariaLabel="Add parent"
-                searchPlaceholder="Find a parent…"
-                options={taskSelectOptions(tasks.filter((task) => !draft.parentTaskIds.includes(task.id)))}
-                onChange={(value) => update({ parentTaskIds: [...draft.parentTaskIds, Number(value)] })}
-              />
-            </div>
+            <span className="task-relation-field__label">Parent</span>
+            <MenuSelect
+              value={draft.parentTaskId === null ? "" : String(draft.parentTaskId)}
+              placeholder="No parent"
+              ariaLabel="Parent"
+              searchPlaceholder="Find a parent…"
+              options={[
+                { value: "", label: "No parent" },
+                ...taskSelectOptions(tasks, draft.parentTaskId),
+              ]}
+              onChange={(value) =>
+                update({ parentTaskId: value ? Number(value) : null })
+              }
+            />
           </div>
         </div>
 

@@ -7,7 +7,7 @@ Rules shared by every Task surface. Dashboard interactions live in
 ## Fields and status
 
 A Task has a required, non-empty title and a description, which may be
-empty. Parents, Value, and Effort are optional. Value and Effort are 1–5 scores.
+empty. Parent, Value, and Effort are optional. Value and Effort are 1–5 scores.
 
 Task statuses are Backlog, Up next, Active, Completed, and Cancelled.
 Completed and Cancelled are closed; the others are open.
@@ -29,11 +29,8 @@ when the original is deleted.
 
 ## Relationships
 
-Parent / Child describes work breakdown. A Task can have several Parents and
-Children; each connection is unique and the graph must be acyclic. Adding or
-removing one connection preserves every other connection. A shared Child counts
-once in each Parent’s direct-child progress; Worked time remains attached to the
-Task itself.
+Parent / Child describes work breakdown. A Task has at most one Parent and
+can have several Children; the hierarchy must be acyclic.
 
 Map placement creates no Task relationships.
 
@@ -60,11 +57,11 @@ changes (without description text), relationships, Follow-up links, and work
 corrections and removals. Corrections retain old and new times and are dated
 when made. Reordering is excluded.
 
-Adding or removing a connection records the change on the Child and that Parent.
-Related titles are snapshots that survive renaming and deletion. Deletion records relationship removals on surviving
+Relationship changes appear on both Tasks. Reparenting records the change on
+the child and both affected Parents. Related titles are snapshots that survive
+renaming and deletion. Deletion records relationship removals on surviving
 Tasks, including either side of a Follow-up link. Existing Tasks retain their status and work history; edit recording
 starts at the upgrade, whose time is saved. Unchanged saves add no edit record.
 
-Deleting a Task removes its own edit records, status events, and Work stretches.
-Its Children remain and keep their other Parents.
+Deleting a Task removes its own edit records, status events, and Work stretches. Its Children remain and become Tasks with no Parent.
 Deleted Task history therefore disappears from Day, Calendar, and Timeline.

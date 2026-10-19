@@ -28,20 +28,6 @@ const viewsOf = (result: ReturnType<typeof createSavedTaskView>): SavedTaskView[
 };
 
 describe("saved task views", () => {
-  it("discards retired Parent column layout and sorting while retaining its filter", () => {
-    const view = normalizeSavedTaskViews({
-      views: [{ id: "legacy", name: "Legacy", query: {
-        parent: 1,
-        sort: [{ column: "parent", direction: "ascending" }, { column: "updated", direction: "descending" }],
-        columns: { order: ["title", "parent", "status"], widths: { parent: 220 }, hidden: ["parent"] },
-      } }], selectedId: "legacy",
-    });
-    const query = view.views.find(view => view.id === "legacy")!.query;
-    expect(query.parent).toBe(1);
-    expect(query.sort).toEqual([{ column: "updated", direction: "descending" }]);
-    expect(query.columns.some(column => String(column.id) === "parent")).toBe(false);
-  });
-
   it("discards retired Scope filters, sorts, and columns from stored views", () => {
     const state = normalizeSavedTaskViews({
       selectedId: "legacy",
@@ -103,9 +89,10 @@ describe("saved task views", () => {
       parent: 1,
       sort: [{ column: "title", direction: "ascending" }, { column: "status", direction: "descending" }],
     });
-    expect(taskTableColumnQueryEdited("status", saved, saved)).toBe(false);
+    expect(taskTableColumnQueryEdited("parent", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("title", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("status", saved, saved)).toBe(false);
+    expect(taskTableColumnQueryEdited("parent", saved, query({ ...saved, parent: 2 }))).toBe(true);
     expect(taskTableColumnQueryEdited("title", saved, query({
       ...saved,
       sort: [{ column: "title", direction: "descending" }, { column: "status", direction: "descending" }],
@@ -121,12 +108,12 @@ describe("saved task views", () => {
     const saved = query({ parent: 1 });
     const cleared = query({ ...saved, parent: null });
     expect(taskTableFiltersEdited(saved, cleared)).toBe(true);
-    expect(changedTaskTableQueryFields(saved, cleared)).toEqual(new Set(["parent"]));
+    expect(taskTableColumnQueryEdited("parent", saved, cleared)).toBe(true);
   });
 
   it("does not treat sort or column-only edits as filter changes", () => {
     const sorted = query({ sort: [{ column: "title", direction: "ascending" }] });
-    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "updated", true);
+    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, sorted)).toBe(false);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, query({ columns: hidden }))).toBe(false);
   });
@@ -232,7 +219,7 @@ describe("saved task views", () => {
   it("round-trips through storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
-    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "updated", true), "title", 40);
+    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true), "title", 40);
     const views = viewsOf(createSavedTaskView(raw, query({ parent: "none", sort: [{ column: "updated", direction: "descending" }], columns }), "Loose", 2));
     writeSavedTaskViews({ views, selectedId: "view-2" }, storage);
     expect(readSavedTaskViews(storage)).toEqual({ views, selectedId: "view-2" });

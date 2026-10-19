@@ -17,8 +17,6 @@ Table rows indicate Working now.
 ### Columns and menus
 
 Columns can be reordered, resized, and hidden, except Title stays visible.
-Parent relationships appear in details and Map; Table has no Parent column.
-Saved layouts discard the retired Parent column and its sort rules.
 Resizing trades width with the next column within their minimum widths; the last
 column has no resize handle. Columns fill the pane or scroll horizontally when
 their minimum widths exceed it.
@@ -46,10 +44,6 @@ first two Filters rows, reading “-” when unset.
 | Worked on | Positive Worked time overlapping the range. |
 | Status changed | Any recorded status transition in the range, regardless of current status. Creation-only events and ordinary edits are excluded; each Task appears once. |
 
-Parent also stays available in Filters because it has no Table column. Selecting a
-Parent matches each Task with a direct connection to it; No parent matches Tasks
-with zero Parents.
-
 Date filters offer Any date, Today, This week (Monday–Sunday), This month,
 Last 7 days, Last 30 days, and From / To calendar days. Either bound can be empty;
 the date picker writes the active bound, starting with From. Presets move with
@@ -72,7 +66,7 @@ or unavailable with Retry; refreshing the current range keeps existing rows visi
 ### Sorting
 
 Every column sorts in either direction, with empty values last at each level:
-text alphabetically, Status in lifecycle order, scores and
+text alphabetically (Parent by title), Status in lifecycle order, scores and
 displayed Worked time numerically, and dates chronologically.
 
 New columns append sort rules; changing direction preserves priority, and choosing
@@ -126,8 +120,7 @@ and load a legacy single sort as the first rule.
 ## Creating Tasks
 
 Table’s “New task” opens an overlay. Only the name is required; Status defaults
-to Backlog, with Description, Parents, Value, and Effort optional.
-Parents can be added and unlinked individually before creation.
+to Backlog, with Description, Parent, Value, and Effort optional.
 A fresh draft inherits the view’s Status when exactly one is selected.
 Outside press, Escape, or Cancel closes the card and preserves the draft.
 Adding clears the draft and opens the new Task’s details.
@@ -155,21 +148,22 @@ break on Shift+Enter, and cancels on Escape.
 
 ### Relationships
 
-Details show Parents and Children. Empty states read “No parents” or “No children”;
+Details show Parent and Children. Empty states read “No parent” or “No children”;
 populated Children lists use “Add child…”. Children supports creating a new
-Backlog Task or linking an existing Task.
-Linking adds a connection and keeps that Task’s other Parents. Each Parent and
-Child offers Unlink to remove only that connection while keeping both Tasks.
-Existing relationships stay visible regardless of status or closure age.
-Add-parent pickers (including New task) and the existing-child picker default to
+Backlog Task or linking an existing Task; linking moves that Task from its
+previous Parent when one exists. Each Child offers Unlink to clear its Parent
+while keeping both Tasks. Choosing “No parent” in the Parent picker clears the
+current Task’s Parent.
+
+Parent pickers (including New task) and the existing-child picker default to
 open Tasks and Tasks closed within the last seven days, sorted newest updated
 first. Recency uses closure time, so editing an older closed Task keeps it
-outside the default list. Title search adds older closed Tasks after open and
-recently closed matches, and Enter in the search chooses the first match. Options show
+outside the default list; the current Parent stays in the default list even
+when closed. Title search adds older closed Tasks after open and recently
+closed matches, and Enter in the search chooses the first match. Options show
 status. Relationship pickers use all Tasks independently of Table filters.
 Pickers exclude the Task itself and choices that would create a cycle; the
-add-parent picker also excludes existing Parents, and the child picker excludes
-existing direct Children.
+child picker also excludes existing direct Children.
 The panel scrolls to keep relationships and controls accessible.
 
 ### History

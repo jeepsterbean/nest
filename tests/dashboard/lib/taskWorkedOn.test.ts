@@ -10,7 +10,7 @@ const stretch = (taskId: number, startedAt: number, endedAt: number | null): Tas
 const task = (id: number, workedSeconds: number): Task => ({
   id, title: `Task ${id}`, description: "", status: "active", workingNow: false,
   workedSeconds, workStartedAt: null, value: null, effort: null,
-  parentTaskIds: [], createdAt: 0, updatedAt: 0, closedAt: null, followsTaskId: null, historyRevision: 0,
+  parentTaskId: null, createdAt: 0, updatedAt: 0, closedAt: null, followsTaskId: null, historyRevision: 0,
 });
 
 describe("Worked on range", () => {
@@ -57,7 +57,7 @@ describe("Worked on range", () => {
     expect(tasks.filter(t => taskMatchesWorkedTimeFilter(t, filter, 0, totals.get(t.id))).map(t => t.id)).toEqual([2]);
     expect(tasks.filter(t => taskMatchesWorkedTimeFilter(t, filter, 0)).map(t => t.id)).toEqual([1, 2]);
     const sort = { column: "workedTime", direction: "descending" } as const;
-    expect(sortTasksByColumn(tasks, sort, 0, totals).map(t => t.id)).toEqual([2, 1]);
-    expect(sortTasksByColumn(tasks, sort, 0).map(t => t.id)).toEqual([1, 2]);
+    expect(sortTasksByColumn(tasks, sort, undefined, 0, totals).map(t => t.id)).toEqual([2, 1]);
+    expect(sortTasksByColumn(tasks, sort, undefined, 0).map(t => t.id)).toEqual([1, 2]);
   });
 });

@@ -23,8 +23,8 @@ export function buildTaskGraph(
   const childrenByParent = new Map<number, Task[]>();
 
   for (const task of tasks) {
-    for (const parentId of task.parentTaskIds) {
-      push(childrenByParent, parentId, task);
+    if (task.parentTaskId !== null) {
+      push(childrenByParent, task.parentTaskId, task);
     }
   }
 
@@ -53,12 +53,10 @@ export function ancestorIds(
   taskId: number,
 ): Set<number> {
   const ancestors = new Set<number>();
-  const pending = [...(graph.byId.get(taskId)?.parentTaskIds ?? [])];
-  while (pending.length > 0) {
-    const parentId = pending.pop()!;
-    if (ancestors.has(parentId)) continue;
+  let parentId = graph.byId.get(taskId)?.parentTaskId ?? null;
+  while (parentId !== null && !ancestors.has(parentId)) {
     ancestors.add(parentId);
-    pending.push(...(graph.byId.get(parentId)?.parentTaskIds ?? []));
+    parentId = graph.byId.get(parentId)?.parentTaskId ?? null;
   }
   return ancestors;
 }

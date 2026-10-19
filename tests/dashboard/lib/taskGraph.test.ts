@@ -22,7 +22,7 @@ const task = (
 
   value: null,
   effort: null,
-  parentTaskIds: parentTaskId === null ? [] : [parentTaskId],
+  parentTaskId,
   closedAt: null,
   followsTaskId: null, historyRevision: 0,
   createdAt: id,
@@ -30,18 +30,6 @@ const task = (
 });
 
 describe("task graph projection", () => {
-  it("traverses shared children across all parent branches once", () => {
-    const graph = buildTaskGraph([
-      task(1), task(2, "active", 1), task(3, "active", 1),
-      { ...task(4, "completed"), parentTaskIds: [2, 3] },
-    ]);
-    expect([...ancestorIds(graph, 4)].sort()).toEqual([1, 2, 3]);
-    expect([...descendantIds(graph, 1)].sort()).toEqual([2, 3, 4]);
-    expect(childProgress(graph, 2)).toEqual({ completed: 1, total: 1 });
-    expect(childProgress(graph, 3)).toEqual({ completed: 1, total: 1 });
-    expect(childProgress(graph, 1)).toEqual({ completed: 0, total: 2 });
-  });
-
   it("indexes hierarchy", () => {
     const graph = buildTaskGraph(
       [task(1), task(2, "backlog", 1), task(3)],
