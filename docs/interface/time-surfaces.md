@@ -49,12 +49,13 @@ checkpoint in the window; it starts off whenever Phases becomes the only kind
 again and is not stored. Settled Phase rows use the
 [Phase history interpretation](../domain/history.md#phase-history).
 
-Task activity covers creation, status changes (including completion,
+Calendar Task activity covers creation, status changes (including completion,
 cancellation, and reopening), and Working now starts and stops. Lifecycle rows
 use the stored status-event timestamps and current Task titles; deleting a
-Task removes its history. Task rows share the configured Tasks icon and an
-emphasized Task title. Every activity follows `Title — Activity`, with a
-compact activity tag in past tense: Added, Started, Paused, Completed,
+Task removes its history. Timeline also includes
+[recorded Task edits](calendar.md#timeline). Task rows share the configured
+Tasks icon and an emphasized Task title. Every activity follows `Title — Activity`, with a
+compact activity tag. Lifecycle tags are Added, Started, Paused, Completed,
 Cancelled, or Moved to Backlog / Up next / Active. Reopening a closed Task
 shows Reopened to its destination status.
 

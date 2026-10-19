@@ -1,38 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { listTaskUpdates } from "../../lib/commands";
-import type { Task, TaskUpdate, TaskUpdateKind, TaskUpdatePage, TaskWorkInterval } from "../../lib/types";
+import type { Task, TaskUpdate, TaskUpdatePage } from "../../lib/types";
 import { formatDate, formatTime, startOfDayMs } from "../lib/time";
-import { RECORDED_TASK_STATUS_LABEL } from "../lib/tasks";
+import { TASK_UPDATE_LABEL, taskUpdateDetail } from "../lib/taskUpdates";
 
-const labels: Record<TaskUpdateKind, string> = {
-  created: "Task created", status: "Status changed", title: "Renamed", description: "Description updated",
-  value: "Value", effort: "Effort", parent_set: "Parent set",
-  parent_removed: "Parent removed", child_added: "Child added", child_removed: "Child removed",
-  follows: "Follows task", follow_up: "Follow-up created",
-  follows_removed: "Follows link removed", follow_up_removed: "Follow-up removed", work_started: "Started work",
-  work_stopped: "Stopped work", work_corrected: "Work corrected", work_removed: "Work removed",
-};
-
-// A recorded interval is a past snapshot, so an open end means the stretch was
-// still running then. "Working now" would claim it is live today.
-function workIntervalLabel({ startedAt, endedAt }: TaskWorkInterval): string {
-  const moment = (seconds: number) => `${formatDate(seconds)}, ${formatTime(seconds)}`;
-  return `${moment(startedAt)} – ${endedAt === null ? "still running" : moment(endedAt)}`;
-}
-
-function updateDetail(update: TaskUpdate): string | null {
-  if (update.relatedTitle !== null) return update.relatedTitle;
-  if (update.workBefore !== null || update.workAfter !== null) {
-    return [update.workBefore, update.workAfter]
-      .filter((interval) => interval !== null).map(workIntervalLabel).join(" → ");
-  }
-  if (update.beforeValue === null && update.afterValue === null) return null;
-  const recordsStatus = update.kind === "status" || update.kind === "created";
-  const valueLabel = (value: string | null) => value === null ? "None"
-    : recordsStatus ? (RECORDED_TASK_STATUS_LABEL as Record<string, string>)[value] ?? value : value;
-  if (update.kind === "created") return valueLabel(update.afterValue);
-  return `${valueLabel(update.beforeValue)} → ${valueLabel(update.afterValue)}`;
-}
 
 function dayLabel(day: number, today: number): string {
   const year = new Date(day).getFullYear();
@@ -112,11 +83,11 @@ export function TaskUpdates({ task }: { task: Task }) {
     <div ref={listRef} className="task-updates__list" tabIndex={0} aria-busy={loading} onScroll={syncTopDay}>
       {dayGroups.map(({ day, updates }) => <div className="task-updates__day" key={day} data-day={day}>
         <ol aria-label={dayLabel(day, today)}>{updates.map((update) => {
-          const detail = updateDetail(update);
+          const detail = taskUpdateDetail(update);
           return <li key={`${update.cursor.source}:${update.cursor.id}`}>
             <time dateTime={new Date(update.cursor.time * 1000).toISOString()}>{formatTime(update.cursor.time)}</time>
             <span className="task-updates__entry">
-              <span className="task-updates__event">{labels[update.kind]}</span>
+              <span className="task-updates__event">{TASK_UPDATE_LABEL[update.kind]}</span>
               {detail !== null && <span className="task-updates__detail">{detail}</span>}
             </span>
           </li>;

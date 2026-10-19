@@ -4,12 +4,6 @@ These standards apply to every coding assistant working in a repository.
 Repository-specific domain language, architecture, commands, and documentation
 paths belong in the root `AGENTS.md` or equivalent project guide.
 
-## Ponytail
-
-Use **ponytail** for coding tasks: writing, adding, refactoring, fixing,
-reviewing, and choosing dependencies. Default intensity: **full**. Switch with
-`/ponytail lite|full|ultra`. Turn it off with `stop ponytail` or `normal mode`.
-
 ## Self-documenting code
 
 - Prefer descriptive, domain-aligned names.

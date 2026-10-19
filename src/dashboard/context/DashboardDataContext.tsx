@@ -21,6 +21,7 @@ import {
   listTasks,
   listTags,
   listTaskStatusEvents,
+  listTaskEditEvents,
   listTaskWorkStretches,
 } from "../../lib/commands";
 import type {
@@ -32,6 +33,7 @@ import type {
   Pulse,
   Task,
   TaskStatusEvent,
+  TaskEditEvent,
   TaskWorkStretch,
   TimerState,
   Tag,
@@ -45,6 +47,7 @@ export const HISTORY_WINDOW_DAYS = 30;
 export type DashboardData = {
   tasks: Task[];
   taskStatusEvents: TaskStatusEvent[];
+  taskEditEvents: TaskEditEvent[];
   taskWorkStretches: TaskWorkStretch[];
   taskGraph: TaskGraphProjection;
   metrics: Metric[];
@@ -70,6 +73,7 @@ const DashboardDataContext = createContext<DashboardData | null>(null);
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskEditEvents, setTaskEditEvents] = useState<TaskEditEvent[]>([]);
   const [taskStatusEvents, setTaskStatusEvents] = useState<TaskStatusEvent[]>([]);
   const [taskWorkStretches, setTaskWorkStretches] = useState<TaskWorkStretch[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
@@ -92,9 +96,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       const now = Math.floor(Date.now() / 1000);
       const from = historyStartSec(now * 1000, HISTORY_WINDOW_DAYS);
       const to = now + 1;
-      const [t, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] =
+      const [t, taskEdits, tse, tws, m, pulses, p, ci, pci, bd, tags, lp, timer] =
         await Promise.all([
           listTasks(),
+          listTaskEditEvents(from, to),
           listTaskStatusEvents(from, to),
           listTaskWorkStretches(from, to),
           listMetrics(),
@@ -109,6 +114,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         ]);
       if (request !== reloadRequest.current) return;
       setTasks(t);
+      setTaskEditEvents(taskEdits);
       setTaskStatusEvents(tse);
       setTaskWorkStretches(tws);
       setMetrics(m);
@@ -158,6 +164,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     () => ({
       tasks,
       taskStatusEvents,
+      taskEditEvents,
       taskWorkStretches,
       taskGraph,
       metrics,
@@ -178,6 +185,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     [
       tasks,
       taskStatusEvents,
+      taskEditEvents,
       taskWorkStretches,
       taskGraph,
       metrics,

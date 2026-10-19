@@ -72,3 +72,6 @@ export type TaskUpdatePage = {
   hasMore: boolean;
   recordingStartedAt: number;
 };
+
+/** An existing edit-history entry with its owning Task for Timeline. */
+export type TaskEditEvent = { taskId: number; update: TaskUpdate };

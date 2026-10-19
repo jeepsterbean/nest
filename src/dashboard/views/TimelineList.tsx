@@ -73,9 +73,11 @@ const eventKey = (event: RawLogEvent) =>
       ? `note-${event.note.id}`
       : event.kind === "phase"
         ? `phase-${event.checkIn.id}`
-        : event.kind === "task-status"
-          ? `task-status-${event.statusEvent.id}`
-          : `${event.kind}-${event.stretch.id}`;
+        : event.kind === "task-edit"
+          ? `task-edit-${event.editEvent.update.cursor.id}`
+          : event.kind === "task-status"
+            ? `task-status-${event.statusEvent.id}`
+            : `${event.kind}-${event.stretch.id}`;
 
 /** Memoized so an unrelated parent re-render does not rebuild up to
  * LOG_EVENT_BATCH_SIZE rows. Callers must pass stable handler identities for

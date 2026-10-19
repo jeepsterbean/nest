@@ -6,6 +6,7 @@ import type {
   Task,
   TaskWorkStretch,
   TaskStatusEvent,
+  TaskEditEvent,
 } from "../../lib/types";
 import { TASK_STATUS_LABEL } from "./tasks";
 import {
@@ -119,6 +120,7 @@ export function buildLogsEvents(
   taskWorkStretches: TaskWorkStretch[],
   historyFromSec: number,
   taskStatusEvents: TaskStatusEvent[] = [],
+  taskEditEvents: TaskEditEvent[] = [],
 ): RawLogEvent[] {
   // Collapse runs before the range cut so a settle matching the Phase already
   // active at the window start is omitted along with that carry-in.
@@ -136,6 +138,7 @@ export function buildLogsEvents(
     kinds.includes("notes") ? notes : [],
     kinds.includes("tasks") ? taskWorkStretches : [],
     kinds.includes("tasks") ? taskStatusEvents : [],
+    kinds.includes("tasks") ? taskEditEvents : [],
   );
 }
 

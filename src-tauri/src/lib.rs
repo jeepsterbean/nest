@@ -1317,6 +1317,7 @@ pub fn run() {
             commands::metric::list_metrics,
             commands::task::list_tasks,
             commands::task::list_task_updates,
+            commands::task::list_task_edit_events,
             commands::task::list_task_status_events,
             commands::task::create_task,
             commands::task::create_follow_up_task,

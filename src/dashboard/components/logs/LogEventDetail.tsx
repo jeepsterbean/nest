@@ -4,6 +4,7 @@ import type { RawLogEvent } from "../../lib/timeline";
 import { NoteEntry } from "./NoteEntry";
 import { MetricCheckInDetail } from "./MetricCheckInDetail";
 import { PhaseEventDetail } from "./PhaseEventDetail";
+import { TaskEditLogDetail } from "./TaskEditLogDetail";
 import { TaskLogDetail } from "./TaskLogDetail";
 
 /** Event body beside the timeline mark, which already carries the event's icon. */
@@ -55,6 +56,8 @@ export function LogEventDetail({
           />
         </div>
       );
+    case "task-edit":
+      return <TaskEditLogDetail event={event.editEvent} tasks={tasks} />;
     case "task-status":
     case "work-start":
     case "work-stop":

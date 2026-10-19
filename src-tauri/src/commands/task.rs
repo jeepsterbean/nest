@@ -1,4 +1,6 @@
-use crate::models::{TaskUpdate, TaskUpdateCursor, TaskUpdatePage, TaskWorkInterval};
+use crate::models::{
+    TaskEditEvent, TaskUpdate, TaskUpdateCursor, TaskUpdatePage, TaskWorkInterval,
+};
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -1051,6 +1053,32 @@ pub(crate) mod tests {
     }
 }
 
+fn map_task_update(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskUpdate> {
+    let kind: String = row.get(3)?;
+    let before_value: Option<String> = row.get(4)?;
+    let after_value: Option<String> = row.get(5)?;
+    let records_work = kind == "work_corrected" || kind == "work_removed";
+    let work_interval = |text: &Option<String>| {
+        text.as_deref()
+            .filter(|_| records_work)
+            .and_then(parse_stored_work_interval)
+    };
+    Ok(TaskUpdate {
+        cursor: TaskUpdateCursor {
+            time: row.get(0)?,
+            source: row.get(1)?,
+            id: row.get(2)?,
+        },
+        work_before: work_interval(&before_value),
+        work_after: work_interval(&after_value),
+        before_value: before_value.filter(|_| !records_work),
+        after_value: after_value.filter(|_| !records_work),
+        kind,
+        related_task_id: row.get(6)?,
+        related_title: row.get(7)?,
+    })
+}
+
 pub(crate) fn read_task_updates(
     conn: &Connection,
     id: i64,
@@ -1072,31 +1100,10 @@ pub(crate) fn read_task_updates(
          WHERE (time,source,id)<(?2,?3,?4) ORDER BY time DESC,source DESC,id DESC LIMIT 51"
     )?;
     let mut updates = stmt
-        .query_map(params![id, cursor.time, cursor.source, cursor.id], |row| {
-            let kind: String = row.get(3)?;
-            let before_value: Option<String> = row.get(4)?;
-            let after_value: Option<String> = row.get(5)?;
-            let records_work = kind == "work_corrected" || kind == "work_removed";
-            let work_interval = |text: &Option<String>| {
-                text.as_deref()
-                    .filter(|_| records_work)
-                    .and_then(parse_stored_work_interval)
-            };
-            Ok(TaskUpdate {
-                cursor: TaskUpdateCursor {
-                    time: row.get(0)?,
-                    source: row.get(1)?,
-                    id: row.get(2)?,
-                },
-                work_before: work_interval(&before_value),
-                work_after: work_interval(&after_value),
-                before_value: before_value.filter(|_| !records_work),
-                after_value: after_value.filter(|_| !records_work),
-                kind,
-                related_task_id: row.get(6)?,
-                related_title: row.get(7)?,
-            })
-        })?
+        .query_map(
+            params![id, cursor.time, cursor.source, cursor.id],
+            map_task_update,
+        )?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let has_more = updates.len() > 50;
     updates.truncate(50);
@@ -1121,6 +1128,36 @@ pub fn list_task_updates(
     read_task_updates(&state.lock().unwrap(), id, cursor)
 }
 
+pub(crate) fn read_task_edit_events(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+) -> Result<Vec<TaskEditEvent>> {
+    let mut stmt = conn.prepare(
+        "SELECT created_at,0,id,kind,before_value,after_value,related_task_id,related_title,task_id
+         FROM task_edit_history WHERE created_at >= ?1 AND created_at < ?2
+         ORDER BY created_at DESC,id DESC",
+    )?;
+    let events = stmt
+        .query_map(params![from, to], |row| {
+            Ok(TaskEditEvent {
+                task_id: row.get(8)?,
+                update: map_task_update(row)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(events)
+}
+
+#[tauri::command]
+pub fn list_task_edit_events(
+    state: State<'_, Mutex<Connection>>,
+    from: i64,
+    to: i64,
+) -> Result<Vec<TaskEditEvent>> {
+    read_task_edit_events(&state.lock().unwrap(), from, to)
+}
+
 #[cfg(test)]
 mod update_history_tests {
     use super::*;
@@ -1134,6 +1171,87 @@ mod update_history_tests {
             conn.execute("INSERT INTO tasks(id,title,status,created_at,updated_at) VALUES(?1,?2,'active',1,1)",params![id,format!("Task {id}")]).unwrap();
         }
         conn
+    }
+
+    #[test]
+    fn timeline_edits_cover_all_tasks_and_keep_range_boundaries_and_deletion_rules() {
+        let mut conn = database();
+        conn.execute(
+            "UPDATE tasks SET title='Renamed', updated_at=10 WHERE id=1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE tasks SET value=4, effort=2, updated_at=20 WHERE id=2",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE tasks SET description='Details', updated_at=30 WHERE id=3",
+            [],
+        )
+        .unwrap();
+        record_work_history(
+            &conn,
+            1,
+            "work_corrected",
+            TaskWorkInterval {
+                started_at: 1,
+                ended_at: Some(5),
+            },
+            Some(TaskWorkInterval {
+                started_at: 2,
+                ended_at: Some(5),
+            }),
+            20,
+        )
+        .unwrap();
+        conn.execute("INSERT INTO task_status_events(task_id,from_status,to_status,created_at) VALUES(1,NULL,'active',20)", []).unwrap();
+        let events = read_task_edit_events(&conn, 10, 30).unwrap();
+        assert_eq!(events.len(), 4);
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.update.cursor.time)
+                .collect::<Vec<_>>(),
+            vec![20, 20, 20, 10]
+        );
+        assert_eq!(events[0].update.kind, "work_corrected");
+        assert_eq!(events[0].task_id, 1);
+        assert_eq!(events[0].update.work_before.unwrap().started_at, 1);
+        assert_eq!(events[0].update.work_after.unwrap().started_at, 2);
+        assert!(events[0].update.before_value.is_none());
+        assert_eq!(events[3].update.before_value.as_deref(), Some("Task 1"));
+        assert_eq!(events[3].update.after_value.as_deref(), Some("Renamed"));
+        assert_eq!(
+            read_task_edit_events(&conn, 30, 31).unwrap()[0].update.kind,
+            "description"
+        );
+        let count = events.len();
+        conn.execute("UPDATE tasks SET title=title, updated_at=20 WHERE id=1", [])
+            .unwrap();
+        assert_eq!(read_task_edit_events(&conn, 10, 30).unwrap().len(), count);
+        crate::task_graph::TaskGraph::delete_task(&mut conn, 1).unwrap();
+        let remaining = read_task_edit_events(&conn, 10, 30).unwrap();
+        assert_eq!(remaining.len(), 2);
+        assert!(remaining.iter().all(|event| event.task_id == 2));
+    }
+
+    #[test]
+    fn timeline_edit_query_includes_more_than_one_task_history_page() {
+        let conn = database();
+        for id in 1..=65 {
+            conn.execute(
+                "UPDATE tasks SET title=?1, updated_at=20 WHERE id=1",
+                [format!("Title {id}")],
+            )
+            .unwrap();
+        }
+        let events = read_task_edit_events(&conn, 20, 21).unwrap();
+        assert_eq!(events.len(), 65);
+        assert!(events
+            .windows(2)
+            .all(|pair| pair[0].update.cursor.id > pair[1].update.cursor.id));
     }
 
     #[test]

@@ -51,6 +51,7 @@ export function TimelineView({
     notes,
     taskWorkStretches,
     taskStatusEvents,
+    taskEditEvents,
     loaded,
     mutate,
   } = useDashboardData();
@@ -78,6 +79,7 @@ export function TimelineView({
         taskWorkStretches,
         historyFromSec,
         taskStatusEvents,
+        taskEditEvents,
       ).filter((event) => event.at >= range.from && event.at < range.to),
     [
       range.from,
@@ -89,6 +91,7 @@ export function TimelineView({
       notes,
       taskWorkStretches,
       taskStatusEvents,
+      taskEditEvents,
       historyFromSec,
     ],
   );

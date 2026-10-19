@@ -2,6 +2,7 @@ import type { Phase, Pulse, Task } from "../../../lib/types";
 import { NestIcon } from "../PulseIcon";
 import { phaseIcon, phaseName } from "../../lib/period";
 import { taskStatusEventLabel, taskTitle } from "../../lib/logs";
+import { TASK_UPDATE_LABEL, taskUpdateDetail } from "../../lib/taskUpdates";
 import type { RawLogEvent } from "../../lib/timeline";
 import { useTileIcons } from "../../hooks/useTileIcons";
 
@@ -24,6 +25,10 @@ export function logEventLabel(
       return "Note";
     case "phase":
       return `${phaseName(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)} phase`;
+    case "task-edit": {
+      const detail = taskUpdateDetail(event.editEvent.update);
+      return `${taskTitle(tasks, event.editEvent.taskId)} — ${TASK_UPDATE_LABEL[event.editEvent.update.kind]}${detail === null ? "" : ` · ${detail}`}`;
+    }
     case "task-status":
       return `${taskStatusEventLabel(event.statusEvent)} — ${taskTitle(tasks, event.statusEvent.taskId)}`;
     case "work-start":
@@ -59,6 +64,7 @@ export function LogEventIcon({
           name={phaseIcon(event.checkIn.phaseId, phases, event.checkIn.phaseLabel)}
         />
       );
+    case "task-edit":
     case "task-status":
     case "work-start":
     case "work-stop":

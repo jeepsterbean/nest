@@ -11,7 +11,7 @@ pub use metric::{
 pub use note::{Note, NoteTag, Tag};
 pub use phase::{Phase, PhaseCheckIn};
 pub use task::{
-    Task, TaskStatusEvent, TaskUpdate, TaskUpdateCursor, TaskUpdatePage, TaskWorkInterval,
-    TaskWorkStretch,
+    Task, TaskEditEvent, TaskStatusEvent, TaskUpdate, TaskUpdateCursor, TaskUpdatePage,
+    TaskWorkInterval, TaskWorkStretch,
 };
 pub use timer::TimerState;

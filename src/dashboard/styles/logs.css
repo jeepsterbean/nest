@@ -136,6 +136,13 @@
   overflow-wrap: anywhere;
 }
 
+.task-log__detail {
+  flex-basis: 100%;
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Logs timeline ---------- */
 
 /* Marks stay bare icons (a ring on every row reads as a column of circles).

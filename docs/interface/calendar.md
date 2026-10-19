@@ -127,6 +127,16 @@ Phase checkpoints each stand on their own. Its [Logs kinds](time-surfaces.md#log
 are the same selection Calendar's Logs figure and Insights use. Insights
 reviews the same day.
 
+Task entries include the existing [Task History](tasks.md#history) edits alongside
+creation, status changes, and work starts and stops. Each recorded edit is its
+own entry, using its recorded timestamp and the current Task title. Change
+details show previous and new values, related title snapshots, or corrected
+work times when recorded. Description edits say “Description updated”; their
+text is absent from history. Older edits appear only from when edit recording
+began. Deleting a Task removes its entries; ordering and Map placement remain
+outside Task History. Calendar’s Logs and Insights keep their existing activity
+and counting rules.
+
 The list contains only entries in the selected day, with older batches loaded as
 needed. Selecting another day resets the batch.
 The toolbar shows the selected

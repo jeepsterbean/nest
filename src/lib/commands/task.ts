@@ -7,6 +7,7 @@ import type {
   TaskWorkStretch,
   TaskUpdateCursor,
   TaskUpdatePage,
+  TaskEditEvent,
 } from "../types";
 import { isTaskLocked, localDayStartSec } from "../taskLock";
 
@@ -142,4 +143,8 @@ export function listTaskUpdates(
   cursor: TaskUpdateCursor | null = null,
 ): Promise<TaskUpdatePage> {
   return invoke("list_task_updates", { id, cursor });
+}
+
+export function listTaskEditEvents(from: number, to: number): Promise<TaskEditEvent[]> {
+  return invoke("list_task_edit_events", { from, to });
 }

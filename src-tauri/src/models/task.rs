@@ -82,3 +82,10 @@ pub struct TaskUpdatePage {
     pub has_more: bool,
     pub recording_started_at: i64,
 }
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEditEvent {
+    pub task_id: i64,
+    pub update: TaskUpdate,
+}
