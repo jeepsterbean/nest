@@ -411,8 +411,13 @@
 }
 
 .task-status-trigger--compact {
-  gap: 4px;
-  padding: 4px 7px;
+  padding: 4px;
+  border-color: transparent;
+  background: transparent;
+}
+.task-status-trigger--compact:hover,
+.task-status-trigger--compact[aria-expanded="true"] {
+  background: var(--surface-2);
 }
 
 .task-status-backdrop {

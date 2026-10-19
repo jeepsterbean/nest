@@ -25,6 +25,13 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Flushed to the right of the Section title in the sidebar head. */
+.section-sidebar__head > .task-view-select {
+  width: 96px;
+  margin-left: auto;
+  flex: none;
+}
+
 .task-header__actions {
   display: flex;
   flex-wrap: wrap;
@@ -992,27 +999,43 @@
   padding: 0;
   list-style: none;
 }
-.task-day { display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px; }
+.task-day { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+/* Each root Task and its subtree read as one group. */
+.task-day__item--root {
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
 /* The guide line hangs from the Parent's status icon column. */
 .task-day__children {
-  margin-left: 15px;
-  padding-left: 12px;
+  margin-left: 19px;
+  padding-left: 10px;
   border-left: 1px solid var(--border);
 }
 .task-day__row {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 0 8px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px 0 4px;
   border-radius: 8px;
+  cursor: grab;
+  user-select: none;
 }
+.task-day__row--root { min-height: 38px; }
 .task-day__row:hover { background: var(--surface-2); }
 .task-day__row--selected { background: var(--accent-soft); }
+.task-day__row--dragging { opacity: 0.45; }
+.task-day__row--drop-target {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
 .task-day__row--context .task-day__title,
 .task-day__row--reference .task-day__title { color: var(--muted); }
 .task-day__row--reference .task-day__title { font-style: italic; }
+.task-day__row--cancelled .task-day__title { color: var(--muted); text-decoration: line-through; }
 .task-day__title {
   min-width: 0;
   padding: 0;
@@ -1027,6 +1050,7 @@
   white-space: nowrap;
   cursor: pointer;
 }
+.task-day__row--root .task-day__title { font-size: 15px; font-weight: 600; }
 .task-day__title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .task-day__note {
   flex: none;
@@ -1036,4 +1060,26 @@
   font-variant-numeric: tabular-nums;
 }
 .task-day__note + .task-day__note { margin-left: 0; }
+.task-day__note--progress {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.task-day__note--tag { font-style: italic; }
+.task-day__root-zone {
+  position: sticky;
+  bottom: 12px;
+  padding: 12px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.task-day__root-zone--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
 .task-day__empty { margin: 0; padding: 32px 0; color: var(--muted); text-align: center; }

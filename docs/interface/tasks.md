@@ -4,8 +4,9 @@ Table, Day, Map, and Task details interactions. Records and lifecycle rules live
 [Tasks domain](../domain/tasks.md), shared terminology in
 [`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-Tasks opens in Table on each visit. The header switches between Table and Day;
-Settings can add Map to the switch, and hiding Map returns to Table and closes
+Tasks opens in Table on each visit. A dropdown beside the Section title in the sidebar switches between Table and
+Day (the Section header holds it when the sidebar is collapsed);
+Settings can add Map to the options, and hiding Map returns to Table and closes
 Task details.
 
 ## Table
@@ -215,6 +216,13 @@ A Child with several Parents shows in full under its first Parent in this order
 and as a dimmed “also shown above” row under the others. Each Parent shows
 “x/y open” for its direct Children. Rows offer the status menu and open Task
 details on a title click; New task works as in Table.
+
+Dragging a row onto another Task makes it that Task’s Child. A row dragged from
+under a Parent moves: it gains the new Parent and leaves the one it was shown
+under, while its other Parents stay; holding Alt on drop keeps the shown Parent too. While a nested row is dragged, a drop area
+below the list removes it from the Parent it was shown under. A drop that would
+link a Task to itself, to its own descendant, or twice to the same Parent is
+refused.
 
 ## Map
 
