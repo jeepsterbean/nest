@@ -856,6 +856,7 @@
   text-align: left;
   cursor: pointer;
 }
+.task-views__trigger > svg { width: 15px; height: 15px; flex: none; stroke-width: 1.8; }
 .task-views__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .task-views__label { flex: 0 0 74px; color: var(--muted); }
 .task-views__name {
@@ -1168,6 +1169,29 @@
 .task-create-card__child > span {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-saved-views .task-views__option { cursor: grab; }
+
+.task-view-drag-preview {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 4px 16px #0002;
+  pointer-events: none;
+}
+
+.task-view-drag-preview > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

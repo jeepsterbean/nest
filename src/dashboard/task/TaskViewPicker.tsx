@@ -158,8 +158,8 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
   };
 
   const viewRow = (view: SavedTaskView) => {
-    const isSelected = view.id === selected.id;
-    if (rowEdit?.kind === "rename" && rowEdit.id === view.id) {
+    const isSelected = presentation === "heading" && view.id === selected.id;
+    if (presentation === "heading" && rowEdit?.kind === "rename" && rowEdit.id === view.id) {
       return <li key={view.id}>
         <NameField text={rowEdit.text} label={`Rename ${view.name}`}
           onChange={text => setRowEdit({ ...rowEdit, text, problem: null })}
@@ -168,7 +168,7 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
         <ProblemNote problem={rowEdit.problem} onSwitch={switchTo}/>
       </li>;
     }
-    if (rowEdit?.kind === "delete" && rowEdit.id === view.id) {
+    if (presentation === "heading" && rowEdit?.kind === "delete" && rowEdit.id === view.id) {
       return <li key={view.id} className="task-views__confirm" role="group" aria-label={`Delete ${view.name}?`}>
         <span>Delete <strong>{view.name}</strong>?</span>
         <button type="button" className="task-views__link task-views__link--danger" autoFocus
@@ -184,9 +184,9 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
         : <IconPickerButton icon={view.icon} label={view.name} title={`Change icon for ${view.name}`}
             controlClassName="task-views__icon-control" triggerClassName="task-views__icon"
             onChange={icon => views.setIcon(view.id, icon as SavedTaskView["icon"])}/>}
-      <button type="button" className="menu-select__option task-views__option" aria-pressed={isSelected}
-        onClick={() => switchTo(view)}
-        title={presentation === "sidebar" ? "Drag to an edge to split; Alt + arrow key to split with the keyboard" : undefined}
+      <button type="button" className="menu-select__option task-views__option" aria-pressed={presentation === "heading" ? isSelected : undefined}
+        onClick={presentation === "heading" ? () => switchTo(view) : undefined}
+        title={presentation === "sidebar" ? "Drag onto a pane to show this view, or to an edge to split; Alt + arrow key to split with the keyboard" : undefined}
         onPointerDown={event => onViewPointerDown?.(event, view.id)}
         onKeyDown={event => {
           const edge = taskPaneEdgeForArrow(event.key);
@@ -195,7 +195,7 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
         <span>{view.name}</span>
         {isSelected && <span className="menu-select__check" aria-hidden="true">{checkIcon}</span>}
       </button>
-      {view.id !== RAW_TASK_VIEW_ID && <span className="task-views__actions">
+      {presentation === "heading" && !isRaw && <span className="task-views__actions">
         <button type="button" aria-label={`Rename ${view.name}`} title="Rename"
           onClick={() => setRowEdit({ kind: "rename", id: view.id, text: view.name, problem: null })}>{editIcon}</button>
         <button type="button" aria-label={`Delete ${view.name}`} title="Delete"
@@ -231,6 +231,7 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
       aria-label={`Task view: ${selected.name}${edited ? ", unsaved changes" : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onClick={() => setOpen(!open)}>
+      <NestIcon name={selected.icon}/>
       <span className="task-views__name">{selected.name}</span>
     </button>
     {edited && <span className="task-views__changes">

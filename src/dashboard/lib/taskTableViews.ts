@@ -49,7 +49,7 @@ export type SavedTaskViewResult =
 export type SavedTaskViewState = { views: SavedTaskView[]; selectedId: string };
 
 // Short enough to scan at a glance in the picker.
-export const MAX_SAVED_TASK_VIEWS = 5;
+export const MAX_SAVED_TASK_VIEWS = 10;
 
 /** Fits the heading trigger and picker list; the heading name clips at 24ch. */
 export const SAVED_TASK_VIEW_NAME_MAX = 24;

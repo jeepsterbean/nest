@@ -16,7 +16,7 @@ First visit selects Raw in a single pane. The Section sidebar lists saved views
 as rows under a New task action. New task applies to the selected pane, whose
 heading is highlighted. Each pane’s vertical three-dot More menu offers a Nest by Parent toggle and
 Close view. Close view applies to that pane and is disabled for the final pane. Collapsing the sidebar moves its controls into the
-selected pane. Saved-view creation lives only in the pane heading's view menu. Each pane's heading shows its view and result count.
+selected pane. Saved-view creation lives only in the pane heading's view menu. Each pane's heading shows its view icon, name, and result count.
 Filters, Sort, and Hidden open rule menus from icon buttons with active counts in the pane heading. Clicking the view name opens the saved-view list. Table rows
 indicate Working now. Empty Value, Effort, and Closed cells show `—`.
 
@@ -25,8 +25,9 @@ indicate Working now. Empty Value, Effort, and Closed cells show `—`.
 Drag a saved-view row onto a pane's left, right, top, or bottom edge to open it
 in a new split. A preview shows the destination before release. Splits can be
 nested in either direction. Dropping a saved view in the center loads it in that
-pane, discarding that pane's unsaved query changes. Clicking a saved-view row
-also loads it in the selected pane. Each pane's heading offers a view picker.
+pane, discarding that pane's unsaved query changes. Sidebar rows only load views
+through dragging; clicking leaves every pane unchanged. A preview with the view's
+icon and name follows the pointer during dragging. Each pane's heading offers a view picker.
 
 Drag a pane's header surface, outside its interactive controls, to an edge of another pane to move it, or to the center to
 swap their positions. Moving preserves its query, drafts, and table scroll
@@ -153,7 +154,7 @@ status (`≠ Cancelled`). Truncated values expose their full text in a tooltip.
 ### Saved views
 
 A saved view keeps all filters, ordered sorts, Nest by Parent, and column order,
-widths, and visibility. Up to five views, including Raw, appear in creation order; names are
+widths, and visibility. Up to ten views, including Raw, appear in creation order; names are
 unique ignoring case. Raw always loads all statuses, no filters or sorts, and
 default columns. It cannot be renamed, overwritten, or deleted.
 
@@ -166,10 +167,11 @@ receives one on load. Escape closes the icon grid and returns focus to its
 trigger, keeping the view menu open.
 
 “Save current as view” creates and selects a view, and is disabled when the query
-matches the selected view or five views exist. Duplicate queries are refused
+matches the selected view or ten views exist. Duplicate queries are refused
 with a link to the matching view.
 
-Custom views support Rename and inline-confirmed Delete. Deleting the selected
+Custom views support Rename and inline-confirmed Delete in the pane heading’s
+view menu. Deleting the selected
 view loads Raw. Saved views persist across launches; pane selection and query restoration follow
 [Split panes](#split-panes). Saved views apply only to Table; Map remains unfiltered.
 

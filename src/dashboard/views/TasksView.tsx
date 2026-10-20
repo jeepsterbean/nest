@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
+import { NestIcon } from "../components/PulseIcon";
 import { TaskSavedViewsProvider, useTaskSavedViews } from "../context/TaskSavedViewsContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
@@ -39,7 +41,7 @@ function TaskWorkspace({ sectionSidebar, visible }: { sectionSidebar: HTMLElemen
   // Divider drags change the ratio on every move; the layout is stored once when the drag ends.
   const [resizing, setResizing] = useState(false);
   const suppressClick = useRef(false);
-  const [drag, setDrag] = useState<{ source: DragSource; target: DropTarget | null } | null>(null);
+  const [drag, setDrag] = useState<{ source: DragSource; target: DropTarget | null; x: number; y: number } | null>(null);
   const minimum = useMemo(() => taskLayoutMinimum(workspace.layout), [workspace.layout]);
   const width = Math.max(size.width, minimum.width);
   const height = Math.max(size.height, minimum.height);
@@ -137,9 +139,9 @@ function TaskWorkspace({ sectionSidebar, visible }: { sectionSidebar: HTMLElemen
       onStart: () => {
         suppressClick.current = true;
         document.documentElement.classList.add("task-pane-drag-in-progress");
-        setDrag({ source, target: null });
+        setDrag({ source, target: null, x: event.clientX, y: event.clientY });
       },
-      onMove: move => setDrag({ source, target: targetAt(move) }),
+      onMove: move => setDrag({ source, target: targetAt(move), x: move.clientX, y: move.clientY }),
       onEnd: (up, dragged) => {
         const target = dragged ? targetAt(up) : null;
         if (target) commitDrop(source, target);
@@ -177,7 +179,8 @@ function TaskWorkspace({ sectionSidebar, visible }: { sectionSidebar: HTMLElemen
   const dropPane = drag?.target ? workspace.panes.find(pane => pane.id === drag.target?.paneId) : null;
   const dropRect = dropPane ? measured.panes.get(dropPane.id) : null;
   const sourceViewId = drag?.source.kind === "view" ? drag.source.viewId : workspace.panes.find(pane => drag?.source.kind === "pane" && pane.id === drag.source.paneId)?.viewId;
-  const dragName = saved.views.find(view => view.id === sourceViewId)?.name ?? "view";
+  const draggedView = saved.views.find(view => view.id === sourceViewId);
+  const dragName = draggedView?.name ?? "view";
   const selfDrop = drag?.source.kind === "pane" && drag.source.paneId === drag.target?.paneId;
 
   return <section className="dash-section dash-section--tasks task-split-workspace" aria-label="Tasks workspace"
@@ -210,6 +213,12 @@ function TaskWorkspace({ sectionSidebar, visible }: { sectionSidebar: HTMLElemen
           style={dropRect}><div>{drag.target.placement === "center" ? drag.source.kind === "pane" ? "Swap panes" : `Show ${dragName}` : `Open ${dragName} here`}</div></div>}
       </div>
     </div>
+    {drag?.source.kind === "view" && draggedView && createPortal(
+      <div className="task-view-drag-preview" aria-hidden="true" style={{ left: drag.x + 12, top: drag.y + 12 }}>
+        <NestIcon name={draggedView.icon}/><span>{draggedView.name}</span>
+      </div>,
+      sectionSidebar?.closest(".dashboard") ?? viewport.current?.closest(".dashboard") ?? document.body,
+    )}
     <div ref={setOverlayHost} className="task-workspace-overlays" />
     <span className="task-pane-announcement" role="status">{drag?.target && !selfDrop ? `Place ${dragName}: ${drag.target.placement}` : ""}</span>
   </section>;
