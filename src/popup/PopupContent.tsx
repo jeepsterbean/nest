@@ -52,6 +52,7 @@ import {
 } from "../dashboard/lib/tasks";
 import { CARD_CONTROLS, useListSort } from "../dashboard/hooks/useListSort";
 import {
+  clearNoteDraftIfUnchanged,
   isNoteSubmitShortcut,
   trimNoteDraft,
   useNoteDraft,
@@ -385,14 +386,14 @@ function PopupNote({
   );
 
   const submitDraft = async () => {
-    if (busy || !trimNoteDraft(draft)) return;
+    const submitted = { text: draft.text, tagIds: [...draft.tagIds] };
+    if (busy || !trimNoteDraft(submitted)) return;
     onBusyChange(true);
     onError(null);
     try {
-      await submitNote(draft.text, draft.tagIds);
-      setDraft({ text: "", tagIds: [] });
+      await submitNote(submitted.text, submitted.tagIds);
+      clearNoteDraftIfUnchanged(submitted);
       await history.refresh();
-      await emit("data-changed");
     } catch (e) {
       onError(String(e));
     } finally {

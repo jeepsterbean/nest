@@ -301,6 +301,7 @@ pub fn delete_tag(app: AppHandle, state: State<'_, Mutex<Connection>>, id: i64) 
 
 #[tauri::command]
 pub fn submit_note(
+    app: AppHandle,
     state: State<'_, Mutex<Connection>>,
     text: String,
     tag_ids: Vec<i64>,
@@ -309,8 +310,13 @@ pub fn submit_note(
     if note_plain_text(&text_clean).trim().is_empty() {
         return Err(AppError::InvalidInput("note cannot be empty".into()));
     }
-    let mut conn = state.lock().unwrap();
-    record_note(&mut conn, text_clean, &tag_ids, now_unix_secs())
+    let note = {
+        let mut conn = state.lock().unwrap();
+        record_note(&mut conn, text_clean, &tag_ids, now_unix_secs())?
+    };
+    // The Popup keeps its own recent Notes and refreshes them on this event.
+    let _ = app.emit("data-changed", ());
+    Ok(note)
 }
 
 #[tauri::command]

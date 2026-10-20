@@ -21,8 +21,8 @@ const subscribers = new Set<(draft: NoteDraft) => void>();
 let channel: BroadcastChannel | null = null;
 let listeningForStorage = false;
 
-function readDraft(): NoteDraft {
-  if (typeof window === "undefined") return EMPTY_DRAFT;
+function readDraft(fallback: NoteDraft = EMPTY_DRAFT): NoteDraft {
+  if (typeof window === "undefined") return fallback;
   try {
     const storedIds = JSON.parse(
       readMigratedStorageValue(
@@ -42,7 +42,7 @@ function readDraft(): NoteDraft {
         : [],
     };
   } catch {
-    return EMPTY_DRAFT;
+    return fallback;
   }
 }
 
@@ -71,6 +71,21 @@ function sameDraft(a: NoteDraft, b: NoteDraft) {
     a.text === b.text &&
     a.tagIds.length === b.tagIds.length &&
     a.tagIds.every((id, index) => id === b.tagIds[index])
+  );
+}
+
+/** A save finishes while the draft is still editable. Text or Tags typed
+ * during that save must stay, so the draft is clearable only when it still
+ * matches the snapshot that was submitted. */
+export function noteDraftUnchanged(current: NoteDraft, submitted: NoteDraft) {
+  return sameDraft(current, submitted);
+}
+
+export function clearNoteDraftIfUnchanged(submitted: NoteDraft) {
+  // The other window can persist an edit before its sync notification arrives.
+  updateDraft(readDraft(currentDraft));
+  setNoteDraft((current) =>
+    noteDraftUnchanged(current, submitted) ? EMPTY_DRAFT : current,
   );
 }
 
@@ -248,6 +263,9 @@ export function setNoteDraft(
 ) {
   startSync();
   const next = typeof update === "function" ? update(currentDraft) : update;
+  // Identical content is already stored. Writing it again would replace a
+  // newer draft the other window stored after this copy was read.
+  if (sameDraft(currentDraft, next)) return;
   storeDraft(next);
   updateDraft(next);
   channel?.postMessage(null);

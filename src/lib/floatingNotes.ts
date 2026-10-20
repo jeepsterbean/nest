@@ -4,7 +4,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { NoteDraft } from "./noteDraft";
+import { noteDraftUnchanged, type NoteDraft } from "./noteDraft";
 import {
   noteHtmlToPlainText,
   trimNoteHtml,
@@ -518,6 +518,17 @@ export function createFloatingFromDraft(
   };
 }
 
+/** Drop a sticky after save only when its text and Tags still match the snapshot. */
+export function floatingNotesAfterSave(
+  notes: FloatingNote[],
+  id: string,
+  submitted: NoteDraft,
+): FloatingNote[] {
+  const note = notes.find((item) => item.id === id);
+  if (!note || !noteDraftUnchanged(note, submitted)) return notes;
+  return notes.filter((item) => item.id !== id);
+}
+
 export function useFloatingNotes() {
   const [notes, setNotes] = useState<FloatingNote[]>(() =>
     readFloatingNotes(),
@@ -571,6 +582,13 @@ export function useFloatingNotes() {
   const removeNote = useCallback((id: string) => {
     setNotes((current) => current.filter((note) => note.id !== id));
   }, []);
+
+  const removeUnchangedNote = useCallback(
+    (id: string, submitted: NoteDraft) => {
+      setNotes((current) => floatingNotesAfterSave(current, id, submitted));
+    },
+    [],
+  );
 
   const addNote = useCallback((note: FloatingNote) => {
     setNotes((current) => [
@@ -669,6 +687,7 @@ export function useFloatingNotes() {
     addNote,
     updateNote,
     removeNote,
+    removeUnchangedNote,
     dockNote,
     undockNote,
     updateBoard,

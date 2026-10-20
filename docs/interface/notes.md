@@ -12,8 +12,10 @@ Domain rules live in [Notes domain](../domain/notes.md).
 The text supports emphasis, per-row sizes, and bulleted, numbered, checklist,
 and collapsible lists. The popup and the Notes Section on Today share
 the text and selected-tag draft (Cmd/Ctrl+Enter to save), persisted in
-`nest:note-draft` and `nest:note-draft-tags`. The Today
-composer and popup editor headers show the current clock time, updating each minute.
+`nest:note-draft` and `nest:note-draft-tags`. A save clears that draft, or
+removes a sticky, only when its text and Tags have not changed since that
+save started. The Today composer and popup editor headers show the current
+clock time, updating each minute.
 Shift+Enter on the Today composer peels the live draft into a floating
 sticky. The popup browses the five most recent saved notes. Saved checklist
 boxes show their recorded state in history, Timeline, and Calendar Logs; edit

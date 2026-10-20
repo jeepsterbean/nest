@@ -3,25 +3,18 @@ import { useCallback, useState } from "react";
 import {
   readRecapDateRangeMode,
   writeRecapDateRangeMode,
-  type RecapDateRangeStore,
   type RecapPresentation,
   type RangeModeKey,
 } from "../lib/insights";
 import { useDateRange } from "./useDateRange";
 
-const recapDateRangeStore: RecapDateRangeStore = {
-  read: () => readRecapDateRangeMode(),
-  write: (mode) => writeRecapDateRangeMode(mode),
-};
-
 /** The Recap Section's date range. Day / Week belongs to Calendar; Timeline
  * always reads the selected day and leaves Calendar's choice stored, so
  * returning to Calendar reopens the week that contains that day. */
-export function useRecapDateRange(
-  presentation: RecapPresentation,
-  store: RecapDateRangeStore = recapDateRangeStore,
-) {
-  const [calendarMode, setMode] = useState<RangeModeKey>(() => store.read());
+export function useRecapDateRange(presentation: RecapPresentation) {
+  const [calendarMode, setMode] = useState<RangeModeKey>(() =>
+    readRecapDateRangeMode(),
+  );
   const mode = presentation === "timeline" ? "day" : calendarMode;
   const dates = useDateRange(mode);
 
@@ -30,9 +23,9 @@ export function useRecapDateRange(
       // Timeline's Day is a readout; pressing it must keep Calendar's stored Week.
       if (presentation === "timeline") return;
       setMode(key);
-      store.write(key);
+      writeRecapDateRangeMode(key);
     },
-    [presentation, store],
+    [presentation],
   );
 
   return {

@@ -157,24 +157,6 @@ pub fn list_pulses(state: State<'_, Mutex<Connection>>) -> Result<Vec<Pulse>> {
     ids.into_iter().map(|id| fetch_pulse(&conn, id)).collect()
 }
 
-#[tauri::command]
-pub fn create_pulse(state: State<'_, Mutex<Connection>>, name: String) -> Result<Pulse> {
-    let name = name.trim().to_string();
-    if name.is_empty() {
-        return Err(AppError::InvalidInput("pulse name cannot be empty".into()));
-    }
-    let conn = state.lock().unwrap();
-    conn.execute(
-        "INSERT INTO pulses (name, created_at, sort_order) VALUES ( \
-           ?1, \
-           ?2, \
-           COALESCE((SELECT MAX(sort_order) FROM pulses), -1) + 1 \
-         )",
-        params![name, now_unix_secs()],
-    )?;
-    fetch_pulse(&conn, conn.last_insert_rowid())
-}
-
 /// Creates a Pulse together with its Metrics and memberships in one
 /// transaction, so a failure at any step stores none of them. Everything that
 /// can be checked is checked before the first write; the transaction covers

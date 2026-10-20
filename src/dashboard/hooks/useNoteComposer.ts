@@ -1,6 +1,7 @@
 import { useCallback, useState, type KeyboardEvent } from "react";
 import { submitNote } from "../../lib/commands";
 import {
+  clearNoteDraftIfUnchanged,
   isNotePeelShortcut,
   isNoteSubmitShortcut,
   trimNoteDraft,
@@ -27,11 +28,12 @@ export function useNoteComposer() {
   );
 
   const submit = async (afterSubmit?: () => Promise<void>) => {
-    if (submitting || !trimNoteDraft(draft)) return;
+    const submitted = { text: draft.text, tagIds: [...draft.tagIds] };
+    if (submitting || !trimNoteDraft(submitted)) return;
     setSubmitting(true);
-    const ok = await mutate(() => submitNote(draft.text, draft.tagIds));
+    const ok = await mutate(() => submitNote(submitted.text, submitted.tagIds));
     if (ok) {
-      setDraft({ text: "", tagIds: [] });
+      clearNoteDraftIfUnchanged(submitted);
       await afterSubmit?.();
     }
     setSubmitting(false);
