@@ -137,25 +137,19 @@ function DashboardInner() {
               range={recapDateRange}
             />
           )}
-          {/* Away from Recap, these four stay mounted so filters, selection,
-              and unsent names survive switches between them. Tasks alone
-              returns to Day and closes its Task detail on leaving. */}
-          {!onRecap && (
-            <>
-              <div className="section-slot" hidden={section !== "notes"}>
-                <NotesView sectionSidebar={sectionSidebar} visible={section === "notes"} />
-              </div>
-              <div className="section-slot" hidden={section !== "tasks"}>
-                <TasksView sectionSidebar={sectionSidebar} visible={section === "tasks"} />
-              </div>
-              <div className="section-slot" hidden={section !== "metrics"}>
-                <MetricsView sectionSidebar={sectionSidebar} visible={section === "metrics"} />
-              </div>
-              <div className="section-slot" hidden={section !== "phases"}>
-                <PhasesView />
-              </div>
-            </>
-          )}
+          {/* Keep Section state alive across every navigation, including Recap. */}
+          <div className="section-slot" hidden={section !== "notes"}>
+            <NotesView sectionSidebar={sectionSidebar} visible={section === "notes"} />
+          </div>
+          <div className="section-slot" hidden={section !== "tasks"}>
+            <TasksView sectionSidebar={sectionSidebar} visible={section === "tasks"} />
+          </div>
+          <div className="section-slot" hidden={section !== "metrics"}>
+            <MetricsView sectionSidebar={sectionSidebar} visible={section === "metrics"} />
+          </div>
+          <div className="section-slot" hidden={section !== "phases"}>
+            <PhasesView />
+          </div>
         </div>
         <StatusMenu />
       </FloatingNotesProvider>

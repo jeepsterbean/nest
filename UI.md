@@ -89,10 +89,10 @@ portaled menu has to be scoped from a dashboard-level class, as
 - `.dashboard__inner` takes the active Section's layout class (`--notes`,
   `--tasks`, `--metrics`, `--phases`; Recap uses `--calendar` or
   `--timeline`).
-- Away from Recap, Notes, Tasks, Metrics, and Phases all stay mounted
-  (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
-  selection, and drafts survive switches between them. Tasks alone returns to
-  Table and closes its Task detail on leaving. Opening Recap unmounts them.
+- Notes, Tasks, Metrics, and Phases stay mounted (`.section-slot`) and inactive
+  ones are hidden with `hidden`, so their state survives Section switches,
+  including visits to Recap. Tasks closes transient details and dialogs on leaving;
+  its display state follows [Tasks interface](docs/interface/tasks.md).
 
 ## Shared surfaces
 
@@ -114,8 +114,8 @@ saved definitions across panes; `useTaskTableViews` keeps local query drafts.
 Each table's `.task-query` holds `TaskQueryGroup` popovers for Filters, Sort,
 and Hidden. Each filter and sort row is a `TaskQueryRuleMenu` that opens the
 same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows.
-Table details portal to the workspace's overlay host. Tasks resets panes to
-Table when leaving the Section; queries and drafts stay mounted.
+Table details portal to the workspace's overlay host. Queries, drafts, and the
+Table / Map selection stay mounted across Section switches.
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child
 edges for Table, Map, and Task details. The Map draws connectors as an SVG

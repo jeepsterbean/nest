@@ -183,12 +183,9 @@ export function TaskPane({
     if (mapHidden) setSelectedTaskId(null);
   }, [mapHidden]);
 
-  // Tasks stays mounted while hidden, so leaving the Section resets each pane.
+  // Close transient details while keeping each pane's display state for the next visit.
   useEffect(() => {
-    if (!visible) {
-      setTaskView("table");
-      setSelectedTaskId(null);
-    }
+    if (!visible) setSelectedTaskId(null);
   }, [visible]);
   useEffect(() => {
     if (!visible || visibleTaskView !== "table") setOpenQueryMenu(null);

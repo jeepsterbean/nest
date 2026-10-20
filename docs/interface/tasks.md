@@ -4,8 +4,11 @@ Table, Map, and Task details interactions. Records and lifecycle rules live in
 [Tasks domain](../domain/tasks.md), shared terminology in
 [`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-Each pane opens in Table on each visit. Settings can enable the Table / Map switch
-for the selected pane; hiding Map returns panes to Table and closes Task details.
+Each pane opens in Table after launch. Section switches, including visits to Recap,
+preserve each pane's Table / Map selection, query changes, collapsed Parents, drafts,
+and scroll position. Leaving Tasks closes Task details, creation dialogs, and query
+menus. Settings can enable the Table / Map switch for the selected pane; hiding Map
+returns panes to Table and closes Task details.
 
 ## Table
 
