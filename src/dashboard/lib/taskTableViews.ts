@@ -1,6 +1,7 @@
 import type { TaskStatus } from "../../lib/types";
 import type { TaskColumnSort } from "./taskColumnSort";
 import { TASK_DATE_PRESETS, type TaskDateFilter } from "./taskDateFilter";
+import { isNestIconKey, NEST_ICONS, type NestIconKey } from "../components/PulseIcon";
 import { normalizeScoreFilter, sameScoreFilter, type TaskScoreFilter } from "./taskScoreFilter";
 import {
   normalizeTaskTableLayout,
@@ -33,7 +34,7 @@ export type TaskTableQuery = {
   columns: TaskTableColumn[];
 };
 
-export type SavedTaskView = { id: string; name: string; query: TaskTableQuery };
+export type SavedTaskView = { id: string; name: string; icon: NestIconKey; query: TaskTableQuery };
 
 export type SavedTaskViewProblem =
   | { kind: "blank" }
@@ -78,7 +79,26 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
 const RAW_TASK_VIEW: SavedTaskView = {
   id: RAW_TASK_VIEW_ID,
   name: "Raw",
+  icon: "layout-grid",
   query: DEFAULT_TASK_TABLE_QUERY,
+};
+
+/** Random among icons no saved view uses yet, so new views start visually distinct. */
+const pickUnusedViewIcon = (views: SavedTaskView[], random = Math.random): NestIconKey => {
+  const used = new Set(views.map((view) => view.icon));
+  const free = NEST_ICONS.filter(({ key }) => !used.has(key));
+  return (free[Math.floor(random() * free.length)] ?? NEST_ICONS[0]!).key;
+};
+
+/** Deterministic so a view saved before icons existed keeps the same icon across reloads until storage is rewritten. */
+const migratedViewIcon = (id: string, used: Set<string>): NestIconKey => {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  for (let step = 0; step < NEST_ICONS.length; step += 1) {
+    const { key } = NEST_ICONS[(hash + step) % NEST_ICONS.length]!;
+    if (!used.has(key)) return key;
+  }
+  return NEST_ICONS[0]!.key;
 };
 
 const sameDateFilter = (a: TaskDateFilter, b: TaskDateFilter) =>
@@ -171,6 +191,7 @@ export function createSavedTaskView(
   query: TaskTableQuery,
   name: string,
   now = Date.now(),
+  random = Math.random,
 ): SavedTaskViewResult {
   const trimmed = clipName(name);
   if (!trimmed) return { ok: false, problem: { kind: "blank" } };
@@ -178,7 +199,7 @@ export function createSavedTaskView(
   if (isNameTaken(views, trimmed)) return { ok: false, problem: { kind: "nameTaken" } };
   const match = findQueryMatch(views, query);
   if (match) return { ok: false, problem: { kind: "duplicate", match } };
-  return { ok: true, views: [...views, { id: `view-${now}`, name: trimmed, query }] };
+  return { ok: true, views: [...views, { id: `view-${now}`, name: trimmed, icon: pickUnusedViewIcon(views, random), query }] };
 }
 
 export function overwriteSavedTaskView(
@@ -203,6 +224,9 @@ export function renameSavedTaskView(
   if (isNameTaken(views, trimmed, id)) return { ok: false, problem: { kind: "nameTaken" } };
   return { ok: true, views: views.map((view) => (view.id === id ? { ...view, name: trimmed } : view)) };
 }
+
+export const setSavedTaskViewIcon = (views: SavedTaskView[], id: string, icon: NestIconKey) =>
+  id === RAW_TASK_VIEW_ID ? views : views.map((view) => (view.id === id ? { ...view, icon } : view));
 
 export const deleteSavedTaskView = (views: SavedTaskView[], id: string) =>
   id === RAW_TASK_VIEW_ID ? views : views.filter((view) => view.id !== id);
@@ -269,6 +293,10 @@ export const normalizeSavedTaskViews = (stored: unknown): SavedTaskViewState => 
   const record = isRecord(stored) ? stored : {};
   const rows = Array.isArray(record.views) ? record.views : [];
   const views: SavedTaskView[] = [];
+  const usedIcons = new Set<string>([RAW_TASK_VIEW.icon]);
+  for (const row of rows) {
+    if (isRecord(row) && isNestIconKey(row.icon)) usedIcons.add(row.icon);
+  }
   for (const row of rows) {
     if (!isRecord(row) || typeof row.id !== "string" || typeof row.name !== "string") continue;
     if (row.id === RETIRED_OPEN_TASK_VIEW_ID || row.id === RAW_TASK_VIEW_ID) continue;
@@ -279,7 +307,9 @@ export const normalizeSavedTaskViews = (stored: unknown): SavedTaskViewState => 
       || isNameTaken(views, name)
       || normalizeName(name) === normalizeName(RAW_TASK_VIEW.name)
     ) continue;
-    views.push({ id: row.id, name, query: normalizeQuery(row.query) });
+    const icon = isNestIconKey(row.icon) ? row.icon : migratedViewIcon(row.id, usedIcons);
+    usedIcons.add(icon);
+    views.push({ id: row.id, name, icon, query: normalizeQuery(row.query) });
   }
   // Always inject the locked empty home rather than replaying a stored Raw row.
   views.unshift({ ...RAW_TASK_VIEW, query: { ...RAW_TASK_VIEW.query } });

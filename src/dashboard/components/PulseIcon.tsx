@@ -303,7 +303,8 @@ export function IconPicker({
  * sibling's press as inside.
  *
  * Escape is handled on `document` (WKWebView does not focus a clicked
- * button, so the trigger may not hold focus) and marks the event
+ * button, so the trigger may not hold focus), during capture so parent
+ * menus yield regardless of listener registration order. It marks the event
  * `defaultPrevented`, so a surrounding overlay can leave itself open.
  */
 export function IconPickerButton({
@@ -358,10 +359,10 @@ export function IconPickerButton({
       triggerRef.current?.focus();
     };
     document.addEventListener("pointerdown", closeOnOutsidePress);
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape, true);
     return () => {
       document.removeEventListener("pointerdown", closeOnOutsidePress);
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", closeOnEscape, true);
     };
   }, [open]);
 

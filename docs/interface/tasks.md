@@ -10,10 +10,10 @@ for the selected pane; hiding Map returns panes to Table and closes Task details
 ## Table
 
 First visit selects Raw in a single pane. The Section sidebar lists saved views
-as rows, followed by Nest by Parent and New task. Those actions apply to the
-selected pane, whose heading is highlighted. Collapsing the sidebar moves its
-controls into the selected pane; saved-view creation remains available in the
-pane heading's view menu. Each pane's heading shows its view and result count.
+as rows under a New task action. New task applies to the selected pane, whose
+heading is highlighted. Nest by Parent is a toggle beside Filters, Sort, and
+Hidden above the table. Collapsing the sidebar moves its controls into the
+selected pane. Saved-view creation lives only in the pane heading's view menu. Each pane's heading shows its view and result count.
 Filters, Sort, and Hidden open rule menus in a row above its table. Table rows
 indicate Working now.
 
@@ -154,6 +154,12 @@ default columns. It cannot be renamed, overwritten, or deleted.
 
 Changes expose Save and Revert; Save is disabled on Raw. Matching the selected
 view clears the changed state. Switching views discards unsaved changes.
+Each saved view has an icon shown before its name in the sidebar and the view
+menu. A new view gets a random icon no saved view uses; clicking the icon opens a
+grid to change it. Raw's icon is fixed, and a view saved before icons existed
+receives one on load. Escape closes the icon grid and returns focus to its
+trigger, keeping the view menu open.
+
 “Save current as view” creates and selects a view, and is disabled when the query
 matches the selected view or five views exist. Duplicate queries are refused
 with a link to the matching view.

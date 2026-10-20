@@ -317,24 +317,19 @@ export function TaskPane({
         onOpenColumnChange={column => setOpenQueryMenu(column ? `sort:${column}` : null)} />
       <TaskHiddenColumnRules columns={tableColumns.hiddenColumns} savedHiddenIds={savedHiddenColumnIds}
         onShow={tableColumns.showColumn} onShowAll={tableColumns.showAllColumns} />
-
+      <button type="button"
+        className={`task-query__toggle${tableNested ? " is-on" : ""}${changedFields.has("nested") ? " is-edited" : ""}`}
+        aria-pressed={tableNested}
+        title={`Nest ${taskTableViews.selected.name} by Parent`}
+        onClick={() => patchTableQuery({ nested: !tableNested })}>
+        Nest by Parent
+      </button>
     </div>
   );
 
   const sidebarControls = (
     <div className="task-pane-sidebar" inert={creatingTask || (selectedTaskId !== null && visibleTaskView !== "map")}>
       {viewSwitch}
-      <TaskViewPicker views={taskTableViews} presentation="sidebar" onViewPointerDown={onViewPointerDown} onSplit={onSplit} />
-      <div className="task-pane-sidebar__actions">
-      <button
-        type="button"
-        className={`task-nest-toggle${tableNested ? " is-on" : ""}${changedFields.has("nested") ? " is-edited" : ""}`}
-        aria-pressed={tableNested}
-        title={`Nest ${taskTableViews.selected.name} by Parent`}
-        onClick={() => patchTableQuery({ nested: !tableNested })}
-      >
-        Nest by Parent
-      </button>
       <button
         ref={newTaskButtonRef}
         type="button"
@@ -348,6 +343,9 @@ export function TaskPane({
         {plusIcon}
         New task
       </button>
+      <div className="task-pane-sidebar__views">
+        <h3 className="task-pane-sidebar__label">Views</h3>
+        <TaskViewPicker views={taskTableViews} presentation="sidebar" onViewPointerDown={onViewPointerDown} onSplit={onSplit} />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { checkIcon, chevronDownIcon, editIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
+import { IconPickerButton, NestIcon } from "../components/PulseIcon";
 import { taskPaneEdgeForArrow, type TaskPaneEdge } from "../lib/taskPaneLayout";
 import type { TaskTableViews } from "../hooks/useTaskTableViews";
 import { placeMenuSelect, type MenuSelectBox } from "../lib/placeMenuSelect";
@@ -176,7 +177,13 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
         <button type="button" className="task-views__link" onClick={() => setRowEdit(null)}>Keep</button>
       </li>;
     }
+    const isRaw = view.id === RAW_TASK_VIEW_ID;
     return <li key={view.id} className="task-views__row">
+      {isRaw
+        ? <span className="task-views__icon task-views__icon--fixed"><NestIcon name={view.icon}/></span>
+        : <IconPickerButton icon={view.icon} label={view.name} title={`Change icon for ${view.name}`}
+            controlClassName="task-views__icon-control" triggerClassName="task-views__icon"
+            onChange={icon => views.setIcon(view.id, icon as SavedTaskView["icon"])}/>}
       <button type="button" className="menu-select__option task-views__option" aria-pressed={isSelected}
         onClick={() => switchTo(view)}
         title={presentation === "sidebar" ? "Drag to an edge to split; Alt + arrow key to split with the keyboard" : undefined}
@@ -212,11 +219,9 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
           </button>
   );
 
+  // Saved-view creation lives in the heading menu; the sidebar only lists views.
   if (presentation === "sidebar") return <div className="task-saved-views">
     <ul className="task-views__list" aria-label="Saved task views">{views.views.map(viewRow)}</ul>
-    <div className="task-saved-views__create">
-      {createControl}
-    </div>
   </div>;
 
   return <>

@@ -561,26 +561,6 @@
   gap: 8px;
 }
 
-/* margin-left: auto pushes the toggle and New task together to the right of the result count. */
-.task-nest-toggle {
-  flex: none;
-  height: 30px;
-  margin-left: auto;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.task-nest-toggle:hover { border-color: var(--accent); background: var(--accent-soft); }
-.task-nest-toggle.is-on { border-color: var(--accent); background: var(--accent-soft); }
-.task-nest-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
 .task-new-button {
   display: inline-flex;
   align-items: center;
@@ -600,6 +580,8 @@
 }
 .task-new-button svg { width: 14px; height: 14px; color: var(--accent); }
 .task-new-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.task-pane-sidebar > .task-new-button { width: 100%; justify-content: center; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--accent-soft); }
+.task-pane-sidebar > .task-new-button:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
 .task-new-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @keyframes task-create-fade {
@@ -948,11 +930,40 @@
 }
 
 .task-views__list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
-.task-views__row { position: relative; display: flex; align-items: center; }
+.task-views__row { position: relative; display: flex; flex-wrap: wrap; align-items: center; }
 .task-views__row .task-views__option { flex: 1; }
-/* Row actions stay out of the way until the row is hovered or focused. */
+/* The icon grid opens inline under its row: the sidebar and the views menu both scroll, so a floating popover would clip. */
+.task-views__icon-control { display: contents; }
+.task-views__icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.task-views__icon--fixed { cursor: default; }
+.task-views__icon svg { width: 15px; height: 15px; stroke-width: 1.8; }
+.task-views__icon:not(.task-views__icon--fixed):is(:hover, [aria-expanded="true"]) { background: var(--surface-2); color: var(--ink); }
+.task-views__icon:focus-visible { outline: 2px solid var(--accent); }
+.task-views__row .icon-picker {
+  position: static;
+  order: 1;
+  width: 100%;
+  margin: 2px 0 4px;
+  box-shadow: none;
+}
+.task-views__row .icon-picker__grid { grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); max-height: 180px; }
+.task-views__row .icon-picker button { width: auto; height: 32px; }
+/* Anchor actions to the 26px header while the inline icon grid expands below it. */
 .task-views__actions {
   position: absolute;
+  top: 2px;
   right: 22px;
   display: none;
   gap: 1px;
@@ -1077,6 +1088,11 @@
 .task-query__group-trigger svg { width: 12px; height: 12px; }
 .task-query__group-trigger:is(:hover, [aria-expanded="true"]) { color: var(--ink); background: var(--surface-2); }
 .task-query__group-trigger:focus-visible { outline: 2px solid var(--accent); }
+.task-query__toggle { display: flex; align-items: center; min-height: 28px; padding: 3px 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.task-query__toggle:hover { color: var(--ink); background: var(--surface-2); }
+.task-query__toggle.is-on { color: var(--ink); background: var(--surface-2); font-weight: 600; }
+.task-query__toggle.is-edited { background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.task-query__toggle:focus-visible { outline: 2px solid var(--accent); }
 .task-query__popover { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
 .task-query__popover :is(ul, ol) { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .task-query__popover .task-query__head { padding: 0 4px; font-size: 12px; }
@@ -1112,18 +1128,20 @@
 .task-workspace-overlays { position: absolute; inset: 0; z-index: 70; pointer-events: none; }
 .task-workspace-overlays > * { pointer-events: auto; }
 .task-pane-sidebar { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 14px; overflow-y: auto; padding: 3px; }
-.task-saved-views__create { margin-top: 10px; }
-.task-saved-views__create > button { width: 100%; font-size: 12px; }
 .task-saved-views .task-views__option { min-width: 0; touch-action: none; }
 .task-saved-views .task-views__option > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-saved-views .task-views__note { padding: 4px 8px; }
-.task-pane-sidebar__actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
-.task-pane-sidebar__actions .task-nest-toggle { margin: 0; }
-.task-pane-sidebar__actions .task-new-button { justify-content: center; }
-.task-pane > .task-pane-sidebar { flex: none; max-height: 80px; gap: 4px; padding: 0 0 4px; }
-.task-pane > .task-pane-sidebar .task-saved-views__create { display: none; }
+.task-pane-sidebar__views { display: flex; flex-direction: column; gap: 6px; }
+.task-pane-sidebar__label { margin: 0; padding-inline: 10px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; }
+/* The focused pane's heading names its view, so sidebar rows carry no selected state. */
+.task-saved-views .task-views__list { gap: 2px; }
+.task-saved-views .task-views__option { min-height: 32px; padding-inline: 10px; font-weight: 500; }
+.task-saved-views .menu-select__check { display: none; }
+.task-pane > .task-pane-sidebar { flex: none; max-height: 80px; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 0 4px; }
+.task-pane > .task-pane-sidebar > .task-new-button { width: auto; }
+.task-pane > .task-pane-sidebar .task-pane-sidebar__label { display: none; }
+.task-pane > .task-pane-sidebar .task-pane-sidebar__views { flex-direction: row; }
 .task-pane > .task-pane-sidebar .task-views__list { display: flex; flex-wrap: wrap; }
-.task-pane > .task-pane-sidebar .task-pane-sidebar__actions { flex-direction: row; padding-top: 0; border: 0; }
 .task-pane-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Below the dashboard's fixed-height breakpoint, keep a bounded workspace

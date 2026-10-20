@@ -13,6 +13,7 @@ import {
   overwriteSavedTaskView,
   readSavedTaskViews,
   renameSavedTaskView,
+  setSavedTaskViewIcon,
   sameTaskTableQuery,
   writeSavedTaskViews,
   type SavedTaskView,
@@ -47,7 +48,7 @@ describe("saved task views", () => {
 
   it("starts with the built-in Raw view selected", () => {
     expect(normalizeSavedTaskViews(null)).toEqual({
-      views: [{ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY }],
+      views: [{ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY }],
       selectedId: RAW_TASK_VIEW_ID,
     });
   });
@@ -62,7 +63,7 @@ describe("saved task views", () => {
     });
     expect(state.selectedId).toBe(RAW_TASK_VIEW_ID);
     expect(state.views.map(view => view.id)).toEqual([RAW_TASK_VIEW_ID, "a"]);
-    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY });
+    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY });
     expect(state.views[1]!.query.statuses).toEqual(["completed"]);
     expect(normalizeSavedTaskViews({
       selectedId: "a",
@@ -189,7 +190,7 @@ describe("saved task views", () => {
       selectedId: RAW_TASK_VIEW_ID,
       views: [{ id: RAW_TASK_VIEW_ID, name: "Inbox", query: query({ parent: 1, value: { kind: "scores", scores: [5] } }) }],
     });
-    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY });
+    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY });
   });
 
   it("keeps column order, widths, and hidden columns in the saved query", () => {
@@ -240,6 +241,37 @@ describe("ordered saved sorts", () => {
     const primary = { column: "status", direction: "ascending" } as const;
     const secondary = { column: "value", direction: "descending" } as const;
     expect(sameTaskTableQuery(query({ sort: [primary, secondary] }), query({ sort: [secondary, primary] }))).toBe(false);
+  });
+});
+
+describe("saved view icons", () => {
+  const stored = (id: string, name: string, icon?: string) => ({ id, name, ...(icon ? { icon } : {}), query: {} });
+
+  it("keeps a stored icon, including one another view also uses", () => {
+    const state = normalizeSavedTaskViews({ views: [stored("a", "A", "leaf"), stored("b", "B", "leaf")] });
+    expect(state.views.slice(1).map(view => view.icon)).toEqual(["leaf", "leaf"]);
+  });
+
+  it("gives views without a valid icon distinct, stable icons that avoid Raw and kept icons", () => {
+    const input = { views: [stored("a", "A"), stored("b", "B", "not-an-icon"), stored("c", "C", "leaf")] };
+    const icons = normalizeSavedTaskViews(input).views.map(view => view.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+    expect(icons).toEqual(normalizeSavedTaskViews(input).views.map(view => view.icon));
+  });
+
+  it("starts a new view on an icon no saved view uses", () => {
+    const raw = normalizeSavedTaskViews(null).views;
+    const first = viewsOf(createSavedTaskView(raw, query({ nested: true }), "One", 1, () => 0));
+    expect(first[1]!.icon).not.toBe(raw[0]!.icon);
+    const second = viewsOf(createSavedTaskView(first, query({ parent: 1 }), "Two", 2, () => 0));
+    expect(new Set(second.map(view => view.icon)).size).toBe(second.length);
+  });
+
+  it("changes a saved view's icon but never Raw's", () => {
+    const raw = normalizeSavedTaskViews(null).views;
+    const views = viewsOf(createSavedTaskView(raw, query({ nested: true }), "One", 1));
+    expect(setSavedTaskViewIcon(views, "view-1", "flower")[1]!.icon).toBe("flower");
+    expect(setSavedTaskViewIcon(views, RAW_TASK_VIEW_ID, "flower")[0]!.icon).toBe("layout-grid");
   });
 });
 

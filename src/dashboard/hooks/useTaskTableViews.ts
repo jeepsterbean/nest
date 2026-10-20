@@ -5,12 +5,14 @@ import {
   RAW_TASK_VIEW_ID,
   overwriteSavedTaskView,
   renameSavedTaskView,
+  setSavedTaskViewIcon,
   sameTaskTableQuery,
   type SavedTaskView,
   type SavedTaskViewResult,
   type TaskTableQuery,
 } from "../lib/taskTableViews";
 
+import type { NestIconKey } from "../components/PulseIcon";
 import { useTaskSavedViews } from "../context/TaskSavedViewsContext";
 
 export type TaskTableViews = ReturnType<typeof useTaskTableViews>;
@@ -60,11 +62,14 @@ export function useTaskTableViews(viewId: string, onSelectionChange: (id: string
 
   const rename = (id: string, name: string) => applyResult(renameSavedTaskView(state.views, id, name));
 
+  const setIcon = (id: string, icon: NestIconKey) =>
+    setState(current => ({ ...current, views: setSavedTaskViewIcon(current.views, id, icon) }));
+
   const remove = (id: string) => {
     const views = deleteSavedTaskView(state.views, id);
     setState(current => ({ views, selectedId: current.selectedId === id ? RAW_TASK_VIEW_ID : current.selectedId }));
     if (id === selected.id) select(views.find(view => view.id === RAW_TASK_VIEW_ID)!);
   };
 
-  return { query, setQuery, views: state.views, selected, edited, select, save, revert, create, rename, remove };
+  return { query, setQuery, views: state.views, selected, edited, select, save, revert, create, rename, setIcon, remove };
 }
