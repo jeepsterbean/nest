@@ -511,13 +511,13 @@
   flex: 1;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: 0;
   background: var(--surface);
 }
 
 .task-table {
   /* Three type roles only — half-steps between these feel muddy. */
-  --task-row-head: 11px;
+  --task-row-head: 12.5px;
   --task-row-cell: 12.5px;
   --task-row-title: 13.5px;
   width: 100%;
@@ -539,12 +539,10 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--muted);
   font-size: var(--task-row-head);
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
   white-space: nowrap;
   cursor: grab;
   user-select: none;
@@ -1034,4 +1032,20 @@
 
 .task-status-icon--cancelled {
   opacity: 0.6;
+}
+
+.task-table td + td {
+  border-left: 1px solid var(--border);
+}
+
+/* Keep header boundaries quiet while retaining the full resize hit area. */
+.task-table th:hover,
+.task-table th:focus-within {
+  background: var(--surface-2);
+  box-shadow: inset 1px 0 var(--border), inset -1px 0 var(--border);
+}
+
+.task-table__resize:hover {
+  /* 2px accent line centred in the wider hit area. */
+  background: linear-gradient(to right, transparent 4px, var(--accent) 4px, var(--accent) 6px, transparent 6px);
 }

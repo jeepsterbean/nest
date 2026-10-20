@@ -71,7 +71,7 @@ function TaskTableCell({
     case "status":
       return (
         <td className="task-table__col task-table__col--status">
-          <StatusTrigger task={task} showIcon={false} />
+          <StatusTrigger task={task} showChevron={false} />
         </td>
       );
     case "value":
@@ -167,7 +167,6 @@ export function TaskTable({
               >
                 {renderHeader ? (
                   <div className="task-table__header-controls">
-                    {columnInteraction && <span className="task-table__move" title={`Drag to move ${column.label}`} aria-hidden="true">⋮</span>}
                     {renderHeader(column)}
                   </div>
                 ) : column.label}

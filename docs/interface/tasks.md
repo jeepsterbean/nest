@@ -64,7 +64,10 @@ Escape, or outside scrolling dismisses it. Parent and sort selections
 close the menu; other column filter selections keep it open.
 Choosing a rule option or pressing Escape returns focus to its rule trigger;
 if the rule disappears, focus moves to a surviving nearby query control.
-Headers show sort direction and highlight filter or sort changes from the saved view.
+Each heading has a property icon. Drag the heading to reorder; click it to open
+its menu. Heading boundaries appear on hover or keyboard focus. Headers highlight
+filter or sort changes from the saved view; sort directions remain available in
+the menus and Sort rules.
 
 ### Filters
 
@@ -206,8 +209,9 @@ adjust the score, 1–5 sets it, and 0, Backspace, or Delete clears it. Descript
 follow Description, then independently scrolling History. Description editing saves on Enter or blur, inserts a line
 break on Shift+Enter, and cancels on Escape.
 
-The Table Status column shows the status name alone. Elsewhere in Tasks, status
-icons distinguish Backlog (dashed ring), Up next (ring), Active (half-filled ring),
+The Table Status column shows the status icon and name, with no dropdown caret.
+Clicking the icon or name opens the status selector.
+Status icons distinguish Backlog (dashed ring), Up next (ring), Active (half-filled ring),
 Completed (check), and Cancelled (cross).
 
 ### Relationships

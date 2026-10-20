@@ -9,13 +9,13 @@ import { TASK_STATUS_LABEL } from "../lib/tasks";
 export function StatusTrigger({
   task,
   compact = false,
-  showIcon = true,
+  showChevron = true,
 }: {
   task: Task;
-  // Compact drops the label to dot + chevron for tight spots where the
+  // Compact drops the label to icon + chevron for tight spots where the
   // surroundings already name the status.
   compact?: boolean;
-  showIcon?: boolean;
+  showChevron?: boolean;
 }) {
   const { statusMenu, openStatusMenu } = useTaskMenus();
   const anchorId = useId();
@@ -32,15 +32,17 @@ export function StatusTrigger({
       title={compact ? TASK_STATUS_LABEL[task.status] : undefined}
       onClick={(e) => openStatusMenu(task, e.currentTarget, anchorId)}
     >
-      {showIcon && <TaskStatusIcon status={task.status} />}
+      <TaskStatusIcon status={task.status} />
       {!compact && (
         <span className="task-status-trigger__label">
           {TASK_STATUS_LABEL[task.status]}
         </span>
       )}
-      <span className="task-status-trigger__chevron" aria-hidden="true">
-        {chevronDownIcon}
-      </span>
+      {showChevron && (
+        <span className="task-status-trigger__chevron" aria-hidden="true">
+          {chevronDownIcon}
+        </span>
+      )}
     </button>
   );
 }

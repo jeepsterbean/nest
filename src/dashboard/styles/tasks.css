@@ -93,13 +93,12 @@
 }
 
 .task-table__header-controls { display: flex; align-items: center; gap: 4px; }
-.task-table__move { flex: 0 0 10px; cursor: grab; color: var(--muted); }
 
 .task-column-trigger {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 7px;
   width: 100%;
   min-height: 28px;
   padding: 0;
@@ -108,10 +107,11 @@
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
 }
-.task-column-trigger > span:first-child { min-width: 0; overflow: hidden; }
-.task-column-trigger svg { width: 12px; height: 12px; }
+.task-column-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.task-column-trigger svg { flex: none; width: 15px; height: 15px; }
 .task-column-trigger.is-active { color: var(--accent); }
 .task-column-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .task-column-menu { gap: 0; padding: 4px; border-radius: 9px; }

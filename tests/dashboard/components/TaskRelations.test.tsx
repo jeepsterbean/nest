@@ -39,8 +39,8 @@ it("gives each rating dot an explicit numeric accessible name", () => {
   expect(html.match(/aria-checked="true"/g)).toHaveLength(1);
 });
 
-it("allows Table statuses to keep their accessible name while hiding the icon", () => {
-  const html = renderToStaticMarkup(<StatusTrigger task={task(1, "active")} showIcon={false} />);
+it("shows the status icon alongside its accessible name", () => {
+  const html = renderToStaticMarkup(<StatusTrigger task={task(1, "active")} />);
   expect(html).toContain('aria-label="Status for Task 1: Active"');
-  expect(html).not.toContain("task-status-icon");
+  expect(html).toContain("task-status-icon--active");
 });

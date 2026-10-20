@@ -430,6 +430,8 @@ export function TaskPane({
                 renderHeader={(column) => (
                   <TaskTableHeaderMenu
                     column={column}
+                    onHeadingPointerDown={event => tableColumns.onMovePointerDown(event, column.id)}
+                    consumeHeadingDrag={tableColumns.consumeHeadingDrag}
                     edited={taskTableColumnQueryEdited(column.id, taskTableViews.selected.query, tableQuery)}
                     open={openQueryMenu === column.id}
                     onOpenChange={(open) => setOpenQueryMenu(open ? column.id : null)}
