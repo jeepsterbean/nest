@@ -51,8 +51,8 @@ export type SavedTaskViewState = { views: SavedTaskView[]; selectedId: string };
 // Short enough to scan at a glance in the picker.
 export const MAX_SAVED_TASK_VIEWS = 5;
 
-/** Fits the picker trigger, which is sized to this many characters. */
-export const SAVED_TASK_VIEW_NAME_MAX = 10;
+/** Fits the heading trigger and picker list; the heading name clips at 24ch. */
+export const SAVED_TASK_VIEW_NAME_MAX = 24;
 
 /** The built-in first view. Name and query stay locked, and it cannot be deleted, so the picker always has a home. */
 export const RAW_TASK_VIEW_ID = "raw";
@@ -143,7 +143,7 @@ export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTab
 const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "nested" && field !== "columns");
 
 /** Whether any row-selection filter differs from the saved view.
- * Column layout and sorting do not affect filtered-result count copy. */
+ * Column layout and sorting do not count as filter edits. */
 export const taskTableFiltersEdited = (
   saved: TaskTableQuery,
   query: TaskTableQuery,

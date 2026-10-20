@@ -14,11 +14,11 @@ returns panes to Table and closes Task details.
 
 First visit selects Raw in a single pane. The Section sidebar lists saved views
 as rows under a New task action. New task applies to the selected pane, whose
-heading is highlighted. Nest by Parent is a toggle beside Filters, Sort, and
-Hidden above the table. Collapsing the sidebar moves its controls into the
+heading is highlighted. Each pane’s vertical three-dot More menu offers a Nest by Parent toggle and
+Close view. Close view applies to that pane and is disabled for the final pane. Collapsing the sidebar moves its controls into the
 selected pane. Saved-view creation lives only in the pane heading's view menu. Each pane's heading shows its view and result count.
-Filters, Sort, and Hidden open rule menus in a row above its table. Table rows
-indicate Working now.
+Filters, Sort, and Hidden open rule menus from icon buttons with active counts in the pane heading. Clicking the view name opens the saved-view list. Table rows
+indicate Working now. Empty Value, Effort, and Closed cells show `—`.
 
 ### Split panes
 
@@ -28,7 +28,7 @@ nested in either direction. Dropping a saved view in the center loads it in that
 pane, discarding that pane's unsaved query changes. Clicking a saved-view row
 also loads it in the selected pane. Each pane's heading offers a view picker.
 
-Drag a pane's grip to an edge of another pane to move it, or to the center to
+Drag a pane's header surface, outside its interactive controls, to an edge of another pane to move it, or to the center to
 swap their positions. Moving preserves its query, drafts, and table scroll
 position. Dropping outside the workspace or onto the source pane leaves the
 layout unchanged. Escape cancels a view drag.
@@ -43,9 +43,9 @@ it to Raw.
 
 Clicking or focusing a pane selects it. Drag dividers to resize; double-click a
 divider to balance its split. Focused dividers support arrow keys and Home to
-balance. Alt + an arrow key on a saved-view row or pane grip opens that view in
+balance. Alt + an arrow key on a saved-view row or focused pane header opens that view in
 a split in the chosen direction. Escape during a divider drag restores the
-previous proportions. Closing a pane expands its neighbor; the final
+previous proportions. Closing a pane from More → Close view expands its neighbor; the final
 pane stays open. A workspace holds at most 16 panes; splitting past that does nothing. On narrow windows, the workspace scrolls to retain readable
 pane sizes.
 
@@ -132,9 +132,8 @@ on reload.
 
 ### Active rules and result count
 
-The count sits in each pane heading and reads `42 tasks`, or `42 out of 380 tasks`
-when an active filter differs from the saved view. Sort and column changes keep
-the simple count.
+The count sits immediately right of the view name and reads as the matching
+row count (`42`). Sort and column changes keep that same number.
 
 Filters, Sort, and Hidden list rules with active counts. Empty groups retain their
 headings in the sidebar and disappear above the table. With no filters, sorts, or

@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { checkIcon, chevronDownIcon, editIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
+import { checkIcon, editIcon, refreshIcon, saveIcon, trashIcon } from "../components/icons";
 import { IconPickerButton, NestIcon } from "../components/PulseIcon";
 import { taskPaneEdgeForArrow, type TaskPaneEdge } from "../lib/taskPaneLayout";
 import type { TaskTableViews } from "../hooks/useTaskTableViews";
@@ -232,7 +232,6 @@ export function TaskViewPicker({ views, presentation, onViewPointerDown, onSplit
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onClick={() => setOpen(!open)}>
       <span className="task-views__name">{selected.name}</span>
-      {!edited && <span className="task-views__chevron" aria-hidden="true">{chevronDownIcon}</span>}
     </button>
     {edited && <span className="task-views__changes">
       <button type="button" aria-label="Save view" title={selected.id === RAW_TASK_VIEW_ID ? "Raw view is protected. Save current as view from the menu." : "Save view"}

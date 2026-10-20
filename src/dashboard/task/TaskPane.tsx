@@ -8,8 +8,10 @@ import {
   type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { EllipsisVertical, ListTree } from "lucide-react";
 import { createTask } from "../../lib/commands";
-import { plusIcon, gripIcon, xIcon } from "../components/icons";
+import { plusIcon } from "../components/icons";
+import { TaskQueryGroup } from "./TaskQueryGroup";
 import { TaskFilterRules } from "./TaskFilterRules";
 import { TaskSortRules } from "./TaskSortRules";
 import { TaskHiddenColumnRules } from "./TaskHiddenColumnRules";
@@ -34,7 +36,6 @@ import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
 import {
   changedTaskTableQueryFields,
   taskTableColumnQueryEdited,
-  taskTableFiltersEdited,
   type TaskParentFilter,
   type TaskTableFilterField,
   type TaskTableQuery,
@@ -292,7 +293,6 @@ export function TaskPane({
   }, [loaded, selectedParent, taskGraph]);
 
   const changedFields = changedTaskTableQueryFields(taskTableViews.selected.query, tableQuery);
-  const filtersEdited = taskTableFiltersEdited(taskTableViews.selected.query, tableQuery);
   const filterContext: TaskFilterContext = {
     tasks,
     workedTimeCandidates: tableTasksWithoutWorkedTime,
@@ -314,13 +314,7 @@ export function TaskPane({
         onOpenColumnChange={column => setOpenQueryMenu(column ? `sort:${column}` : null)} />
       <TaskHiddenColumnRules columns={tableColumns.hiddenColumns} savedHiddenIds={savedHiddenColumnIds}
         onShow={tableColumns.showColumn} onShowAll={tableColumns.showAllColumns} />
-      <button type="button"
-        className={`task-query__toggle${tableNested ? " is-on" : ""}${changedFields.has("nested") ? " is-edited" : ""}`}
-        aria-pressed={tableNested}
-        title={`Nest ${taskTableViews.selected.name} by Parent`}
-        onClick={() => patchTableQuery({ nested: !tableNested })}>
-        Nest by Parent
-      </button>
+
     </div>
   );
 
@@ -368,6 +362,7 @@ export function TaskPane({
       ? null
       : taskGraph.byId.get(selectedTaskId) ?? null;
   const overlayDetailOpen = selectedTask !== null && visibleTaskView !== "map";
+  const resultCount = visibleTaskView === "map" ? tasks.length : tableTasks.length;
 
   useEffect(() => {
     onModalChange(paneId, overlayDetailOpen || creatingTask);
@@ -380,24 +375,49 @@ export function TaskPane({
       onPointerDownCapture={onActivate} onFocusCapture={onActivate}>
       {sidebar && loaded && createPortal(sidebarControls, sidebar)}
       {!sectionSidebar && active && sidebarControls}
-      <header className="task-pane__heading">
-        <button type="button" className="task-pane__move" aria-label={`Move ${taskTableViews.selected.name} view`}
-          title="Drag to move this pane; Alt + arrow key to split" onPointerDown={onPanePointerDown}
-          onKeyDown={event => {
-            const edge = taskPaneEdgeForArrow(event.key);
-            if (event.altKey && edge) { event.preventDefault(); onSplit(taskTableViews.selected.id, edge); }
-          }}>{gripIcon}</button>
-        {visibleTaskView === "table" ? <TaskViewPicker views={taskTableViews} presentation="heading" /> : <strong className="task-pane__map-title">Map</strong>}
-      <div className="task-table-bar__result">
-        <span className="task-filter-result" role="status">
-          {visibleTaskView === "map" ? `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}` : historyStatus ?? (filtersEdited
-            ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
-            : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`)}
-        </span>
-        {historyFailed && <button type="button" className="task-filter-retry" onClick={retryHistory}>Retry</button>}
-      </div>
-        {onClose && <button type="button" className="task-pane__close" aria-label={`Close ${taskTableViews.selected.name} pane`}
-          onClick={onClose}>{xIcon}</button>}
+      <header className="task-pane__heading" tabIndex={0}
+        aria-label={`Move ${taskTableViews.selected.name} view`}
+        title="Drag header to move this pane; Alt + arrow key to split"
+        onPointerDown={event => {
+          if (event.target instanceof Element && event.target.closest("button, input, select, textarea, a, [role='button'], [role='dialog']")) return;
+          onPanePointerDown(event);
+        }}
+        onKeyDown={event => {
+          if (event.target !== event.currentTarget) return;
+          const edge = taskPaneEdgeForArrow(event.key);
+          if (event.altKey && edge) { event.preventDefault(); onSplit(taskTableViews.selected.id, edge); }
+        }}>
+        <div className="task-pane__title">
+          {visibleTaskView === "table" ? <TaskViewPicker views={taskTableViews} presentation="heading" /> : <strong className="task-pane__map-title">Map</strong>}
+          <div className="task-table-bar__result">
+            <span className="task-filter-result" role="status"
+              aria-label={historyStatus ?? `${resultCount} ${resultCount === 1 ? "task" : "tasks"}`}>
+              {historyStatus ?? resultCount}
+            </span>
+            {historyFailed && <button type="button" className="task-filter-retry" onClick={retryHistory}>Retry</button>}
+          </div>
+        </div>
+        <div className="task-pane__tools">
+          {loaded && visibleTaskView === "table" && tableQueryPanel}
+          {visible && <div className="task-query task-pane__options">
+            <TaskQueryGroup label={`${taskTableViews.selected.name} view options`} icon={<EllipsisVertical size={14} aria-hidden="true" />}
+              title="More" isEmpty={false} emptyHint="">
+              {visibleTaskView === "table" && loaded && (
+                <button type="button"
+                  className={`task-query__toggle${tableNested ? " is-on" : ""}${changedFields.has("nested") ? " is-edited" : ""}`}
+                  aria-label="Nest by Parent"
+                  aria-pressed={tableNested}
+                  title={`Nest ${taskTableViews.selected.name} by Parent`}
+                  onClick={() => patchTableQuery({ nested: !tableNested })}>
+                  <ListTree size={12} aria-hidden="true" />
+                  Nest by Parent
+                </button>
+              )}
+              <button type="button" className="task-query__toggle" disabled={!onClose}
+                onClick={onClose}>Close view</button>
+            </TaskQueryGroup>
+          </div>}
+        </div>
       </header>
 
       {!loaded ? (
@@ -417,7 +437,6 @@ export function TaskPane({
             )}
             {visibleTaskView === "table" && (
               <>
-                {tableQueryPanel}
                 <TaskTable
                 wrapRef={tableColumns.wrapRef}
                 columns={tableColumns.visibleColumns}

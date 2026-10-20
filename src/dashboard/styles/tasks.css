@@ -109,6 +109,8 @@
   text-align: left;
   cursor: grab;
   touch-action: none;
+  /* Keep controls on one row when a split pane reaches its minimum width. */
+  overflow-x: auto;
 }
 .task-column-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-column-trigger svg { flex: none; width: 15px; height: 15px; }
@@ -865,8 +867,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.task-views__chevron { display: grid; flex: none; color: var(--muted); }
-.task-views__chevron svg { width: 12px; height: 12px; }
 .task-views__changes { display: inline-flex; padding-right: 3px; }
 .task-views__changes button {
   display: grid;
@@ -1038,36 +1038,43 @@
   align-items: center;
   gap: 5px;
   padding-bottom: 8px;
+  cursor: grab;
+  touch-action: none;
+  /* Keep controls on one row when a split pane reaches its minimum width. */
+  overflow-x: auto;
 }
 .task-pane.is-active .task-pane__heading { box-shadow: 0 1px var(--border-strong); }
-.task-pane__heading .task-views__control { flex: 1; min-width: 50px; }
-.task-pane__heading .task-views__name { text-align: left; }
+.task-pane__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.task-pane__heading .task-views__control { flex: none; min-width: 0; }
+.task-pane__heading .task-views__name {
+  /* Match SAVED_TASK_VIEW_NAME_MAX so a full name is visible until the pane is narrower. */
+  max-width: 24ch;
+  text-align: left;
+}
 .task-pane__heading .task-filter-result { white-space: nowrap; font-size: 11px; }
 .task-pane__heading .task-table-bar__result { flex: none; gap: 2px; }
-.task-pane__move, .task-pane__close {
-  display: grid;
+.task-pane__heading:focus-visible { outline: 2px solid var(--accent); }
+.task-query__toggle:disabled { opacity: 0.4; cursor: default; }
+/* Title and count stay leading; Filters, Sort, Hidden, and More stay trailing. */
+.task-pane__tools {
+  display: flex;
   flex: none;
-  width: 24px;
-  height: 28px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
-.task-pane__move { cursor: grab; touch-action: none; }
-.task-pane__move svg, .task-pane__close svg { width: 14px; height: 14px; }
-.task-pane__move:hover, .task-pane__close:hover { color: var(--ink); background: var(--surface-2); }
-.task-pane :is(.task-pane__move, .task-pane__close):focus-visible { outline: 2px solid var(--accent); }
-.task-pane .task-workspace__main > .task-query {
+.task-pane__heading .task-query {
   display: flex;
   flex: none;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  padding-block: 8px;
+  padding: 0;
   margin: 0;
 }
 .task-pane .task-query__group { padding: 0; border: 0; }
@@ -1149,7 +1156,7 @@
 @media (max-width: 860px) {
   .task-split-workspace { flex: none; height: calc(100dvh - 120px); min-height: 360px; padding: 6px; }
 }
-.task-pane__map-title { flex: 1; padding-left: 8px; font-size: 12.5px; }
+.task-pane__map-title { flex: none; padding-left: 8px; font-size: 12.5px; }
 
 .task-create-card__child {
   display: flex;

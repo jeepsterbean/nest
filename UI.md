@@ -82,7 +82,7 @@ portaled menu has to be scoped from a dashboard-level class, as
   once the sidebar collapses. On Tasks, the selected `TaskPane` portals saved-view rows and actions
   (`.task-pane-sidebar`) into the Section sidebar. They render inside that pane
   once the sidebar collapses. Each pane's heading holds its result count;
-  `.task-query` holds Filters, Sort, and Hidden above its table.
+  `.task-query` holds icon controls for Filters, Sort, and Hidden alongside the view name.
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.

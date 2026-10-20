@@ -68,11 +68,12 @@ export function TaskQueryGroup({ label, icon, title, count, action, adder, isEmp
   return <section className="task-query__group" aria-label={label}
     onPointerDownCapture={event => { insidePress.current = event.nativeEvent; }}>
     <button ref={trigger} type="button" className="task-query__group-trigger" aria-expanded={open}
+      aria-label={count ? `${title}: ${count}` : title} title={title}
       aria-haspopup="dialog" aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
-      {icon}<span>{title}</span>{count ? <span className="task-query__count">{count}</span> : null}
+      {icon}{count ? <span className="task-query__count">{count}</span> : null}
     </button>
     {open && box && createPortal(<div ref={menu} id={id} role="dialog" aria-label={label}
-      className="menu-select__menu task-column-menu task-query task-query__popover"
+      className={`menu-select__menu task-column-menu task-query task-query__popover${box.openUp ? " menu-select__menu--up" : ""}`}
       style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}>
       <div className="task-query__head">
         <strong>{title}</strong><div className="task-query__tools">
