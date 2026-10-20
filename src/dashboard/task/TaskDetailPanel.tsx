@@ -16,10 +16,14 @@ export function TaskDetailPanel({
   task,
   onClose,
   modal = false,
+  onCreateRelated,
+  onOpenTask,
 }: {
   task: Task;
   onClose: () => void;
   modal?: boolean;
+  onOpenTask: (taskId: number) => void;
+  onCreateRelated: (direction: "parent" | "child", origin: HTMLElement) => void;
 }) {
   const { taskGraph, mutate } = useDashboardData();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -73,11 +77,9 @@ export function TaskDetailPanel({
       <div className="task-detail__fields">
         <TaskScoreControls task={task} />
       </div>
-      <div className="task-detail__writing">
-        <div className="task-detail__description"><TaskDescription task={task} /></div>
-        <TaskUpdates key={task.id} task={task} />
-      </div>
-      <TaskRelations task={task} />
+      <div className="task-detail__description"><TaskDescription task={task} /></div>
+      <TaskRelations task={task} onCreateRelated={onCreateRelated} onOpenTask={onOpenTask} />
+      <TaskUpdates key={task.id} task={task} />
       <footer className="task-detail__footer">
         <div className="task-detail__dates">
           <span>Created {formatDate(task.createdAt)}</span>

@@ -1,23 +1,5 @@
 /* ---------- Tasks ---------- */
 
-/* Menus portal to the dashboard, so the active-Section class also scopes them. */
-.dashboard--tasks .status-dot,
-.dashboard--tasks .menu-select__marker:has(> .status-dot) {
-  display: none;
-}
-
-.dashboard--tasks .task-status-menu__option {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.dashboard--tasks .menu-select__option:has(.status-dot) {
-  grid-template-columns: minmax(0, 1fr) 12px;
-}
-
-.dashboard--tasks .task-relation-list li {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
 .dashboard--tasks .task-dots--value {
   --dot-fill: var(--muted);
   --accent-soft: color-mix(in srgb, var(--muted) 13%, transparent);
@@ -1150,3 +1132,18 @@
   .task-split-workspace { flex: none; height: calc(100dvh - 120px); min-height: 360px; padding: 6px; }
 }
 .task-pane__map-title { flex: 1; padding-left: 8px; font-size: 12.5px; }
+
+.task-create-card__child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-create-card__child > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

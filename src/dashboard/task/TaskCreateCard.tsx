@@ -1,13 +1,16 @@
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   createTask,
   setTaskScore,
+  setTaskParent,
 } from "../../lib/commands";
 import type { RatingValue, Task, TaskStatus } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
 import { xIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
+import { descendantIds } from "../lib/taskGraph";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "../lib/tasks";
 import { RatingDotScale } from "./RatingDotScale";
 import { taskSelectOptions } from "./taskSelectOptions";
@@ -17,6 +20,7 @@ export type TaskDraft = {
   description: string;
   status: TaskStatus;
   parentTaskId: number | null;
+  childTaskId: number | null;
   value: RatingValue | null;
   effort: RatingValue | null;
 };
@@ -26,6 +30,7 @@ export const EMPTY_TASK_DRAFT: TaskDraft = {
   description: "",
   status: "backlog",
   parentTaskId: null,
+  childTaskId: null,
   value: null,
   effort: null,
 };
@@ -43,7 +48,7 @@ export function TaskCreateCard({
   onClose: () => void;
   onCreated: (task: Task) => void;
 }) {
-  const { tasks, reload, setError } = useDashboardData();
+  const { tasks, taskGraph, reload, setError } = useDashboardData();
   const [saving, setSaving] = useState(false);
   const update = (patch: Partial<TaskDraft>) =>
     onDraftChange({ ...draft, ...patch });
@@ -60,6 +65,9 @@ export function TaskCreateCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const child = tasks.find((task) => task.id === draft.childTaskId);
+  const excludedParents = child ? descendantIds(taskGraph, child.id) : new Set<number>();
+  if (child) excludedParents.add(child.id);
   const title = draft.title.trim();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -73,6 +81,7 @@ export function TaskCreateCard({
         draft.status,
         draft.parentTaskId,
       );
+      if (child) await setTaskParent(child.id, created.id);
       if (draft.value !== null || draft.effort !== null) {
         await setTaskScore(created.id, draft.value, draft.effort);
       }
@@ -111,7 +120,7 @@ export function TaskCreateCard({
             options={TASK_STATUSES.map((status) => ({
               value: status,
               label: TASK_STATUS_LABEL[status],
-              marker: <span className={`status-dot status-dot--${status}`} />,
+              marker: <TaskStatusIcon status={status} />,
             }))}
             onChange={(value) => update({ status: value as TaskStatus })}
           />
@@ -151,6 +160,15 @@ export function TaskCreateCard({
         />
 
         <div className="task-create-card__fields">
+          {child && (
+            <div className="task-relation-field">
+              <span className="task-relation-field__label">Child</span>
+              <div className="task-create-card__child">
+                <span title={child.title}>{child.title}</span>
+                <button className="task-relation-remove" type="button" aria-label={`Unlink ${child.title}`} onClick={() => update({ childTaskId: null })}>Unlink</button>
+              </div>
+            </div>
+          )}
           <div className="task-relation-field">
             <span className="task-relation-field__label">Parent</span>
             <MenuSelect
@@ -160,7 +178,7 @@ export function TaskCreateCard({
               searchPlaceholder="Find a parent…"
               options={[
                 { value: "", label: "No parent" },
-                ...taskSelectOptions(tasks, draft.parentTaskId),
+                ...taskSelectOptions(tasks.filter((task) => !excludedParents.has(task.id)), draft.parentTaskId),
               ]}
               onChange={(value) =>
                 update({ parentTaskId: value ? Number(value) : null })

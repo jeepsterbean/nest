@@ -3,16 +3,19 @@ import { isTaskLocked } from "../../lib/taskLock";
 import type { Task } from "../../lib/types";
 import { chevronDownIcon } from "../components/icons";
 import { useTaskMenus } from "../context/TaskMenuContext";
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import { TASK_STATUS_LABEL } from "../lib/tasks";
 
 export function StatusTrigger({
   task,
   compact = false,
+  showIcon = true,
 }: {
   task: Task;
   // Compact drops the label to dot + chevron for tight spots where the
   // surroundings already name the status.
   compact?: boolean;
+  showIcon?: boolean;
 }) {
   const { statusMenu, openStatusMenu } = useTaskMenus();
   const anchorId = useId();
@@ -29,10 +32,7 @@ export function StatusTrigger({
       title={compact ? TASK_STATUS_LABEL[task.status] : undefined}
       onClick={(e) => openStatusMenu(task, e.currentTarget, anchorId)}
     >
-      <span
-        className={`status-dot status-dot--${task.status}`}
-        aria-hidden="true"
-      />
+      {showIcon && <TaskStatusIcon status={task.status} />}
       {!compact && (
         <span className="task-status-trigger__label">
           {TASK_STATUS_LABEL[task.status]}

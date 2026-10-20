@@ -1,3 +1,4 @@
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import { pulseActivity } from "../../lib/activityPulse";
 import { createFollowUpTask, setTaskStatus } from "../../lib/commands";
 import { isTaskLocked } from "../../lib/taskLock";
@@ -31,10 +32,7 @@ export function StatusMenu() {
           style={{ left: statusMenu.left, top: statusMenu.top }}
         >
           <p className="task-status-menu__locked">
-            <span
-              className={`status-dot status-dot--${task.status}`}
-              aria-hidden="true"
-            />
+            <TaskStatusIcon status={task.status} />
             <span>
               {TASK_STATUS_LABEL[task.status]}
               {task.closedAt !== null && ` ${formatDate(task.closedAt)}`}
@@ -101,10 +99,7 @@ export function StatusMenu() {
                 closeStatusMenu();
               }}
             >
-              <span
-                className={`status-dot status-dot--${status}`}
-                aria-hidden="true"
-              />
+              <TaskStatusIcon status={status} />
               <span
                 className={`task-status-menu__text task-status-menu__text--${status}`}
               >

@@ -148,6 +148,7 @@ export function TaskPane({
   const [composerTitle, setComposerTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraft, setTaskDraft] = useState<TaskDraft>(EMPTY_TASK_DRAFT);
+  const createOriginRef = useRef<HTMLElement | null>(null);
   const newTaskButtonRef = useRef<HTMLButtonElement | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const selectionOriginRef = useRef<HTMLElement | null>(null);
@@ -157,6 +158,9 @@ export function TaskPane({
     selectionOriginRef.current = origin ?? null;
     setSelectedTaskId(id);
   }, []);
+
+  // Preserve the original row as the focus destination when browsing related Tasks.
+  const openRelatedTask = useCallback((id: number) => setSelectedTaskId(id), []);
 
   const closeDetail = useCallback(() => {
     setSelectedTaskId(null);
@@ -213,6 +217,7 @@ export function TaskPane({
   }, [visible, visibleTaskView]);
 
   const openTaskCreate = () => {
+    createOriginRef.current = newTaskButtonRef.current;
     // An untouched draft picks up the table's Status when the view shows only
     // one, so the new Task lands in the view it was added from.
     if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
@@ -222,9 +227,20 @@ export function TaskPane({
     setCreatingTask(true);
   };
 
+  const openRelatedTaskCreate = (direction: "parent" | "child", origin: HTMLElement) => {
+    if (!selectedTask) return;
+    createOriginRef.current = origin;
+    setTaskDraft({
+      ...taskDraft,
+      parentTaskId: direction === "child" ? selectedTask.id : null,
+      childTaskId: direction === "parent" ? selectedTask.id : null,
+    });
+    setCreatingTask(true);
+  };
+
   const closeTaskCreate = useCallback(() => {
     setCreatingTask(false);
-    requestAnimationFrame(() => newTaskButtonRef.current?.focus());
+    requestAnimationFrame(() => createOriginRef.current?.focus());
   }, []);
 
   const tableTasksWithoutWorkedTime = useMemo(
@@ -454,6 +470,8 @@ export function TaskPane({
             <TaskDetailPanel
               key={selectedTask.id}
               task={selectedTask}
+              onCreateRelated={openRelatedTaskCreate}
+              onOpenTask={openRelatedTask}
               onClose={closeDetail}
             />
           )}
@@ -469,6 +487,8 @@ export function TaskPane({
               <TaskDetailPanel
                 key={selectedTask.id}
                 task={selectedTask}
+                onCreateRelated={openRelatedTaskCreate}
+                onOpenTask={openRelatedTask}
                 onClose={closeDetail}
                 modal
               />

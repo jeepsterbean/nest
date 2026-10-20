@@ -195,17 +195,25 @@ Details show creation, latest update, and closure timestamps, status, Working
 now, and all-time Worked time in whole minutes (“<1m” under a minute),
 independently of Table filters. Worked time is hidden while it is zero and the
 Task is not Working now. Work controls live in the [Popup](popup.md). Value and
-Effort are editable. Description editing saves on Enter or blur, inserts a line
+Effort use five selectable dots. Clicking the selected dot clears it; arrow keys
+adjust the score, 1–5 sets it, and 0, Backspace, or Delete clears it. Description grows with its content up to a scrollable maximum. Relationships
+follow Description, then independently scrolling History. Description editing saves on Enter or blur, inserts a line
 break on Shift+Enter, and cancels on Escape.
+
+The Table Status column shows the status name alone. Elsewhere in Tasks, status
+icons distinguish Backlog (dashed ring), Up next (ring), Active (half-filled ring),
+Completed (check), and Cancelled (cross).
 
 ### Relationships
 
-Details show Parent and Children. Empty states read “No parent” or “No children”;
-populated Children lists use “Add child…”. Children supports creating a new
-Backlog Task or linking an existing Task; linking moves that Task from its
-previous Parent when one exists. Each Child offers Unlink to clear its Parent
-while keeping both Tasks. Choosing “No parent” in the Parent picker clears the
-current Task’s Parent.
+Details group Parent and Children under Relationships. Each group shows its
+open / total count; Completed and Cancelled count as closed. Its + picker offers
+“Create new task” and existing Tasks. Creating opens New task with the current
+Task prefilled as Parent or Child; the relationship saves on Add task and
+dismissing preserves the draft. Choosing a Parent replaces the previous Parent.
+Each linked row offers Unlink, a title that opens its details, and a status
+control. Browsing related Tasks preserves the original row as the focus
+return destination when details close. Unlink keeps both Tasks.
 
 Parent pickers (including New task) and the existing-child picker default to
 open Tasks and Tasks closed within the last seven days, sorted newest updated
