@@ -311,7 +311,7 @@
   background: var(--surface-2);
 }
 
-.task-entity__head .status-dot {
+.task-entity__head .task-status-icon {
   flex: none;
 }
 

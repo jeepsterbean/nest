@@ -8,7 +8,7 @@ export function TaskHiddenColumnRules({ columns, savedHiddenIds, onShow, onShowA
   onShow: (id: TaskTableColumnId) => void;
   onShowAll: () => void;
 }) {
-  return <TaskQueryGroup label="Hidden columns" icon={eyeOffIcon} title="Hidden" count={columns.length} isEmpty={columns.length === 0}
+  return <TaskQueryGroup label="Hidden columns" icon={eyeOffIcon} title="Hidden" count={columns.length} isEmpty={columns.length === 0} emptyHint="All columns are visible."
     action={columns.length > 1 ? { label: "Show all", ariaLabel: "Show all columns", onClick: onShowAll } : null}>
     <ul>{columns.map(column => {
       const edited = !savedHiddenIds.has(column.id);

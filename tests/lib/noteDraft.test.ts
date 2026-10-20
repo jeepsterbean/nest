@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   adjacentNoteIndex,
+  clearNoteDraftIfUnchanged,
   noteHistoryDirection,
   getNoteDraft,
   historyIndexForDraftRevisionChange,
@@ -158,6 +159,132 @@ describe("setNoteDraft", () => {
     expect(getNoteDraft()).not.toBe(stored);
 
     setNoteDraft({ text: "", tagIds: [] });
+  });
+});
+
+describe("clearNoteDraftIfUnchanged", () => {
+  it.each([
+    { text: "New text from Popup", tagIds: [1] },
+    { text: "Remember", tagIds: [1, 4] },
+  ])("keeps a Popup edit before sync arrives: %j", async (newer) => {
+    const storage = new Map<string, string>();
+    const setItem = vi.fn((key: string, value: string) => storage.set(key, value));
+    const removeItem = vi.fn((key: string) => storage.delete(key));
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem,
+        removeItem,
+      },
+      addEventListener: () => {},
+    });
+    vi.stubGlobal("BroadcastChannel", undefined);
+    try {
+      vi.resetModules();
+      const dashboard = await import("../../src/lib/noteDraft");
+      const submitted = { text: "Remember", tagIds: [1] };
+      dashboard.setNoteDraft(submitted);
+      vi.resetModules();
+      const popup = await import("../../src/lib/noteDraft");
+      popup.setNoteDraft(newer);
+      expect(dashboard.getNoteDraft()).toEqual(submitted);
+      setItem.mockClear();
+      removeItem.mockClear();
+
+      dashboard.clearNoteDraftIfUnchanged(submitted);
+
+      expect(dashboard.getNoteDraft()).toEqual(newer);
+      expect(popup.getNoteDraft()).toEqual(newer);
+      expect(storage.get("nest:note-draft")).toBe(newer.text);
+      expect(storage.get("nest:note-draft-tags")).toBe(JSON.stringify(newer.tagIds));
+      expect(setItem).not.toHaveBeenCalled();
+      expect(removeItem).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
+  it("uses the in-memory draft when storage is unavailable", async () => {
+    const unavailable = () => { throw new Error("Storage unavailable"); };
+    vi.stubGlobal("window", {
+      localStorage: { getItem: unavailable, setItem: unavailable, removeItem: unavailable },
+      addEventListener: () => {},
+    });
+    vi.stubGlobal("BroadcastChannel", undefined);
+    try {
+      vi.resetModules();
+      const draft = await import("../../src/lib/noteDraft");
+      const submitted = { text: "Remember", tagIds: [1] };
+      draft.setNoteDraft(submitted);
+      const newer = { text: "Remember this", tagIds: [1] };
+      draft.setNoteDraft(newer);
+      draft.clearNoteDraftIfUnchanged(submitted);
+      expect(draft.getNoteDraft()).toEqual(newer);
+      draft.clearNoteDraftIfUnchanged(newer);
+      expect(draft.getNoteDraft()).toEqual({ text: "", tagIds: [] });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
+  it("clears the draft when its text and tags still match the saved snapshot", () => {
+    const submitted = { text: "Remember", tagIds: [1, 2] };
+    setNoteDraft(submitted);
+    clearNoteDraftIfUnchanged(submitted);
+    expect(getNoteDraft()).toEqual({ text: "", tagIds: [] });
+  });
+
+  it("keeps text typed while the save was in flight", () => {
+    const submitted = { text: "Remember", tagIds: [1] };
+    setNoteDraft(submitted);
+    setNoteDraft({ text: "Remember this", tagIds: [1] });
+    clearNoteDraftIfUnchanged(submitted);
+    expect(getNoteDraft()).toEqual({ text: "Remember this", tagIds: [1] });
+    setNoteDraft({ text: "", tagIds: [] });
+  });
+
+  it("keeps a tag change made while the save was in flight", () => {
+    const submitted = { text: "Remember", tagIds: [1] };
+    setNoteDraft(submitted);
+    setNoteDraft({ text: "Remember", tagIds: [1, 4] });
+    clearNoteDraftIfUnchanged(submitted);
+    expect(getNoteDraft()).toEqual({ text: "Remember", tagIds: [1, 4] });
+    setNoteDraft({ text: "", tagIds: [] });
+  });
+
+  it("does not write storage again when newer edits should stay", async () => {
+    const storage = new Map<string, string>();
+    const setItem = vi.fn((key: string, value: string) => storage.set(key, value));
+    const removeItem = vi.fn((key: string) => storage.delete(key));
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem,
+        removeItem,
+      },
+      addEventListener: () => {},
+    });
+    try {
+      vi.resetModules();
+      const draft = await import("../../src/lib/noteDraft");
+      const submitted = { text: "Remember", tagIds: [1] };
+      draft.setNoteDraft(submitted);
+      draft.setNoteDraft({ text: "Remember this", tagIds: [1] });
+      setItem.mockClear();
+      removeItem.mockClear();
+      draft.clearNoteDraftIfUnchanged(submitted);
+      expect(draft.getNoteDraft()).toEqual({
+        text: "Remember this",
+        tagIds: [1],
+      });
+      expect(setItem).not.toHaveBeenCalled();
+      expect(removeItem).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
   });
 });
 

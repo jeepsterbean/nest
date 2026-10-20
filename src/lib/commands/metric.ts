@@ -32,10 +32,6 @@ export function listPulses(): Promise<Pulse[]> {
   return invoke("list_pulses");
 }
 
-export function createPulse(name: string): Promise<Pulse> {
-  return invoke("create_pulse", { name });
-}
-
 /** Stores the Pulse, its Metrics, and their memberships together or not at all. */
 export function createPulseWithMetrics(
   name: string,

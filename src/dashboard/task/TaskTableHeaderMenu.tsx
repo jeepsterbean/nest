@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { ALargeSmall, CircleDashed, Star, Gauge, CalendarPlus, CalendarClock, CalendarCheck } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { Task } from "../../lib/types";
 import { DayCalendar } from "../components/DayPicker";
@@ -21,6 +22,7 @@ import {
   toggleTaskScoreFilter,
   type TaskScoreFilter,
 } from "../lib/taskScoreFilter";
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import { taskSortDirectionLabel, type TaskColumnSort } from "../lib/taskColumnSort";
 import type { TaskTableColumn, TaskTableColumnId } from "../lib/taskTable";
 import { clearedTaskTableFilter, taskTableFilterLabel } from "../lib/taskTableFilterRules";
@@ -251,7 +253,7 @@ export function TaskFilterFields({ field, query, onQueryChange, context, onDone 
         <div className="task-column-menu__presets">{TASK_STATUS_PRESETS.map(item => <button key={item.key} type="button" aria-pressed={preset === item.key}
           onClick={() => onQueryChange({ statuses: [...item.statuses] })}>{item.label}</button>)}</div>
         {TASK_STATUSES.map(status => <MenuOption key={status} selected={query.statuses.includes(status)}
-          marker={<span className={`status-dot status-dot--${status}`}/>}
+          marker={<TaskStatusIcon status={status} />}
           onClick={() => onQueryChange({ statuses: toggleTaskStatusFilter(query.statuses, status) })}>
           {TASK_STATUS_LABEL[status]}
         </MenuOption>)}
@@ -313,7 +315,11 @@ export function TaskSortDirectionOptions({ column, sort, onSortChange, onDone }:
   })}</>;
 }
 
-export function TaskTableHeaderMenu({ column, query, onQueryChange, filterContext, onHide, open, onOpenChange, edited }: {
+const COLUMN_ICONS = { title: ALargeSmall, status: CircleDashed, value: Star, effort: Gauge, created: CalendarPlus, updated: CalendarClock, closed: CalendarCheck };
+
+export function TaskTableHeaderMenu({ onHeadingPointerDown, consumeHeadingDrag, column, query, onQueryChange, filterContext, onHide, open, onOpenChange, edited }: {
+  onHeadingPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+  consumeHeadingDrag: () => boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   edited: boolean;
@@ -491,18 +497,16 @@ export function TaskTableHeaderMenu({ column, query, onQueryChange, filterContex
       <span className="task-column-menu__chevron" aria-hidden="true">{chevronRightIcon}</span>
     </button>;
 
-  const inWorkedOnRange = column.id === "workedTime" && filterContext.workedSecondsByTask !== null;
-  const columnHeading = inWorkedOnRange
-    ? <>{column.label}<span className="task-column-period">in range</span></>
-    : column.label;
-  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}${inWorkedOnRange ? " in range" : ""}`;
+  const ColumnIcon = COLUMN_ICONS[column.id];
+  const columnHeading = column.label;
+  const menuLabel = `${filterable ? "Sort and filter" : "Sort"} ${column.label}`;
   return <>
     <button ref={triggerRef} type="button" className={`task-column-trigger${edited ? " is-active" : ""}`}
       aria-label={`${menuLabel}${filterLabel ? `, ${filterLabel}` : ""}${sorted ? `, sorted ${columnSort?.direction}` : ""}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? menuId : undefined}
-      onPointerDown={event => event.stopPropagation()} onClick={() => onOpenChange(!open)}>
+      onPointerDown={onHeadingPointerDown} onClick={() => { if (!consumeHeadingDrag()) onOpenChange(!open); }}>
+      <ColumnIcon aria-hidden="true" />
       <span>{columnHeading}</span>
-      <span aria-hidden="true">{sorted ? (columnSort?.direction === "ascending" ? "↑" : "↓") : chevronDownIcon}</span>
     </button>
     {open && box && createPortal(<>
       <div ref={menuRef} id={menuId} role="dialog" aria-label={menuLabel}

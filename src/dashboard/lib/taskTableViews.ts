@@ -1,6 +1,7 @@
 import type { TaskStatus } from "../../lib/types";
 import type { TaskColumnSort } from "./taskColumnSort";
 import { TASK_DATE_PRESETS, type TaskDateFilter } from "./taskDateFilter";
+import { isNestIconKey, NEST_ICONS, type NestIconKey } from "../components/PulseIcon";
 import { normalizeScoreFilter, sameScoreFilter, type TaskScoreFilter } from "./taskScoreFilter";
 import {
   normalizeTaskTableLayout,
@@ -28,10 +29,12 @@ export type TaskTableQuery = {
   effort: TaskScoreFilter;
   workedTime: TaskWorkedTimeFilter;
   sort: TaskColumnSort[];
+  /** Display only: groups the result under Parents without changing which Tasks match. */
+  nested: boolean;
   columns: TaskTableColumn[];
 };
 
-export type SavedTaskView = { id: string; name: string; query: TaskTableQuery };
+export type SavedTaskView = { id: string; name: string; icon: NestIconKey; query: TaskTableQuery };
 
 export type SavedTaskViewProblem =
   | { kind: "blank" }
@@ -46,10 +49,10 @@ export type SavedTaskViewResult =
 export type SavedTaskViewState = { views: SavedTaskView[]; selectedId: string };
 
 // Short enough to scan at a glance in the picker.
-export const MAX_SAVED_TASK_VIEWS = 5;
+export const MAX_SAVED_TASK_VIEWS = 10;
 
-/** Fits the picker trigger, which is sized to this many characters. */
-export const SAVED_TASK_VIEW_NAME_MAX = 10;
+/** Fits the heading trigger and picker list; the heading name clips at 24ch. */
+export const SAVED_TASK_VIEW_NAME_MAX = 24;
 
 /** The built-in first view. Name and query stay locked, and it cannot be deleted, so the picker always has a home. */
 export const RAW_TASK_VIEW_ID = "raw";
@@ -69,13 +72,33 @@ export const DEFAULT_TASK_TABLE_QUERY: TaskTableQuery = {
   effort: null,
   workedTime: null,
   sort: [],
+  nested: false,
   columns: normalizeTaskTableLayout(null),
 };
 
 const RAW_TASK_VIEW: SavedTaskView = {
   id: RAW_TASK_VIEW_ID,
   name: "Raw",
+  icon: "layout-grid",
   query: DEFAULT_TASK_TABLE_QUERY,
+};
+
+/** Random among icons no saved view uses yet, so new views start visually distinct. */
+const pickUnusedViewIcon = (views: SavedTaskView[], random = Math.random): NestIconKey => {
+  const used = new Set(views.map((view) => view.icon));
+  const free = NEST_ICONS.filter(({ key }) => !used.has(key));
+  return (free[Math.floor(random() * free.length)] ?? NEST_ICONS[0]!).key;
+};
+
+/** Deterministic so a view saved before icons existed keeps the same icon across reloads until storage is rewritten. */
+const migratedViewIcon = (id: string, used: Set<string>): NestIconKey => {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  for (let step = 0; step < NEST_ICONS.length; step += 1) {
+    const { key } = NEST_ICONS[(hash + step) % NEST_ICONS.length]!;
+    if (!used.has(key)) return key;
+  }
+  return NEST_ICONS[0]!.key;
 };
 
 const sameDateFilter = (a: TaskDateFilter, b: TaskDateFilter) =>
@@ -94,6 +117,7 @@ const SAME_QUERY_FIELD: { [Field in keyof TaskTableQuery]: (a: TaskTableQuery[Fi
   effort: sameScoreFilter,
   workedTime: sameWorkedTimeFilter,
   sort: (a, b) => a.length === b.length && a.every((rule, index) => rule.column === b[index]?.column && rule.direction === b[index]?.direction),
+  nested: (a, b) => a === b,
   columns: sameTaskTableLayout,
 };
 
@@ -104,25 +128,22 @@ export const changedTaskTableQueryFields = (saved: TaskTableQuery, query: TaskTa
   new Set(QUERY_FIELDS.filter((field) => !(SAME_QUERY_FIELD[field] as (a: unknown, b: unknown) => boolean)(saved[field], query[field])));
 
 /** Query fields that select rows. */
-export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "columns">;
+export type TaskTableFilterField = Exclude<keyof TaskTableQuery, "sort" | "nested" | "columns">;
 
-/** The filter each column header edits; Worked on and Status changed have no column. */
+/** The filter each column header edits; Parent, Worked on, Status changed, and Worked time have no column. */
 export const TASK_COLUMN_FILTER_FIELD: Partial<Record<TaskTableColumnId, TaskTableFilterField>> = {
   status: "statuses",
-  parent: "parent",
   created: "created",
   updated: "updated",
   closed: "closed",
   value: "value",
   effort: "effort",
-  workedTime: "workedTime",
 };
 
-// Includes Worked on and Status changed, which have no column of their own.
-const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "columns");
+const ROW_FILTER_FIELDS = QUERY_FIELDS.filter((field) => field !== "sort" && field !== "nested" && field !== "columns");
 
 /** Whether any row-selection filter differs from the saved view.
- * Column layout and sorting do not affect filtered-result count copy. */
+ * Column layout and sorting do not count as filter edits. */
 export const taskTableFiltersEdited = (
   saved: TaskTableQuery,
   query: TaskTableQuery,
@@ -170,6 +191,7 @@ export function createSavedTaskView(
   query: TaskTableQuery,
   name: string,
   now = Date.now(),
+  random = Math.random,
 ): SavedTaskViewResult {
   const trimmed = clipName(name);
   if (!trimmed) return { ok: false, problem: { kind: "blank" } };
@@ -177,7 +199,7 @@ export function createSavedTaskView(
   if (isNameTaken(views, trimmed)) return { ok: false, problem: { kind: "nameTaken" } };
   const match = findQueryMatch(views, query);
   if (match) return { ok: false, problem: { kind: "duplicate", match } };
-  return { ok: true, views: [...views, { id: `view-${now}`, name: trimmed, query }] };
+  return { ok: true, views: [...views, { id: `view-${now}`, name: trimmed, icon: pickUnusedViewIcon(views, random), query }] };
 }
 
 export function overwriteSavedTaskView(
@@ -202,6 +224,9 @@ export function renameSavedTaskView(
   if (isNameTaken(views, trimmed, id)) return { ok: false, problem: { kind: "nameTaken" } };
   return { ok: true, views: views.map((view) => (view.id === id ? { ...view, name: trimmed } : view)) };
 }
+
+export const setSavedTaskViewIcon = (views: SavedTaskView[], id: string, icon: NestIconKey) =>
+  id === RAW_TASK_VIEW_ID ? views : views.map((view) => (view.id === id ? { ...view, icon } : view));
 
 export const deleteSavedTaskView = (views: SavedTaskView[], id: string) =>
   id === RAW_TASK_VIEW_ID ? views : views.filter((view) => view.id !== id);
@@ -258,6 +283,7 @@ const normalizeQuery = (value: unknown): TaskTableQuery => {
       .map(normalizeSort)
       .filter((rule): rule is TaskColumnSort => rule !== null)
       .filter((rule, index, rules) => rules.findIndex(other => other.column === rule.column) === index),
+    nested: value.nested === true,
     columns: normalizeTaskTableLayout(value.columns),
   };
 };
@@ -267,6 +293,10 @@ export const normalizeSavedTaskViews = (stored: unknown): SavedTaskViewState => 
   const record = isRecord(stored) ? stored : {};
   const rows = Array.isArray(record.views) ? record.views : [];
   const views: SavedTaskView[] = [];
+  const usedIcons = new Set<string>([RAW_TASK_VIEW.icon]);
+  for (const row of rows) {
+    if (isRecord(row) && isNestIconKey(row.icon)) usedIcons.add(row.icon);
+  }
   for (const row of rows) {
     if (!isRecord(row) || typeof row.id !== "string" || typeof row.name !== "string") continue;
     if (row.id === RETIRED_OPEN_TASK_VIEW_ID || row.id === RAW_TASK_VIEW_ID) continue;
@@ -277,7 +307,9 @@ export const normalizeSavedTaskViews = (stored: unknown): SavedTaskViewState => 
       || isNameTaken(views, name)
       || normalizeName(name) === normalizeName(RAW_TASK_VIEW.name)
     ) continue;
-    views.push({ id: row.id, name, query: normalizeQuery(row.query) });
+    const icon = isNestIconKey(row.icon) ? row.icon : migratedViewIcon(row.id, usedIcons);
+    usedIcons.add(icon);
+    views.push({ id: row.id, name, icon, query: normalizeQuery(row.query) });
   }
   // Always inject the locked empty home rather than replaying a stored Raw row.
   views.unshift({ ...RAW_TASK_VIEW, query: { ...RAW_TASK_VIEW.query } });

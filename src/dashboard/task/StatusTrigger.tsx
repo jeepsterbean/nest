@@ -1,20 +1,25 @@
+import { useId } from "react";
 import { isTaskLocked } from "../../lib/taskLock";
 import type { Task } from "../../lib/types";
 import { chevronDownIcon } from "../components/icons";
 import { useTaskMenus } from "../context/TaskMenuContext";
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import { TASK_STATUS_LABEL } from "../lib/tasks";
 
 export function StatusTrigger({
   task,
   compact = false,
+  showChevron = true,
 }: {
   task: Task;
-  // Compact drops the label to dot + chevron for tight spots where the
+  // Compact drops the label to icon + chevron for tight spots where the
   // surroundings already name the status.
   compact?: boolean;
+  showChevron?: boolean;
 }) {
   const { statusMenu, openStatusMenu } = useTaskMenus();
-  const open = statusMenu?.taskId === task.id;
+  const anchorId = useId();
+  const open = statusMenu?.anchorId === anchorId;
   return (
     <button
       type="button"
@@ -25,20 +30,19 @@ export function StatusTrigger({
       aria-expanded={open}
       aria-label={`Status for ${task.title}: ${TASK_STATUS_LABEL[task.status]}`}
       title={compact ? TASK_STATUS_LABEL[task.status] : undefined}
-      onClick={(e) => openStatusMenu(task, e.currentTarget)}
+      onClick={(e) => openStatusMenu(task, e.currentTarget, anchorId)}
     >
-      <span
-        className={`status-dot status-dot--${task.status}`}
-        aria-hidden="true"
-      />
+      <TaskStatusIcon status={task.status} />
       {!compact && (
         <span className="task-status-trigger__label">
           {TASK_STATUS_LABEL[task.status]}
         </span>
       )}
-      <span className="task-status-trigger__chevron" aria-hidden="true">
-        {chevronDownIcon}
-      </span>
+      {showChevron && (
+        <span className="task-status-trigger__chevron" aria-hidden="true">
+          {chevronDownIcon}
+        </span>
+      )}
     </button>
   );
 }

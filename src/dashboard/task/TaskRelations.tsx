@@ -1,31 +1,36 @@
-import { useMemo, useState, type FormEvent } from "react";
-import {
-  createTask,
-  setTaskParent,
-} from "../../lib/commands";
+import { useMemo, useRef } from "react";
+import { setTaskParent } from "../../lib/commands";
 import type { Task } from "../../lib/types";
 import { MenuSelect } from "../components/MenuSelect";
-import { enterIcon } from "../components/icons";
+import { plusIcon } from "../components/icons";
 import { useDashboardData } from "../context/DashboardDataContext";
-import { ancestorIds, childProgress, descendantIds } from "../lib/taskGraph";
+import { ancestorIds, descendantIds } from "../lib/taskGraph";
+import { CLOSED_STATUSES } from "../lib/tasks";
 import { taskSelectOptions } from "./taskSelectOptions";
+import { StatusTrigger } from "./StatusTrigger";
 
 /** Parent and Children relationships. */
-export function TaskRelations({ task }: { task: Task }) {
+export function TaskRelations({ task, onCreateRelated, onOpenTask }: {
+  task: Task;
+  onOpenTask: (taskId: number) => void;
+  onCreateRelated: (direction: "parent" | "child", origin: HTMLElement) => void;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
   const { tasks, taskGraph, mutate } = useDashboardData();
-  const [childTitle, setChildTitle] = useState("");
 
   const children = taskGraph.childrenByParent.get(task.id) ?? [];
-  const parent =
-    task.parentTaskId === null ? null : taskGraph.byId.get(task.parentTaskId) ?? null;
-  const progress = childProgress(taskGraph, task.id);
+  const parent = task.parentTaskId === null ? undefined : taskGraph.byId.get(task.parentTaskId);
+  const parents = parent ? [parent] : [];
 
   const descendants = useMemo(
     () => descendantIds(taskGraph, task.id),
     [taskGraph, task.id],
   );
-  const parentCandidates = tasks
-    .filter((candidate) => candidate.id !== task.id && !descendants.has(candidate.id));
+  const parentCandidates = tasks.filter((candidate) =>
+    candidate.id !== task.id &&
+    !descendants.has(candidate.id) &&
+    task.parentTaskId !== candidate.id,
+  );
   const ancestors = useMemo(
     () => ancestorIds(taskGraph, task.id),
     [taskGraph, task.id],
@@ -35,66 +40,68 @@ export function TaskRelations({ task }: { task: Task }) {
     candidate.parentTaskId !== task.id &&
     !ancestors.has(candidate.id),
   );
-  const addChild = (event: FormEvent) => {
-    event.preventDefault();
-    const title = childTitle.trim();
-    if (!title) return;
-    void mutate(() => createTask(title, "", "backlog", task.id)).then(
-      (created) => {
-        if (created) setChildTitle("");
-      },
-    );
-  };
-
   return (
-    <section className="task-relations" aria-label={`Relations for ${task.title}`}>
-      <div className="task-detail__field">
-        <span className="task-detail__label">Parent</span>
-        <MenuSelect
-          value={parent ? String(parent.id) : ""}
-          placeholder="No parent"
-          ariaLabel={`Parent for ${task.title}`}
-          searchPlaceholder="Find a parent…"
-          // The clearing option is offered only while a Parent is set, so an
-          // unset Parent renders as the muted placeholder, not a chosen value.
-          options={[
-            ...(parent ? [{ value: "", label: "No parent" }] : []),
-            ...taskSelectOptions(parentCandidates, task.parentTaskId),
-          ]}
-          onChange={(value) => {
-            void mutate(() =>
-              setTaskParent(task.id, value ? Number(value) : null),
-            );
-          }}
-        />
-      </div>
-
-      <div className="task-detail__field">
-        <span className="task-detail__label">
-          Children
-          {progress.total > 0 && (
-            <span
-              className="task-detail__label-count"
-              title={`${progress.completed} of ${progress.total} complete`}
-            >
-              {progress.completed}/{progress.total}
+    <section ref={sectionRef} className="task-relations" aria-label={`Relations for ${task.title}`}>
+      <h3 className="task-relations__title">Relationships</h3>
+      {([
+        { direction: "parent", label: "Parent", related: parents, candidates: parentCandidates },
+        { direction: "child", label: "Children", related: children, candidates: childCandidates },
+      ] as const).map(({ direction, label, related, candidates }) => (
+        <section className="task-relations__group" key={direction} data-relation={direction} aria-label={label}>
+          <header className="task-relations__head">
+            <h4>{label}</h4>
+            <span className="task-relations__count">
+              {related.filter((item) => !CLOSED_STATUSES.includes(item.status)).length}/{related.length} open
             </span>
-          )}
-        </span>
-        <div className="task-detail__stack">
-          {children.length > 0 && (
+            <MenuSelect
+              className="task-relations__add"
+              value=""
+              placeholder="+"
+              triggerContent={plusIcon}
+              ariaLabel={`Link ${direction} to ${task.title}`}
+              menuMinWidth={240}
+              searchPlaceholder="Find a task…"
+              options={[
+                { value: "create", label: "Create new task", marker: plusIcon },
+                ...taskSelectOptions(candidates),
+              ]}
+              onChange={(value) => {
+                if (value === "create") {
+                  const origin = sectionRef.current?.querySelector<HTMLButtonElement>(
+                    `[data-relation="${direction}"] .menu-select__trigger`,
+                  );
+                  if (origin) onCreateRelated(direction, origin);
+                } else {
+                  const id = Number(value);
+                  void mutate(() => direction === "parent"
+                    ? setTaskParent(task.id, id)
+                    : setTaskParent(id, task.id));
+                }
+              }}
+            />
+          </header>
+          {related.length > 0 && (
             <ul className="task-relation-list">
-              {children.map((child) => (
-                <li key={child.id}>
-                  <span className={`status-dot status-dot--${child.status}`} />
-                  <span>{child.title}</span>
+              {related.map((item) => (
+                <li key={item.id}>
+                  <StatusTrigger task={item} compact />
+                  <button
+                    type="button"
+                    className="task-relation-open"
+                    title={item.title}
+                    onClick={() => onOpenTask(item.id)}
+                  >
+                    {item.title}
+                  </button>
                   <button
                     type="button"
                     className="task-relation-remove"
-                    aria-label={`Unlink ${child.title}`}
+                    aria-label={`Unlink ${direction} ${item.title}`}
                     title="Unlink"
                     onClick={() => {
-                      void mutate(() => setTaskParent(child.id, null));
+                      void mutate(() => direction === "parent"
+                        ? setTaskParent(task.id, null)
+                        : setTaskParent(item.id, null));
                     }}
                   >
                     Unlink
@@ -103,34 +110,8 @@ export function TaskRelations({ task }: { task: Task }) {
               ))}
             </ul>
           )}
-          <MenuSelect
-            value=""
-            placeholder="Link existing child…"
-            ariaLabel={`Link existing child to ${task.title}`}
-            searchPlaceholder="Find a task…"
-            options={taskSelectOptions(childCandidates)}
-            onChange={(value) => {
-              void mutate(() => setTaskParent(Number(value), task.id));
-            }}
-          />
-          <form className="task-child-create" onSubmit={addChild}>
-            <input
-              value={childTitle}
-              placeholder={children.length > 0 ? "Add child…" : "No children"}
-              aria-label={`New child of ${task.title}`}
-              onChange={(event) => setChildTitle(event.target.value)}
-            />
-            <button
-              type="submit"
-              aria-label="Add child task"
-              title="Add child task"
-              disabled={!childTitle.trim()}
-            >
-              {enterIcon}
-            </button>
-          </form>
-        </div>
-      </div>
+        </section>
+      ))}
     </section>
   );
 }

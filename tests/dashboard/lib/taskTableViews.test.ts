@@ -13,6 +13,7 @@ import {
   overwriteSavedTaskView,
   readSavedTaskViews,
   renameSavedTaskView,
+  setSavedTaskViewIcon,
   sameTaskTableQuery,
   writeSavedTaskViews,
   type SavedTaskView,
@@ -47,7 +48,7 @@ describe("saved task views", () => {
 
   it("starts with the built-in Raw view selected", () => {
     expect(normalizeSavedTaskViews(null)).toEqual({
-      views: [{ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY }],
+      views: [{ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY }],
       selectedId: RAW_TASK_VIEW_ID,
     });
   });
@@ -62,7 +63,7 @@ describe("saved task views", () => {
     });
     expect(state.selectedId).toBe(RAW_TASK_VIEW_ID);
     expect(state.views.map(view => view.id)).toEqual([RAW_TASK_VIEW_ID, "a"]);
-    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY });
+    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY });
     expect(state.views[1]!.query.statuses).toEqual(["completed"]);
     expect(normalizeSavedTaskViews({
       selectedId: "a",
@@ -76,6 +77,7 @@ describe("saved task views", () => {
   it("compares statuses as a set", () => {
     expect(sameTaskTableQuery(query({ statuses: ["active", "backlog"] }), query({ statuses: ["backlog", "active"] }))).toBe(true);
     expect(sameTaskTableQuery(query({ sort: [{ column: "value", direction: "ascending" }] }), query({}))).toBe(false);
+    expect(sameTaskTableQuery(query({ nested: true }), query({}))).toBe(false);
   });
 
   it("names only the fields that differ from the saved query", () => {
@@ -86,13 +88,13 @@ describe("saved task views", () => {
 
   it("marks a column edited only when its own filter or sort differs from the saved view", () => {
     const saved = query({
-      parent: 1,
+      value: { kind: "scores", scores: [4] },
       sort: [{ column: "title", direction: "ascending" }, { column: "status", direction: "descending" }],
     });
-    expect(taskTableColumnQueryEdited("parent", saved, saved)).toBe(false);
+    expect(taskTableColumnQueryEdited("value", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("title", saved, saved)).toBe(false);
     expect(taskTableColumnQueryEdited("status", saved, saved)).toBe(false);
-    expect(taskTableColumnQueryEdited("parent", saved, query({ ...saved, parent: 2 }))).toBe(true);
+    expect(taskTableColumnQueryEdited("value", saved, query({ ...saved, value: { kind: "scores", scores: [5] } }))).toBe(true);
     expect(taskTableColumnQueryEdited("title", saved, query({
       ...saved,
       sort: [{ column: "title", direction: "descending" }, { column: "status", direction: "descending" }],
@@ -101,19 +103,19 @@ describe("saved task views", () => {
       ...saved,
       sort: [{ column: "status", direction: "descending" }, { column: "title", direction: "ascending" }],
     }))).toBe(true);
-    expect(taskTableColumnQueryEdited("title", saved, query({ ...saved, parent: 2 }))).toBe(false);
+    expect(taskTableColumnQueryEdited("title", saved, query({ ...saved, value: { kind: "scores", scores: [5] } }))).toBe(false);
   });
 
   it("keeps filter changes visible when a saved filter is cleared", () => {
-    const saved = query({ parent: 1 });
-    const cleared = query({ ...saved, parent: null });
+    const saved = query({ effort: { kind: "scores", scores: [2] } });
+    const cleared = query({ ...saved, effort: null });
     expect(taskTableFiltersEdited(saved, cleared)).toBe(true);
-    expect(taskTableColumnQueryEdited("parent", saved, cleared)).toBe(true);
+    expect(taskTableColumnQueryEdited("effort", saved, cleared)).toBe(true);
   });
 
   it("does not treat sort or column-only edits as filter changes", () => {
     const sorted = query({ sort: [{ column: "title", direction: "ascending" }] });
-    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true);
+    const hidden = setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "created", true);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, sorted)).toBe(false);
     expect(taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, query({ columns: hidden }))).toBe(false);
   });
@@ -162,7 +164,7 @@ describe("saved task views", () => {
     expect(state.views[1]!.query).toEqual({
       statuses: ["active"], parent: null, created: null,
       updated: { kind: "range", fromDay: "2026-01-01", toDay: null },
-      closed: null, value: null, effort: null, workedOn: null, statusChanged: null, workedTime: null, sort: [],
+      closed: null, value: null, effort: null, workedOn: null, statusChanged: null, workedTime: null, sort: [], nested: false,
       columns: DEFAULT_TASK_TABLE_QUERY.columns,
     });
   });
@@ -188,7 +190,7 @@ describe("saved task views", () => {
       selectedId: RAW_TASK_VIEW_ID,
       views: [{ id: RAW_TASK_VIEW_ID, name: "Inbox", query: query({ parent: 1, value: { kind: "scores", scores: [5] } }) }],
     });
-    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", query: DEFAULT_TASK_TABLE_QUERY });
+    expect(state.views[0]).toEqual({ id: RAW_TASK_VIEW_ID, name: "Raw", icon: "layout-grid", query: DEFAULT_TASK_TABLE_QUERY });
   });
 
   it("keeps column order, widths, and hidden columns in the saved query", () => {
@@ -219,7 +221,7 @@ describe("saved task views", () => {
   it("round-trips through storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
-    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "parent", true), "title", 40);
+    const columns = splitTaskTableColumn(setTaskTableColumnHidden(DEFAULT_TASK_TABLE_QUERY.columns, "created", true), "title", 40);
     const views = viewsOf(createSavedTaskView(raw, query({ parent: "none", sort: [{ column: "updated", direction: "descending" }], columns }), "Loose", 2));
     writeSavedTaskViews({ views, selectedId: "view-2" }, storage);
     expect(readSavedTaskViews(storage)).toEqual({ views, selectedId: "view-2" });
@@ -239,6 +241,37 @@ describe("ordered saved sorts", () => {
     const primary = { column: "status", direction: "ascending" } as const;
     const secondary = { column: "value", direction: "descending" } as const;
     expect(sameTaskTableQuery(query({ sort: [primary, secondary] }), query({ sort: [secondary, primary] }))).toBe(false);
+  });
+});
+
+describe("saved view icons", () => {
+  const stored = (id: string, name: string, icon?: string) => ({ id, name, ...(icon ? { icon } : {}), query: {} });
+
+  it("keeps a stored icon, including one another view also uses", () => {
+    const state = normalizeSavedTaskViews({ views: [stored("a", "A", "leaf"), stored("b", "B", "leaf")] });
+    expect(state.views.slice(1).map(view => view.icon)).toEqual(["leaf", "leaf"]);
+  });
+
+  it("gives views without a valid icon distinct, stable icons that avoid Raw and kept icons", () => {
+    const input = { views: [stored("a", "A"), stored("b", "B", "not-an-icon"), stored("c", "C", "leaf")] };
+    const icons = normalizeSavedTaskViews(input).views.map(view => view.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+    expect(icons).toEqual(normalizeSavedTaskViews(input).views.map(view => view.icon));
+  });
+
+  it("starts a new view on an icon no saved view uses", () => {
+    const raw = normalizeSavedTaskViews(null).views;
+    const first = viewsOf(createSavedTaskView(raw, query({ nested: true }), "One", 1, () => 0));
+    expect(first[1]!.icon).not.toBe(raw[0]!.icon);
+    const second = viewsOf(createSavedTaskView(first, query({ parent: 1 }), "Two", 2, () => 0));
+    expect(new Set(second.map(view => view.icon)).size).toBe(second.length);
+  });
+
+  it("changes a saved view's icon but never Raw's", () => {
+    const raw = normalizeSavedTaskViews(null).views;
+    const views = viewsOf(createSavedTaskView(raw, query({ nested: true }), "One", 1));
+    expect(setSavedTaskViewIcon(views, "view-1", "flower")[1]!.icon).toBe("flower");
+    expect(setSavedTaskViewIcon(views, RAW_TASK_VIEW_ID, "flower")[0]!.icon).toBe("layout-grid");
   });
 });
 
@@ -262,7 +295,6 @@ describe("Worked on and Status changed saved views", () => {
       const filtered = query({ [field]: { kind: "preset", preset: "today" } });
       expect(changedTaskTableQueryFields(saved, filtered)).toEqual(new Set([field]));
       expect(taskTableFiltersEdited(saved, filtered)).toBe(true);
-      expect(taskTableColumnQueryEdited("workedTime", saved, filtered)).toBe(false);
       expect(taskTableColumnQueryEdited("updated", saved, filtered)).toBe(false);
       expect(sameTaskTableQuery(saved, filtered)).toBe(false);
     }

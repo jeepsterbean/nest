@@ -79,20 +79,20 @@ portaled menu has to be scoped from a dashboard-level class, as
 - Every Section has a Section sidebar, `.section-sidebar`, between the
   Sidebar and `.dashboard__inner`. It shows the Section's name. On Recap, `RecapInsights`
   portals Insights into it under that name, and renders under the figure
-  once the sidebar collapses. On Tasks, `TasksView` portals Table's query
-  (`.task-query`) into the Section sidebar. It renders in the Section's main
-  content once the sidebar collapses. New task (`.task-new-button`) and the
-  result count sit in `.task-table-bar` above the table.
+  once the sidebar collapses. On Tasks, the selected `TaskPane` portals saved-view rows and actions
+  (`.task-pane-sidebar`) into the Section sidebar. They render inside that pane
+  once the sidebar collapses. Each pane's heading holds its result count;
+  `.task-query` holds icon controls for Filters, Sort, and Hidden alongside the view name.
 - Recap's Day / Week and Calendar / Timeline
   switches are `ViewToggle`s that `Dashboard` passes to both presentations;
   each ends its toolbar with them in `.recap-toolbar__display`.
 - `.dashboard__inner` takes the active Section's layout class (`--notes`,
   `--tasks`, `--metrics`, `--phases`; Recap uses `--calendar` or
   `--timeline`).
-- Away from Recap, Notes, Tasks, Metrics, and Phases all stay mounted
-  (`.section-slot`) and inactive ones are hidden with `hidden`, so filters,
-  selection, and drafts survive switches between them. Tasks alone returns to
-  Table and closes its Task detail on leaving. Opening Recap unmounts them.
+- Notes, Tasks, Metrics, and Phases stay mounted (`.section-slot`) and inactive
+  ones are hidden with `hidden`, so their state survives Section switches,
+  including visits to Recap. Tasks closes transient details and dialogs on leaving;
+  its display state follows [Tasks interface](docs/interface/tasks.md).
 
 ## Shared surfaces
 
@@ -104,13 +104,18 @@ portaled menu has to be scoped from a dashboard-level class, as
 
 ## Tasks implementation
 
-`TasksView` owns the header's `.task-header__actions` group with a Table / Map
-`ViewToggle` when Settings shows Map; with Map hidden, the header is left out.
-Table's saved-view picker (`TaskViewPicker`) is the query's first row, above
-Filters, Sort, and Hidden, so the Section sidebar head keeps only the title as
-on every Section. In Table's query (`.task-query`), each filter and sort row is a `TaskQueryRuleMenu` that opens the
-same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows. Tasks resets
-to Table when leaving the Section; table queries and drafts stay mounted.
+`TasksView` owns the split workspace and persisted layout. The split tree is
+measured into rectangles; flat, keyed `TaskPane` siblings preserve their mounted
+state when rearranged. `TaskPane` owns its table query, creation draft, and
+Table / Map switch when Settings shows Map. `TaskSavedViewsProvider` shares
+saved definitions across panes; `useTaskTableViews` keeps local query drafts.
+`TaskViewPicker` supplies sidebar rows and each pane's heading picker.
+
+Each table's `.task-query` holds `TaskQueryGroup` popovers for Filters, Sort,
+and Hidden. Each filter and sort row is a `TaskQueryRuleMenu` that opens the
+same `TaskFilterFields` or `TaskSortDirectionOptions` a column header menu shows.
+Table details portal to the workspace's overlay host. Queries, drafts, and the
+Table / Map selection stay mounted across Section switches.
 
 `taskGraph` / `TaskGraphProjection` indexes Parent/Child
 edges for Table, Map, and Task details. The Map draws connectors as an SVG

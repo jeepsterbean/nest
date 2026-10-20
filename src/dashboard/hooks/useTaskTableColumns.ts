@@ -29,6 +29,7 @@ export function useTaskTableColumns(
   const availableWidthRef = useRef(availableWidth);
   availableWidthRef.current = availableWidth;
   const resizingRef = useRef(false);
+  const headingDraggedRef = useRef(false);
   const sessionRef = useRef<Session | null>(null);
 
   const displayColumns = useMemo(
@@ -69,7 +70,8 @@ export function useTaskTableColumns(
     const header = document
       .elementFromPoint(clientX, clientY)
       ?.closest<HTMLElement>("[data-task-col]");
-    const id = header?.dataset.taskCol;
+    if (!header || !wrap?.contains(header)) return null;
+    const id = header.dataset.taskCol;
     return columnsRef.current.some((column) => column.id === id)
       ? (id as TaskTableColumnId)
       : null;
@@ -86,7 +88,8 @@ export function useTaskTableColumns(
     kind: "move" | "resize",
   ) => {
     if (event.button !== 0 || !event.isPrimary || sessionRef.current) return;
-    event.preventDefault();
+    headingDraggedRef.current = false;
+    if (kind === "resize") event.preventDefault();
     event.stopPropagation();
 
     const origin = columnsRef.current;
@@ -97,6 +100,7 @@ export function useTaskTableColumns(
     session.removeListeners = startPointerDrag(event, {
       startImmediately: kind === "resize",
       onStart: () => {
+        headingDraggedRef.current = kind === "move";
         document.documentElement.classList.add(
           kind === "move"
             ? "task-table-move-in-progress"
@@ -144,6 +148,11 @@ export function useTaskTableColumns(
     showColumn: (id: TaskTableColumnId) =>
       setColumns(setTaskTableColumnHidden(columnsRef.current, id, false)),
     showAllColumns: () => setColumns(showAllTaskTableColumns(columnsRef.current)),
+    consumeHeadingDrag: () => {
+      const dragged = headingDraggedRef.current;
+      headingDraggedRef.current = false;
+      return dragged;
+    },
     draggingId,
     overId,
     wrapRef: setWrap,

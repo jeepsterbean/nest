@@ -54,11 +54,6 @@ export const RANGE_MODES = [
 
 export type RangeModeKey = (typeof RANGE_MODES)[number]["key"];
 
-export type RecapDateRangeStore = {
-  read: () => RangeModeKey;
-  write: (mode: RangeModeKey) => void;
-};
-
 const RANGE_MODE_KEY = "nest:date-range";
 const LEGACY_RANGE_MODE_KEY = "nest:insights-range";
 

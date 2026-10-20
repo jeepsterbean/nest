@@ -4,15 +4,55 @@ Table, Map, and Task details interactions. Records and lifecycle rules live in
 [Tasks domain](../domain/tasks.md), shared terminology in
 [`CONTEXT.md`](../../CONTEXT.md), and dashboard controls in [`UI.md`](../../UI.md).
 
-Tasks opens in Table on each visit. Settings can enable the Table / Map switch;
-hiding Map returns to Table and closes Task details.
+Each pane opens in Table after launch. Section switches, including visits to Recap,
+preserve each pane's Table / Map selection, query changes, collapsed Parents, drafts,
+and scroll position. Leaving Tasks closes Task details, creation dialogs, and query
+menus. Settings can enable the Table / Map switch for the selected pane; hiding Map
+returns panes to Table and closes Task details.
 
 ## Table
 
-First visit selects Raw. The Section sidebar holds saved views and
-[active rules](#active-rules-and-result-count); collapsing it moves the query
-above the table. The result count sits left above the table, New task right.
-Table rows indicate Working now.
+First visit selects Raw in a single pane. The Section sidebar lists saved views
+as rows under a New task action. New task applies to the selected pane, whose
+heading is highlighted. Each pane’s vertical three-dot More menu offers a Nest by Parent toggle and
+Close view. Close view applies to that pane and is disabled for the final pane. Collapsing the sidebar moves its controls into the
+selected pane. Saved-view creation lives only in the pane heading's view menu. Each pane's heading shows its view icon, name, and result count.
+Filters, Sort, and Hidden open rule menus from icon buttons with active counts in the pane heading. Clicking the view name opens the saved-view list. Table rows
+indicate Working now. Empty Value, Effort, and Closed cells show `—`.
+
+### Split panes
+
+Drag a saved-view row onto a pane's left, right, top, or bottom edge to open it
+in a new split. A preview shows the destination before release. Splits can be
+nested in either direction. Dropping a saved view in the center loads it in that
+pane, discarding that pane's unsaved query changes. Sidebar rows only load views
+through dragging; clicking leaves every pane unchanged. A preview with the view's
+icon and name follows the pointer during dragging. Each pane's heading offers a view picker.
+
+Drag a pane's header surface, outside its interactive controls, to an edge of another pane to move it, or to the center to
+swap their positions. Moving preserves its query, drafts, and table scroll
+position. Dropping outside the workspace or onto the source pane leaves the
+layout unchanged. Escape cancels a view drag.
+
+Each pane keeps independent filters, sorts, columns, Nest by Parent, collapsed
+Parents, and scrolling. Task edits update shared records in every pane; a Task
+may appear in several panes when it matches their filters. Saving a view updates
+its definition everywhere: other panes with that view refresh when their query
+is unchanged, while panes with unsaved changes keep their local query. Revert
+loads the latest saved definition. Deleting a view returns every pane showing
+it to Raw.
+
+Clicking or focusing a pane selects it. Drag dividers to resize; double-click a
+divider to balance its split. Focused dividers support arrow keys and Home to
+balance. Alt + an arrow key on a saved-view row or focused pane header opens that view in
+a split in the chosen direction. Escape during a divider drag restores the
+previous proportions. Closing a pane from More → Close view expands its neighbor; the final
+pane stays open. A workspace holds at most 16 panes; splitting past that does nothing. On narrow windows, the workspace scrolls to retain readable
+pane sizes.
+
+The layout, divider proportions, each pane's selected view, and selected pane
+persist in `nest:task-pane-workspace`. Reload restores saved queries and discards
+unsaved query changes. Pane state stays mounted across layout rearrangements.
 
 ### Columns and menus
 
@@ -23,17 +63,24 @@ their minimum widths exceed it.
 
 Headers offer Sort, supported Filters, Hide column, and Reset for an active
 filter or sort. Title opens sort options directly. Sort and Filter options open
-on hover or click. Only one column or rule menu opens at a time; outside press,
+on hover or click. Only one column or rule editor opens per pane at a time; outside press,
 Escape, or outside scrolling dismisses it. Parent and sort selections
 close the menu; other column filter selections keep it open.
-Choosing a sidebar option or pressing Escape returns focus to its rule trigger;
+Choosing a rule option or pressing Escape returns focus to its rule trigger;
 if the rule disappears, focus moves to a surviving nearby query control.
-Headers show sort direction and highlight filter or sort changes from the saved view.
+Each heading has a property icon. Drag the heading to reorder; click it to open
+its menu. Heading boundaries appear on hover or keyboard focus. Headers highlight
+filter or sort changes from the saved view; sort directions remain available in
+the menus and Sort rules.
 
 ### Filters
 
-Filters combine. Worked on and Status changed have no columns: they remain the
-first two Filters rows, reading “-” when unset.
+Filters combine. Parent, Worked on, Status changed, and Worked time have no
+columns, so they cannot be sorted or hidden; they exist only as Filters. The
+Filters heading's “+” lists every filter without a row. Picking one adds its
+row and opens its editor; closing the editor with nothing set removes the row
+again. “+” is disabled once every filter has a row, and stays above the table
+when the sidebar is collapsed.
 
 | Filter | Choices and matching |
 |---|---|
@@ -49,8 +96,7 @@ Last 7 days, Last 30 days, and From / To calendar days. Either bound can be empt
 the date picker writes the active bound, starting with From. Presets move with
 the calendar; explicit dates stay fixed.
 
-Worked on changes the column label to “Worked time in range”. Its values, sorting,
-and duration filter use time clipped to the range under
+With Worked on set, the Worked time filter measures time clipped to the range under
 [history range rules](../domain/history.md#records-and-ranges). Clearing Worked on
 restores all-time totals. Other date filters only select rows.
 
@@ -66,26 +112,36 @@ or unavailable with Retry; refreshing the current range keeps existing rows visi
 ### Sorting
 
 Every column sorts in either direction, with empty values last at each level:
-text alphabetically (Parent by title), Status in lifecycle order, scores and
-displayed Worked time numerically, and dates chronologically.
+text alphabetically, Status in lifecycle order, scores numerically, and dates
+chronologically.
 
 New columns append sort rules; changing direction preserves priority, and choosing
 the active direction removes the rule. Rules break ties in order. Drag rules to
 reorder them, or use Up / Down on the focused grip. Sorting starts unset;
 clearing it restores incoming order.
 
+### Nest by Parent
+
+“Nest by Parent” regroups the rows the current filters and sorts produce, each
+Task under its [Parent](../domain/tasks.md#relationships), indented, with a
+chevron to collapse or expand its Children. It changes display only: the result
+count, filters, and Worked time filter stays as it is. A Task whose Parent is
+not in the result shows at top level, so every filter still lists all its
+matches. Sorting orders siblings within each Parent and roots among themselves
+rather than the whole list. All Tasks start expanded, and collapse state resets
+on reload.
+
 ### Active rules and result count
 
-The count sits left above the table and reads `42 tasks`, or `42 out of 380 tasks`
-when an active filter differs from the saved view. Sort and column changes keep
-the simple count.
+The count sits immediately right of the view name and reads as the matching
+row count (`42`). Sort and column changes keep that same number.
 
 Filters, Sort, and Hidden list rules with active counts. Empty groups retain their
 headings in the sidebar and disappear above the table. With no filters, sorts, or
-hidden columns, the sidebar says “Filter and sort from the column headers.”
+hidden columns, the sidebar says “Add filters with +, and sort from the column headers.”
 
 Filter rows open the same editor as column menus, with Reset when set. Clearing
-a column filter keeps its row until the editor closes. Sort rows offer both
+a filter keeps its row until the editor closes. Sort rows offer both
 directions; choosing the active direction removes the rule. Remove clears one
 rule (Status returns to All); Filters and Sort offer Clear at two or more rules.
 Hidden rows restore individual columns; Show all appears at two or more.
@@ -97,24 +153,31 @@ status (`≠ Cancelled`). Truncated values expose their full text in a tooltip.
 
 ### Saved views
 
-A saved view keeps all filters, ordered sorts, and column order, widths, and
-visibility. Up to five views, including Raw, appear in creation order; names are
+A saved view keeps all filters, ordered sorts, Nest by Parent, and column order,
+widths, and visibility. Up to ten views, including Raw, appear in creation order; names are
 unique ignoring case. Raw always loads all statuses, no filters or sorts, and
 default columns. It cannot be renamed, overwritten, or deleted.
 
 Changes expose Save and Revert; Save is disabled on Raw. Matching the selected
 view clears the changed state. Switching views discards unsaved changes.
+Each saved view has an icon shown before its name in the sidebar and the view
+menu. A new view gets a random icon no saved view uses; clicking the icon opens a
+grid to change it. Raw's icon is fixed, and a view saved before icons existed
+receives one on load. Escape closes the icon grid and returns focus to its
+trigger, keeping the view menu open.
+
 “Save current as view” creates and selects a view, and is disabled when the query
-matches the selected view or five views exist. Duplicate queries are refused
+matches the selected view or ten views exist. Duplicate queries are refused
 with a link to the matching view.
 
-Custom views support Rename and inline-confirmed Delete. Deleting the selected
-view loads Raw. Views and selection persist across launches; unsaved changes are
-discarded. Saved views apply only to Table; Map remains unfiltered.
+Custom views support Rename and inline-confirmed Delete in the pane heading’s
+view menu. Deleting the selected
+view loads Raw. Saved views persist across launches; pane selection and query restoration follow
+[Split panes](#split-panes). Saved views apply only to Table; Map remains unfiltered.
 
 Missing Parent filters are dropped after Tasks load, leaving the saved
 view unchanged and the query marked changed. Revert restores the missing filter,
-which is dropped again. Older views default Worked on and Status changed to unset
+which is dropped again. Older views default Nest by Parent off, Worked on and Status changed to unset
 and load a legacy single sort as the first rule.
 
 ## Creating Tasks
@@ -123,13 +186,15 @@ Table’s “New task” opens an overlay. Only the name is required; Status def
 to Backlog, with Description, Parent, Value, and Effort optional.
 A fresh draft inherits the view’s Status when exactly one is selected.
 Outside press, Escape, or Cancel closes the card and preserves the draft.
-Adding clears the draft and opens the new Task’s details.
+Adding clears the draft and opens the new Task’s details. Each pane keeps its
+own creation draft; New task uses the selected pane.
 
 ## Task details
 
 ### Opening and closing
 
-Table details open as a modal overlay; Map shares its pane with details.
+Table details open as a modal overlay across the Tasks workspace, making the
+other panes and sidebar controls inert; Map shares its pane with details.
 Outside press, Escape, or Close dismisses the overlay. Opening focuses details;
 closing restores focus to the originating control when available.
 
@@ -143,17 +208,26 @@ Details show creation, latest update, and closure timestamps, status, Working
 now, and all-time Worked time in whole minutes (“<1m” under a minute),
 independently of Table filters. Worked time is hidden while it is zero and the
 Task is not Working now. Work controls live in the [Popup](popup.md). Value and
-Effort are editable. Description editing saves on Enter or blur, inserts a line
+Effort use five selectable dots. Clicking the selected dot clears it; arrow keys
+adjust the score, 1–5 sets it, and 0, Backspace, or Delete clears it. Description grows with its content up to a scrollable maximum. Relationships
+follow Description, then independently scrolling History. Description editing saves on Enter or blur, inserts a line
 break on Shift+Enter, and cancels on Escape.
+
+The Table Status column shows the status icon and name, with no dropdown caret.
+Clicking the icon or name opens the status selector.
+Status icons distinguish Backlog (dashed ring), Up next (ring), Active (half-filled ring),
+Completed (check), and Cancelled (cross).
 
 ### Relationships
 
-Details show Parent and Children. Empty states read “No parent” or “No children”;
-populated Children lists use “Add child…”. Children supports creating a new
-Backlog Task or linking an existing Task; linking moves that Task from its
-previous Parent when one exists. Each Child offers Unlink to clear its Parent
-while keeping both Tasks. Choosing “No parent” in the Parent picker clears the
-current Task’s Parent.
+Details group Parent and Children under Relationships. Each group shows its
+open / total count; Completed and Cancelled count as closed. Its + picker offers
+“Create new task” and existing Tasks. Creating opens New task with the current
+Task prefilled as Parent or Child; the relationship saves on Add task and
+dismissing preserves the draft. Choosing a Parent replaces the previous Parent.
+Each linked row offers Unlink, a title that opens its details, and a status
+control. Browsing related Tasks preserves the original row as the focus
+return destination when details close. Unlink keeps both Tasks.
 
 Parent pickers (including New task) and the existing-child picker default to
 open Tasks and Tasks closed within the last seven days, sorted newest updated

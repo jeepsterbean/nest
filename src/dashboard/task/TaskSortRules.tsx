@@ -20,7 +20,7 @@ export function TaskSortRules({ rules, savedRules, onChange, openColumn, onOpenC
   const { rowProps, draggingId, overId } = useListSort(`task-sort-${id}`, ruleIds,
     reorderedIds => onChange(reorderedIds.map(ruleId => rules[ruleIds.indexOf(ruleId)]!)),
     "button:not(.task-query-rule__grip)");
-  return <TaskQueryGroup label="Sort rules in priority order" icon={sortIcon} title="Sort" count={rules.length} isEmpty={rules.length === 0}
+  return <TaskQueryGroup label="Sort rules in priority order" icon={sortIcon} title="Sort" count={rules.length} isEmpty={rules.length === 0} emptyHint="Sort from the column headers."
     action={rules.length > 1 ? { label: "Clear", ariaLabel: "Clear sort", onClick: () => onChange([]) } : null}>
     <ol>{rules.map((rule, index) => {
       const columnLabel = TASK_TABLE_COLUMNS.find(column => column.id === rule.column)!.label;

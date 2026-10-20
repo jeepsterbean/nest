@@ -1,3 +1,4 @@
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import type { Task } from "../../lib/types";
 import type { MenuSelectOption } from "../components/MenuSelect";
 import { taskRelationshipCandidates } from "../lib/taskRelationshipCandidates";
@@ -12,5 +13,5 @@ export const taskSelectOptions = (tasks: Task[], selectedId: number | null = nul
       label: task.title,
       searchOnly,
       description: TASK_STATUS_LABEL[task.status],
-      marker: <span className={`status-dot status-dot--${task.status}`} />,
+      marker: <TaskStatusIcon status={task.status} />,
     }));

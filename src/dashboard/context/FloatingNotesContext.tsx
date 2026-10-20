@@ -51,6 +51,7 @@ export function FloatingNotesProvider({
     addNote,
     updateNote,
     removeNote,
+    removeUnchangedNote,
     dockNote,
     undockNote,
     updateBoard,
@@ -110,13 +111,16 @@ export function FloatingNotesProvider({
 
   const submitFloatingNote = useCallback(
     async (note: FloatingNote) => {
-      if (!trimNoteHtml(note.text) || submitting) return;
+      const submitted = { text: note.text, tagIds: [...note.tagIds] };
+      if (!trimNoteHtml(submitted.text) || submitting) return;
       setSubmitting(true);
-      const ok = await mutate(() => submitNote(note.text, note.tagIds));
-      if (ok) removeNote(note.id);
+      const ok = await mutate(() =>
+        submitNote(submitted.text, submitted.tagIds),
+      );
+      if (ok) removeUnchangedNote(note.id, submitted);
       setSubmitting(false);
     },
-    [mutate, removeNote, submitting],
+    [mutate, removeUnchangedNote, submitting],
   );
 
   const contextValue = useMemo(() => ({ forkToFloating }), [forkToFloating]);

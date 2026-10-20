@@ -1,3 +1,4 @@
+import { TaskStatusIcon } from "./TaskStatusIcon";
 import {
   useEffect,
   useMemo,
@@ -434,7 +435,7 @@ export function TaskMap({
                 onClickCapture={onClickCapture}
               >
                 <div className="task-entity__head">
-                  <span className={`status-dot status-dot--${task.status}`} />
+                  <TaskStatusIcon status={task.status} />
                   <button
                     type="button"
                     className="task-entity__title"
@@ -529,7 +530,7 @@ export function TaskMap({
                         )
                       }
                     >
-                      <span className={`status-dot status-dot--${task.status}`} />
+                      <TaskStatusIcon status={task.status} />
                       <span className="task-map__tray-title">{task.title}</span>
                     </button>
                   </li>

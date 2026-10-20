@@ -11,6 +11,7 @@ import {
   floatingNoteSizeForText,
   createFloatingNoteWriter,
   createFloatingFromDraft,
+  floatingNotesAfterSave,
   DEFAULT_FLOATING_STICKY_COLOR,
   FLOATING_NOTE_HEIGHT,
   FLOATING_NOTE_MAX_HEIGHT,
@@ -455,6 +456,42 @@ describe("reclampNoteBoard", () => {
     expect(next.y).toBe(
       700 - FLOATING_NOTE_MINIMISED_HEIGHT - FLOATING_NOTE_PADDING,
     );
+  });
+});
+
+describe("floatingNotesAfterSave", () => {
+  const sticky = {
+    id: "a",
+    text: "Remember",
+    tagIds: [1],
+    color: "paper" as const,
+    minimised: false,
+    docked: false,
+    x: 16,
+    y: 64,
+    zIndex: 1,
+  };
+
+  it("removes only the sticky whose text and tags still match the saved snapshot", () => {
+    const other = { ...sticky, id: "b", text: "Other", tagIds: [] };
+    expect(
+      floatingNotesAfterSave([sticky, other], "a", {
+        text: "Remember",
+        tagIds: [1],
+      }),
+    ).toEqual([other]);
+  });
+
+  it("keeps a sticky whose text or tags changed while the save was in flight", () => {
+    const editedText = { ...sticky, text: "Remember this" };
+    const editedTags = { ...sticky, tagIds: [1, 4] };
+    const submitted = { text: "Remember", tagIds: [1] };
+    expect(floatingNotesAfterSave([editedText], "a", submitted)).toEqual([
+      editedText,
+    ]);
+    expect(floatingNotesAfterSave([editedTags], "a", submitted)).toEqual([
+      editedTags,
+    ]);
   });
 });
 

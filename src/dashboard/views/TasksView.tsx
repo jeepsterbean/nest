@@ -1,435 +1,225 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { createTask } from "../../lib/commands";
-import { plusIcon } from "../components/icons";
-import { TaskFilterRules } from "../task/TaskFilterRules";
-import { TaskSortRules } from "../task/TaskSortRules";
-import { TaskHiddenColumnRules } from "../task/TaskHiddenColumnRules";
-import { ViewToggle } from "../components/ViewToggle";
-import { useDashboardData } from "../context/DashboardDataContext";
-import { useTaskMenus } from "../context/TaskMenuContext";
-import { useCurrentTime } from "../hooks/useCurrentTime";
+import { NestIcon } from "../components/PulseIcon";
+import { TaskSavedViewsProvider, useTaskSavedViews } from "../context/TaskSavedViewsContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { useAppSettings } from "../hooks/useAppSettings";
-import { useTaskTableColumns } from "../hooks/useTaskTableColumns";
-import { useTaskWorkedOn } from "../hooks/useTaskWorkedOn";
-import { useTaskTableViews } from "../hooks/useTaskTableViews";
 import { COLLAPSED_SECTION_SIDEBAR } from "../lib/sections";
+import { startPointerDrag } from "../lib/pointerDrag";
 import {
-  canHideTaskTableColumn,
-  TASK_VIEWS,
-  visibleTaskViewFor,
-  type TaskTableColumn,
-  type TaskViewKey,
-} from "../lib/taskTable";
-import { TaskTableHeaderMenu, type TaskFilterContext } from "../task/TaskTableHeaderMenu";
-import { taskMatchesTableRowFilters } from "../lib/taskTableFilter";
-import { sortTasksByColumn, type TaskColumnSort } from "../lib/taskColumnSort";
-import {
-  changedTaskTableQueryFields,
-  DEFAULT_TASK_TABLE_QUERY,
-  taskTableColumnQueryEdited,
-  taskTableFiltersEdited,
-  type TaskParentFilter,
-  type TaskTableFilterField,
-  type TaskTableQuery,
-} from "../lib/taskTableViews";
-import { taskMatchesWorkedTimeFilter } from "../lib/taskWorkedTimeFilter";
-import {
-  EMPTY_TASK_DRAFT,
-  TaskCreateCard,
-  type TaskDraft,
-} from "../task/TaskCreateCard";
-import { TaskDetailPanel } from "../task/TaskDetailPanel";
-import { TaskMap } from "../task/TaskMap";
-import { TaskTable } from "../task/TaskTable";
-import { useTaskStatusChanged } from "../hooks/useTaskStatusChanged";
-import { TaskViewPicker } from "../task/TaskViewPicker";
-import type { TaskTableColumnId } from "../lib/taskTable";
+  measureTaskLayout, removeTaskPane, resizeTaskSplit, splitTaskPane, taskLayoutMinimum, taskPaneDropAt, taskPaneIds,
+  TASK_PANE_DIVIDER, TASK_PANE_LIMIT, type TaskPaneDrop, type TaskPaneEdge, type TaskPaneLayout,
+} from "../lib/taskPaneLayout";
+import { readTaskPaneWorkspace, TASK_PANE_WORKSPACE_KEY } from "../lib/taskPaneWorkspace";
+import { TaskPane } from "../task/TaskPane";
 
-// Header menus, sidebar filter rows, and sidebar sort rows share one open
-// slot, so opening any of them closes the others.
-type TaskQueryMenu = TaskTableColumnId | `filter:${TaskTableFilterField}` | `sort:${TaskTableColumnId}`;
+type DragSource = { kind: "view"; viewId: string } | { kind: "pane"; paneId: string };
+type DropTarget = { paneId: string; placement: TaskPaneDrop };
 
-export function TasksView({
-  sectionSidebar,
-  visible,
-}: {
-  sectionSidebar: HTMLElement | null;
-  visible: boolean;
-}) {
-  const {
-    tasks,
-    taskGraph,
-    loaded,
-    reload,
-    setError,
-  } = useDashboardData();
-  const [taskView, setTaskView] = useState<TaskViewKey>("table");
-  const showTaskMap = useAppSettings().showTaskMap;
-  const visibleTaskView = visibleTaskViewFor(taskView, showTaskMap);
-  // Tasks stays mounted while hidden, so it must not fill another Section's
-  // sidebar, and the collapsed sidebar is too thin for these controls.
+export function TasksView(props: { sectionSidebar: HTMLElement | null; visible: boolean }) {
+  return <TaskSavedViewsProvider><TaskWorkspace {...props} /></TaskSavedViewsProvider>;
+}
+
+function swapTaskPanes(layout: TaskPaneLayout, first: string, second: string): TaskPaneLayout {
+  if (layout.kind === "pane") return { ...layout, id: layout.id === first ? second : layout.id === second ? first : layout.id };
+  return { ...layout, first: swapTaskPanes(layout.first, first, second), second: swapTaskPanes(layout.second, first, second) };
+}
+
+function TaskWorkspace({ sectionSidebar, visible }: { sectionSidebar: HTMLElement | null; visible: boolean }) {
+  const { state: saved } = useTaskSavedViews();
+  const [workspace, setWorkspace] = useState(() => readTaskPaneWorkspace(saved));
+  const workspaceRef = useRef(workspace);
+  workspaceRef.current = workspace;
   const collapsedSidebar = useMediaQuery(COLLAPSED_SECTION_SIDEBAR);
-  const sidebar = visible && !collapsedSidebar ? sectionSidebar : null;
-  const viewSwitch = showTaskMap && (
-    <ViewToggle
-      value={visibleTaskView}
-      options={TASK_VIEWS}
-      label="Tasks view"
-      onChange={setTaskView}
-    />
-  );
-  const taskTableViews = useTaskTableViews();
-  const { query: tableQuery, setQuery: setTableQuery } = taskTableViews;
-  const {
-    statuses: tableStatuses,
-    parent: selectedParent,
-    workedOn: workedOnFilter,
-    statusChanged: statusChangedFilter,
-    workedTime: workedTimeFilter,
-    sort: tableSort,
-  } = tableQuery;
-  const patchTableQuery = (patch: Partial<TaskTableQuery>) => setTableQuery(q => ({ ...q, ...patch }));
-  const setSelectedParent = (parent: TaskParentFilter) => patchTableQuery({ parent });
-  const setTableSort = (sort: TaskColumnSort[]) => patchTableQuery({ sort });
-  // One table clock keeps displayed, filtered, and sorted live totals aligned.
-  const tickWorkedTime = visibleTaskView === "table" && (
-    tasks.some(task => task.workingNow)
-    || workedTimeFilter !== null
-    || tableSort.some(rule => rule.column === "workedTime")
-  );
-  const dateNowMs = useCurrentTime();
-  const [workedNowMs, setWorkedNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (!tickWorkedTime) return;
-    setWorkedNowMs(Date.now());
-    const id = window.setInterval(() => setWorkedNowMs(Date.now()), 1_000);
-    return () => window.clearInterval(id);
-  }, [tickWorkedTime]);
-  const nowMs = tickWorkedTime ? workedNowMs : dateNowMs;
-  const workHistory = useTaskWorkedOn(workedOnFilter, nowMs, visibleTaskView === "table");
-  const statusHistory = useTaskStatusChanged(statusChangedFilter, nowMs, visibleTaskView === "table");
-  const { workedSecondsByTask } = workHistory;
-  const historyMatches = useMemo(
-    () => ({ workedOn: workHistory.workedTaskIds, statusChanged: statusHistory.taskIds }),
-    [workHistory.workedTaskIds, statusHistory.taskIds],
-  );
-  const historyLoading = workHistory.loading || statusHistory.loading;
-  const historyFailed = workHistory.failed || statusHistory.failed;
-  const retryHistory = () => {
-    if (workHistory.failed) workHistory.retry();
-    if (statusHistory.failed) statusHistory.retry();
-  };
-  const historyName = workHistory.loading || workHistory.failed ? "Work history" : "Status history";
-  const historyStatus = historyLoading ? `Loading ${historyName.toLowerCase()}…` : historyFailed ? `${historyName} unavailable` : null;
-  const setTableColumns = useCallback(
-    (columns: TaskTableColumn[]) => setTableQuery(q => ({ ...q, columns })),
-    [setTableQuery],
-  );
-  const tableColumns = useTaskTableColumns(tableQuery.columns, setTableColumns);
-  const [openQueryMenu, setOpenQueryMenu] = useState<TaskQueryMenu | null>(null);
-  const [composerTitle, setComposerTitle] = useState("");
-  const [creatingTask, setCreatingTask] = useState(false);
-  const [taskDraft, setTaskDraft] = useState<TaskDraft>(EMPTY_TASK_DRAFT);
-  const newTaskButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const selectionOriginRef = useRef<HTMLElement | null>(null);
-  const { statusMenu } = useTaskMenus();
+  const sidebar = !collapsedSidebar ? sectionSidebar : null;
+  const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
+  const [modalPane, setModalPane] = useState<string | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const viewport = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLDivElement>(null);
+  const session = useRef<(() => void) | null>(null);
+  const restoreResizeOrigin = useRef<(() => void) | null>(null);
+  // Divider drags change the ratio on every move; the layout is stored once when the drag ends.
+  const [resizing, setResizing] = useState(false);
+  const suppressClick = useRef(false);
+  const [drag, setDrag] = useState<{ source: DragSource; target: DropTarget | null; x: number; y: number } | null>(null);
+  const minimum = useMemo(() => taskLayoutMinimum(workspace.layout), [workspace.layout]);
+  const width = Math.max(size.width, minimum.width);
+  const height = Math.max(size.height, minimum.height);
+  const measured = useMemo(() => measureTaskLayout(workspace.layout, { left: 0, top: 0, width, height }), [workspace.layout, width, height]);
 
-  const selectTask = useCallback((id: number, origin?: HTMLElement) => {
-    selectionOriginRef.current = origin ?? null;
-    setSelectedTaskId(id);
+  useEffect(() => {
+    if (resizing) return;
+    try { localStorage.setItem(TASK_PANE_WORKSPACE_KEY, JSON.stringify(workspace)); } catch { /* The workspace remains usable when storage is full. */ }
+  }, [workspace, resizing]);
+  useEffect(() => {
+    setWorkspace(current => {
+      const missing = current.panes.some(pane => !saved.views.some(view => view.id === pane.viewId));
+      return missing ? { ...current, panes: current.panes.map(pane => ({ ...pane, viewId: saved.views.some(view => view.id === pane.viewId) ? pane.viewId : saved.views[0]!.id })) } : current;
+    });
+  }, [saved.views]);
+  useLayoutEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const measure = () => setSize({ width: element.clientWidth, height: element.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
-  const closeDetail = useCallback(() => {
-    setSelectedTaskId(null);
-    const origin = selectionOriginRef.current;
-    selectionOriginRef.current = null;
-    if (origin?.isConnected) origin.focus();
+  const finishSession = useCallback(() => {
+    session.current?.();
+    session.current = null;
+    restoreResizeOrigin.current = null;
+    setResizing(false);
+    setDrag(null);
+    suppressClick.current = false;
+    document.documentElement.classList.remove("task-pane-drag-in-progress");
   }, []);
-
-  // Drop the selection when the task disappears (deleted or reloaded away).
+  useEffect(() => () => { session.current?.(); document.documentElement.classList.remove("task-pane-drag-in-progress"); }, []);
+  useEffect(() => { if (!visible) finishSession(); }, [visible, finishSession]);
   useEffect(() => {
-    if (selectedTaskId !== null && !taskGraph.byId.has(selectedTaskId)) {
-      setSelectedTaskId(null);
-    }
-  }, [taskGraph, selectedTaskId]);
-
-  // Hiding Map from Settings lands on Table, where a kept selection would open
-  // the modal Task detail behind the Settings overlay.
-  const mapHidden = taskView === "map" && !showTaskMap;
-  useEffect(() => {
-    if (mapHidden) setSelectedTaskId(null);
-  }, [mapHidden]);
-
-  // Escape closes the detail panel, but only once open menus and in-place
-  // editors have had their turn at the key. Tasks stays mounted while
-  // hidden, so the handler must not fire from another Section.
-  useEffect(() => {
-    if (!visible) {
-      setTaskView("table");
-      setSelectedTaskId(null);
-    }
-  }, [visible]);
-  useEffect(() => {
-    if (!visible || visibleTaskView !== "table") setOpenQueryMenu(null);
-  }, [visible, visibleTaskView]);
-  useEffect(() => {
-    if (selectedTaskId === null || !visible) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (statusMenu || creatingTask) return;
-      if (e.defaultPrevented) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) {
-        return;
-      }
-      closeDetail();
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !session.current) return;
+      event.preventDefault();
+      restoreResizeOrigin.current?.();
+      finishSession();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedTaskId, visible, statusMenu, creatingTask, closeDetail]);
+    window.addEventListener("keydown", escape, true);
+    return () => window.removeEventListener("keydown", escape, true);
+  }, [finishSession]);
 
-  useEffect(() => {
-    setCreatingTask(false);
-  }, [visible, visibleTaskView]);
-
-  const openTaskCreate = () => {
-    // An untouched draft picks up the table's Status when the view shows only
-    // one, so the new Task lands in the view it was added from.
-    if (taskDraft === EMPTY_TASK_DRAFT && visibleTaskView === "table") {
-      const status = tableStatuses.length === 1 ? tableStatuses[0]! : EMPTY_TASK_DRAFT.status;
-      setTaskDraft({ ...EMPTY_TASK_DRAFT, status });
+  const activate = (id: string) => setWorkspace(current => current.activeId === id ? current : { ...current, activeId: id });
+  const changeView = (id: string, viewId: string) => setWorkspace(current => ({ ...current, panes: current.panes.map(pane => pane.id === id ? { ...pane, viewId, loadVersion: (pane.loadVersion ?? 0) + 1 } : pane) }));
+  const closePane = (id: string) => {
+    setWorkspace(current => {
+      const layout = removeTaskPane(current.layout, id);
+      if (!layout) return current;
+      const panes = current.panes.filter(pane => pane.id !== id);
+      return { layout, panes, activeId: current.activeId === id ? panes[0]!.id : current.activeId };
+    });
+    requestAnimationFrame(() => canvas.current?.querySelector<HTMLElement>(".task-pane.is-active .task-views__trigger")?.focus());
+  };
+  const splitView = (targetId: string, viewId: string, edge: TaskPaneEdge) => {
+    if (workspaceRef.current.panes.length >= TASK_PANE_LIMIT) return;
+    const paneId = crypto.randomUUID();
+    const splitId = crypto.randomUUID();
+    setWorkspace(current => {
+      const layout = splitTaskPane(current.layout, targetId, paneId, edge, splitId);
+      // A missing target leaves the layout without the new pane, which must not be tracked either.
+      if (current.panes.length >= TASK_PANE_LIMIT || !taskPaneIds(layout).includes(paneId)) return current;
+      return { layout, panes: [...current.panes, { id: paneId, viewId }], activeId: paneId };
+    });
+    requestAnimationFrame(() => canvas.current?.querySelector<HTMLElement>(".task-pane.is-active .task-views__trigger")?.focus());
+  };
+  const targetAt = (event: PointerEvent): DropTarget | null => {
+    const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-task-pane-id]");
+    if (!element || !canvas.current?.contains(element) || !element.dataset.taskPaneId) return null;
+    const bounds = element.getBoundingClientRect();
+    return { paneId: element.dataset.taskPaneId, placement: taskPaneDropAt(event.clientX - bounds.left, event.clientY - bounds.top, bounds.width, bounds.height) };
+  };
+  const commitDrop = (source: DragSource, target: DropTarget) => {
+    if (source.kind === "view") {
+      if (target.placement === "center") changeView(target.paneId, source.viewId);
+      else splitView(target.paneId, source.viewId, target.placement);
+      if (target.placement === "center") activate(target.paneId);
+      return;
     }
-    setCreatingTask(true);
+    if (source.paneId === target.paneId) return;
+    const splitId = crypto.randomUUID();
+    setWorkspace(current => {
+      if (target.placement === "center") return { ...current, layout: swapTaskPanes(current.layout, source.paneId, target.paneId), activeId: source.paneId };
+      const remaining = removeTaskPane(current.layout, source.paneId);
+      return remaining ? { ...current, layout: splitTaskPane(remaining, target.paneId, source.paneId, target.placement, splitId), activeId: source.paneId } : current;
+    });
   };
-
-  const closeTaskCreate = useCallback(() => {
-    setCreatingTask(false);
-    newTaskButtonRef.current?.focus();
-  }, []);
-
-  const tableTasksWithoutWorkedTime = useMemo(
-    () => tasks.filter((task) => taskMatchesTableRowFilters(task, tableQuery, historyMatches, dateNowMs)),
-    [tasks, tableQuery, historyMatches, dateNowMs],
-  );
-  const tableTasks = useMemo(
-    () => tableTasksWithoutWorkedTime.filter((task) => taskMatchesWorkedTimeFilter(task, workedTimeFilter, nowMs, workedSecondsByTask?.get(task.id))),
-    [tableTasksWithoutWorkedTime, workedTimeFilter, nowMs, workedSecondsByTask],
-  );
-  const emptyListCopy =
-    historyLoading ? `Loading ${historyName.toLowerCase()}…`
-      : historyFailed ? `${historyName} could not be loaded.`
-      : tasks.length === 0
-      ? "Nothing on the board yet — add the first task."
-      : tableStatuses.length === 0
-      ? "Choose at least one status."
-      : "No tasks match these filters.";
-
-  const onComposerSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const title = composerTitle.trim();
-    if (!title) return;
-    try {
-      const created = await createTask(title, "", "active");
-      await reload();
-      setComposerTitle("");
-      selectTask(created.id);
-    } catch (error) {
-      setError(String(error));
-    }
+  const startViewDrag = (event: ReactPointerEvent<HTMLElement>, source: DragSource) => {
+    if (event.button !== 0 || !event.isPrimary || session.current || modalPane) return;
+    const cleanup = startPointerDrag(event, {
+      onStart: () => {
+        suppressClick.current = true;
+        document.documentElement.classList.add("task-pane-drag-in-progress");
+        setDrag({ source, target: null, x: event.clientX, y: event.clientY });
+      },
+      onMove: move => setDrag({ source, target: targetAt(move), x: move.clientX, y: move.clientY }),
+      onEnd: (up, dragged) => {
+        const target = dragged ? targetAt(up) : null;
+        if (target) commitDrop(source, target);
+        finishSession();
+        suppressClick.current = dragged;
+        window.setTimeout(() => { suppressClick.current = false; }, 0);
+      },
+      onCancel: () => { suppressClick.current = false; finishSession(); },
+    });
+    session.current = cleanup;
   };
-
-  useEffect(() => {
-    if (loaded && typeof selectedParent === "number" && !taskGraph.byId.has(selectedParent)) setSelectedParent(null);
-  }, [loaded, selectedParent, taskGraph]);
-
-  const changedFields = changedTaskTableQueryFields(taskTableViews.selected.query, tableQuery);
-  const filtersEdited = taskTableFiltersEdited(taskTableViews.selected.query, tableQuery);
-  const filterContext: TaskFilterContext = {
-    tasks,
-    workedTimeCandidates: tableTasksWithoutWorkedTime,
-    workedSecondsByTask,
-    workHistoryStatus: historyStatus,
+  const startResize = (event: ReactPointerEvent<HTMLElement>, divider: (typeof measured.dividers)[number]) => {
+    if (event.button !== 0 || !event.isPrimary || session.current || modalPane) return;
+    event.preventDefault();
+    const bounds = canvas.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const horizontal = divider.axis === "horizontal";
+    const available = (horizontal ? divider.parent.width : divider.parent.height) - TASK_PANE_DIVIDER;
+    const origin = workspaceRef.current.layout;
+    restoreResizeOrigin.current = () => setWorkspace(current => ({ ...current, layout: origin }));
+    setResizing(true);
+    session.current = startPointerDrag(event, {
+      startImmediately: true,
+      onStart: () => undefined,
+      onMove: move => {
+        const offset = horizontal ? move.clientX - bounds.left - divider.parent.left : move.clientY - bounds.top - divider.parent.top;
+        const ratio = Math.max(divider.minRatio, Math.min(divider.maxRatio, offset / available));
+        setWorkspace(current => ({ ...current, layout: resizeTaskSplit(current.layout, divider.id, ratio) }));
+      },
+      onEnd: () => finishSession(),
+      onCancel: () => { restoreResizeOrigin.current?.(); finishSession(); },
+    });
   };
-  const savedHiddenColumnIds = new Set(
-    taskTableViews.selected.query.columns.filter(column => column.hidden).map(column => column.id),
-  );
+  const onModalChange = useCallback((id: string, open: boolean) => setModalPane(current => open ? id : current === id ? null : current), []);
+  const dropPane = drag?.target ? workspace.panes.find(pane => pane.id === drag.target?.paneId) : null;
+  const dropRect = dropPane ? measured.panes.get(dropPane.id) : null;
+  const sourceViewId = drag?.source.kind === "view" ? drag.source.viewId : workspace.panes.find(pane => drag?.source.kind === "pane" && pane.id === drag.source.paneId)?.viewId;
+  const draggedView = saved.views.find(view => view.id === sourceViewId);
+  const dragName = draggedView?.name ?? "view";
+  const selfDrop = drag?.source.kind === "pane" && drag.source.paneId === drag.target?.paneId;
 
-  const tableQueryPanel = (
-    <div className="task-query">
-      <TaskViewPicker views={taskTableViews} />
-      <TaskFilterRules query={tableQuery} onQueryChange={patchTableQuery} changedFields={changedFields}
-        context={filterContext} nowMs={dateNowMs}
-        openField={openQueryMenu?.startsWith("filter:") ? openQueryMenu.slice("filter:".length) as TaskTableFilterField : null}
-        onOpenFieldChange={field => setOpenQueryMenu(field ? `filter:${field}` : null)} />
-      <TaskSortRules rules={tableSort} savedRules={taskTableViews.selected.query.sort} onChange={setTableSort}
-        openColumn={openQueryMenu?.startsWith("sort:") ? openQueryMenu.slice("sort:".length) as TaskTableColumnId : null}
-        onOpenColumnChange={column => setOpenQueryMenu(column ? `sort:${column}` : null)} />
-      <TaskHiddenColumnRules columns={tableColumns.hiddenColumns} savedHiddenIds={savedHiddenColumnIds}
-        onShow={tableColumns.showColumn} onShowAll={tableColumns.showAllColumns} />
-      {!taskTableFiltersEdited(DEFAULT_TASK_TABLE_QUERY, tableQuery) && tableSort.length === 0 && tableColumns.hiddenColumns.length === 0
-        && <p className="task-query__hint">Filter and sort from the column headers.</p>}
-    </div>
-  );
-
-  const tableBar = (
-    <div className="task-table-bar">
-      <div className="task-table-bar__result">
-        <span className="task-filter-result" role="status">
-          {historyStatus ?? (filtersEdited
-            ? `${tableTasks.length} out of ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
-            : `${tableTasks.length} ${tableTasks.length === 1 ? "task" : "tasks"}`)}
-        </span>
-        {historyFailed && <button type="button" className="task-filter-retry" onClick={retryHistory}>Retry</button>}
+  return <section className="dash-section dash-section--tasks task-split-workspace" aria-label="Tasks workspace"
+    onClickCapture={event => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}>
+    <div ref={viewport} className="task-split-viewport" inert={modalPane !== null}>
+      <div ref={canvas} className="task-split-canvas" style={{ width, height }}>
+        {/* Flat, keyed panes keep drafts and scroll positions when a split changes their neighbors. */}
+        {workspace.panes.map(pane => <div key={pane.id} data-task-pane-id={pane.id} className="task-pane-slot" style={measured.panes.get(pane.id)}>
+          <TaskPane paneId={pane.id} viewId={pane.viewId} loadVersion={pane.loadVersion ?? 0} onViewChange={id => changeView(pane.id, id)}
+            sectionSidebar={sidebar} visible={visible} active={workspace.activeId === pane.id}
+            onActivate={() => activate(pane.id)} onViewPointerDown={(event, viewId) => startViewDrag(event, { kind: "view", viewId })}
+            onPanePointerDown={event => startViewDrag(event, { kind: "pane", paneId: pane.id })}
+            onSplit={(viewId, edge) => splitView(pane.id, viewId, edge)} onClose={workspace.panes.length > 1 ? () => closePane(pane.id) : undefined}
+            overlayHost={overlayHost} onModalChange={onModalChange} />
+        </div>)}
+        {measured.dividers.map(divider => <div key={divider.id} role="separator" tabIndex={0}
+          aria-label="Resize task panes" aria-orientation={divider.axis === "horizontal" ? "vertical" : "horizontal"}
+          aria-valuemin={Math.round(divider.minRatio * 100)} aria-valuemax={Math.round(divider.maxRatio * 100)} aria-valuenow={Math.round(divider.ratio * 100)}
+          className={`task-pane-divider task-pane-divider--${divider.axis}`} style={divider.rect}
+          onPointerDown={event => startResize(event, divider)} onDoubleClick={() => setWorkspace(current => ({ ...current, layout: resizeTaskSplit(current.layout, divider.id, 0.5) }))}
+          onKeyDown={event => {
+            const decrease = divider.axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
+            const increase = divider.axis === "horizontal" ? "ArrowRight" : "ArrowDown";
+            if (event.key !== decrease && event.key !== increase && event.key !== "Home") return;
+            event.preventDefault();
+            const next = event.key === "Home" ? 0.5 : divider.ratio + (event.key === decrease ? -0.05 : 0.05);
+            setWorkspace(current => ({ ...current, layout: resizeTaskSplit(current.layout, divider.id, Math.max(divider.minRatio, Math.min(divider.maxRatio, next))) }));
+          }} />)}
+        {drag?.target && dropRect && !selfDrop && <div className={`task-pane-drop task-pane-drop--${drag.target.placement}`}
+          style={dropRect}><div>{drag.target.placement === "center" ? drag.source.kind === "pane" ? "Swap panes" : `Show ${dragName}` : `Open ${dragName} here`}</div></div>}
       </div>
-      <button
-        ref={newTaskButtonRef}
-        type="button"
-        className="task-new-button"
-        aria-label="New task"
-        title="New task"
-        aria-haspopup="dialog"
-        aria-expanded={creatingTask}
-        onClick={openTaskCreate}
-      >
-        {plusIcon}
-        New task
-      </button>
     </div>
-  );
-
-  const composerForm = (
-    <form className="task-composer" onSubmit={onComposerSubmit}>
-      <input
-        type="text"
-        className="task-composer__title"
-        placeholder="Add an active task…"
-        aria-label="New active task title"
-        value={composerTitle}
-        onChange={(e) => setComposerTitle(e.target.value)}
-      />
-      <button type="submit" className="btn-accent" disabled={!composerTitle.trim()}>
-        Add
-      </button>
-    </form>
-  );
-
-  const selectedTask =
-    selectedTaskId === null
-      ? null
-      : taskGraph.byId.get(selectedTaskId) ?? null;
-  const overlayDetailOpen = selectedTask !== null && visibleTaskView !== "map";
-
-  return (
-    <section className="dash-section dash-section--tasks" aria-busy={!loaded || historyLoading}>
-      {sidebar && loaded && visibleTaskView === "table" && createPortal(tableQueryPanel, sidebar)}
-      {showTaskMap && (
-        <header className="dash-section__head task-header" inert={overlayDetailOpen}>
-          <div className="task-header__actions">
-            {viewSwitch}
-          </div>
-        </header>
-      )}
-
-      {!loaded ? (
-        <div className="task-board__loading">Laying out the board…</div>
-      ) : (
-        <div
-          className={`task-workspace${selectedTask && visibleTaskView === "map" ? " task-workspace--detail" : ""}${visibleTaskView === "map" ? " task-workspace--map" : ""}${overlayDetailOpen ? " task-workspace--overlay" : ""}`}
-        >
-          <div className="task-workspace__main" inert={overlayDetailOpen}>
-            {visibleTaskView === "map" && (
-              <TaskMap
-                tasks={tasks}
-                selectedTaskId={selectedTaskId}
-                composer={composerForm}
-                onSelect={selectTask}
-              />
-            )}
-            {visibleTaskView === "table" && (
-              <>
-                {!sidebar && tableQueryPanel}
-                {tableBar}
-                <TaskTable
-                wrapRef={tableColumns.wrapRef}
-                columns={tableColumns.visibleColumns}
-                tasks={sortTasksByColumn(tableTasks, tableSort, taskGraph.byId, nowMs, workedSecondsByTask)}
-                headerSort={tableSort[0]}
-                renderHeader={(column) => (
-                  <TaskTableHeaderMenu
-                    column={column}
-                    edited={taskTableColumnQueryEdited(column.id, taskTableViews.selected.query, tableQuery)}
-                    open={openQueryMenu === column.id}
-                    onOpenChange={(open) => setOpenQueryMenu(open ? column.id : null)}
-                    query={tableQuery}
-                    onQueryChange={patchTableQuery}
-                    filterContext={filterContext}
-                    onHide={canHideTaskTableColumn(column.id) ? () => tableColumns.hideColumn(column.id) : undefined}
-                  />
-                )}
-                taskGraph={taskGraph}
-                nowMs={nowMs}
-                workedSecondsByTask={workedSecondsByTask}
-                selectedTaskId={selectedTaskId}
-                emptyCopy={emptyListCopy}
-                onSelect={selectTask}
-                columnInteraction={{
-                  draggingId: tableColumns.draggingId,
-                  overId: tableColumns.overId,
-                  onMovePointerDown: tableColumns.onMovePointerDown,
-                  onResizePointerDown: tableColumns.onResizePointerDown,
-                }}
-                />
-              </>
-            )}
-          </div>
-          {creatingTask && (
-            <TaskCreateCard
-              draft={taskDraft}
-              onDraftChange={setTaskDraft}
-              onClose={closeTaskCreate}
-              onCreated={(created) => {
-                setTaskDraft(EMPTY_TASK_DRAFT);
-                setCreatingTask(false);
-                selectTask(created.id, newTaskButtonRef.current ?? undefined);
-              }}
-            />
-          )}
-          {selectedTask && visibleTaskView === "map" && (
-            <TaskDetailPanel
-              key={selectedTask.id}
-              task={selectedTask}
-              onClose={closeDetail}
-            />
-          )}
-          {selectedTask && overlayDetailOpen && (
-            <div
-              className="task-detail-overlay"
-              onMouseDown={(e) => {
-                // Status menus portal out of the panel; only a press
-                // on the scrim itself dismisses.
-                if (e.target === e.currentTarget) closeDetail();
-              }}
-            >
-              <TaskDetailPanel
-                key={selectedTask.id}
-                task={selectedTask}
-                onClose={closeDetail}
-                modal
-              />
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
+    {drag?.source.kind === "view" && draggedView && createPortal(
+      <div className="task-view-drag-preview" aria-hidden="true" style={{ left: drag.x + 12, top: drag.y + 12 }}>
+        <NestIcon name={draggedView.icon}/><span>{draggedView.name}</span>
+      </div>,
+      sectionSidebar?.closest(".dashboard") ?? viewport.current?.closest(".dashboard") ?? document.body,
+    )}
+    <div ref={setOverlayHost} className="task-workspace-overlays" />
+    <span className="task-pane-announcement" role="status">{drag?.target && !selfDrop ? `Place ${dragName}: ${drag.target.placement}` : ""}</span>
+  </section>;
 }
